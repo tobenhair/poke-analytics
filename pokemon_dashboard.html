@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pokémon Product Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0e0f14;
+    --bg2: #14161f;
+    --bg3: #1c1f2e;
+    --border: #2a2d3e;
+    --accent: #f5c842;
+    --accent2: #e8473f;
+    --accent3: #4fc3f7;
+    --accent4: #81c784;
+    --text: #e8eaf0;
+    --muted: #6b6f85;
+    --card: #181b27;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Subtle background texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse 80% 50% at 20% 10%, rgba(245,200,66,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 90%, rgba(79,195,247,0.04) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 32px 24px; }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 36px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { display: flex; align-items: center; gap: 14px; }
+  .pokeball {
+    width: 44px; height: 44px;
+    background: conic-gradient(var(--accent2) 0 50%, var(--text) 50% 100%);
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+    animation: spin-slow 12s linear infinite;
+  }
+  .pokeball::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    background: radial-gradient(circle at 38% 38%, #fff 0%, #555 100%);
+    border-radius: 50%;
+    border: 3px solid var(--bg);
+  }
+  @keyframes spin-slow { to { transform: rotate(360deg); } }
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.6rem;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--accent) 0%, #f5a623 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle { font-size: 0.8rem; color: var(--muted); font-family: 'DM Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  .header-meta { text-align: right; }
+  .last-update { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted); }
+  .last-update span { color: var(--accent); }
+
+  /* Filter bar */
+  .filters {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-label { font-size: 0.72rem; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.1em; margin-right: 4px; }
+  .pill-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-family: 'DM Mono', monospace;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+  .pill:hover { border-color: var(--accent); color: var(--accent); }
+  .pill.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 500; }
+
+  .sort-select {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    cursor: pointer;
+    outline: none;
+    margin-left: auto;
+  }
+  .sort-select:focus { border-color: var(--accent); }
+
+  /* KPI row */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .kpi:hover { border-color: var(--accent); }
+  .kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--kpi-color, var(--accent));
+    border-radius: 2px 2px 0 0;
+  }
+  .kpi-label { font-size: 0.68rem; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px; }
+  .kpi-value { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 0.04em; color: var(--kpi-color, var(--accent)); }
+  .kpi-sub { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+
+  /* Main grid */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .panel-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 0.1em;
+    color: var(--text);
+  }
+  .panel-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--bg3);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+
+  /* Product table */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    padding: 10px 14px;
+    text-align: left;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  thead th:hover { color: var(--accent); }
+  tbody tr {
+    border-bottom: 1px solid rgba(42,45,62,0.5);
+    transition: background 0.15s;
+  }
+  tbody tr:hover { background: rgba(245,200,66,0.04); }
+  tbody td {
+    padding: 11px 14px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+  .product-name { font-weight: 500; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+  .type-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.08em;
+  }
+  .type-BOX { background: rgba(79,195,247,0.15); color: var(--accent3); border: 1px solid rgba(79,195,247,0.2); }
+  .type-ETB { background: rgba(129,199,132,0.15); color: var(--accent4); border: 1px solid rgba(129,199,132,0.2); }
+  .type-BUNDLE { background: rgba(245,200,66,0.12); color: var(--accent); border: 1px solid rgba(245,200,66,0.2); }
+
+  .num { font-family: 'DM Mono', monospace; font-size: 0.78rem; text-align: right; }
+  .score-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .score-bar-bg { flex: 1; height: 4px; background: var(--border); border-radius: 2px; min-width: 60px; }
+  .score-bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+  .score-val { font-family: 'DM Mono', monospace; font-size: 0.72rem; min-width: 36px; text-align: right; }
+
+  /* Trend arrows */
+  .trend-up { color: var(--accent4); }
+  .trend-down { color: var(--accent2); }
+  .trend-neutral { color: var(--muted); }
+
+  /* Right column */
+  .right-col { display: flex; flex-direction: column; gap: 20px; }
+
+  /* Top picks */
+  .top-picks { }
+  .pick-item {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.15s;
+  }
+  .pick-item:last-child { border-bottom: none; }
+  .pick-item:hover { background: rgba(245,200,66,0.03); }
+  .pick-rank {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    color: var(--muted);
+    min-width: 24px;
+    line-height: 1;
+  }
+  .pick-rank.gold { color: var(--accent); }
+  .pick-rank.silver { color: #aaa; }
+  .pick-rank.bronze { color: #cd7f32; }
+  .pick-info { flex: 1; min-width: 0; }
+  .pick-name { font-size: 0.82rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pick-meta { font-size: 0.68rem; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .pick-score { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; color: var(--accent); }
+
+  /* Chart panel */
+  .chart-panel { padding: 18px 20px; }
+  canvas { max-height: 220px; }
+
+  /* Price trend chart */
+  .trend-panel { }
+  .trend-select { 
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    padding: 4px 10px; border-radius: 6px; outline: none; cursor: pointer;
+    max-width: 180px; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* Bottom row */
+  .bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 20px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    border-top: 1px solid var(--border);
+    letter-spacing: 0.08em;
+  }
+
+  /* Buy signal flag */
+  .buy-flag {
+    font-style: normal;
+    cursor: help;
+  }
+
+  /* Highlight row */
+  tbody tr.highlight-row td { background: rgba(245,200,66,0.06); }
+  tbody tr.highlight-row .product-name { color: var(--accent); }
+
+  /* Value ratio color */
+  .val-excellent { color: var(--accent4); }
+  .val-good { color: var(--accent); }
+  .val-poor { color: var(--accent2); }
+
+  /* Responsive */
+  @media (max-width: 1100px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .right-col { display: grid; grid-template-columns: 1fr 1fr; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 680px) {
+    .right-col { grid-template-columns: 1fr; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    h1 { font-size: 2rem; }
+    .bottom-row { grid-template-columns: 1fr; }
+  }
+
+  .fade-in { animation: fadeIn 0.5s ease both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header class="fade-in">
+    <div class="logo">
+      <div class="pokeball"></div>
+      <div>
+        <h1>Pokémon Product Analytics</h1>
+        <div class="subtitle">Investment Decision Dashboard</div>
+      </div>
+    </div>
+    <div class="header-meta">
+      <div class="last-update">Last updated: <span>April 20, 2026</span></div>
+      <div class="last-update" style="margin-top:4px">Prices in <span>EUR</span></div>
+    </div>
+  </header>
+
+  <!-- KPIs -->
+  <div class="kpi-row fade-in" style="animation-delay:0.05s">
+    <div class="kpi" style="--kpi-color: var(--accent)">
+      <div class="kpi-label">Products Tracked</div>
+      <div class="kpi-value" id="kpi-total">31</div>
+      <div class="kpi-sub">BOX · ETB · BUNDLE</div>
+    </div>
+    <div class="kpi" style="--kpi-color: var(--accent3)">
+      <div class="kpi-label">Top Score (Age-Weighted)</div>
+      <div class="kpi-value" id="kpi-top">—</div>
+      <div class="kpi-sub" id="kpi-top-name">—</div>
+    </div>
+    <div class="kpi" style="--kpi-color: var(--accent4)">
+      <div class="kpi-label">Best Value / Booster</div>
+      <div class="kpi-value" id="kpi-best-val">—</div>
+      <div class="kpi-sub" id="kpi-best-val-name">—</div>
+    </div>
+    <div class="kpi" style="--kpi-color: var(--accent2)">
+      <div class="kpi-label">Newest Release</div>
+      <div class="kpi-value" id="kpi-newest">—</div>
+      <div class="kpi-sub" id="kpi-newest-name">—</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters fade-in" style="animation-delay:0.1s">
+    <span class="filter-label">Type</span>
+    <div class="pill-group" id="type-filters">
+      <div class="pill active" data-type="ALL">All</div>
+      <div class="pill" data-type="BOX">Booster Box</div>
+      <div class="pill" data-type="ETB">Elite Trainer</div>
+      <div class="pill" data-type="BUNDLE">Bundle</div>
+    </div>
+    <select class="sort-select" id="sort-select">
+      <option value="score">Sort: Age-Weighted Score ↓</option>
+      <option value="set-value-booster">Sort: Set Value / Booster ↓</option>
+      <option value="price-asc">Sort: Price ↑</option>
+      <option value="price-desc">Sort: Price ↓</option>
+      <option value="age">Sort: Age ↓</option>
+      <option value="newest">Sort: Newest First</option>
+    </select>
+  </div>
+
+  <!-- Main grid -->
+  <div class="main-grid fade-in" style="animation-delay:0.15s">
+    <!-- Table -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">All Products</div>
+        <div class="panel-badge" id="count-badge">31 products</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Product <span style="font-weight:300;opacity:0.6;font-size:0.6rem">💰 = buy signal</span></th>
+              <th>Type</th>
+              <th style="text-align:right">Price (€)</th>
+              <th style="text-align:right">Set Value (€)</th>
+              <th style="text-align:right">€/Booster</th>
+              <th style="text-align:right">SV/Booster</th>
+              <th style="text-align:right">Age (yr)</th>
+              <th>Wtd. Score</th>
+            </tr>
+          </thead>
+          <tbody id="product-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Right col -->
+    <div class="right-col">
+      <!-- Top picks -->
+      <div class="panel top-picks">
+        <div class="panel-header">
+          <div class="panel-title">🏆 Top Picks This Month</div>
+          <div class="panel-badge">By Score</div>
+        </div>
+        <div id="top-picks-list"></div>
+      </div>
+
+      <!-- Type distribution chart -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Set Value / Booster</div>
+          <div class="panel-badge">Top 10</div>
+        </div>
+        <div class="chart-panel">
+          <canvas id="svb-chart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom row: price trend + scatter -->
+  <div class="bottom-row fade-in" style="animation-delay:0.2s">
+    <!-- Price trend -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Price History</div>
+        <select class="trend-select" id="trend-product-select"></select>
+      </div>
+      <div class="chart-panel">
+        <canvas id="trend-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Age vs score scatter -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Age vs Set Value / Booster</div>
+        <div class="panel-badge">All products</div>
+      </div>
+      <div class="chart-panel">
+        <canvas id="scatter-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ratio trend chart - full width -->
+  <div class="panel fade-in" style="animation-delay:0.25s; margin-bottom: 24px;">
+    <div class="panel-header">
+      <div>
+        <div class="panel-title">Set Value / Booster — Trend Over Time</div>
+        <div style="font-size:0.7rem; color: var(--muted); font-family: 'DM Mono', monospace; margin-top:4px;">
+          Rising line = set value per pack increasing → comparable across BOX, ETB & BUNDLE &nbsp;·&nbsp;
+          <span style="color: var(--accent4)">▲ Rising</span> &nbsp;·&nbsp;
+          <span style="color: var(--accent2)">▼ Falling</span>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <select class="trend-select" id="ratio-product-select" style="max-width:200px"></select>
+        <select class="trend-select" id="ratio-compare-select" style="max-width:200px">
+          <option value="">+ Compare with...</option>
+        </select>
+      </div>
+    </div>
+    <div class="chart-panel" style="padding: 20px 24px;">
+      <canvas id="ratio-chart" style="max-height: 260px;"></canvas>
+    </div>
+  </div>
+
+  <footer>
+    Data sourced from Cardmarket, Tradera & PriceCharting · Dashboard built for personal investment decisions · Always do your own research
+  </footer>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const products = [
+  { name: "Team Up Booster Box", type: "BOX", release: "2019-02-01", age: 7.32, price: 8900, setVal: 7999, pricePerBooster: 247.2, svPerBooster: 32.4, ageWeight: 1, score: 32.4 },
+  { name: "Battle Styles Booster Box", type: "BOX", release: "2021-03-19", age: 5.16, price: 290, setVal: 570, pricePerBooster: 8.1, svPerBooster: 70.8, ageWeight: 1, score: 70.8 },
+  { name: "Chilling Reign Booster Box", type: "BOX", release: "2021-06-18", age: 4.91, price: 415, setVal: 1320, pricePerBooster: 11.5, svPerBooster: 114.5, ageWeight: 1, score: 114.5 },
+  { name: "Evolving Skies Booster Box", type: "BOX", release: "2021-08-27", age: 4.72, price: 2250, setVal: 4547, pricePerBooster: 62.5, svPerBooster: 72.8, ageWeight: 1, score: 72.8 },
+  { name: "Fusion Strike Booster Box", type: "BOX", release: "2021-11-12", age: 4.50, price: 800, setVal: 1502, pricePerBooster: 22.2, svPerBooster: 67.6, ageWeight: 1, score: 67.6 },
+  { name: "Brilliant Stars Booster Box", type: "BOX", release: "2022-02-25", age: 4.21, price: 500, setVal: 815, pricePerBooster: 13.9, svPerBooster: 58.7, ageWeight: 1, score: 58.7 },
+  { name: "Lost Origin Booster Box", type: "BOX", release: "2022-09-09", age: 3.67, price: 575, setVal: 1112, pricePerBooster: 16.0, svPerBooster: 69.6, ageWeight: 1, score: 69.6 },
+  { name: "Silver Tempest Booster Box", type: "BOX", release: "2022-11-11", age: 3.49, price: 390, setVal: 935, pricePerBooster: 10.8, svPerBooster: 86.3, ageWeight: 1, score: 86.3 },
+  { name: "Crown Zenith Elite Trainer Box", type: "ETB", release: "2023-01-20", age: 3.30, price: 250, setVal: 1575, pricePerBooster: 27.8, svPerBooster: 56.7, ageWeight: 1, score: 56.7 },
+  { name: "Scarlet & Violet Booster Box", type: "BOX", release: "2023-03-31", age: 3.10, price: 190, setVal: 644, pricePerBooster: 5.3, svPerBooster: 122.0, ageWeight: 1, score: 122.0 },
+  { name: "Paldea Evolved Booster Box", type: "BOX", release: "2023-06-09", age: 2.91, price: 320, setVal: 919, pricePerBooster: 8.9, svPerBooster: 103.4, ageWeight: 1, score: 103.4 },
+  { name: "Obsidian Flames Booster Box", type: "BOX", release: "2023-08-11", age: 2.73, price: 300, setVal: 263, pricePerBooster: 8.3, svPerBooster: 31.6, ageWeight: 1, score: 31.6 },
+  { name: "151 Booster Bundle", type: "BUNDLE", release: "2023-09-22", age: 2.62, price: 170, setVal: 1697, pricePerBooster: 28.3, svPerBooster: 59.9, ageWeight: 1, score: 59.9 },
+  { name: "Paradox Rift Booster Box", type: "BOX", release: "2023-11-03", age: 2.50, price: 205, setVal: 634, pricePerBooster: 5.7, svPerBooster: 111.3, ageWeight: 1, score: 111.3 },
+  { name: "Temporal Forces Booster Box", type: "BOX", release: "2024-03-22", age: 2.11, price: 200, setVal: 625, pricePerBooster: 5.6, svPerBooster: 112.5, ageWeight: 1, score: 112.5 },
+  { name: "Twilight Masquerade Booster Box", type: "BOX", release: "2024-05-24", age: 1.94, price: 245, setVal: 786, pricePerBooster: 6.8, svPerBooster: 115.5, ageWeight: 1, score: 115.5 },
+  { name: "Shrouded Fable Booster Bundle", type: "BUNDLE", release: "2024-08-02", age: 1.74, price: 35, setVal: 470, pricePerBooster: 5.8, svPerBooster: 80.6, ageWeight: 1, score: 80.6 },
+  { name: "Shrouded Fable Elite Trainer Box", type: "ETB", release: "2024-08-02", age: 1.74, price: 55, setVal: 470, pricePerBooster: 6.1, svPerBooster: 76.9, ageWeight: 1, score: 76.9 },
+  { name: "Surging Sparks Booster Box", type: "BOX", release: "2024-11-08", age: 1.47, price: 240, setVal: 952, pricePerBooster: 6.7, svPerBooster: 142.8, ageWeight: 0.98, score: 139.9 },
+  { name: "Prismatic Evolutions ETB", type: "ETB", release: "2025-01-17", age: 1.28, price: 210, setVal: 3087, pricePerBooster: 23.3, svPerBooster: 132.3, ageWeight: 0.85, score: 112.5 },
+  { name: "Prismatic Evolutions Booster Bundle", type: "BUNDLE", release: "2025-01-17", age: 1.28, price: 100, setVal: 3087, pricePerBooster: 16.7, svPerBooster: 185.2, ageWeight: 0.85, score: 157.4 },
+  { name: "Journey Together Booster Box", type: "BOX", release: "2025-03-28", age: 1.08, price: 170, setVal: 409, pricePerBooster: 4.7, svPerBooster: 86.6, ageWeight: 0.72, score: 62.4 },
+  { name: "Destined Rivals Booster Box", type: "BOX", release: "2025-05-30", age: 0.91, price: 370, setVal: 1916, pricePerBooster: 10.3, svPerBooster: 186.4, ageWeight: 0.60, score: 112.5 },
+  { name: "White Flare ETB", type: "ETB", release: "2025-07-18", age: 0.77, price: 85, setVal: 1591, pricePerBooster: 9.4, svPerBooster: 168.5, ageWeight: 0.51, score: 86.4 },
+  { name: "White Flare Booster Bundle", type: "BUNDLE", release: "2025-07-18", age: 0.77, price: 55, setVal: 1591, pricePerBooster: 9.2, svPerBooster: 173.6, ageWeight: 0.51, score: 89.0 },
+  { name: "Black Bolt ETB", type: "ETB", release: "2025-07-18", age: 0.77, price: 95, setVal: 1716, pricePerBooster: 10.6, svPerBooster: 162.6, ageWeight: 0.51, score: 83.4 },
+  { name: "Black Bolt Booster Bundle", type: "BUNDLE", release: "2025-07-18", age: 0.77, price: 65, setVal: 1716, pricePerBooster: 10.8, svPerBooster: 158.4, ageWeight: 0.51, score: 81.3 },
+  { name: "Mega Evolutions Booster Box", type: "BOX", release: "2025-09-26", age: 0.58, price: 250, setVal: 1305, pricePerBooster: 6.9, svPerBooster: 187.9, ageWeight: 0.38, score: 72.0 },
+  { name: "Phantasmal Flames Booster Box", type: "BOX", release: "2025-11-14", age: 0.44, price: 350, setVal: 1235, pricePerBooster: 9.7, svPerBooster: 127.0, ageWeight: 0.29, score: 37.2 },
+  { name: "Ascended Heroes ETB", type: "ETB", release: "2026-01-30", age: 0.23, price: 130, setVal: 4496, pricePerBooster: 14.4, svPerBooster: 311.3, ageWeight: 0.15, score: 46.7 },
+  { name: "Ascended Heroes Booster Bundle", type: "BUNDLE", release: "2026-01-30", age: 0.23, price: 80, setVal: 4496, pricePerBooster: 13.3, svPerBooster: 337.2, ageWeight: 0.15, score: 50.6 },
+];
+
+const historicalData = {
+  "Team Up Booster Box": { price: [7850, 7502, 7502, 8900], setVal: [7341, 7512, 7327, 7999] },
+  "Battle Styles Booster Box": { price: [283, 214, 260, 290], setVal: [578, 581, 555, 570] },
+  "Chilling Reign Booster Box": { price: [427, 408, 430, 415], setVal: [1319, 1329, 1228, 1320] },
+  "Evolving Skies Booster Box": { price: [1871, 2114, 2300, 2250], setVal: [4146, 4483, 4440, 4547] },
+  "Fusion Strike Booster Box": { price: [768, 729, 800, 800], setVal: [1527, 1505, 1455, 1502] },
+  "Brilliant Stars Booster Box": { price: [473, 509, 480, 500], setVal: [804, 789, 774, 815] },
+  "Lost Origin Booster Box": { price: [473, 615, 550, 575], setVal: [1038, 1023, 1048, 1112] },
+  "Silver Tempest Booster Box": { price: [370, 402, 350, 390], setVal: [817, 873, 867, 935] },
+  "Crown Zenith Elite Trainer Box": { price: [192, 220, 240, 250], setVal: [1382, 1454, 1465, 1575] },
+  "Scarlet & Violet Booster Box": { price: [181, 215, 190, 190], setVal: [550, 641, 622, 644] },
+  "Paldea Evolved Booster Box": { price: [null, 365, 320, 320], setVal: [null, 861, 853, 919] },
+  "Obsidian Flames Booster Box": { price: [null, 288, 269, 300], setVal: [null, 242, 246, 263] },
+  "151 Booster Bundle": { price: [106, 103, 140, 170], setVal: [1073, 1073, 1756, 1697] },
+  "Paradox Rift Booster Box": { price: [187, 237, 200, 205], setVal: [603, 606, 588, 634] },
+  "Temporal Forces Booster Box": { price: [205, 229, 195, 200], setVal: [609, 601, 601, 625] },
+  "Twilight Masquerade Booster Box": { price: [292, 259, 240, 245], setVal: [743, 778, 749, 786] },
+  "Surging Sparks Booster Box": { price: [221, 237, 220, 240], setVal: [953, 1032, 923, 952] },
+  "Prismatic Evolutions ETB": { price: [122, 121, 195, 210], setVal: [3043, 3122, 3064, 3087] },
+  "Prismatic Evolutions Booster Bundle": { price: [71, 70, 75, 80], setVal: [3043, 3122, 3064, 3087] },
+  "Journey Together Booster Box": { price: [340, 186, 170, 170], setVal: [1769, 402, 404, 409] },
+  "Destined Rivals Booster Box": { price: [94, 339, 390, 370], setVal: [1488, 1812, 1879, 1916] },
+  "White Flare ETB": { price: [76, 69, 65, 85], setVal: [1572, 1582, 1442, 1591] },
+  "Black Bolt ETB": { price: [221, 68, 75, 95], setVal: [1491, 1617, 1561, 1716] },
+  "Mega Evolutions Booster Box": { price: [181, 199, 230, 250], setVal: [967, 1489, 1290, 1305] },
+  "Phantasmal Flames Booster Box": { price: [null, 250, 250, 350], setVal: [null, 1396, 1091, 1235] },
+  "Ascended Heroes ETB": { price: [null, null, 100, 130], setVal: [null, null, 3867, 4496] },
+};
+
+const histDates = ["Jan 18", "Feb 23", "Mar 20", "Apr 20"];
+
+// ============================================================
+// STATE
+// ============================================================
+let activeType = "ALL";
+let sortKey = "score";
+let trendProduct = "Surging Sparks Booster Box";
+
+// ============================================================
+// HELPERS
+// ============================================================
+function fmt(v, dec=0) {
+  if (v == null || isNaN(v)) return '—';
+  return v.toLocaleString('de-DE', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+function scoreColor(score) {
+  if (score >= 120) return '#81c784';
+  if (score >= 80) return '#f5c842';
+  if (score >= 50) return '#4fc3f7';
+  return '#e8473f';
+}
+
+function getFiltered() {
+  let data = activeType === 'ALL' ? [...products] : products.filter(p => p.type === activeType);
+  data.sort((a, b) => {
+    if (sortKey === 'score') return b.score - a.score;
+    if (sortKey === 'set-value-booster') return b.svPerBooster - a.svPerBooster;
+    if (sortKey === 'price-asc') return a.price - b.price;
+    if (sortKey === 'price-desc') return b.price - a.price;
+    if (sortKey === 'age') return b.age - a.age;
+    if (sortKey === 'newest') return new Date(b.release) - new Date(a.release);
+    return 0;
+  });
+  return data;
+}
+
+// ============================================================
+// KPIs
+// ============================================================
+function updateKPIs() {
+  const sorted = [...products].sort((a, b) => b.score - a.score);
+  const topScore = sorted[0];
+  document.getElementById('kpi-top').textContent = fmt(topScore.score, 1);
+  document.getElementById('kpi-top-name').textContent = topScore.name;
+
+  const bestVal = [...products].sort((a, b) => b.svPerBooster - a.svPerBooster)[0];
+  document.getElementById('kpi-best-val').textContent = fmt(bestVal.svPerBooster, 0) + '×';
+  document.getElementById('kpi-best-val-name').textContent = bestVal.name;
+
+  const newest = [...products].sort((a, b) => new Date(b.release) - new Date(a.release))[0];
+  document.getElementById('kpi-newest').textContent = new Date(newest.release).toLocaleDateString('en-SE', { month: 'short', day: 'numeric' });
+  document.getElementById('kpi-newest-name').textContent = newest.name;
+}
+
+// ============================================================
+// TABLE
+// ============================================================
+function updateTable() {
+  const data = getFiltered();
+  const maxScore = Math.max(...data.map(p => p.score));
+  document.getElementById('count-badge').textContent = `${data.length} products`;
+  const tbody = document.getElementById('product-tbody');
+  tbody.innerHTML = '';
+  data.forEach((p, i) => {
+    const tr = document.createElement('tr');
+    const svClass = p.svPerBooster >= 150 ? 'val-excellent' : p.svPerBooster >= 80 ? 'val-good' : 'val-poor';
+    const scoreW = Math.round((p.score / maxScore) * 100);
+    const color = scoreColor(p.score);
+    const trend = getTrend(p.name);
+    tr.innerHTML = `
+      <td class="product-name" title="${p.name}">
+        ${isBuySignal(p.name) ? '<span class="buy-flag" title="Price dropped ≥5% but set value held steady — potential buy opportunity">💰 </span>' : ''}${p.name}
+      </td>
+      <td><span class="type-badge type-${p.type}">${p.type}</span></td>
+      <td class="num">${fmt(p.price)}</td>
+      <td class="num">${fmt(p.setVal)}</td>
+      <td class="num">${fmt(p.pricePerBooster, 1)}</td>
+      <td class="num ${svClass}">${fmt(p.svPerBooster, 1)}</td>
+      <td class="num">${fmt(p.age, 1)}</td>
+      <td>
+        <div class="score-bar-wrap">
+          <div class="score-bar-bg"><div class="score-bar-fill" style="width:${scoreW}%;background:${color}"></div></div>
+          <div class="score-val" style="color:${color}">${fmt(p.score, 1)}</div>
+          <span class="${trend > 0 ? 'trend-up' : trend < 0 ? 'trend-down' : 'trend-neutral'}">${trend > 0 ? '▲' : trend < 0 ? '▼' : '—'}</span>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function getTrend(name) {
+  const h = historicalData[name];
+  if (!h) return 0;
+  const prices = h.price.filter(v => v != null);
+  if (prices.length < 2) return 0;
+  const last = prices[prices.length - 1];
+  const prev = prices[prices.length - 2];
+  return last > prev ? 1 : last < prev ? -1 : 0;
+}
+
+// Returns true if price dropped >= 5% but set value held within 5%
+function isBuySignal(name) {
+  const h = historicalData[name];
+  if (!h) return false;
+  const prices = h.price.filter(v => v != null);
+  const svs = h.setVal.filter(v => v != null);
+  if (prices.length < 2 || svs.length < 2) return false;
+  const priceDrop = (prices[prices.length - 1] - prices[prices.length - 2]) / prices[prices.length - 2];
+  const svChange = (svs[svs.length - 1] - svs[svs.length - 2]) / svs[svs.length - 2];
+  return priceDrop <= -0.05 && svChange >= -0.05;
+}
+
+// ============================================================
+// TOP PICKS
+// ============================================================
+function updateTopPicks() {
+  const sorted = [...products].sort((a, b) => b.score - a.score).slice(0, 5);
+  const el = document.getElementById('top-picks-list');
+  el.innerHTML = '';
+  sorted.forEach((p, i) => {
+    const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+    const div = document.createElement('div');
+    div.className = 'pick-item';
+    div.innerHTML = `
+      <div class="pick-rank ${rankClass}">${i + 1}</div>
+      <div class="pick-info">
+        <div class="pick-name">${p.name}</div>
+        <div class="pick-meta">${p.type} · €${fmt(p.price)} · Age ${fmt(p.age, 1)}yr</div>
+      </div>
+      <div class="pick-score">${fmt(p.score, 1)}</div>
+    `;
+    el.appendChild(div);
+  });
+}
+
+// ============================================================
+// SVB CHART
+// ============================================================
+let svbChart = null;
+function renderSVBChart() {
+  const data = [...products].sort((a, b) => b.svPerBooster - a.svPerBooster).slice(0, 10);
+  const labels = data.map(p => p.name.replace(' Booster Box', '').replace(' Booster Bundle', '').replace(' Elite Trainer Box', '').replace(' ETB', ''));
+  const values = data.map(p => p.svPerBooster);
+  const colors = data.map(p => p.type === 'BOX' ? '#4fc3f7' : p.type === 'ETB' ? '#81c784' : '#f5c842');
+
+  if (svbChart) svbChart.destroy();
+  svbChart = new Chart(document.getElementById('svb-chart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors, borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ` €${ctx.parsed.x.toFixed(1)} / booster` }
+      }},
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
+        y: { grid: { display: false }, ticks: { color: '#aaa', font: { family: 'DM Sans', size: 10 } } }
+      }
+    }
+  });
+}
+
+// ============================================================
+// TREND CHART
+// ============================================================
+let trendChart = null;
+function populateTrendSelect() {
+  const sel = document.getElementById('trend-product-select');
+  Object.keys(historicalData).forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    if (name === trendProduct) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', e => { trendProduct = e.target.value; renderTrendChart(); });
+}
+
+function renderTrendChart() {
+  const h = historicalData[trendProduct];
+  if (!h) return;
+  const validDates = histDates.filter((_, i) => h.price[i] != null || h.setVal[i] != null);
+  const priceData = h.price.filter(v => v != null);
+  const svData = h.setVal.filter(v => v != null);
+
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(document.getElementById('trend-chart'), {
+    type: 'line',
+    data: {
+      labels: validDates,
+      datasets: [
+        {
+          label: 'Product Price (€)',
+          data: priceData,
+          borderColor: '#f5c842',
+          backgroundColor: 'rgba(245,200,66,0.08)',
+          tension: 0.4, pointRadius: 4, pointBackgroundColor: '#f5c842', fill: true,
+          yAxisID: 'yPrice'
+        },
+        {
+          label: 'Set Value (€)',
+          data: svData,
+          borderColor: '#4fc3f7',
+          backgroundColor: 'rgba(79,195,247,0.05)',
+          tension: 0.4, pointRadius: 4, pointBackgroundColor: '#4fc3f7', fill: false,
+          yAxisID: 'ySetVal'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
+        tooltip: { callbacks: { label: ctx => ` €${ctx.parsed.y.toLocaleString('de-DE')}` } }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
+        yPrice: {
+          type: 'linear', position: 'left',
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#f5c842', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
+          title: { display: true, text: 'Product Price', color: '#f5c842', font: { family: 'DM Mono', size: 9 } }
+        },
+        ySetVal: {
+          type: 'linear', position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { color: '#4fc3f7', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
+          title: { display: true, text: 'Set Value', color: '#4fc3f7', font: { family: 'DM Mono', size: 9 } }
+        }
+      }
+    }
+  });
+}
+
+// ============================================================
+// SCATTER CHART
+// ============================================================
+let scatterChart = null;
+function renderScatterChart() {
+  const typeColors = { BOX: '#4fc3f7', ETB: '#81c784', BUNDLE: '#f5c842' };
+  const datasets = ['BOX', 'ETB', 'BUNDLE'].map(type => ({
+    label: type,
+    data: products.filter(p => p.type === type).map(p => ({ x: p.age, y: p.svPerBooster, name: p.name })),
+    backgroundColor: typeColors[type] + 'bb',
+    pointRadius: 6,
+    pointHoverRadius: 8
+  }));
+
+  if (scatterChart) scatterChart.destroy();
+  scatterChart = new Chart(document.getElementById('scatter-chart'), {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 10 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const d = ctx.raw;
+              return ` ${d.name}: Age ${d.x.toFixed(1)}yr, €${d.y.toFixed(0)}/booster`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Age (years)', color: '#6b6f85', font: { family: 'DM Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
+        y: { title: { display: true, text: 'Set Value / Booster (€)', color: '#6b6f85', font: { family: 'DM Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v } }
+      }
+    }
+  });
+}
+
+// ============================================================
+// SV/BOOSTER TREND CHART
+// ============================================================
+
+// Derive the exact divisor per product from the products array itself:
+// divisor = setVal / svPerBooster — guarantees chart values match the table exactly
+const svbDivisor = {};
+products.forEach(p => {
+  if (p.setVal && p.svPerBooster) svbDivisor[p.name] = p.setVal / p.svPerBooster;
+});
+
+let ratioChart = null;
+let ratioProduct = "Surging Sparks Booster Box";
+let ratioCompare = "";
+
+function getSVBSeries(name) {
+  const h = historicalData[name];
+  const divisor = svbDivisor[name];
+  if (!h || !divisor) return [];
+  return h.setVal.map(sv => sv != null ? parseFloat((sv / divisor).toFixed(2)) : null);
+}
+
+function getSVBLabels(name) {
+  const h = historicalData[name];
+  if (!h) return histDates;
+  return histDates.filter((_, i) => h.setVal[i] != null);
+}
+
+function svbTrendColor(series) {
+  const valid = series.filter(v => v != null);
+  if (valid.length < 2) return '#6b6f85';
+  const delta = valid[valid.length - 1] - valid[valid.length - 2];
+  if (delta > 2) return '#81c784';
+  if (delta < -2) return '#e8473f';
+  return '#f5c842';
+}
+
+function shortName(name) {
+  return name.replace(' Booster Box','').replace(' Booster Bundle','').replace(' Elite Trainer Box','').replace(' ETB','');
+}
+
+function populateRatioSelects() {
+  const names = Object.keys(historicalData);
+  const main = document.getElementById('ratio-product-select');
+  const compare = document.getElementById('ratio-compare-select');
+  names.forEach(name => {
+    [main, compare].forEach((sel, si) => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      if (si === 0 && name === ratioProduct) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  });
+  main.addEventListener('change', e => { ratioProduct = e.target.value; renderRatioChart(); });
+  compare.addEventListener('change', e => { ratioCompare = e.target.value; renderRatioChart(); });
+}
+
+function renderRatioChart() {
+  const series1 = getSVBSeries(ratioProduct);
+  const labels1 = getSVBLabels(ratioProduct);
+  const color1 = svbTrendColor(series1);
+  const valid1 = series1.filter(v => v != null);
+
+  const datasets = [{
+    label: shortName(ratioProduct),
+    data: valid1,
+    borderColor: color1,
+    backgroundColor: color1 + '18',
+    tension: 0.4, pointRadius: 5, pointBackgroundColor: color1,
+    fill: true, yAxisID: 'y'
+  }];
+
+  let labels = labels1;
+
+  if (ratioCompare && ratioCompare !== ratioProduct && historicalData[ratioCompare]) {
+    const series2 = getSVBSeries(ratioCompare);
+    const valid2 = series2.filter(v => v != null);
+    const color2 = '#4fc3f7';
+    datasets.push({
+      label: shortName(ratioCompare),
+      data: valid2,
+      borderColor: color2,
+      backgroundColor: color2 + '12',
+      tension: 0.4, pointRadius: 5, pointBackgroundColor: color2,
+      fill: false, yAxisID: 'y'
+    });
+    const labels2 = getSVBLabels(ratioCompare);
+    if (labels2.length > labels.length) labels = labels2;
+  }
+
+  if (ratioChart) ratioChart.destroy();
+  ratioChart = new Chart(document.getElementById('ratio-chart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: €${ctx.parsed.y.toFixed(1)} / booster`,
+            afterBody: (items) => {
+              const v = items[0]?.parsed?.y;
+              if (v == null) return '';
+              if (v >= 30) return ['', '🟢 Strong buy — high set value per pack'];
+              if (v >= 15) return ['', '🟡 Decent value — worth watching'];
+              return ['', '🔴 Low value per booster'];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: {
+            color: '#aaa',
+            font: { family: 'DM Mono', size: 10 },
+            callback: v => '€' + v.toFixed(0)
+          },
+          title: {
+            display: true,
+            text: 'Set Value per Booster (€)',
+            color: '#6b6f85',
+            font: { family: 'DM Mono', size: 10 }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+document.querySelectorAll('.pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    activeType = pill.dataset.type;
+    updateTable();
+  });
+});
+
+document.getElementById('sort-select').addEventListener('change', e => {
+  sortKey = e.target.value;
+  updateTable();
+});
+
+// ============================================================
+// INIT
+// ============================================================
+Chart.defaults.color = '#6b6f85';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+
+updateKPIs();
+updateTable();
+updateTopPicks();
+renderSVBChart();
+populateTrendSelect();
+renderTrendChart();
+renderScatterChart();
+populateRatioSelects();
+renderRatioChart();
+</script>
+</body>
+</html>
