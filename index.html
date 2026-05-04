@@ -690,7 +690,7 @@
     <div class="upload-icon">📂</div>
     <div class="upload-text">
       <div class="upload-title">Load your data file</div>
-      <div class="upload-sub">Drag &amp; drop an .xlsx file here, or click Browse — dashboard updates instantly</div>
+      <div class="upload-sub">Drag &amp; drop an .xlsx file here, or click Browse — auto-loads <code style="font-family:'DM Mono',monospace; color:var(--accent);">pokemon_data.xlsx</code> from the same folder if present</div>
     </div>
     <span id="upload-status" class="upload-status" style="display:none"></span>
     <button class="guide-btn" id="guide-btn">📋 Format Guide</button>
@@ -731,7 +731,7 @@
           <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
           <tbody>
             <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Must exactly match the Product name in the Summary sheet</td></tr>
-            <tr><td>Snapshot Date</td><td><span class="tag-req">required</span></td><td>Date label shown on chart axes, e.g. <b>Apr 20</b> or <b>2026-04-20</b></td></tr>
+            <tr><td>Snapshot Date</td><td><span class="tag-req">required</span></td><td>Date label shown on chart axes, must be in <b>YYYY-MM-DD</b> format (ISO 8601), e.g. <b>2026-04-20</b></td></tr>
             <tr><td>Price (€)</td><td><span class="tag-req">required</span></td><td>Product price at that snapshot. Leave blank if not yet tracked.</td></tr>
             <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Set value at that snapshot. Leave blank if not yet tracked.</td></tr>
           </tbody>
@@ -1048,8 +1048,8 @@
             <div class="panel-title">Snapshot Label</div>
           </div>
           <div style="padding:18px 20px; display:flex; flex-direction:column; gap:10px;">
-            <div class="field-label">Label shown on chart axes (e.g. "May 04")</div>
-            <input class="field-input" id="snapshot-label" type="text" placeholder="e.g. May 04">
+            <div class="field-label">Label shown on chart axes (e.g. "2026-05-04")</div>
+            <input class="field-input" id="snapshot-label" type="text" placeholder="e.g. 2026-05-04">
             <div style="font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted);">
               Auto-filled with today's date — edit if needed
             </div>
@@ -1175,7 +1175,7 @@ const historicalData = {
   "Ascended Heroes ETB": { price: [null, null, 100, 130], setVal: [null, null, 3867, 4496] },
 };
 
-let histDates = ["Jan 18", "Feb 23", "Mar 20", "Apr 20"];
+let histDates = ["2026-01-18", "2026-02-23", "2026-03-20", "2026-04-20"];
 
 // ============================================================
 // STATE
@@ -1212,6 +1212,30 @@ function getFiltered() {
     return 0;
   });
   return data;
+}
+
+
+// ── Date formatting helpers (ISO 8601: YYYY-MM-DD) ───────────
+function formatISO(d) {
+  // Accepts: Date object, ISO string, DD-MM-YYYY string, or anything Date can parse
+  if (d == null) return '';
+  if (d instanceof Date) {
+    const yy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return `${yy}-${mm}-${dd}`;
+  }
+  const s = String(d).trim();
+  // Already YYYY-MM-DD (or longer ISO)
+  const iso = /^(\d{4}-\d{2}-\d{2})/.exec(s);
+  if (iso) return iso[1];
+  // Legacy DD-MM-YYYY
+  const dmy = /^(\d{2})-(\d{2})-(\d{4})$/.exec(s);
+  if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+  // Anything else parseable
+  const dt = new Date(s);
+  if (!isNaN(dt.getTime())) return formatISO(dt);
+  return s; // give up — return as-is
 }
 
 // ============================================================
@@ -1779,9 +1803,7 @@ function parseXlsx(arrayBuffer) {
     histNames.add(String(name).trim());
 
     if (!histMap[name]) histMap[name] = {};
-    const dateStr = date instanceof Date
-      ? date.toLocaleDateString('en-SE', { month: 'short', day: 'numeric' })
-      : String(date);
+    const dateStr = formatISO(date);
     if (!histMap[name][dateStr]) histMap[name][dateStr] = { price: null, setVal: null };
     if (price !== null) histMap[name][dateStr].price  = parseFloat(price);
     if (sv    !== null) histMap[name][dateStr].setVal = parseFloat(sv);
@@ -2166,7 +2188,7 @@ let productUrls = {};
 let pendingProducts = [];
 
 function todayLabel() {
-  return new Date().toLocaleDateString('en-SE', { month: 'short', day: 'numeric' });
+  return formatISO(new Date());
 }
 
 function todayISO() {
@@ -2483,6 +2505,23 @@ initScenario();
 document.getElementById('sv-slider').addEventListener('input', updateScenario);
 document.getElementById('price-slider').addEventListener('input', updateScenario);
 document.getElementById('scenario-reset').addEventListener('click', initScenario);
+
+// ============================================================
+// AUTO-LOAD pokemon_data.xlsx FROM SAME DIRECTORY (if present)
+// ============================================================
+(async function tryAutoLoad() {
+  try {
+    const res = await fetch('pokemon_data.xlsx', { cache: 'no-cache' });
+    if (!res.ok) return; // file not found — silently fall back to hardcoded data
+    const buf = await res.arrayBuffer();
+    const result = parseXlsx(buf);
+    applyNewData(result);
+    showStatus('✓ Auto-loaded pokemon_data.xlsx from repo — ' + result.newProducts.length + ' products', false);
+  } catch (err) {
+    // Parse error — log to console but don't disrupt the UI
+    console.warn('Auto-load failed:', err.message);
+  }
+})();
 </script>
 </body>
 </html>
