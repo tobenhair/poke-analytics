@@ -6,6 +6,7 @@
 <title>Pokémon Product Analytics</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root {
     --bg: #0e0f14;
@@ -333,6 +334,323 @@
     .bottom-row { grid-template-columns: 1fr; }
   }
 
+
+  /* ── Upload zone ── */
+  .upload-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    transition: border-color 0.2s;
+  }
+  .upload-bar.drag-over {
+    border-color: var(--accent);
+    background: rgba(245,200,66,0.04);
+  }
+  .upload-icon { font-size: 1.4rem; flex-shrink: 0; }
+  .upload-text { flex: 1; min-width: 0; }
+  .upload-title { font-size: 0.82rem; font-weight: 500; }
+  .upload-sub { font-size: 0.7rem; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .upload-btn {
+    padding: 7px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .upload-btn:hover { background: var(--accent); color: #000; }
+  .upload-status {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  .upload-status.ok  { color: var(--accent4); background: rgba(129,199,132,0.1); border: 1px solid rgba(129,199,132,0.2); }
+  .upload-status.err { color: var(--accent2); background: rgba(232,71,63,0.1);   border: 1px solid rgba(232,71,63,0.2); }
+  .guide-btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .guide-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+
+  /* ── Format guide modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    max-width: 760px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 32px;
+    position: relative;
+  }
+  .modal-close {
+    position: absolute;
+    top: 16px; right: 20px;
+    background: none; border: none;
+    color: var(--muted); font-size: 1.2rem;
+    cursor: pointer; line-height: 1;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .modal-intro { font-size: 0.82rem; color: var(--muted); margin-bottom: 24px; font-family: 'DM Mono', monospace; }
+  .modal-section { margin-bottom: 28px; }
+  .modal-section h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.1em;
+    color: var(--accent3);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .col-table { width: 100%; border-collapse: collapse; }
+  .col-table th {
+    text-align: left;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+  }
+  .col-table td {
+    font-size: 0.78rem;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(42,45,62,0.5);
+    vertical-align: top;
+  }
+  .col-table td:first-child { font-family: 'DM Mono', monospace; color: var(--accent); font-size: 0.73rem; }
+  .col-table td:last-child  { color: var(--muted); font-size: 0.72rem; }
+  .tag-req  { display:inline-block; padding:1px 6px; border-radius:3px; font-size:0.6rem; font-family:'DM Mono',monospace; background:rgba(232,71,63,0.15); color:var(--accent2); border:1px solid rgba(232,71,63,0.2); }
+  .tag-opt  { display:inline-block; padding:1px 6px; border-radius:3px; font-size:0.6rem; font-family:'DM Mono',monospace; background:rgba(79,195,247,0.12); color:var(--accent3); border:1px solid rgba(79,195,247,0.2); }
+  .modal-note {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .modal-note b { color: var(--text); }
+
+
+  /* ── Tabs ── */
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+  .tab-btn {
+    padding: 10px 24px;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    bottom: -1px;
+  }
+  .tab-btn:hover { color: var(--text); border-color: var(--border); background: var(--bg3); }
+  .tab-btn.active {
+    color: var(--accent);
+    border-color: var(--border);
+    border-bottom-color: var(--bg);
+    background: var(--bg);
+    font-weight: 500;
+  }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* ── Data Entry ── */
+  .entry-grid {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .entry-table-wrap { overflow-x: auto; }
+  .entry-table { width: 100%; border-collapse: collapse; }
+  .entry-table thead th {
+    padding: 10px 12px;
+    text-align: left;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    white-space: nowrap;
+  }
+  .entry-table tbody tr { border-bottom: 1px solid rgba(42,45,62,0.5); }
+  .entry-table tbody tr:hover { background: rgba(245,200,66,0.03); }
+  .entry-table tbody td { padding: 8px 12px; font-size: 0.82rem; vertical-align: middle; }
+  .entry-input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    padding: 5px 8px;
+    outline: none;
+    transition: border-color 0.15s;
+    min-width: 80px;
+  }
+  .entry-input:focus { border-color: var(--accent); }
+  .entry-input.filled { border-color: rgba(129,199,132,0.4); background: rgba(129,199,132,0.05); }
+  .entry-input.error  { border-color: rgba(232,71,63,0.5);  background: rgba(232,71,63,0.05); }
+  .entry-product-name { font-weight: 500; font-size: 0.82rem; white-space: nowrap; }
+  .entry-last-price { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted); }
+
+  /* Add product form */
+  .add-product-panel { display: flex; flex-direction: column; gap: 16px; }
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  .field-label { font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .field-input {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  .field-input:focus { border-color: var(--accent); }
+  .field-select {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    outline: none;
+    cursor: pointer;
+    width: 100%;
+  }
+  .field-select:focus { border-color: var(--accent); }
+  .add-btn {
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #000;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    width: 100%;
+  }
+  .add-btn:hover { background: #e6bb3a; border-color: #e6bb3a; }
+  .export-btn {
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--accent4);
+    background: transparent;
+    color: var(--accent4);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    width: 100%;
+    margin-top: 4px;
+  }
+  .export-btn:hover { background: var(--accent4); color: #000; }
+  .entry-date-display {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    padding: 6px 12px;
+    background: rgba(245,200,66,0.08);
+    border: 1px solid rgba(245,200,66,0.2);
+    border-radius: 6px;
+    text-align: center;
+  }
+  .entry-progress {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 4px;
+  }
+  .entry-progress span { color: var(--accent4); font-weight: 500; }
+  .remove-row-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.15s;
+    line-height: 1;
+  }
+  .remove-row-btn:hover { color: var(--accent2); }
+
+  @media (max-width: 900px) {
+    .entry-grid { grid-template-columns: 1fr; }
+  }
+
   .fade-in { animation: fadeIn 0.5s ease both; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 </style>
@@ -353,6 +671,79 @@
       <div class="last-update" style="margin-top:4px">Prices in <span>EUR</span></div>
     </div>
   </header>
+
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="analysis">📊 Analysis</button>
+    <button class="tab-btn" data-tab="entry">✏️ Data Entry</button>
+  </div>
+
+  <!-- ═══════════════════ ANALYSIS TAB ═══════════════════ -->
+  <div class="tab-pane active" id="tab-analysis">
+
+  <!-- Hidden file input -->
+  <input type="file" id="xlsx-file-input" accept=".xlsx" style="display:none">
+
+  <!-- Upload bar -->
+  <div class="upload-bar fade-in" id="upload-bar" style="animation-delay:0.02s">
+    <div class="upload-icon">📂</div>
+    <div class="upload-text">
+      <div class="upload-title">Load your data file</div>
+      <div class="upload-sub">Drag &amp; drop an .xlsx file here, or click Browse — dashboard updates instantly</div>
+    </div>
+    <span id="upload-status" class="upload-status" style="display:none"></span>
+    <button class="guide-btn" id="guide-btn">📋 Format Guide</button>
+    <button class="upload-btn" id="upload-browse-btn">Browse file</button>
+  </div>
+
+  <!-- Format guide modal -->
+  <div class="modal-overlay" id="guide-modal">
+    <div class="modal">
+      <button class="modal-close" id="guide-close">✕</button>
+      <h2>📋 File Format Guide</h2>
+      <p class="modal-intro">Your .xlsx file must contain exactly two sheets named <b>Summary</b> and <b>Historical Data</b>. Column names must match exactly (case-sensitive).</p>
+
+      <div class="modal-section">
+        <h3>Sheet 1 — Summary</h3>
+        <p style="font-size:0.75rem; color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product. Each row becomes an entry in the main table.</p>
+        <table class="col-table">
+          <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
+          <tbody>
+            <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Full product name — must also appear in Historical Data sheet</td></tr>
+            <tr><td>Type</td><td><span class="tag-req">required</span></td><td>Exactly one of: <b>BOX</b>, <b>ETB</b>, or <b>BUNDLE</b></td></tr>
+            <tr><td>Release Date</td><td><span class="tag-req">required</span></td><td>Date value or text in YYYY-MM-DD format</td></tr>
+            <tr><td>Age (years)</td><td><span class="tag-req">required</span></td><td>Decimal number, e.g. 1.47</td></tr>
+            <tr><td>Current Price (€)</td><td><span class="tag-req">required</span></td><td>Number in cents or euros — must be consistent across rows</td></tr>
+            <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Total set value — same unit as price</td></tr>
+            <tr><td>Price / Booster (€)</td><td><span class="tag-req">required</span></td><td>Current price divided by number of boosters in the product</td></tr>
+            <tr><td>SV / Booster</td><td><span class="tag-req">required</span></td><td>Set value divided by Price / Booster</td></tr>
+            <tr><td>Age Weight</td><td><span class="tag-req">required</span></td><td>Decimal 0–1. Products &lt;1yr are penalised; ≥3yr = 1.0</td></tr>
+            <tr><td>Wtd. Score</td><td><span class="tag-req">required</span></td><td>SV / Booster × Age Weight</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal-section">
+        <h3>Sheet 2 — Historical Data</h3>
+        <p style="font-size:0.75rem; color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product per snapshot. Add a new row each month when you update prices.</p>
+        <table class="col-table">
+          <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
+          <tbody>
+            <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Must exactly match the Product name in the Summary sheet</td></tr>
+            <tr><td>Snapshot Date</td><td><span class="tag-req">required</span></td><td>Date label shown on chart axes, e.g. <b>Apr 20</b> or <b>2026-04-20</b></td></tr>
+            <tr><td>Price (€)</td><td><span class="tag-req">required</span></td><td>Product price at that snapshot. Leave blank if not yet tracked.</td></tr>
+            <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Set value at that snapshot. Leave blank if not yet tracked.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal-note">
+        <b>Monthly workflow:</b> Each month, add a new column to your Historical Data sheet with that month's date label, then fill in the latest Price and Set Value for each product. Re-save the file and drop it onto the dashboard — all charts and signals will update automatically.<br><br>
+        <b>New products:</b> Add a new row to Summary, then add matching rows to Historical Data. The product name must match exactly in both sheets.
+      </div>
+    </div>
+  </div>
 
   <!-- KPIs -->
   <div class="kpi-row fade-in" style="animation-delay:0.05s">
@@ -387,6 +778,19 @@
       <div class="pill" data-type="ETB">Elite Trainer</div>
       <div class="pill" data-type="BUNDLE">Bundle</div>
     </div>
+
+    <!-- Age weight threshold control -->
+    <div style="display:flex; align-items:center; gap:10px; margin-left:8px; padding-left:16px; border-left:1px solid var(--border);">
+      <span class="filter-label" style="white-space:nowrap;">Age Threshold</span>
+      <input type="range" id="age-threshold-slider" min="0.5" max="3" step="0.5" value="3"
+        style="width:100px; accent-color:var(--accent); cursor:pointer;">
+      <span style="font-family:'DM Mono',monospace; font-size:0.78rem; color:var(--accent); min-width:40px;">
+        <span id="age-threshold-display">3.0</span>yr
+      </span>
+      <span style="font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted); cursor:help;"
+        title="Years required before a product reaches full weight (no age penalty). Lower = more lenient on new products. Default 3yr matches original scoring.">ⓘ</span>
+    </div>
+
     <select class="sort-select" id="sort-select">
       <option value="score">Sort: Age-Weighted Score ↓</option>
       <option value="set-value-booster">Sort: Set Value / Booster ↓</option>
@@ -590,6 +994,115 @@
     </div>
   </div>
 
+  </div><!-- /tab-analysis -->
+
+  <!-- ═══════════════════ DATA ENTRY TAB ═══════════════════ -->
+  <div class="tab-pane" id="tab-entry">
+
+    <div class="entry-grid">
+
+      <!-- Left: monthly price entry table -->
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Monthly Price Update</div>
+            <div style="font-size:0.7rem; color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px;">
+              Enter the latest Price and Set Value for each product
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+            <div class="entry-date-display" id="entry-date-display">📅 Today: —</div>
+            <div class="entry-progress" id="entry-progress">— / — filled</div>
+          </div>
+        </div>
+        <div class="entry-table-wrap">
+          <table class="entry-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Product</th>
+                <th>Type</th>
+                <th>Last Price (€)</th>
+                <th>Last Set Value (€)</th>
+                <th>New Price (€)</th>
+                <th>New Set Value (€)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="entry-tbody"></tbody>
+          </table>
+        </div>
+        <div style="padding: 14px 20px; border-top: 1px solid var(--border); display:flex; gap:10px; justify-content:flex-end;">
+          <button class="export-btn" id="export-xlsx-btn" style="width:auto; padding: 8px 20px;">
+            ⬇ Export updated .xlsx
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: add new product + snapshot label -->
+      <div style="display:flex; flex-direction:column; gap:20px;">
+
+        <!-- Snapshot label -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Snapshot Label</div>
+          </div>
+          <div style="padding:18px 20px; display:flex; flex-direction:column; gap:10px;">
+            <div class="field-label">Label shown on chart axes (e.g. "May 04")</div>
+            <input class="field-input" id="snapshot-label" type="text" placeholder="e.g. May 04">
+            <div style="font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted);">
+              Auto-filled with today's date — edit if needed
+            </div>
+          </div>
+        </div>
+
+        <!-- Add new product -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Add New Product</div>
+            <div class="panel-badge">Summary</div>
+          </div>
+          <div style="padding:18px 20px;">
+            <div class="add-product-panel">
+              <div class="field-group">
+                <div class="field-label">Product Name</div>
+                <input class="field-input" id="new-product-name" type="text" placeholder="e.g. Stellar Crown Booster Box">
+              </div>
+              <div class="field-group">
+                <div class="field-label">Type</div>
+                <select class="field-select" id="new-product-type">
+                  <option value="BOX">BOX — Booster Box (36 packs)</option>
+                  <option value="ETB">ETB — Elite Trainer Box (9 packs)</option>
+                  <option value="BUNDLE">BUNDLE — Booster Bundle (6 packs)</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <div class="field-label">Release Date</div>
+                <input class="field-input" id="new-product-release" type="date">
+              </div>
+              <div class="field-group">
+                <div class="field-label">Initial Price (€)</div>
+                <input class="field-input" id="new-product-price" type="number" min="0" step="0.01" placeholder="e.g. 120">
+              </div>
+              <div class="field-group">
+                <div class="field-label">Initial Set Value (€)</div>
+                <input class="field-input" id="new-product-sv" type="number" min="0" step="0.01" placeholder="e.g. 850">
+              </div>
+              <div class="field-group">
+                <div class="field-label">Cardmarket URL <span style="color:var(--muted); font-size:0.6rem;">(optional)</span></div>
+                <input class="field-input" id="new-product-url" type="url" placeholder="https://www.cardmarket.com/...">
+              </div>
+              <div id="add-product-error" style="font-family:'DM Mono',monospace; font-size:0.72rem; color:var(--accent2); display:none;"></div>
+              <button class="add-btn" id="add-product-btn">+ Add Product</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /tab-entry -->
+
   <footer>
     Data sourced from Cardmarket, Tradera & PriceCharting · Dashboard built for personal investment decisions · Always do your own research
   </footer>
@@ -662,7 +1175,7 @@ const historicalData = {
   "Ascended Heroes ETB": { price: [null, null, 100, 130], setVal: [null, null, 3867, 4496] },
 };
 
-const histDates = ["Jan 18", "Feb 23", "Mar 20", "Apr 20"];
+let histDates = ["Jan 18", "Feb 23", "Mar 20", "Apr 20"];
 
 // ============================================================
 // STATE
@@ -670,6 +1183,7 @@ const histDates = ["Jan 18", "Feb 23", "Mar 20", "Apr 20"];
 let activeType = "ALL";
 let sortKey = "score";
 let trendProduct = "Surging Sparks Booster Box";
+let ageThreshold = 3; // years until age weight reaches 1.0
 
 // ============================================================
 // HELPERS
@@ -698,6 +1212,23 @@ function getFiltered() {
     return 0;
   });
   return data;
+}
+
+// ============================================================
+// AGE WEIGHT HELPERS
+// ============================================================
+function calcAgeWeight(ageYears) {
+  // age >= threshold → full weight (no penalty)
+  // age < threshold → linear scale from 0.10 to 1.0
+  if (ageYears >= ageThreshold) return 1.0;
+  return parseFloat(Math.max(0.10, ageYears / ageThreshold).toFixed(2));
+}
+
+function recomputeScores() {
+  products.forEach(p => {
+    p.ageWeight = calcAgeWeight(p.age);
+    p.score     = parseFloat((p.svPerBooster * p.ageWeight).toFixed(1));
+  });
 }
 
 // ============================================================
@@ -948,7 +1479,7 @@ function renderScatterChart() {
 
 // Derive the exact divisor per product from the products array itself:
 // divisor = setVal / svPerBooster — guarantees chart values match the table exactly
-const svbDivisor = {};
+let svbDivisor = {};
 products.forEach(p => {
   if (p.setVal && p.svPerBooster) svbDivisor[p.name] = p.setVal / p.svPerBooster;
 });
@@ -1096,6 +1627,410 @@ document.getElementById('sort-select').addEventListener('change', e => {
   updateTable();
 });
 
+document.getElementById('age-threshold-slider').addEventListener('input', e => {
+  ageThreshold = parseFloat(e.target.value);
+  document.getElementById('age-threshold-display').textContent = ageThreshold.toFixed(1);
+  recomputeScores();
+  updateKPIs();
+  updateTable();
+  updateTopPicks();
+  renderSVBChart();
+});
+
+
+
+// ============================================================
+// XLSX LOADER
+// ============================================================
+
+// ── helpers ──────────────────────────────────────────────────
+function col(row, ...candidates) {
+  for (const c of candidates) {
+    if (row[c] !== undefined && row[c] !== null && row[c] !== '') return row[c];
+  }
+  return null;
+}
+
+function isValidDate(str) {
+  const d = new Date(str);
+  return !isNaN(d.getTime());
+}
+
+function isPositiveNum(v) {
+  return typeof v === 'number' && isFinite(v) && v > 0;
+}
+
+function isNonNegNum(v) {
+  return typeof v === 'number' && isFinite(v) && v >= 0;
+}
+
+// ── main validator + parser ───────────────────────────────────
+function parseXlsx(arrayBuffer) {
+  const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+  const errors = [];
+
+  // ════════════════════════════════════════
+  // Sheet 1: Summary
+  // ════════════════════════════════════════
+  if (!wb.Sheets['Summary']) {
+    errors.push('Missing sheet named "Summary" — check sheet tab name is exactly "Summary"');
+  }
+  if (!wb.Sheets['Historical Data']) {
+    errors.push('Missing sheet named "Historical Data" — check sheet tab name is exactly "Historical Data"');
+  }
+  if (errors.length) throw new Error(errors.join('||'));
+
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets['Summary'], { defval: null });
+  if (!rows.length) errors.push('Summary sheet has no data rows');
+  if (errors.length) throw new Error(errors.join('||'));
+
+  const seenNames = new Set();
+  const newProducts = [];
+
+  rows.forEach((row, i) => {
+    const rowNum = i + 2;
+    const name     = col(row, 'Product');
+    const type     = col(row, 'Type');
+    const rawRelease = col(row, 'Release Date');
+    const pfx = `Summary row ${rowNum}`;
+
+    // Name
+    if (!name || String(name).trim() === '')
+      errors.push(`${pfx}: missing Product name`);
+    else if (seenNames.has(name))
+      errors.push(`${pfx}: duplicate Product name "${name}" — each product must appear only once`);
+    else seenNames.add(name);
+
+    const label = name ? `"${name}"` : `row ${rowNum}`;
+
+    // Type
+    if (!type)
+      errors.push(`Summary ${label}: missing Type — must be BOX, ETB, or BUNDLE`);
+    else if (!['BOX','ETB','BUNDLE'].includes(String(type).toUpperCase()))
+      errors.push(`Summary ${label}: invalid Type "${type}" — must be exactly BOX, ETB, or BUNDLE`);
+
+    // Release date
+    if (!rawRelease)
+      errors.push(`Summary ${label}: missing Release Date`);
+    else {
+      const releaseStr = rawRelease instanceof Date
+        ? rawRelease.toISOString().slice(0,10)
+        : String(rawRelease);
+      if (!isValidDate(releaseStr))
+        errors.push(`Summary ${label}: Release Date "${rawRelease}" is not a valid date`);
+    }
+
+    if (errors.length === 0) {
+      const releaseStr = rawRelease instanceof Date
+        ? rawRelease.toISOString().slice(0,10)
+        : String(rawRelease);
+      newProducts.push({
+        name: String(name).trim(),
+        type: String(type).toUpperCase(),
+        release: releaseStr,
+        // boosters read from Historical Data below
+        boosters: null,
+        age: null, price: null, setVal: null,
+        pricePerBooster: null, svPerBooster: null,
+        ageWeight: null, score: null
+      });
+    }
+  });
+
+  // ════════════════════════════════════════
+  // Sheet 2: Historical Data
+  // ════════════════════════════════════════
+  const histRows = XLSX.utils.sheet_to_json(wb.Sheets['Historical Data'], { defval: null });
+  if (!histRows.length) errors.push('Historical Data sheet has no data rows');
+
+  // Stop early if Summary errors — no point cross-checking
+  if (errors.length) throw new Error(errors.join('||'));
+
+  const histMap  = {};
+  const dateSet  = [];
+  const histNames = new Set();
+
+  // Booster count derived from Type — no user input needed
+  const boostersFromType = type => {
+    if (type === 'BOX')    return 36;
+    if (type === 'ETB')    return 9;
+    if (type === 'BUNDLE') return 6;
+    return null;
+  };
+
+  histRows.forEach((row, i) => {
+    const rowNum = i + 2;
+    const name   = col(row, 'Product');
+    const date   = col(row, 'Snapshot Date', 'Date');
+    const price  = col(row, 'Price (€)', 'Price');
+    const sv     = col(row, 'Set Value (€)', 'Set Value');
+
+    if (!name && !date) return; // skip fully blank rows
+
+    if (!name) { errors.push(`Historical Data row ${rowNum}: missing Product name`); return; }
+    if (!date) { errors.push(`Historical Data row ${rowNum}: missing Snapshot Date for "${name}"`); return; }
+
+    // Price and Set Value: if present must be non-negative
+    if (price !== null && (isNaN(parseFloat(price)) || parseFloat(price) < 0))
+      errors.push(`Historical Data row ${rowNum} ("${name}"): Price must be a non-negative number (got "${price}")`);
+    if (sv !== null && (isNaN(parseFloat(sv)) || parseFloat(sv) < 0))
+      errors.push(`Historical Data row ${rowNum} ("${name}"): Set Value must be a non-negative number (got "${sv}")`);
+
+    histNames.add(String(name).trim());
+
+    if (!histMap[name]) histMap[name] = {};
+    const dateStr = date instanceof Date
+      ? date.toLocaleDateString('en-SE', { month: 'short', day: 'numeric' })
+      : String(date);
+    if (!histMap[name][dateStr]) histMap[name][dateStr] = { price: null, setVal: null };
+    if (price !== null) histMap[name][dateStr].price  = parseFloat(price);
+    if (sv    !== null) histMap[name][dateStr].setVal = parseFloat(sv);
+    if (!dateSet.includes(dateStr)) dateSet.push(dateStr);
+  });
+
+  // Cross-check: every Summary product should have at least one history row
+  seenNames.forEach(name => {
+    if (!histNames.has(name))
+      errors.push(`"${name}" is in Summary but has no rows in Historical Data`);
+  });
+
+  // Cross-check: warn about history rows for unknown products
+  histNames.forEach(name => {
+    if (!seenNames.has(name))
+      errors.push(`Historical Data contains "${name}" which does not exist in Summary`);
+  });
+
+  // Stop if any errors accumulated
+  if (errors.length) throw new Error(errors.join('||'));
+
+  // ── Build aligned historical arrays ──
+  const newHistoricalData = {};
+  Object.entries(histMap).forEach(([name, byDate]) => {
+    newHistoricalData[name] = {
+      price:  dateSet.map(d => byDate[d]?.price  ?? null),
+      setVal: dateSet.map(d => byDate[d]?.setVal ?? null),
+    };
+  });
+
+  // ── Derive all calculated fields from static inputs + latest hist snapshot ──
+  const today = new Date();
+  newProducts.forEach(p => {
+    const hist     = newHistoricalData[p.name];
+    const boosters = boostersFromType(p.type);
+
+    // Latest non-null price and setVal from historical data
+    const latestPrice  = hist ? [...hist.price].reverse().find(v => v != null)  : null;
+    const latestSetVal = hist ? [...hist.setVal].reverse().find(v => v != null) : null;
+
+    if (latestPrice  == null) errors.push(`"${p.name}": no valid Price found in Historical Data`);
+    if (latestSetVal == null) errors.push(`"${p.name}": no valid Set Value found in Historical Data`);
+
+    if (latestPrice != null && latestSetVal != null && boosters) {
+      const releaseDate = new Date(p.release);
+      const ageYears    = parseFloat(((today - releaseDate) / (1000 * 60 * 60 * 24 * 365.25)).toFixed(2));
+      const ageWeight   = parseFloat((ageYears >= 3 ? 1.0 : Math.max(0.10, ageYears / 3)).toFixed(2));
+      const pricePerBooster = latestPrice / boosters;
+      const svPerBooster    = latestSetVal / pricePerBooster;
+      const score           = parseFloat((svPerBooster * ageWeight).toFixed(1));
+
+      p.boosters        = boosters;
+      p.age             = ageYears;
+      p.price           = latestPrice;
+      p.setVal          = latestSetVal;
+      p.pricePerBooster = parseFloat(pricePerBooster.toFixed(1));
+      p.svPerBooster    = parseFloat(svPerBooster.toFixed(1));
+      p.ageWeight       = ageWeight;
+      p.score           = score;
+    }
+  });
+
+  if (errors.length) throw new Error(errors.join('||'));
+
+  // ── Sheet 3: Links (optional) ──
+  const newLinks = {};
+  if (wb.Sheets['Links']) {
+    const linkRows = XLSX.utils.sheet_to_json(wb.Sheets['Links'], { defval: null });
+    linkRows.forEach(row => {
+      const name = col(row, 'Product');
+      const url  = col(row, 'URL', 'Cardmarket URL', 'Link');
+      if (name && url && String(url).startsWith('http')) {
+        newLinks[String(name).trim()] = String(url).trim();
+      }
+    });
+  }
+
+  return { newProducts, newHistoricalData, newHistDates: dateSet, newLinks };
+}
+
+function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }) {
+  // Replace global data arrays
+  products.length = 0;
+  newProducts.forEach(p => products.push(p));
+
+  Object.keys(historicalData).forEach(k => delete historicalData[k]);
+  Object.entries(newHistoricalData).forEach(([k,v]) => historicalData[k] = v);
+
+  histDates.length = 0;
+  newHistDates.forEach(d => histDates.push(d));
+
+  // Rebuild svbDivisor
+  Object.keys(svbDivisor).forEach(k => delete svbDivisor[k]);
+  products.forEach(p => {
+    if (p.setVal && p.svPerBooster) svbDivisor[p.name] = p.setVal / p.svPerBooster;
+  });
+
+  // Repopulate selects
+  ['trend-product-select','ratio-product-select','ratio-compare-select','scenario-product-select'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = id === 'ratio-compare-select' ? '<option value="">+ Compare with...</option>' : '';
+    const pool = id.startsWith('trend') || id.startsWith('ratio')
+      ? Object.keys(historicalData) : products.map(p => p.name);
+    pool.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      if (name === prev) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    // Default to first product if previous selection no longer exists
+    if (!pool.includes(sel.value) && pool.length) sel.value = pool[0];
+  });
+
+  // Load URLs from file, then preserve any in-session edits not in the file
+  if (newLinks) {
+    Object.keys(productUrls).forEach(k => delete productUrls[k]);
+    Object.entries(newLinks).forEach(([k, v]) => productUrls[k] = v);
+  } else {
+    Object.keys(productUrls).forEach(k => { if (!newProducts.find(p => p.name === k)) delete productUrls[k]; });
+  }
+  trendProduct  = document.getElementById('trend-product-select').value;
+  ratioProduct  = document.getElementById('ratio-product-select').value;
+  ratioCompare  = '';
+  scenarioProduct = products[0]?.name || '';
+
+  // Re-render everything
+  updateKPIs();
+  updateTable();
+  updateTopPicks();
+  renderSVBChart();
+  renderTrendChart();
+  renderScatterChart();
+  renderRatioChart();
+  initScenario();
+
+  // Update header date
+  const today = new Date().toLocaleDateString('en-SE', { year:'numeric', month:'long', day:'numeric' });
+  document.querySelector('.last-update span').textContent = today;
+  document.getElementById('kpi-total').textContent = products.length;
+}
+
+function showStatus(msg, isError) {
+  const el = document.getElementById('upload-status');
+  el.textContent = msg;
+  el.className = 'upload-status ' + (isError ? 'err' : 'ok');
+  el.style.display = 'inline-block';
+}
+
+function handleFile(file) {
+  if (!file || !file.name.endsWith('.xlsx')) {
+    showStatus('⚠ Please upload an .xlsx file', true); return;
+  }
+  showStatus('⏳ Validating…', false);
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const result = parseXlsx(e.target.result);
+      // Only reaches here if validation fully passed
+      applyNewData(result);
+      showStatus('✓ ' + file.name + ' loaded — ' + result.newProducts.length + ' products', false);
+    } catch (err) {
+      // Show first error in badge; full list in console + alert
+      const lines = err.message.split('||');
+      const summary = lines.length > 1
+        ? `✕ ${lines.length} validation error${lines.length > 1 ? 's' : ''} — see details below`
+        : '✕ ' + lines[0];
+      showStatus(summary, true);
+      showValidationErrors(lines);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showValidationErrors(lines) {
+  // Reuse guide modal with error content
+  const modal = document.getElementById('guide-modal');
+  const inner = modal.querySelector('.modal');
+  // Save original content to restore later
+  if (!inner.dataset.originalHtml) inner.dataset.originalHtml = inner.innerHTML;
+
+  inner.innerHTML = `
+    <button class="modal-close" id="guide-close">✕</button>
+    <h2 style="color:var(--accent2)">⚠ Validation Failed</h2>
+    <p class="modal-intro">The file was not loaded. Fix the following issues and try again.</p>
+    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+      ${lines.map(l => `
+        <div style="background:rgba(232,71,63,0.08); border:1px solid rgba(232,71,63,0.2);
+          border-left:3px solid var(--accent2); border-radius:6px; padding:10px 14px;
+          font-family:'DM Mono',monospace; font-size:0.75rem; color:#e8a0a0; line-height:1.5;">
+          ${l.replace(/"/g, '&quot;')}
+        </div>`).join('')}
+    </div>
+    <button class="upload-btn" id="err-back-btn" style="border-color:var(--muted); color:var(--muted);">
+      ← Back to Format Guide
+    </button>
+  `;
+  modal.classList.add('open');
+
+  document.getElementById('guide-close').addEventListener('click', () => {
+    inner.innerHTML = inner.dataset.originalHtml;
+    delete inner.dataset.originalHtml;
+    modal.classList.remove('open');
+    rewireGuideModal();
+  });
+  document.getElementById('err-back-btn').addEventListener('click', () => {
+    inner.innerHTML = inner.dataset.originalHtml;
+    delete inner.dataset.originalHtml;
+    rewireGuideModal();
+  });
+}
+
+function rewireGuideModal() {
+  document.getElementById('guide-close').addEventListener('click', () => {
+    document.getElementById('guide-modal').classList.remove('open');
+  });
+}
+
+// Wire up file input
+document.getElementById('upload-browse-btn').addEventListener('click', () => {
+  document.getElementById('xlsx-file-input').click();
+});
+document.getElementById('xlsx-file-input').addEventListener('change', e => {
+  handleFile(e.target.files[0]);
+  e.target.value = '';
+});
+
+// Drag and drop on upload bar
+const uploadBar = document.getElementById('upload-bar');
+uploadBar.addEventListener('dragover', e => { e.preventDefault(); uploadBar.classList.add('drag-over'); });
+uploadBar.addEventListener('dragleave', () => uploadBar.classList.remove('drag-over'));
+uploadBar.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadBar.classList.remove('drag-over');
+  handleFile(e.dataTransfer.files[0]);
+});
+
+// Format guide modal
+document.getElementById('guide-btn').addEventListener('click', () => {
+  document.getElementById('guide-modal').classList.add('open');
+});
+document.getElementById('guide-close').addEventListener('click', () => {
+  document.getElementById('guide-modal').classList.remove('open');
+});
+document.getElementById('guide-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
+
 
 // ============================================================
 // SCENARIO EXPLORER
@@ -1203,6 +2138,329 @@ function updateScenario() {
     sig.textContent = '🔴 Avoid — low value relative to cost';
     sig.style.color = 'var(--accent2)'; sig.style.borderColor = 'rgba(232,71,63,0.3)';
   }
+}
+
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'entry') initEntryTab();
+  });
+});
+
+// ============================================================
+// DATA ENTRY TAB
+// ============================================================
+
+// Holds new entries: { productName -> { price, setVal } }
+let entryData = {};
+// Cardmarket URLs: { productName -> url }
+let productUrls = {};
+// Holds new products added this session (not yet in products array)
+let pendingProducts = [];
+
+function todayLabel() {
+  return new Date().toLocaleDateString('en-SE', { month: 'short', day: 'numeric' });
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getLastHistSnapshot(name) {
+  const h = historicalData[name];
+  if (!h) return { price: null, setVal: null };
+  const prices = h.price.filter(v => v != null);
+  const svs    = h.setVal.filter(v => v != null);
+  return {
+    price:  prices.length ? prices[prices.length - 1] : null,
+    setVal: svs.length   ? svs[svs.length - 1]       : null,
+  };
+}
+
+function initEntryTab() {
+  // Set date display
+  const label = todayLabel();
+  document.getElementById('entry-date-display').textContent = '📅 Today: ' + label;
+
+  // Set default snapshot label
+  const snapInput = document.getElementById('snapshot-label');
+  if (!snapInput.value) snapInput.value = label;
+
+  // Set default release date on add form
+  const relInput = document.getElementById('new-product-release');
+  if (!relInput.value) relInput.value = todayISO();
+
+  renderEntryTable();
+}
+
+function renderEntryTable() {
+  const tbody = document.getElementById('entry-tbody');
+  tbody.innerHTML = '';
+
+  // Combine existing products + pending new ones
+  const allProducts = [
+    ...products,
+    ...pendingProducts.filter(p => !products.find(ep => ep.name === p.name))
+  ];
+
+  allProducts.forEach(p => {
+    const last = getLastHistSnapshot(p.name);
+    const saved = entryData[p.name] || {};
+
+    const url = productUrls[p.name] || '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="width:48px; text-align:center;" class="url-cell" data-product="${p.name}">
+        ${url
+          ? `<a href="${url}" target="_blank" rel="noopener noreferrer"
+              title="${url}&#10;Click to edit"
+              class="url-link-btn" data-product="${p.name}"
+              style="color:var(--accent3); font-size:1rem; text-decoration:none; line-height:1; cursor:pointer;">🔗</a>`
+          : `<button class="url-edit-btn" data-product="${p.name}"
+              title="Add Cardmarket link"
+              style="background:none; border:none; color:var(--muted); font-size:0.75rem;
+                     cursor:pointer; font-family:'DM Mono',monospace; padding:2px 4px;
+                     border-radius:4px; transition:color 0.15s;">+ link</button>`}
+      </td>
+      <td class="entry-product-name" title="${p.name}">${p.name}</td>
+      <td><span class="type-badge type-${p.type}">${p.type}</span></td>
+      <td class="entry-last-price">${last.price != null ? '€' + last.price.toLocaleString('de-DE') : '—'}</td>
+      <td class="entry-last-price">${last.setVal != null ? '€' + last.setVal.toLocaleString('de-DE') : '—'}</td>
+      <td>
+        <input class="entry-input ${saved.price != null ? 'filled' : ''}"
+          type="number" min="0" step="0.01" placeholder="price"
+          data-product="${p.name}" data-field="price"
+          value="${saved.price != null ? saved.price : ''}">
+      </td>
+      <td>
+        <input class="entry-input ${saved.setVal != null ? 'filled' : ''}"
+          type="number" min="0" step="0.01" placeholder="set value"
+          data-product="${p.name}" data-field="setVal"
+          value="${saved.setVal != null ? saved.setVal : ''}">
+      </td>
+      <td>
+        ${pendingProducts.find(pp => pp.name === p.name)
+          ? `<button class="remove-row-btn" data-product="${p.name}" title="Remove new product">✕</button>`
+          : ''}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Wire up input events
+  tbody.querySelectorAll('.entry-input').forEach(input => {
+    input.addEventListener('input', e => {
+      const name  = e.target.dataset.product;
+      const field = e.target.dataset.field;
+      const val   = e.target.value !== '' ? parseFloat(e.target.value) : null;
+      if (!entryData[name]) entryData[name] = {};
+      entryData[name][field] = val;
+      e.target.classList.toggle('filled', val != null && val >= 0);
+      e.target.classList.toggle('error', e.target.value !== '' && (isNaN(val) || val < 0));
+      updateEntryProgress();
+    });
+  });
+
+  // Wire up URL edit buttons (both "+ link" and existing 🔗)
+  tbody.querySelectorAll('.url-edit-btn, .url-link-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const name = btn.dataset.product;
+      openUrlEditor(name);
+    });
+  });
+
+  // Wire up remove buttons
+  tbody.querySelectorAll('.remove-row-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const name = e.target.dataset.product;
+      pendingProducts = pendingProducts.filter(p => p.name !== name);
+      delete entryData[name];
+      renderEntryTable();
+    });
+  });
+
+  updateEntryProgress();
+}
+
+function openUrlEditor(productName) {
+  const cell = document.querySelector(`.url-cell[data-product="${CSS.escape(productName)}"]`);
+  if (!cell) return;
+  // Don't double-open
+  if (cell.querySelector('.url-inline-input')) return;
+
+  const current = productUrls[productName] || '';
+  cell.innerHTML = `
+    <div style="display:flex; align-items:center; gap:4px; min-width:220px;">
+      <input class="entry-input url-inline-input" type="url"
+        value="${current}"
+        placeholder="https://www.cardmarket.com/..."
+        style="font-size:0.72rem; padding:4px 6px; min-width:0; flex:1;">
+      <button class="url-save-btn" title="Save"
+        style="background:var(--accent); border:none; border-radius:4px;
+               color:#000; font-size:0.75rem; padding:4px 8px; cursor:pointer;
+               font-family:'DM Mono',monospace; white-space:nowrap;">✓</button>
+      <button class="url-cancel-btn" title="Cancel"
+        style="background:none; border:1px solid var(--border); border-radius:4px;
+               color:var(--muted); font-size:0.75rem; padding:4px 6px; cursor:pointer;">✕</button>
+    </div>
+  `;
+
+  const input = cell.querySelector('.url-inline-input');
+  input.focus();
+  input.select();
+
+  const save = () => {
+    const val = input.value.trim();
+    if (val) productUrls[productName] = val;
+    else delete productUrls[productName];
+    renderEntryTable();
+  };
+
+  cell.querySelector('.url-save-btn').addEventListener('click', save);
+  cell.querySelector('.url-cancel-btn').addEventListener('click', () => renderEntryTable());
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  save();
+    if (e.key === 'Escape') renderEntryTable();
+  });
+}
+
+function updateEntryProgress() {
+  const allProducts = [
+    ...products,
+    ...pendingProducts.filter(p => !products.find(ep => ep.name === p.name))
+  ];
+  const total   = allProducts.length;
+  const filled  = allProducts.filter(p => {
+    const d = entryData[p.name];
+    return d && d.price != null && d.setVal != null;
+  }).length;
+  const el = document.getElementById('entry-progress');
+  el.innerHTML = `<span>${filled}</span> / ${total} filled`;
+}
+
+// ── Add new product ──────────────────────────────────────────
+document.getElementById('add-product-btn').addEventListener('click', () => {
+  const name    = document.getElementById('new-product-name').value.trim();
+  const type    = document.getElementById('new-product-type').value;
+  const release = document.getElementById('new-product-release').value;
+  const price   = parseFloat(document.getElementById('new-product-price').value);
+  const sv      = parseFloat(document.getElementById('new-product-sv').value);
+  const errEl   = document.getElementById('add-product-error');
+
+  // Validate
+  const errs = [];
+  if (!name)                           errs.push('Product name is required.');
+  if (products.find(p => p.name === name) || pendingProducts.find(p => p.name === name))
+                                        errs.push('A product with this name already exists.');
+  if (!release)                        errs.push('Release date is required.');
+  if (isNaN(price) || price <= 0)      errs.push('Price must be a positive number.');
+  if (isNaN(sv)    || sv < 0)          errs.push('Set Value must be a non-negative number.');
+
+  if (errs.length) {
+    errEl.textContent = errs.join(' ');
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+
+  // Add to pending
+  pendingProducts.push({ name, type, release });
+
+  // Pre-fill entry data with the initial price/sv
+  entryData[name] = { price, setVal: sv };
+
+  // Store URL if provided
+  const urlVal = document.getElementById('new-product-url').value.trim();
+  if (urlVal) productUrls[name] = urlVal;
+
+  // Clear form
+  document.getElementById('new-product-name').value  = '';
+  document.getElementById('new-product-price').value = '';
+  document.getElementById('new-product-sv').value    = '';
+  document.getElementById('new-product-url').value   = '';
+
+  renderEntryTable();
+});
+
+// ── Export .xlsx ─────────────────────────────────────────────
+document.getElementById('export-xlsx-btn').addEventListener('click', exportXlsx);
+
+function exportXlsx() {
+  const snapLabel = document.getElementById('snapshot-label').value.trim() || todayLabel();
+
+  // ── Build Summary sheet rows ──
+  // Existing products + newly added pending ones
+  const allExistingProducts = [...products];
+  const newOnes = pendingProducts.filter(p => !allExistingProducts.find(ep => ep.name === p.name));
+
+  const summaryRows = [
+    ['Product', 'Type', 'Release Date'],
+    ...allExistingProducts.map(p => [p.name, p.type, p.release]),
+    ...newOnes.map(p => [p.name, p.type, p.release]),
+  ];
+
+  // ── Build Historical Data sheet rows ──
+  // All existing history first
+  const histRows = [['Product', 'Snapshot Date', 'Price (€)', 'Set Value (€)']];
+
+  // Collect all products in order
+  const allProductNames = [
+    ...allExistingProducts.map(p => p.name),
+    ...newOnes.map(p => p.name)
+  ];
+
+  allProductNames.forEach(name => {
+    const h = historicalData[name];
+    if (h) {
+      // Write existing snapshots
+      histDates.forEach((date, i) => {
+        const price = h.price[i];
+        const sv    = h.setVal[i];
+        if (price != null || sv != null) {
+          histRows.push([name, date, price ?? '', sv ?? '']);
+        }
+      });
+    }
+    // Append this month's new entry if filled
+    const entry = entryData[name];
+    if (entry && (entry.price != null || entry.setVal != null)) {
+      histRows.push([name, snapLabel, entry.price ?? '', entry.setVal ?? '']);
+    }
+  });
+
+  // ── Write to XLSX using SheetJS ──
+  const wb = XLSX.utils.book_new();
+
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+  wsSummary['!cols'] = [{wch:36},{wch:10},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+  const wsHist = XLSX.utils.aoa_to_sheet(histRows);
+  wsHist['!cols'] = [{wch:36},{wch:14},{wch:12},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, wsHist, 'Historical Data');
+
+  // ── Build Links sheet ──
+  const linkRows = [['Product', 'URL']];
+  Object.entries(productUrls).forEach(([name, url]) => {
+    if (url) linkRows.push([name, url]);
+  });
+  if (linkRows.length > 1) {
+    const wsLinks = XLSX.utils.aoa_to_sheet(linkRows);
+    wsLinks['!cols'] = [{wch:36},{wch:60}];
+    XLSX.utils.book_append_sheet(wb, wsLinks, 'Links');
+  }
+
+  // Download
+  const date = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `pokemon_analytics_${date}.xlsx`);
 }
 
 // ============================================================
