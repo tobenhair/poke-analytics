@@ -1,1 +1,80 @@
-...
+# Pokémon Product Analytics
+
+A single-page dashboard for tracking Pokémon TCG **sealed product** (Booster Box, Elite Trainer Box, Bundle) prices over time and deciding when to buy. Everything runs in the browser from one `index.html` file, reading and writing a single Excel workbook you keep under version control — no server, no database, no build step.
+
+> Investment Decision Dashboard · Prices in EUR
+
+## What it does
+
+- **Ranks every product** by an age-weighted value score so newer and older releases can be compared fairly.
+- **Surfaces buy signals** (💰) when a product's price drops while its set value holds steady — a possible mispricing.
+- **Charts price history, set-value-per-booster trends, and age-vs-value** across all tracked products.
+- **Scenario explorer** — drag sliders for set value and price to see how the score would move.
+- **Monthly data entry** — punch in the latest prices, add new releases, attach Cardmarket links, and export an updated `.xlsx` ready to commit back to the repo.
+
+## Getting started
+
+Because the dashboard auto-loads `pokemon_data.xlsx` with a `fetch()`, it needs to be served over HTTP — opening `index.html` directly from disk (`file://`) will block that request. Serve the folder with any static server:
+
+```bash
+# Python
+python3 -m http.server 8000
+
+# or Node
+npx serve .
+```
+
+Then open <http://localhost:8000>. The bundled `pokemon_data.xlsx` loads automatically. You can also drag-and-drop your own `.xlsx` onto the **Analysis** tab at any time.
+
+The page pulls Chart.js and SheetJS from a CDN, so an internet connection is required on first load.
+
+## The three tabs
+
+| Tab | Purpose |
+| --- | --- |
+| 👋 **Welcome** | Overview, glossary, and how the workflow fits together. |
+| 📊 **Analysis** | The decision view — ranked table, KPIs, price/value charts, buy signals, and the scenario explorer. |
+| ✏️ **Data Entry** | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs, and export the updated workbook. |
+
+## Monthly workflow
+
+1. Once a month, fetch the latest prices from Cardmarket.
+2. Enter them in the **Data Entry** tab (today's date is pre-filled as the snapshot label).
+3. Click **⬇ Export updated .xlsx** to download the refreshed workbook.
+4. Replace `pokemon_data.xlsx` in the repo and commit it — the next visit reflects the new data.
+
+Add new products at any time from the Data Entry tab; the product name must match exactly between both sheets.
+
+## Data file format
+
+`pokemon_data.xlsx` must contain two sheets with these exact (case-sensitive) column names. An optional `Links` sheet stores Cardmarket URLs.
+
+### Sheet 1 — `Summary` (one row per product)
+
+`Product` · `Type` (`BOX`, `ETB`, or `BUNDLE`) · `Release Date` · `Age (years)` · `Current Price (€)` · `Set Value (€)` · `Price / Booster (€)` · `SV / Booster` · `Age Weight` · `Wtd. Score`
+
+### Sheet 2 — `Historical Data` (one row per product per snapshot)
+
+`Product` (must match Summary exactly) · `Snapshot Date` (ISO `YYYY-MM-DD`) · `Price (€)` · `Set Value (€)`
+
+The in-app **File Format Guide** (linked from the upload panel) documents every field in detail.
+
+## Key concepts
+
+- **Set Value** — the total market value of all cards in a complete set.
+- **Price / Booster** — product price ÷ boosters inside (BOX = 36, ETB = 9, BUNDLE = 6).
+- **SV / Booster** — Set Value ÷ Price/Booster. The core comparability metric; works across all product types.
+- **Age Weight** — 0–1 multiplier. Products under a year old are penalised; ≥3 years = 1.0.
+- **Wtd. Score** — SV / Booster × Age Weight. The headline ranking metric.
+- **Buy Signal (💰)** — flagged when price dropped ≥5% in the last snapshot while set value held within ±5%.
+
+## Project layout
+
+```
+index.html          Self-contained dashboard (markup, styles, and logic)
+pokemon_data.xlsx   Tracked data workbook
+```
+
+## Tech
+
+Vanilla HTML/CSS/JavaScript with [Chart.js](https://www.chartjs.org/) for charts and [SheetJS](https://sheetjs.com/) for reading and writing `.xlsx` files. No framework, no bundler.
