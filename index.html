@@ -2498,12 +2498,18 @@ function renderEntryTable() {
     const url = productUrls[p.name] || '';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td style="width:48px; text-align:center;" class="url-cell" data-product="${p.name}">
+      <td style="width:60px; text-align:center;" class="url-cell" data-product="${p.name}">
         ${url
-          ? `<a href="${url}" target="_blank" rel="noopener noreferrer"
-              title="${url}&#10;Click to edit"
-              class="url-link-btn" data-product="${p.name}"
-              style="color:var(--accent3); font-size:1rem; text-decoration:none; line-height:1; cursor:pointer;">🔗</a>`
+          ? `<div style="display:flex; align-items:center; justify-content:center; gap:8px; line-height:1;">
+              <a href="${url}" target="_blank" rel="noopener noreferrer"
+                title="Open link in new tab&#10;${url}"
+                class="url-link-btn"
+                style="color:var(--accent3); font-size:1rem; text-decoration:none; line-height:1; cursor:pointer;">🔗</a>
+              <button class="url-edit-btn" data-product="${p.name}"
+                title="Edit link"
+                style="background:none; border:none; color:var(--muted); font-size:0.75rem;
+                       cursor:pointer; line-height:1; padding:2px; border-radius:4px; transition:color 0.15s;">✎</button>
+            </div>`
           : `<button class="url-edit-btn" data-product="${p.name}"
               title="Add Cardmarket link"
               style="background:none; border:none; color:var(--muted); font-size:0.75rem;
@@ -2549,8 +2555,9 @@ function renderEntryTable() {
     });
   });
 
-  // Wire up URL edit buttons (both "+ link" and existing 🔗)
-  tbody.querySelectorAll('.url-edit-btn, .url-link-btn').forEach(btn => {
+  // Wire up URL edit buttons ("+ link" and the ✎ edit affordance).
+  // The 🔗 itself is a plain anchor so it navigates to the product page.
+  tbody.querySelectorAll('.url-edit-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.preventDefault();
       const name = btn.dataset.product;
