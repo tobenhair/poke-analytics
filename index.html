@@ -2204,6 +2204,7 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   scenarioProduct = products[0]?.name || '';
 
   // Re-render everything
+  recomputeScores(); // apply the current age threshold to freshly loaded data
   updateKPIs();
   updateTable();
   updateTopPicks();
@@ -2770,6 +2771,7 @@ function exportXlsx() {
 Chart.defaults.color = '#6b6f85';
 Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
 
+recomputeScores(); // apply the default age threshold to the initial data
 updateKPIs();
 updateTable();
 updateTopPicks();
