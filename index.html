@@ -1049,13 +1049,13 @@
     <!-- Age weight threshold control -->
     <div style="display:flex; align-items:center; gap:10px; margin-left:8px; padding-left:16px; border-left:1px solid var(--border);">
       <span class="filter-label" style="white-space:nowrap;">Age Threshold</span>
-      <input type="range" id="age-threshold-slider" min="0.5" max="3" step="0.5" value="3"
+      <input type="range" id="age-threshold-slider" min="0.5" max="3" step="0.5" value="1"
         style="width:100px; accent-color:var(--accent); cursor:pointer;">
       <span style="font-family:'DM Mono',monospace; font-size:0.78rem; color:var(--accent); min-width:40px;">
-        <span id="age-threshold-display">3.0</span>yr
+        <span id="age-threshold-display">1.0</span>yr
       </span>
       <span style="font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted); cursor:help;"
-        title="Years required before a product reaches full weight (no age penalty). Lower = more lenient on new products. Default 3yr matches original scoring.">ⓘ</span>
+        title="Years required before a product reaches full weight (no age penalty). Lower = more lenient on new products. Defaults to 1yr; adjustable from 0.5 to 3yr.">ⓘ</span>
     </div>
 
     <select class="sort-select" id="sort-select">
@@ -1442,7 +1442,7 @@ let histDates = ["2026-01-18", "2026-02-23", "2026-03-20", "2026-04-20"];
 let activeType = "ALL";
 let sortKey = "score";
 let trendProduct = "Surging Sparks Booster Box";
-let ageThreshold = 3; // years until age weight reaches 1.0
+let ageThreshold = 1; // years until age weight reaches 1.0 (default)
 
 // ============================================================
 // HELPERS
