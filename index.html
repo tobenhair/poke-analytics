@@ -244,6 +244,29 @@
     margin-bottom: 24px;
   }
 
+  /* ── Stacked, single-column analysis sections ── */
+  #tab-analysis > .panel { margin-bottom: 44px; }
+  #tab-analysis > .panel:last-of-type { margin-bottom: 0; }
+  .section-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 16px 2px;
+  }
+  .section-eyebrow::before {
+    content: '';
+    width: 20px; height: 1px;
+    background: var(--accent);
+    opacity: 0.7;
+  }
+  /* keep the eyebrow visually attached to the section it introduces */
+  .section-eyebrow { margin-top: 4px; }
+
   .panel {
     background: var(--card);
     border: 1px solid var(--hairline);
@@ -549,12 +572,23 @@
   }
   .modal-note b { color: var(--text); }
 
-  /* ── Data Entry ── */
+  /* ── Data Entry — stacked, single column ── */
   .entry-grid {
     display: grid;
-    grid-template-columns: 1fr 360px;
-    gap: 24px;
+    grid-template-columns: 1fr;
+    gap: 44px;
     margin-bottom: 24px;
+  }
+  /* the config panels (snapshot + add product) sit below the table as a
+     tidy pair, so nothing stretches uncomfortably wide */
+  .entry-config {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 720px) {
+    .entry-config { grid-template-columns: 1fr; }
   }
   .entry-table-wrap { overflow-x: auto; }
   .entry-table { width: 100%; border-collapse: collapse; }
@@ -992,6 +1026,16 @@
     </div>
   </div>
 
+  <!-- ── Section: top picks (full width) — the shortlist leads ── -->
+  <div class="section-eyebrow">01 — This Month's Standouts</div>
+  <div class="panel top-picks">
+    <div class="panel-header">
+      <div class="panel-title">🏆 Top Picks This Month</div>
+      <div class="panel-badge">By Score</div>
+    </div>
+    <div id="top-picks-list"></div>
+  </div>
+
   <!-- Filters -->
   <div class="filters fade-in" style="animation-delay:0.1s">
     <span class="filter-label">Type</span>
@@ -1024,84 +1068,71 @@
     </select>
   </div>
 
-  <!-- Main grid -->
-  <div class="main-grid fade-in" style="animation-delay:0.15s">
-    <!-- Table -->
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title">All Products</div>
-        <div class="panel-badge" id="count-badge">31 products</div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Product <span style="font-weight:300;opacity:0.6;font-size:0.6rem">💰 = buy signal</span></th>
-              <th>Type</th>
-              <th style="text-align:right">Price (€)</th>
-              <th style="text-align:right">Set Value (€)</th>
-              <th style="text-align:right">€/Booster</th>
-              <th style="text-align:right">SV/Booster</th>
-              <th style="text-align:right">Age (yr)</th>
-              <th>Wtd. Score</th>
-            </tr>
-          </thead>
-          <tbody id="product-tbody"></tbody>
-        </table>
-      </div>
+  <!-- ── Section: product table (full width) ── -->
+  <div class="section-eyebrow">02 — The Board</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">All Products</div>
+      <div class="panel-badge" id="count-badge">31 products</div>
     </div>
-
-    <!-- Right col -->
-    <div class="right-col">
-      <!-- Top picks -->
-      <div class="panel top-picks">
-        <div class="panel-header">
-          <div class="panel-title">🏆 Top Picks This Month</div>
-          <div class="panel-badge">By Score</div>
-        </div>
-        <div id="top-picks-list"></div>
-      </div>
-
-      <!-- Type distribution chart -->
-      <div class="panel">
-        <div class="panel-header">
-          <div class="panel-title">Set Value / Booster</div>
-          <div class="panel-badge">Top 10</div>
-        </div>
-        <div class="chart-panel">
-          <canvas id="svb-chart"></canvas>
-        </div>
-      </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Product <span style="font-weight:300;opacity:0.6;font-size:0.6rem">💰 = buy signal</span></th>
+            <th>Type</th>
+            <th style="text-align:right">Price (€)</th>
+            <th style="text-align:right">Set Value (€)</th>
+            <th style="text-align:right">€/Booster</th>
+            <th style="text-align:right">SV/Booster</th>
+            <th style="text-align:right">Age (yr)</th>
+            <th>Wtd. Score</th>
+          </tr>
+        </thead>
+        <tbody id="product-tbody"></tbody>
+      </table>
     </div>
   </div>
 
-  <!-- Bottom row: price trend + scatter -->
-  <div class="bottom-row fade-in" style="animation-delay:0.2s">
-    <!-- Price trend -->
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title">Price History</div>
-        <select class="trend-select" id="trend-product-select"></select>
-      </div>
-      <div class="chart-panel">
-        <canvas id="trend-chart"></canvas>
-      </div>
+  <!-- ── Section: set value / booster (full width) ── -->
+  <div class="section-eyebrow">03 — Value Per Booster</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">Set Value / Booster</div>
+      <div class="panel-badge">Top 10</div>
     </div>
-
-    <!-- Age vs score scatter -->
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title">Age vs Set Value / Booster</div>
-        <div class="panel-badge">All products</div>
-      </div>
-      <div class="chart-panel">
-        <canvas id="scatter-chart"></canvas>
-      </div>
+    <div class="chart-panel">
+      <canvas id="svb-chart"></canvas>
     </div>
   </div>
 
-  <!-- Ratio trend chart - full width -->
-  <div class="panel fade-in" style="animation-delay:0.25s; margin-bottom: 24px;">
+  <!-- ── Section: age vs value scatter (full width) ── -->
+  <div class="section-eyebrow">04 — Age vs Value</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">Age vs Set Value / Booster</div>
+      <div class="panel-badge">All products</div>
+    </div>
+    <div class="chart-panel">
+      <canvas id="scatter-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- ── Section: price history (full width) ── -->
+  <div class="section-eyebrow">05 — Price History</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">Price History</div>
+      <select class="trend-select" id="trend-product-select"></select>
+    </div>
+    <div class="chart-panel">
+      <canvas id="trend-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- ── Section: SV/Booster trend over time (full width) ── -->
+  <div class="section-eyebrow">06 — Trend Over Time</div>
+  <div class="panel">
     <div class="panel-header">
       <div>
         <div class="panel-title">Set Value / Booster — Trend Over Time</div>
@@ -1124,8 +1155,9 @@
   </div>
 
 
-  <!-- Scenario Explorer -->
-  <div class="panel fade-in" style="animation-delay:0.3s; margin-bottom: 24px;">
+  <!-- ── Section: scenario explorer (full width) ── -->
+  <div class="section-eyebrow">07 — What If</div>
+  <div class="panel">
     <div class="panel-header">
       <div>
         <div class="panel-title">Scenario Explorer</div>
@@ -1135,7 +1167,7 @@
       </div>
       <select class="trend-select" id="scenario-product-select" style="max-width:220px"></select>
     </div>
-    <div style="padding: 24px 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+    <div class="scenario-body" style="padding: 28px; display: grid; grid-template-columns: 1fr; gap: 36px;">
 
       <!-- Sliders -->
       <div style="display:flex; flex-direction:column; gap:28px;">
@@ -1266,8 +1298,8 @@
         </div>
       </div>
 
-      <!-- Right: add new product + snapshot label -->
-      <div style="display:flex; flex-direction:column; gap:20px;">
+      <!-- Below the table: add new product + snapshot label -->
+      <div class="entry-config">
 
         <!-- Snapshot label -->
         <div class="panel">
@@ -2792,7 +2824,7 @@ document.getElementById('scenario-reset').addEventListener('click', initScenario
       el.style.animationDelay = '';
       el.classList.remove('rv-in');
       el.classList.add('rv');
-      el.style.setProperty('--rv-delay', (Math.min(i, 8) * 65) + 'ms');
+      el.style.setProperty('--rv-delay', (Math.min(i, 5) * 55) + 'ms');
     });
     requestAnimationFrame(function () {
       els.forEach(function (el) { io.observe(el); });
