@@ -1131,8 +1131,40 @@
     </div>
   </div>
 
+  <!-- ── Section: relative value vs the age curve (full width) ── -->
+  <div class="section-eyebrow">05 — Relative Value</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div>
+        <div class="panel-title">Relative Value — vs Peers of the Same Age</div>
+        <div style="font-size:0.7rem; color: var(--muted); font-family: 'DM Mono', monospace; margin-top:4px;">
+          Expected SV/Booster is fit from age across all products (the dashed line on the scatter above).
+          Above expected = better value than same-age peers.
+          <span style="color: var(--accent4)">▲ better</span> &nbsp;·&nbsp;
+          <span style="color: var(--accent2)">▼ worse</span>
+        </div>
+      </div>
+      <div class="panel-badge" id="relval-fit-badge">—</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Type</th>
+            <th style="text-align:right">Age (yr)</th>
+            <th style="text-align:right">SV/Booster</th>
+            <th style="text-align:right">Expected</th>
+            <th style="text-align:right">Δ vs peers</th>
+          </tr>
+        </thead>
+        <tbody id="relval-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- ── Section: price history (full width) ── -->
-  <div class="section-eyebrow">05 — Price History</div>
+  <div class="section-eyebrow">06 — Price History</div>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">Price History</div>
@@ -1143,8 +1175,40 @@
     </div>
   </div>
 
+  <!-- ── Section: momentum & drawdown (full width) ── -->
+  <div class="section-eyebrow">07 — Momentum &amp; Drawdown</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div>
+        <div class="panel-title">Momentum &amp; Drawdown</div>
+        <div style="font-size:0.7rem; color: var(--muted); font-family: 'DM Mono', monospace; margin-top:4px;">
+          Movement from the tracked history. Drawdown = current price vs its highest tracked price (a deep dip while set value holds can be a buying opportunity).
+          <span style="color: var(--accent4)">▲ up</span> &nbsp;·&nbsp;
+          <span style="color: var(--accent2)">▼ down</span>
+        </div>
+      </div>
+      <div class="panel-badge">By deepest dip</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Type</th>
+            <th style="text-align:right">Price (€)</th>
+            <th style="text-align:right">Δ last</th>
+            <th style="text-align:right">Price since 1st</th>
+            <th style="text-align:right">Set Val since 1st</th>
+            <th style="text-align:right">vs Peak</th>
+          </tr>
+        </thead>
+        <tbody id="momentum-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- ── Section: SV/Booster trend over time (full width) ── -->
-  <div class="section-eyebrow">06 — Trend Over Time</div>
+  <div class="section-eyebrow">08 — Trend Over Time</div>
   <div class="panel">
     <div class="panel-header">
       <div>
@@ -1169,7 +1233,7 @@
 
 
   <!-- ── Section: scenario explorer (full width) ── -->
-  <div class="section-eyebrow">07 — What If</div>
+  <div class="section-eyebrow">09 — What If</div>
   <div class="panel">
     <div class="panel-header">
       <div>
@@ -1744,6 +1808,26 @@ function renderScatterChart() {
     pointHoverRadius: 8
   }));
 
+  // Overlay the fitted "expected value for age" line (see Relative Value section)
+  const scatterFit = linearFit(products.map(p => ({ x: p.age, y: p.svPerBooster })));
+  if (scatterFit) {
+    const xs = products.map(p => p.age);
+    const xmin = Math.min(...xs), xmax = Math.max(...xs);
+    datasets.push({
+      type: 'line',
+      label: 'Expected (age fit)',
+      data: [{ x: xmin, y: scatterFit.a + scatterFit.b * xmin },
+             { x: xmax, y: scatterFit.a + scatterFit.b * xmax }],
+      borderColor: 'rgba(255,255,255,0.4)',
+      borderDash: [6, 5],
+      borderWidth: 1.5,
+      pointRadius: 0,
+      pointHoverRadius: 0,
+      fill: false,
+      order: 1
+    });
+  }
+
   if (scatterChart) scatterChart.destroy();
   scatterChart = new Chart(document.getElementById('scatter-chart'), {
     type: 'scatter',
@@ -1756,6 +1840,7 @@ function renderScatterChart() {
           callbacks: {
             label: ctx => {
               const d = ctx.raw;
+              if (!d || d.name === undefined) return ' Expected value (age-fit line)';
               return ` ${d.name}: Age ${d.x.toFixed(1)}yr, €${d.y.toFixed(0)}/booster`;
             }
           }
@@ -2211,6 +2296,8 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   renderSVBChart();
   renderTrendChart();
   renderScatterChart();
+  renderRelativeValue();
+  renderMomentum();
   renderRatioChart();
   initScenario();
 
@@ -2766,6 +2853,114 @@ function exportXlsx() {
 }
 
 // ============================================================
+// RELATIVE VALUE (actual SV/Booster vs the age-fit expectation)
+// ============================================================
+function linearFit(pts) {
+  const n = pts.length;
+  if (n < 2) return null;
+  let sx = 0, sy = 0, sxx = 0, sxy = 0;
+  pts.forEach(p => { sx += p.x; sy += p.y; sxx += p.x * p.x; sxy += p.x * p.y; });
+  const denom = n * sxx - sx * sx;
+  if (Math.abs(denom) < 1e-9) return null;
+  const b = (n * sxy - sx * sy) / denom;
+  const a = (sy - b * sx) / n;
+  return { a, b };
+}
+
+function renderRelativeValue() {
+  const tbody = document.getElementById('relval-tbody');
+  if (!tbody) return;
+  const fit = linearFit(products.map(p => ({ x: p.age, y: p.svPerBooster })));
+  const badge = document.getElementById('relval-fit-badge');
+  if (badge) badge.textContent = fit
+    ? `age trend ${fit.b >= 0 ? '+' : ''}${fit.b.toFixed(1)} SV/booster per yr`
+    : 'flat';
+
+  const rows = products.map(p => {
+    // Floor the fitted expectation at 0 — a linear fit can extrapolate below
+    // zero for the oldest products, which would otherwise inflate their delta.
+    const expected = Math.max(0, fit ? fit.a + fit.b * p.age : p.svPerBooster);
+    return { name: p.name, type: p.type, age: p.age, svb: p.svPerBooster, expected, residual: p.svPerBooster - expected };
+  }).sort((a, b) => b.residual - a.residual);
+
+  tbody.innerHTML = '';
+  rows.forEach(r => {
+    const good = r.residual >= 0;
+    const color = good ? 'var(--accent4)' : 'var(--accent2)';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="product-name" title="${r.name}">${r.name}</td>
+      <td><span class="type-badge type-${r.type}">${r.type}</span></td>
+      <td class="num">${fmt(r.age, 1)}</td>
+      <td class="num">${fmt(r.svb, 1)}</td>
+      <td class="num" style="color:var(--muted)">${fmt(r.expected, 1)}</td>
+      <td class="num" style="color:${color}">${good ? '▲ +' : '▼ '}${fmt(r.residual, 1)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ============================================================
+// MOMENTUM & DRAWDOWN (from the tracked price / set-value history)
+// ============================================================
+function trackedSeries(arr) {
+  return (arr || []).filter(v => v != null);
+}
+function pctChange(from, to) {
+  if (from == null || to == null || from === 0) return null;
+  return (to - from) / from * 100;
+}
+function computeMomentum(name) {
+  const h = historicalData[name];
+  if (!h) return null;
+  const p = trackedSeries(h.price);
+  const sv = trackedSeries(h.setVal);
+  if (p.length < 2) return null;
+  const last = p[p.length - 1];
+  const peak = Math.max(...p);
+  return {
+    price: last,
+    last: pctChange(p[p.length - 2], last),
+    sinceFirst: pctChange(p[0], last),
+    svSinceFirst: sv.length >= 2 ? pctChange(sv[0], sv[sv.length - 1]) : null,
+    drawdown: peak > 0 ? (last - peak) / peak * 100 : null,
+  };
+}
+function renderMomentum() {
+  const tbody = document.getElementById('momentum-tbody');
+  if (!tbody) return;
+  const pctCell = v => {
+    if (v == null) return `<td class="num" style="color:var(--muted)">—</td>`;
+    const c = v > 0.05 ? 'var(--accent4)' : v < -0.05 ? 'var(--accent2)' : 'var(--muted)';
+    const arrow = v > 0.05 ? '▲ +' : v < -0.05 ? '▼ ' : '';
+    return `<td class="num" style="color:${c}">${arrow}${fmt(v, 1)}%</td>`;
+  };
+  const ddCell = v => {
+    if (v == null) return `<td class="num" style="color:var(--muted)">—</td>`;
+    const c = v < -0.05 ? 'var(--accent2)' : 'var(--muted)';
+    return `<td class="num" style="color:${c}">${fmt(v, 1)}%</td>`;
+  };
+  const rows = products.map(p => ({ p, m: computeMomentum(p.name) }))
+    .filter(r => r.m)
+    .sort((a, b) => (a.m.drawdown ?? 0) - (b.m.drawdown ?? 0)); // deepest dip first
+
+  tbody.innerHTML = '';
+  rows.forEach(({ p, m }) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="product-name" title="${p.name}">${p.name}</td>
+      <td><span class="type-badge type-${p.type}">${p.type}</span></td>
+      <td class="num">${fmt(m.price)}</td>
+      ${pctCell(m.last)}
+      ${pctCell(m.sinceFirst)}
+      ${pctCell(m.svSinceFirst)}
+      ${ddCell(m.drawdown)}
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ============================================================
 // INIT
 // ============================================================
 Chart.defaults.color = '#6b6f85';
@@ -2779,6 +2974,8 @@ renderSVBChart();
 populateTrendSelect();
 renderTrendChart();
 renderScatterChart();
+renderRelativeValue();
+renderMomentum();
 populateRatioSelects();
 renderRatioChart();
 populateScenarioSelect();
