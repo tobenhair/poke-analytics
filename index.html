@@ -863,7 +863,7 @@
               <div style="font-family:'Bebas Neue',sans-serif; font-size:1.2rem; letter-spacing:0.08em; color: var(--accent3);">Analysis</div>
             </div>
             <p style="font-size: 0.85rem; color: var(--text); line-height: 1.55; margin-bottom: 14px;">
-              The decision-making view. See all your tracked products ranked by weighted score, compare set value per booster, watch price history per product, and explore scenarios.
+              The decision-making view. See all your tracked products ranked by weighted score, compare set value against booster cost, watch price history per product, and explore scenarios.
             </p>
             <ul style="font-size: 0.78rem; color: var(--muted); line-height: 1.7; padding-left: 18px;">
               <li>KPIs at a glance — top score, best value, newest release</li>
@@ -955,7 +955,7 @@
               </tr>
               <tr style="border-bottom: 1px solid rgba(42,45,62,0.5);">
                 <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: 0.78rem; vertical-align: top;">SV / Booster</td>
-                <td style="padding: 10px 0; font-size: 0.8rem; color: var(--text); line-height:1.55;">Set Value ÷ Price/Booster. The core comparability metric — works equally well across BOX, ETB, and BUNDLE products.</td>
+                <td style="padding: 10px 0; font-size: 0.8rem; color: var(--text); line-height:1.55;">Set Value ÷ Price/Booster — how many times the price of a <em>single booster</em> the whole set is worth (a value-for-money <em>×</em> multiple, <strong>not</strong> a euro amount). The core comparability metric — works equally well across BOX, ETB, and BUNDLE products.</td>
               </tr>
               <tr style="border-bottom: 1px solid rgba(42,45,62,0.5);">
                 <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: 0.78rem; vertical-align: top;">Age Weight</td>
@@ -1029,7 +1029,7 @@
             <tr><td>Current Price (€)</td><td><span class="tag-req">required</span></td><td>Number in cents or euros — must be consistent across rows</td></tr>
             <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Total set value — same unit as price</td></tr>
             <tr><td>Price / Booster (€)</td><td><span class="tag-req">required</span></td><td>Current price divided by number of boosters in the product</td></tr>
-            <tr><td>SV / Booster</td><td><span class="tag-req">required</span></td><td>Set value divided by Price / Booster</td></tr>
+            <tr><td>SV / Booster</td><td><span class="tag-req">required</span></td><td>Set Value divided by Price / Booster — a value-for-money ×multiple (how many boosters' price the set is worth), not a euro amount</td></tr>
             <tr><td>Age Weight</td><td><span class="tag-req">required</span></td><td>Decimal 0–1. Products &lt;1yr are penalised; ≥3yr = 1.0</td></tr>
             <tr><td>Wtd. Score</td><td><span class="tag-req">required</span></td><td>SV / Booster × Age Weight</td></tr>
           </tbody>
@@ -1058,7 +1058,7 @@
   </div>
 
   <!-- KPIs -->
-  <p class="kpi-intro"><strong>At-a-glance headline metrics.</strong> <em>Products Tracked</em> is the size of your dataset · <em>Top Score</em> is the current #1 by Weighted Score · <em>Best Value / Booster</em> is the highest raw set-value-per-pack · <em>Newest Release</em> flags the most recent set. Every metric is explained in the numbered sections below.</p>
+  <p class="kpi-intro"><strong>At-a-glance headline metrics.</strong> <em>Products Tracked</em> is the size of your dataset · <em>Top Score</em> is the current #1 by Weighted Score · <em>Best Value / Booster</em> is the highest SV/Booster (set value as a multiple of one booster's cost) · <em>Newest Release</em> flags the most recent set. Every metric is explained in the numbered sections below.</p>
   <div class="kpi-row fade-in" style="animation-delay:0.05s">
     <div class="kpi" style="--kpi-color: var(--accent)">
       <div class="kpi-label">Products Tracked</div>
@@ -1127,7 +1127,7 @@
 
   <!-- ── Section: product table (full width) ── -->
   <div class="section-eyebrow">02 — The Board</div>
-  <p class="section-desc"><strong>What:</strong> every tracked product in one sortable table. <strong>KPIs:</strong> <em>€/Booster</em> (price ÷ packs inside), <em>SV/Booster</em> (set value per pack — the core comparison metric, higher is better), <em>Age</em>, and <em>Wtd. Score</em> (the headline ranking). A 💰 marks a possible buy signal — price fell while set value held. <strong>How to read:</strong> filter with the Type pills and reorder with the Sort menu above, or click any column header to sort.</p>
+  <p class="section-desc"><strong>What:</strong> every tracked product in one sortable table. <strong>KPIs:</strong> <em>€/Booster</em> (price ÷ packs inside), <em>SV/Booster</em> (Set Value ÷ the price of <em>one</em> booster — i.e. how many times a single booster's cost the whole set is worth, shown as a <em>×</em> multiple; higher = better value, <strong>not</strong> a per-pack price), <em>Age</em>, and <em>Wtd. Score</em> (the headline ranking). A 💰 marks a possible buy signal — price fell while set value held. <strong>How to read:</strong> filter with the Type pills and reorder with the Sort menu above, or click any column header to sort.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">All Products</div>
@@ -1154,7 +1154,7 @@
 
   <!-- ── Section: set value / booster (full width) ── -->
   <div class="section-eyebrow">03 — Value Per Booster</div>
-  <p class="section-desc"><strong>What:</strong> the ten products giving the most <em>set value per booster</em>. <strong>How to read:</strong> a taller bar means more card value packed into each pack, independent of product type — the fairest way to compare a Booster Box against an ETB or Bundle.</p>
+  <p class="section-desc"><strong>What:</strong> the ten products with the highest <em>SV/Booster</em> — Set Value ÷ the price of one booster. <strong>How to read:</strong> a taller bar means the set is worth more times what a single pack costs (e.g. 185× = the set is worth ~185 boosters' price), independent of product type — the fairest way to compare a Booster Box against an ETB or Bundle. It's a value-for-money ratio, not a euro amount.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">Set Value / Booster</div>
@@ -1167,7 +1167,7 @@
 
   <!-- ── Section: age vs value scatter (full width) ── -->
   <div class="section-eyebrow">04 — Age vs Value</div>
-  <p class="section-desc"><strong>What:</strong> every product plotted by <em>age</em> (horizontal) against <em>SV/Booster</em> (vertical). The dashed line is the expected value for a given age. <strong>How to read:</strong> points <span class="up">above</span> the line are better value than typical for their age; points <span class="down">below</span> are worse — the higher above the line, the better the bargain.</p>
+  <p class="section-desc"><strong>What:</strong> every product plotted by <em>age</em> (horizontal) against <em>SV/Booster</em> (vertical — Set Value as a multiple of one booster's cost, higher = better value). The dashed line is the expected value for a given age. <strong>How to read:</strong> points <span class="up">above</span> the line are better value than typical for their age; points <span class="down">below</span> are worse — the higher above the line, the better the bargain.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">Age vs Set Value / Booster</div>
@@ -1244,7 +1244,7 @@
 
   <!-- ── Section: SV/Booster trend over time (full width) ── -->
   <div class="section-eyebrow">08 — Trend Over Time</div>
-  <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> for one or more products — add a second from the compare dropdown. <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means each pack is holding more set value; because it's normalised per booster, BOX, ETB and BUNDLE are directly comparable.</p>
+  <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> for one or more products — add a second from the compare dropdown. <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means the set is worth more relative to a booster's cost (better value); because it's expressed as a multiple of booster cost, BOX, ETB and BUNDLE are directly comparable.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">Set Value / Booster — Trend Over Time</div>
@@ -1663,7 +1663,7 @@ function updateTable() {
       <td class="num">${fmt(p.price)}</td>
       <td class="num">${fmt(p.setVal)}</td>
       <td class="num">${fmt(p.pricePerBooster, 1)}</td>
-      <td class="num ${svClass}">${fmt(p.svPerBooster, 1)}</td>
+      <td class="num ${svClass}">${fmt(p.svPerBooster, 1)}×</td>
       <td class="num">${fmt(p.age, 1)}</td>
       <td>
         <div class="score-bar-wrap">
@@ -1743,10 +1743,10 @@ function renderSVBChart() {
       indexAxis: 'y',
       responsive: true,
       plugins: { legend: { display: false }, tooltip: {
-        callbacks: { label: ctx => ` €${ctx.parsed.x.toFixed(1)} / booster` }
+        callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(1)}× booster cost` }
       }},
       scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } },
         y: { grid: { display: false }, ticks: { color: '#aaa', font: { family: 'DM Sans', size: 10 } } }
       }
     }
@@ -1872,14 +1872,14 @@ function renderScatterChart() {
             label: ctx => {
               const d = ctx.raw;
               if (!d || d.name === undefined) return ' Expected value (age-fit line)';
-              return ` ${d.name}: Age ${d.x.toFixed(1)}yr, €${d.y.toFixed(0)}/booster`;
+              return ` ${d.name}: Age ${d.x.toFixed(1)}yr, ${d.y.toFixed(0)}× booster cost`;
             }
           }
         }
       },
       scales: {
         x: { title: { display: true, text: 'Age (years)', color: '#6b6f85', font: { family: 'DM Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
-        y: { title: { display: true, text: 'Set Value / Booster (€)', color: '#6b6f85', font: { family: 'DM Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v } }
+        y: { title: { display: true, text: 'SV / Booster (× booster cost)', color: '#6b6f85', font: { family: 'DM Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } }
       }
     }
   });
@@ -1987,13 +1987,13 @@ function renderRatioChart() {
         legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
         tooltip: {
           callbacks: {
-            label: ctx => ` ${ctx.dataset.label}: €${ctx.parsed.y.toFixed(1)} / booster`,
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}× booster cost`,
             afterBody: (items) => {
               const v = items[0]?.parsed?.y;
               if (v == null) return '';
-              if (v >= 30) return ['', '🟢 Strong buy — high set value per pack'];
+              if (v >= 30) return ['', '🟢 Strong value vs booster cost'];
               if (v >= 15) return ['', '🟡 Decent value — worth watching'];
-              return ['', '🔴 Low value per booster'];
+              return ['', '🔴 Low value vs booster cost'];
             }
           }
         }
@@ -2008,11 +2008,11 @@ function renderRatioChart() {
           ticks: {
             color: '#aaa',
             font: { family: 'DM Mono', size: 10 },
-            callback: v => '€' + v.toFixed(0)
+            callback: v => v.toFixed(0) + '×'
           },
           title: {
             display: true,
-            text: 'Set Value per Booster (€)',
+            text: 'SV / Booster (× booster cost)',
             color: '#6b6f85',
             font: { family: 'DM Mono', size: 10 }
           }
@@ -2521,7 +2521,7 @@ function updateScenario() {
   };
 
   // SV / Booster
-  document.getElementById('out-svb').textContent = newSVB > 0 ? '€' + newSVB.toFixed(1) : '—';
+  document.getElementById('out-svb').textContent = newSVB > 0 ? newSVB.toFixed(1) + '×' : '—';
   document.getElementById('out-svb-delta').innerHTML = Math.abs(svbDelta) > 0.05
     ? fmtDelta(svbDelta) + ' vs current'
     : '<span style="color:var(--muted)">no change</span>';
@@ -2923,9 +2923,9 @@ function renderRelativeValue() {
       <td class="product-name" title="${r.name}">${r.name}</td>
       <td><span class="type-badge type-${r.type}">${r.type}</span></td>
       <td class="num">${fmt(r.age, 1)}</td>
-      <td class="num">${fmt(r.svb, 1)}</td>
-      <td class="num" style="color:var(--muted)">${fmt(r.expected, 1)}</td>
-      <td class="num" style="color:${color}">${good ? '▲ +' : '▼ '}${fmt(r.residual, 1)}</td>
+      <td class="num">${fmt(r.svb, 1)}×</td>
+      <td class="num" style="color:var(--muted)">${fmt(r.expected, 1)}×</td>
+      <td class="num" style="color:${color}">${good ? '▲ +' : '▼ '}${fmt(r.residual, 1)}×</td>
     `;
     tbody.appendChild(tr);
   });

@@ -63,7 +63,7 @@ The in-app **File Format Guide** (linked from the upload panel) documents every 
 
 - **Set Value** — the total market value of all cards in a complete set.
 - **Price / Booster** — product price ÷ boosters inside (BOX = 36, ETB = 9, BUNDLE = 6).
-- **SV / Booster** — Set Value ÷ Price/Booster. The core comparability metric; works across all product types.
+- **SV / Booster** — Set Value ÷ Price/Booster. Reads as a value-for-money **×multiple** — how many times the price of a *single booster* the whole set is worth (e.g. `185×`), **not** a euro-per-pack amount. The core comparability metric; works across all product types.
 - **Age Weight** — 0–1 multiplier. Products under a year old are penalised; ≥3 years = 1.0.
 - **Wtd. Score** — SV / Booster × Age Weight. The headline ranking metric.
 - **Buy Signal (💰)** — flagged when price dropped ≥5% in the last snapshot while set value held within ±5%.
