@@ -3,7 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pokémon Product Analytics</title>
+<title>Sealed TCG Analytics — Sealed Trading-Card Price &amp; Value Tracker</title>
+<meta name="description" content="A free, open dashboard for tracking sealed trading-card product prices (Booster Boxes, Elite Trainer Boxes, Bundles) and comparing their value over time. Currently tracks Pokémon TCG products. Not affiliated with Nintendo or The Pokémon Company. Not financial advice.">
+<meta name="theme-color" content="#0a0b0f">
+<meta name="color-scheme" content="dark">
+<!-- Open Graph / social share -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Sealed TCG Analytics — Sealed Trading-Card Price &amp; Value Tracker">
+<meta property="og:description" content="Free dashboard for tracking sealed trading-card product prices and value over time. Currently tracks Pokémon TCG products. An unofficial fan project — not financial advice.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Sealed TCG Analytics — Sealed Trading-Card Price &amp; Value Tracker">
+<meta name="twitter:description" content="Free dashboard for tracking sealed trading-card product prices and value over time. Currently tracks Pokémon TCG products. An unofficial fan project — not financial advice.">
+<!-- Inline SVG favicon (no extra request, no CDN dependency) -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a0b0f'/%3E%3Crect x='16' y='34' width='7' height='16' rx='2' fill='%235cc7f2'/%3E%3Crect x='28' y='24' width='7' height='26' rx='2' fill='%23f4c651'/%3E%3Crect x='40' y='16' width='7' height='34' rx='2' fill='%237fd493'/%3E%3C/svg%3E">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -75,24 +87,15 @@
     gap: 24px;
   }
   .logo { display: flex; align-items: center; gap: 16px; }
-  .pokeball {
+  .logo-mark {
     width: 38px; height: 38px;
-    background: conic-gradient(var(--accent2) 0 50%, #f4f5f8 50% 100%);
-    border-radius: 50%;
-    position: relative;
     flex-shrink: 0;
-    animation: spin-slow 20s linear infinite;
+    border-radius: 10px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
     box-shadow: 0 4px 16px -4px rgba(0,0,0,0.6);
+    display: block;
   }
-  .pokeball::after {
-    content: '';
-    position: absolute;
-    inset: 4px;
-    background: radial-gradient(circle at 38% 38%, #fff 0%, #666 100%);
-    border-radius: 50%;
-    border: 3px solid var(--bg);
-  }
-  @keyframes spin-slow { to { transform: rotate(360deg); } }
   h1 {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 2.1rem;
@@ -771,9 +774,13 @@
 
   <header class="fade-in">
     <div class="logo">
-      <div class="pokeball"></div>
+      <svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="16" y="34" width="7" height="16" rx="2" fill="#5cc7f2"/>
+        <rect x="28" y="24" width="7" height="26" rx="2" fill="#f4c651"/>
+        <rect x="40" y="16" width="7" height="34" rx="2" fill="#7fd493"/>
+      </svg>
       <div>
-        <h1>Pokémon Product Analytics</h1>
+        <h1>Sealed TCG Analytics</h1>
         <div class="subtitle">Investment Decision Dashboard</div>
       </div>
     </div>
@@ -1440,7 +1447,13 @@
   </div><!-- /tab-entry -->
 
   <footer>
-    Data sourced from Cardmarket, Tradera & PriceCharting · Dashboard built for personal investment decisions · Always do your own research
+    <p style="margin:0 0 10px;">Data sourced from Cardmarket, Tradera &amp; PriceCharting · Updated manually · Always do your own research</p>
+    <p style="margin:0 auto; max-width:70ch; line-height:1.7; text-transform:none; letter-spacing:normal;">
+      <strong>Not financial advice.</strong> This is a free, unofficial fan-made tool provided “as is” for informational purposes only. Prices and values may be inaccurate or out of date; nothing here is a recommendation to buy or sell. Do your own research before making any purchase.
+    </p>
+    <p style="margin:12px auto 0; max-width:70ch; line-height:1.7; text-transform:none; letter-spacing:normal;">
+      “Pokémon” and all related names are trademarks of Nintendo, Creatures Inc., GAME FREAK inc., and The Pokémon Company. This project is <strong>not affiliated with, endorsed by, or sponsored by</strong> any of them. All product names are used for identification purposes only.
+    </p>
   </footer>
 </div>
 
@@ -2963,6 +2976,25 @@ function renderMomentum() {
 // ============================================================
 // INIT
 // ============================================================
+// Guard: the app depends on Chart.js and SheetJS loading from their CDNs.
+// If a network/CDN failure or blocker left them undefined, show a clear
+// message instead of a silently broken page, then stop initialising.
+if (typeof Chart === 'undefined' || typeof XLSX === 'undefined') {
+  var missingLibs = [];
+  if (typeof Chart === 'undefined') missingLibs.push('Chart.js');
+  if (typeof XLSX === 'undefined') missingLibs.push('SheetJS (xlsx)');
+  document.body.insertAdjacentHTML('afterbegin',
+    '<div role="alert" style="position:fixed;inset:0;z-index:9999;display:flex;' +
+    'align-items:center;justify-content:center;padding:24px;background:#0a0b0f;' +
+    'color:#f0f1f5;font-family:sans-serif;text-align:center;">' +
+    '<div style="max-width:32rem;"><h1 style="color:#f4c651;font-size:1.4rem;margin-bottom:12px;">' +
+    'Couldn’t load a required library</h1><p style="line-height:1.6;color:#b9bccb;">' +
+    'This dashboard needs ' + missingLibs.join(' and ') + ', which load from a CDN. ' +
+    'The request was blocked or failed — check your connection or any ad/script blocker, then reload.' +
+    '</p></div></div>');
+  throw new Error('Required libraries failed to load: ' + missingLibs.join(', '));
+}
+
 Chart.defaults.color = '#6b6f85';
 Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
 

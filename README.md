@@ -1,6 +1,6 @@
-# Pokémon Product Analytics
+# Sealed TCG Analytics
 
-A single-page dashboard for tracking Pokémon TCG **sealed product** (Booster Box, Elite Trainer Box, Bundle) prices over time and deciding when to buy. Everything runs in the browser from one `index.html` file, reading and writing a single Excel workbook you keep under version control — no server, no database, no build step.
+A single-page dashboard for tracking sealed trading-card **product** (Booster Box, Elite Trainer Box, Bundle) prices over time and deciding when to buy. It currently tracks Pokémon TCG products. Everything runs in the browser from one `index.html` file, reading and writing a single Excel workbook you keep under version control — no server, no database, no build step.
 
 > Investment Decision Dashboard · Prices in EUR
 
@@ -78,3 +78,9 @@ pokemon_data.xlsx   Tracked data workbook
 ## Tech
 
 Vanilla HTML/CSS/JavaScript with [Chart.js](https://www.chartjs.org/) for charts and [SheetJS](https://sheetjs.com/) for reading and writing `.xlsx` files. No framework, no bundler.
+
+## Disclaimer
+
+This is a free, unofficial fan-made tool provided "as is" for informational purposes only. **It is not financial advice** — prices and values may be inaccurate or out of date, and nothing here is a recommendation to buy or sell. Always do your own research.
+
+"Pokémon" and all related names are trademarks of Nintendo, Creatures Inc., GAME FREAK inc., and The Pokémon Company. This project is **not affiliated with, endorsed by, or sponsored by** any of them; product names are used for identification only.
