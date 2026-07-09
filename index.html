@@ -270,6 +270,22 @@
   /* keep the eyebrow visually attached to the section it introduces */
   .section-eyebrow { margin-top: 4px; }
 
+  /* Short "what / KPIs / how to read" explainer under each section eyebrow */
+  .section-desc {
+    max-width: 68ch;
+    margin: -6px 0 20px 2px;
+    color: var(--muted);
+    font-size: 0.83rem;
+    line-height: 1.65;
+  }
+  .section-desc strong { color: var(--text); font-weight: 500; }
+  .section-desc em { font-style: normal; color: var(--text); opacity: 0.9; }
+  .section-desc .up { color: var(--accent4); }
+  .section-desc .down { color: var(--accent2); }
+  .kpi-intro { max-width: 68ch; margin: -14px 0 22px 2px; color: var(--muted); font-size: 0.83rem; line-height: 1.65; }
+  .kpi-intro strong { color: var(--text); font-weight: 500; }
+  .kpi-intro em { font-style: normal; color: var(--text); opacity: 0.9; }
+
   .panel {
     background: var(--card);
     border: 1px solid var(--hairline);
@@ -283,7 +299,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px 16px;
+    flex-wrap: wrap;
   }
   .panel-title {
     font-family: 'Bebas Neue', sans-serif;
@@ -750,13 +767,31 @@
     #tab-welcome div[style*="grid-template-columns: repeat(3"] { grid-template-columns: 1fr !important; }
   }
   @media (max-width: 680px) {
-    .wrapper { padding: 28px 18px 48px; }
+    .wrapper { padding: 28px 16px 48px; }
     .right-col { grid-template-columns: 1fr; }
-    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 32px; }
+    .kpi { padding: 18px 18px; }
+    .kpi-value { font-size: 2rem; }
     h1 { font-size: 1.7rem; }
     .bottom-row { grid-template-columns: 1fr; }
     header { flex-wrap: wrap; gap: 14px; }
+    .header-meta { text-align: left; }
     .tab-btn { padding: 8px 15px; font-size: 0.72rem; }
+    /* Tighten section chrome so charts/tables keep usable width */
+    #tab-analysis > .panel { margin-bottom: 34px; }
+    .panel-header { padding: 18px 18px 14px; }
+    .chart-panel { padding: 16px 12px; }
+    .filters { gap: 10px; margin-bottom: 24px; }
+    .sort-select { margin-left: 0; width: 100%; }
+    /* Let the tables scroll horizontally on their own without trapping page scroll */
+    .table-wrap { -webkit-overflow-scrolling: touch; }
+    thead th, tbody td { padding: 12px 12px; }
+  }
+  @media (max-width: 460px) {
+    .kpi-row { grid-template-columns: 1fr; }
+    .tab-btn { padding: 8px 12px; font-size: 0.68rem; letter-spacing: 0.03em; }
+    .panel-title { font-size: 1.05rem; }
+    .section-desc, .kpi-intro { font-size: 0.8rem; }
   }
 
   .fade-in { animation: fadeIn 0.6s var(--ease) both; }
@@ -1023,6 +1058,7 @@
   </div>
 
   <!-- KPIs -->
+  <p class="kpi-intro"><strong>At-a-glance headline metrics.</strong> <em>Products Tracked</em> is the size of your dataset · <em>Top Score</em> is the current #1 by Weighted Score · <em>Best Value / Booster</em> is the highest raw set-value-per-pack · <em>Newest Release</em> flags the most recent set. Every metric is explained in the numbered sections below.</p>
   <div class="kpi-row fade-in" style="animation-delay:0.05s">
     <div class="kpi" style="--kpi-color: var(--accent)">
       <div class="kpi-label">Products Tracked</div>
@@ -1048,6 +1084,7 @@
 
   <!-- ── Section: top picks (full width) — the shortlist leads ── -->
   <div class="section-eyebrow">01 — This Month's Standouts</div>
+  <p class="section-desc"><strong>What:</strong> the top-ranked products right now by <em>Weighted Score</em> (SV/Booster × age weight). <strong>How to read:</strong> these are the best value-for-money buys this month — a higher score means more set value per euro, with brand-new releases discounted so they don't dominate unfairly.</p>
   <div class="panel top-picks">
     <div class="panel-header">
       <div class="panel-title">🏆 Top Picks This Month</div>
@@ -1090,6 +1127,7 @@
 
   <!-- ── Section: product table (full width) ── -->
   <div class="section-eyebrow">02 — The Board</div>
+  <p class="section-desc"><strong>What:</strong> every tracked product in one sortable table. <strong>KPIs:</strong> <em>€/Booster</em> (price ÷ packs inside), <em>SV/Booster</em> (set value per pack — the core comparison metric, higher is better), <em>Age</em>, and <em>Wtd. Score</em> (the headline ranking). A 💰 marks a possible buy signal — price fell while set value held. <strong>How to read:</strong> filter with the Type pills and reorder with the Sort menu above, or click any column header to sort.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">All Products</div>
@@ -1116,6 +1154,7 @@
 
   <!-- ── Section: set value / booster (full width) ── -->
   <div class="section-eyebrow">03 — Value Per Booster</div>
+  <p class="section-desc"><strong>What:</strong> the ten products giving the most <em>set value per booster</em>. <strong>How to read:</strong> a taller bar means more card value packed into each pack, independent of product type — the fairest way to compare a Booster Box against an ETB or Bundle.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">Set Value / Booster</div>
@@ -1128,6 +1167,7 @@
 
   <!-- ── Section: age vs value scatter (full width) ── -->
   <div class="section-eyebrow">04 — Age vs Value</div>
+  <p class="section-desc"><strong>What:</strong> every product plotted by <em>age</em> (horizontal) against <em>SV/Booster</em> (vertical). The dashed line is the expected value for a given age. <strong>How to read:</strong> points <span class="up">above</span> the line are better value than typical for their age; points <span class="down">below</span> are worse — the higher above the line, the better the bargain.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">Age vs Set Value / Booster</div>
@@ -1140,17 +1180,10 @@
 
   <!-- ── Section: relative value vs the age curve (full width) ── -->
   <div class="section-eyebrow">05 — Relative Value</div>
+  <p class="section-desc"><strong>What:</strong> products ranked by how far their SV/Booster sits above or below the expected-for-age line from section 04. <strong>KPI:</strong> <em>Δ vs peers</em> — the gap to that expectation (<span class="up">▲ better</span> · <span class="down">▼ worse</span>); the badge shows the fit quality (R²). <strong>How to read:</strong> the top of the list is the best value relative to same-age peers.</p>
   <div class="panel">
     <div class="panel-header">
-      <div>
-        <div class="panel-title">Relative Value — vs Peers of the Same Age</div>
-        <div style="font-size:0.7rem; color: var(--muted); font-family: 'DM Mono', monospace; margin-top:4px;">
-          Expected SV/Booster is fit from age across all products (the dashed line on the scatter above).
-          Above expected = better value than same-age peers.
-          <span style="color: var(--accent4)">▲ better</span> &nbsp;·&nbsp;
-          <span style="color: var(--accent2)">▼ worse</span>
-        </div>
-      </div>
+      <div class="panel-title">Relative Value — vs Peers of the Same Age</div>
       <div class="panel-badge" id="relval-fit-badge">—</div>
     </div>
     <div class="table-wrap">
@@ -1172,6 +1205,7 @@
 
   <!-- ── Section: price history (full width) ── -->
   <div class="section-eyebrow">06 — Price History</div>
+  <p class="section-desc"><strong>What:</strong> the tracked <em>price over time</em> for one selected product (choose from the dropdown). <strong>How to read:</strong> a falling line means it's getting cheaper — pair a dip here with a steady set value (sections 05 &amp; 07) to spot a buying window.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">Price History</div>
@@ -1184,16 +1218,10 @@
 
   <!-- ── Section: momentum & drawdown (full width) ── -->
   <div class="section-eyebrow">07 — Momentum &amp; Drawdown</div>
+  <p class="section-desc"><strong>What:</strong> recent price action per product. <strong>KPIs:</strong> <em>Δ last</em> (change since the previous snapshot), <em>since 1st</em> (change across all tracked history), and <em>vs Peak / Drawdown</em> (how far below its highest tracked price it is now). <strong>How to read:</strong> a deep drawdown (<span class="down">▼</span>) while set value holds steady can flag a buying opportunity. Sorted by deepest dip.</p>
   <div class="panel">
     <div class="panel-header">
-      <div>
-        <div class="panel-title">Momentum &amp; Drawdown</div>
-        <div style="font-size:0.7rem; color: var(--muted); font-family: 'DM Mono', monospace; margin-top:4px;">
-          Movement from the tracked history. Drawdown = current price vs its highest tracked price (a deep dip while set value holds can be a buying opportunity).
-          <span style="color: var(--accent4)">▲ up</span> &nbsp;·&nbsp;
-          <span style="color: var(--accent2)">▼ down</span>
-        </div>
-      </div>
+      <div class="panel-title">Momentum &amp; Drawdown</div>
       <div class="panel-badge">By deepest dip</div>
     </div>
     <div class="table-wrap">
@@ -1216,16 +1244,10 @@
 
   <!-- ── Section: SV/Booster trend over time (full width) ── -->
   <div class="section-eyebrow">08 — Trend Over Time</div>
+  <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> for one or more products — add a second from the compare dropdown. <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means each pack is holding more set value; because it's normalised per booster, BOX, ETB and BUNDLE are directly comparable.</p>
   <div class="panel">
     <div class="panel-header">
-      <div>
-        <div class="panel-title">Set Value / Booster — Trend Over Time</div>
-        <div style="font-size:0.7rem; color: var(--muted); font-family: 'DM Mono', monospace; margin-top:4px;">
-          Rising line = set value per pack increasing → comparable across BOX, ETB & BUNDLE &nbsp;·&nbsp;
-          <span style="color: var(--accent4)">▲ Rising</span> &nbsp;·&nbsp;
-          <span style="color: var(--accent2)">▼ Falling</span>
-        </div>
-      </div>
+      <div class="panel-title">Set Value / Booster — Trend Over Time</div>
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <select class="trend-select" id="ratio-product-select" style="max-width:200px"></select>
         <select class="trend-select" id="ratio-compare-select" style="max-width:200px">
@@ -1241,14 +1263,10 @@
 
   <!-- ── Section: scenario explorer (full width) ── -->
   <div class="section-eyebrow">09 — What If</div>
+  <p class="section-desc"><strong>What:</strong> a sandbox — drag the <em>Set Value</em> and <em>Price</em> sliders for the chosen product. <strong>How to read:</strong> watch how its <em>SV/Booster</em> and <em>Weighted Score</em> respond in real time, e.g. to answer "what price would make this a top pick?". Nothing here changes your saved data.</p>
   <div class="panel">
     <div class="panel-header">
-      <div>
-        <div class="panel-title">Scenario Explorer</div>
-        <div style="font-size:0.7rem; color: var(--muted); font-family: 'DM Mono', monospace; margin-top:4px;">
-          Adjust Set Value &amp; Product Price to see the impact on SV/Booster and Weighted Score
-        </div>
-      </div>
+      <div class="panel-title">Scenario Explorer</div>
       <select class="trend-select" id="scenario-product-select" style="max-width:220px"></select>
     </div>
     <div class="scenario-body" style="padding: 28px; display: grid; grid-template-columns: 1fr; gap: 36px;">
