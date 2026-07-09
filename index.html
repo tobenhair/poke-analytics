@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pokémon Product Analytics — Sealed TCG Price &amp; Value Tracker</title>
-<meta name="description" content="A free, open dashboard for tracking Pokémon TCG sealed-product prices (Booster Boxes, Elite Trainer Boxes, Bundles) and comparing their value over time. Not affiliated with Nintendo or The Pokémon Company. Not financial advice.">
+<title>Sealed TCG Analytics — Sealed Trading-Card Price &amp; Value Tracker</title>
+<meta name="description" content="A free, open dashboard for tracking sealed trading-card product prices (Booster Boxes, Elite Trainer Boxes, Bundles) and comparing their value over time. Currently tracks Pokémon TCG products. Not affiliated with Nintendo or The Pokémon Company. Not financial advice.">
 <meta name="theme-color" content="#0a0b0f">
 <meta name="color-scheme" content="dark">
 <!-- Open Graph / social share -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="Pokémon Product Analytics — Sealed TCG Price &amp; Value Tracker">
-<meta property="og:description" content="Free dashboard for tracking Pokémon TCG sealed-product prices and value over time. An unofficial fan project — not financial advice.">
+<meta property="og:title" content="Sealed TCG Analytics — Sealed Trading-Card Price &amp; Value Tracker">
+<meta property="og:description" content="Free dashboard for tracking sealed trading-card product prices and value over time. Currently tracks Pokémon TCG products. An unofficial fan project — not financial advice.">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Pokémon Product Analytics — Sealed TCG Price &amp; Value Tracker">
-<meta name="twitter:description" content="Free dashboard for tracking Pokémon TCG sealed-product prices and value over time. An unofficial fan project — not financial advice.">
+<meta name="twitter:title" content="Sealed TCG Analytics — Sealed Trading-Card Price &amp; Value Tracker">
+<meta name="twitter:description" content="Free dashboard for tracking sealed trading-card product prices and value over time. Currently tracks Pokémon TCG products. An unofficial fan project — not financial advice.">
 <!-- Inline SVG favicon (no extra request, no CDN dependency) -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a0b0f'/%3E%3Crect x='16' y='34' width='7' height='16' rx='2' fill='%235cc7f2'/%3E%3Crect x='28' y='24' width='7' height='26' rx='2' fill='%23f4c651'/%3E%3Crect x='40' y='16' width='7' height='34' rx='2' fill='%237fd493'/%3E%3C/svg%3E">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -87,24 +87,15 @@
     gap: 24px;
   }
   .logo { display: flex; align-items: center; gap: 16px; }
-  .pokeball {
+  .logo-mark {
     width: 38px; height: 38px;
-    background: conic-gradient(var(--accent2) 0 50%, #f4f5f8 50% 100%);
-    border-radius: 50%;
-    position: relative;
     flex-shrink: 0;
-    animation: spin-slow 20s linear infinite;
+    border-radius: 10px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
     box-shadow: 0 4px 16px -4px rgba(0,0,0,0.6);
+    display: block;
   }
-  .pokeball::after {
-    content: '';
-    position: absolute;
-    inset: 4px;
-    background: radial-gradient(circle at 38% 38%, #fff 0%, #666 100%);
-    border-radius: 50%;
-    border: 3px solid var(--bg);
-  }
-  @keyframes spin-slow { to { transform: rotate(360deg); } }
   h1 {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 2.1rem;
@@ -783,9 +774,13 @@
 
   <header class="fade-in">
     <div class="logo">
-      <div class="pokeball"></div>
+      <svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="16" y="34" width="7" height="16" rx="2" fill="#5cc7f2"/>
+        <rect x="28" y="24" width="7" height="26" rx="2" fill="#f4c651"/>
+        <rect x="40" y="16" width="7" height="34" rx="2" fill="#7fd493"/>
+      </svg>
       <div>
-        <h1>Pokémon Product Analytics</h1>
+        <h1>Sealed TCG Analytics</h1>
         <div class="subtitle">Investment Decision Dashboard</div>
       </div>
     </div>
