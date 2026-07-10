@@ -72,7 +72,7 @@ alter table public.user_settings enable row level security;
 -- (used by the write policies below)
 create or replace function public.is_admin() returns boolean
   language sql stable as $$
-    select auth.uid() = 'PASTE-YOUR-ADMIN-USER-UUID'::uuid
+    select auth.uid() = 'bba57af1-bf76-4034-8aba-cc3884df373c'::uuid
   $$;
 
 -- ── products: read = any signed-in user; write = admin only ──
