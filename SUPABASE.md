@@ -17,38 +17,54 @@ policies (in [`supabase/schema.sql`](supabase/schema.sql)) enforce that every
 user can read and write only their own rows, server-side. Editing the client JS
 cannot bypass that. **Never put the `service_role` key in the page.**
 
+## Access model
+
+This is a **shared-dataset** setup:
+
+- **Every visitor must sign in.** Any signed-in user can **read** all product
+  data (the same shared set of products + snapshots).
+- **Only the admin can add or edit data** — the single account whose user UUID
+  you configure below. The Data Entry UI is hidden for everyone else, and the
+  database rejects writes from any non-admin account regardless of the UI.
+- Because viewers need accounts, **leave public sign-ups on** so people can
+  register. Each viewer's age-threshold preference is private to them; the
+  product data is shared.
+
 ## Setup
 
 1. **Create a project** at [supabase.com](https://supabase.com) (the free tier
    is plenty for personal use).
 
-2. **Apply the schema.** In the dashboard: *SQL Editor → New query*, paste the
-   contents of [`supabase/schema.sql`](supabase/schema.sql), and run it. This
-   creates the `products`, `snapshots`, and `user_settings` tables and their
-   RLS policies.
+2. **Create your admin account and copy its UUID.** *Authentication → Users →
+   Add user* (email + password). Then open that user and copy its **User UID** —
+   you'll need it in the next two steps. (Or sign up through the app later; the
+   dashboard route is simplest for getting the UUID up front.)
 
-3. **Configure auth.** *Authentication → Providers → Email* is enabled by
-   default. For a private, single-user setup, consider turning **off** public
-   sign-ups (*Authentication → Sign In / Providers → allow new users to sign
-   up*) after you create your own account, so no one else can register. You can
-   also disable "Confirm email" for a smoother first sign-in.
+3. **Apply the schema.** Open [`supabase/schema.sql`](supabase/schema.sql),
+   replace `PASTE-YOUR-ADMIN-USER-UUID` with the UUID from step 2, then paste
+   the whole file into *SQL Editor → New query → Run*. This creates the
+   `products`, `snapshots`, and `user_settings` tables and the RLS policies
+   (shared read, admin-only write). Safe to re-run.
 
-4. **Add your keys to the app.** In `index.html`, find the `SUPABASE_CONFIG`
-   block near the top and fill in your project URL and anon key:
+4. **Add your keys + admin UUID to the app.** In `index.html`, fill in the
+   `SUPABASE_CONFIG` block near the top:
 
    ```js
    window.SUPABASE_CONFIG = {
-     url:     'https://YOUR-PROJECT.supabase.co',
-     anonKey: 'YOUR-ANON-KEY',
+     url:         'https://YOUR-PROJECT.supabase.co',
+     anonKey:     'YOUR-ANON-KEY',
+     adminUserId: 'YOUR-ADMIN-USER-UUID',
    };
    ```
 
-   Find both under *Project Settings → API*. Leaving either blank keeps the app
-   in its original static/xlsx mode.
+   Find the URL + anon key under *Project Settings → API*; the UUID is the one
+   from step 2 (it must match the value baked into `schema.sql`). Leaving `url`
+   or `anonKey` blank keeps the app in its original static/xlsx mode.
 
-5. **Create your account.** Serve the app, and the sign-in overlay appears.
-   Click **Create an account**, then sign in (confirm your email first if
-   confirmation is enabled).
+5. **Sign in.** Serve the app, and the sign-in overlay appears. Sign in with the
+   admin account from step 2 — Data Entry and **☁ Save to cloud** appear only
+   for that account. Other people can **Create an account** and will see the
+   shared data in read-only form (no Data Entry).
 
 6. **(Optional) Import your existing data.** Seed your account from the current
    workbook instead of re-entering it. Two ways:
@@ -75,15 +91,17 @@ cannot bypass that. **Never put the `service_role` key in the page.**
 ## How it works once enabled
 
 - On load, the app checks for a session. No session → sign-in overlay. Signed
-  in → your products and snapshots are loaded from the database (the normalised
-  `snapshots` rows are pivoted back into the price/value history the charts
-  use).
-- The **Data Entry** tab is revealed when signed in. Enter the month's prices
-  and set values (or add new products), then click **☁ Save to cloud** to upsert
-  a snapshot for the current label — no file commit needed.
+  in → the shared products and snapshots are loaded from the database (the
+  normalised `snapshots` rows are pivoted back into the price/value history the
+  charts use). Every signed-in user sees the same data.
+- The **Data Entry** tab and **☁ Save to cloud** are revealed **only for the
+  admin** (the account matching `adminUserId`). The admin enters the month's
+  prices and set values (or adds new products) and saves — no file commit
+  needed. Everyone else is read-only, and the database rejects any write that
+  doesn't come from the admin.
 - **⬇ Export updated .xlsx** still works as a backup, and importing an `.xlsx`
   by drag-drop is still available.
-- The age-threshold slider is saved per user.
+- The age-threshold slider is saved per user (private to each account).
 
 ## Data model
 
@@ -91,8 +109,11 @@ Derived metrics (age, price/booster, SV/booster, weighted score) are **not**
 stored — the client recomputes them, exactly as for the `.xlsx` path. Only raw
 inputs live in the database:
 
-| Table | Purpose | Key columns |
-|-------|---------|-------------|
-| `products` | one row per tracked product | `name`, `type`, `release`, `cardmarket_url` |
-| `snapshots` | one row per product per date | `product_id`, `snapshot_date`, `price`, `set_value` |
-| `user_settings` | per-user preferences | `age_threshold` |
+| Table | Purpose | Access | Key columns |
+|-------|---------|--------|-------------|
+| `products` | one row per tracked product | read: all signed-in · write: admin | `name`, `type`, `release`, `cardmarket_url` |
+| `snapshots` | one row per product per date | read: all signed-in · write: admin | `product_id`, `snapshot_date`, `price`, `set_value` |
+| `user_settings` | per-user preferences | read/write: own row | `age_threshold` |
+
+The admin is identified by user UUID in a `public.is_admin()` SQL function that
+the write policies call; it must match `SUPABASE_CONFIG.adminUserId` in the app.

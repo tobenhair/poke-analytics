@@ -32,6 +32,11 @@
   window.SUPABASE_CONFIG = {
     url:     'https://asjsyhodyiuajueidcwp.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzanN5aG9keWl1YWp1ZWlkY3dwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2OTkzODEsImV4cCI6MjA5OTI3NTM4MX0.GENXmuwP0WHmlRRh360Sjn1aGS4HWaGQHeo9byMbh9M',
+    // The admin account's user UUID. All signed-in users can read the shared
+    // product data; only this user sees Data Entry and can save. Must match the
+    // UUID baked into the write policies in supabase/schema.sql. Find it under
+    // Dashboard > Authentication > Users > your user > "User UID".
+    adminUserId: 'PASTE-YOUR-ADMIN-USER-UUID',
   };
 </script>
 <script>
@@ -1522,7 +1527,7 @@
           </table>
         </div>
         <div style="padding: 14px 20px; border-top: 1px solid var(--border); display:flex; gap:10px; justify-content:flex-end;">
-          <button class="export-btn sb-only" id="save-cloud-btn" style="width:auto; padding: 8px 20px; background:var(--accent3); color:#05070c;">
+          <button class="export-btn sb-only admin-only" id="save-cloud-btn" style="width:auto; padding: 8px 20px; background:var(--accent3); color:#05070c;">
             ☁ Save to cloud
           </button>
           <button class="export-btn" id="export-xlsx-btn" style="width:auto; padding: 8px 20px;">
@@ -3245,13 +3250,19 @@ function accountMsg(msg, isError) {
   el.style.display   = 'block';
 }
 
-// Reflect signed-in state in the UI: reveal .sb-only controls, and treat a
-// signed-in user as "admin" so the Data Entry tab and upload bar appear.
+// Reflect signed-in state in the UI. Every signed-in user gets `sb-authed`
+// (sign-out + change-password + shared data). Only the admin — the account
+// whose UUID matches SUPABASE_CONFIG.adminUserId — gets `is-admin`, which
+// reveals Data Entry and cloud-save. This is UI gating only; the database's
+// write policies (supabase/schema.sql) are what actually enforce admin-only
+// writes, so a non-admin who forced the UI open still can't save.
 function setAuthedUI(user) {
   sbUser = user || null;
   const root = document.documentElement;
   if (sbUser) {
-    root.classList.add('sb-authed', 'is-admin');
+    const isAdmin = !!SB_CFG.adminUserId && sbUser.id === SB_CFG.adminUserId;
+    root.classList.add('sb-authed');
+    root.classList.toggle('is-admin', isAdmin);
     document.getElementById('auth-user-email').textContent = sbUser.email || '';
     showAuthOverlay(false);
   } else {
