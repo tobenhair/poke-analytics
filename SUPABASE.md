@@ -51,8 +51,17 @@ cannot bypass that. **Never put the `service_role` key in the page.**
    confirmation is enabled).
 
 6. **(Optional) Import your existing data.** Seed your account from the current
-   workbook instead of re-entering it — see
-   [`supabase/migrate-xlsx.mjs`](supabase/migrate-xlsx.mjs):
+   workbook instead of re-entering it. Two ways:
+
+   **a) No terminal / phone-friendly — paste SQL.** Open
+   [`supabase/seed.sql`](supabase/seed.sql), set your account email on the
+   marked line, and paste the whole file into *Dashboard → SQL Editor → New
+   query → Run*. It upserts every product and snapshot for your account and is
+   safe to re-run. (Regenerate it from a newer workbook with
+   `node supabase/gen-seed.cjs`.)
+
+   **b) Terminal — run the migration script**
+   ([`supabase/migrate-xlsx.mjs`](supabase/migrate-xlsx.mjs)):
 
    ```bash
    npm install @supabase/supabase-js xlsx
