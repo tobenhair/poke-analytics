@@ -906,6 +906,28 @@
   </div>
 </div>
 
+<!-- ═══════════ CHANGE-PASSWORD OVERLAY (Supabase) ═══════════
+     Opened from the header (signed-in only). Updates the current user's
+     password via supabase.auth.updateUser. Direct child of <body>. -->
+<div class="modal-overlay" id="account-overlay">
+  <div class="modal" style="max-width:400px;">
+    <button class="modal-close" id="account-close" type="button">✕</button>
+    <h2 style="margin:0 0 6px;">Change password</h2>
+    <p class="modal-intro">Set a new password for your account. You'll stay signed in.</p>
+    <div class="auth-field">
+      <div class="field-label">New password</div>
+      <input class="field-input" id="account-password" type="password" autocomplete="new-password" placeholder="at least 6 characters">
+    </div>
+    <div class="auth-field">
+      <div class="field-label">Confirm new password</div>
+      <input class="field-input" id="account-password2" type="password" autocomplete="new-password" placeholder="repeat new password">
+    </div>
+    <div id="account-msg" style="display:none; border-radius:6px; padding:10px 14px; margin-bottom:12px;
+         font-family:'DM Mono',monospace; font-size:0.72rem; line-height:1.5;"></div>
+    <button class="auth-btn" id="account-save-btn" type="button">Update password</button>
+  </div>
+</div>
+
 <div class="wrapper">
 
   <header class="fade-in">
@@ -925,6 +947,7 @@
       <div class="last-update" style="margin-top:4px">Prices in <span>EUR</span></div>
       <div class="sb-only" style="margin-top:8px; display:flex; align-items:center; gap:8px; justify-content:flex-end;">
         <span id="auth-user-email" style="font-family:'DM Mono',monospace; font-size:0.68rem; color:var(--muted);"></span>
+        <button class="auth-signout" id="change-pw-btn" type="button">Change password</button>
         <button class="auth-signout" id="auth-signout-btn" type="button">Sign out</button>
       </div>
     </div>
@@ -3210,6 +3233,18 @@ function showAuthError(msg) {
   el.style.display = 'block';
 }
 
+// Message inside the change-password modal (isError toggles red vs green).
+function accountMsg(msg, isError) {
+  const el = document.getElementById('account-msg');
+  if (!msg) { el.style.display = 'none'; return; }
+  el.textContent = msg;
+  el.style.background = isError ? 'rgba(232,71,63,0.08)' : 'rgba(127,212,147,0.08)';
+  el.style.border    = '1px solid ' + (isError ? 'rgba(232,71,63,0.2)' : 'rgba(127,212,147,0.25)');
+  el.style.borderLeft = '3px solid ' + (isError ? 'var(--accent2)' : 'var(--accent4)');
+  el.style.color     = isError ? '#e8a0a0' : '#9fd9ad';
+  el.style.display   = 'block';
+}
+
 // Reflect signed-in state in the UI: reveal .sb-only controls, and treat a
 // signed-in user as "admin" so the Data Entry tab and upload bar appear.
 function setAuthedUI(user) {
@@ -3380,6 +3415,40 @@ function wireAuthControls() {
   });
 
   document.getElementById('save-cloud-btn').addEventListener('click', saveToSupabase);
+
+  // ── Change password (signed-in only) ──
+  const accountOverlay = document.getElementById('account-overlay');
+  const openAccount = () => {
+    document.getElementById('account-password').value = '';
+    document.getElementById('account-password2').value = '';
+    accountMsg('');
+    accountOverlay.classList.add('open');
+    document.getElementById('account-password').focus();
+  };
+  const closeAccount = () => accountOverlay.classList.remove('open');
+
+  document.getElementById('change-pw-btn').addEventListener('click', openAccount);
+  document.getElementById('account-close').addEventListener('click', closeAccount);
+  accountOverlay.addEventListener('click', e => { if (e.target === e.currentTarget) closeAccount(); });
+
+  const submitNewPassword = async () => {
+    const pw  = document.getElementById('account-password').value;
+    const pw2 = document.getElementById('account-password2').value;
+    if (pw.length < 6)  { accountMsg('Password must be at least 6 characters.', true); return; }
+    if (pw !== pw2)     { accountMsg('Passwords do not match.', true); return; }
+    const btn = document.getElementById('account-save-btn');
+    btn.disabled = true;
+    accountMsg('⏳ Updating…', false);
+    const { error } = await sbClient.auth.updateUser({ password: pw });
+    btn.disabled = false;
+    if (error) { accountMsg(error.message, true); return; }
+    accountMsg('✓ Password updated.', false);
+    setTimeout(closeAccount, 1200);
+  };
+  document.getElementById('account-save-btn').addEventListener('click', submitNewPassword);
+  document.getElementById('account-password2').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitNewPassword();
+  });
 }
 
 // ============================================================
