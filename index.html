@@ -20,6 +20,21 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
+  // ── Supabase config (optional cloud sync + per-user auth) ──
+  // Leave BOTH fields blank to keep the app in its original static mode:
+  // pokemon_data.xlsx auto-loads, no login, ?admin gate as before. Zero new
+  // network dependencies are added while these are blank.
+  //
+  // Fill them in to enable login + cloud-stored data (see supabase/schema.sql
+  // and SUPABASE.md). The anon key is a *publishable* key and is meant to ship
+  // in client code — Row-Level Security is the real access boundary, not this
+  // key. Never put the service_role key here.
+  window.SUPABASE_CONFIG = {
+    url:     'https://asjsyhodyiuajueidcwp.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzanN5aG9keWl1YWp1ZWlkY3dwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2OTkzODEsImV4cCI6MjA5OTI3NTM4MX0.GENXmuwP0WHmlRRh360Sjn1aGS4HWaGQHeo9byMbh9M',
+  };
+</script>
+<script>
   // Admin gate (client-side, cosmetic): reveal the Data Entry tab and the
   // file-upload bar only when ?admin=1 is present, remembered per-device in
   // localStorage. Visitors just see the auto-loaded data. This is a static
@@ -829,9 +844,68 @@
   /* With the Data Entry card hidden, let the remaining overview card fill the row */
   html:not(.is-admin) .tab-overview { grid-template-columns: 1fr !important; }
 
+  /* ── Supabase auth UI ──
+     .sb-only elements (sign-out button, cloud-save button) appear only when
+     cloud sync is enabled AND a user is signed in (<html> carries .sb-authed).
+     Kept hidden by default so nothing flashes in the plain static mode. */
+  html:not(.sb-authed) .sb-only { display: none !important; }
+  .auth-field { margin-bottom: 12px; }
+  .auth-btn {
+    width: 100%; padding: 10px 16px; border-radius: 8px; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: 0.8rem; letter-spacing: 0.03em;
+    border: 1px solid var(--border); background: var(--accent); color: #05070c;
+    transition: filter 0.15s, border-color 0.15s;
+  }
+  .auth-btn:hover { filter: brightness(1.08); }
+  .auth-btn.secondary { background: transparent; color: var(--muted); }
+  .auth-btn.secondary:hover { border-color: var(--accent); color: var(--text); }
+  .auth-signout {
+    background: transparent; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    padding: 4px 10px; cursor: pointer; transition: border-color 0.15s, color 0.15s;
+  }
+  .auth-signout:hover { border-color: var(--accent2); color: var(--text); }
+
 </style>
 </head>
 <body>
+
+<!-- ═══════════ AUTH / SIGN-IN OVERLAY (Supabase) ═══════════
+     A direct child of <body> (not any tab-pane) so it can display regardless
+     of which tab is active. Shown only when cloud sync is configured and no
+     user is signed in; never displayed in plain static mode. -->
+<div class="modal-overlay" id="auth-overlay">
+  <div class="modal" style="max-width:400px;">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
+      <svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="true" style="width:32px;height:32px;">
+        <rect x="16" y="34" width="7" height="16" rx="2" fill="#5cc7f2"/>
+        <rect x="28" y="24" width="7" height="26" rx="2" fill="#f4c651"/>
+        <rect x="40" y="16" width="7" height="34" rx="2" fill="#7fd493"/>
+      </svg>
+      <h2 style="margin:0;">Sign in</h2>
+    </div>
+    <p class="modal-intro">Sign in to load and save your tracked products in the cloud.</p>
+    <div class="auth-field">
+      <div class="field-label">Email</div>
+      <input class="field-input" id="auth-email" type="email" autocomplete="email" placeholder="you@example.com">
+    </div>
+    <div class="auth-field">
+      <div class="field-label">Password</div>
+      <input class="field-input" id="auth-password" type="password" autocomplete="current-password" placeholder="••••••••">
+    </div>
+    <div id="auth-error" style="display:none; background:rgba(232,71,63,0.08); border:1px solid rgba(232,71,63,0.2);
+         border-left:3px solid var(--accent2); border-radius:6px; padding:10px 14px; margin-bottom:12px;
+         font-family:'DM Mono',monospace; font-size:0.72rem; color:#e8a0a0; line-height:1.5;"></div>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button class="auth-btn" id="auth-signin-btn" type="button">Sign in</button>
+      <button class="auth-btn secondary" id="auth-signup-btn" type="button">Create an account</button>
+    </div>
+    <p style="font-family:'DM Mono',monospace; font-size:0.62rem; color:var(--muted); margin-top:14px; line-height:1.5;">
+      Your data is private to your account. New sign-ups may require email confirmation depending on the project's settings.
+    </p>
+  </div>
+</div>
+
 <div class="wrapper">
 
   <header class="fade-in">
@@ -849,6 +923,10 @@
     <div class="header-meta">
       <div class="last-update">Last updated: <span>April 20, 2026</span></div>
       <div class="last-update" style="margin-top:4px">Prices in <span>EUR</span></div>
+      <div class="sb-only" style="margin-top:8px; display:flex; align-items:center; gap:8px; justify-content:flex-end;">
+        <span id="auth-user-email" style="font-family:'DM Mono',monospace; font-size:0.68rem; color:var(--muted);"></span>
+        <button class="auth-signout" id="auth-signout-btn" type="button">Sign out</button>
+      </div>
     </div>
   </header>
 
@@ -1421,6 +1499,9 @@
           </table>
         </div>
         <div style="padding: 14px 20px; border-top: 1px solid var(--border); display:flex; gap:10px; justify-content:flex-end;">
+          <button class="export-btn sb-only" id="save-cloud-btn" style="width:auto; padding: 8px 20px; background:var(--accent3); color:#05070c;">
+            ☁ Save to cloud
+          </button>
           <button class="export-btn" id="export-xlsx-btn" style="width:auto; padding: 8px 20px;">
             ⬇ Export updated .xlsx
           </button>
@@ -2103,6 +2184,56 @@ function isNonNegNum(v) {
   return typeof v === 'number' && isFinite(v) && v >= 0;
 }
 
+// Booster count derived from Type — no user input needed (BOX 36, ETB 9, BUNDLE 6)
+function boostersFromType(type) {
+  if (type === 'BOX')    return 36;
+  if (type === 'ETB')    return 9;
+  if (type === 'BUNDLE') return 6;
+  return null;
+}
+
+// ── Derive calculated product fields from raw inputs + latest snapshot ──
+// Shared by the .xlsx parser and the Supabase loader so both paths compute
+// price/age/pricePerBooster/svPerBooster/score identically. Mutates each
+// product in place; returns an array of error strings for products missing a
+// usable latest Price or Set Value (the caller decides whether to reject or
+// skip them). The ageWeight/score written here are provisional — recomputeScores()
+// overwrites them using the current ageThreshold before the first render.
+function deriveProducts(newProducts, newHistoricalData) {
+  const derivationErrors = [];
+  const today = new Date();
+  newProducts.forEach(p => {
+    const hist     = newHistoricalData[p.name];
+    const boosters = boostersFromType(p.type);
+
+    // Latest non-null price and setVal from historical data
+    const latestPrice  = hist ? [...hist.price].reverse().find(v => v != null)  : null;
+    const latestSetVal = hist ? [...hist.setVal].reverse().find(v => v != null) : null;
+
+    if (latestPrice  == null) derivationErrors.push(`"${p.name}": no valid Price found in Historical Data`);
+    if (latestSetVal == null) derivationErrors.push(`"${p.name}": no valid Set Value found in Historical Data`);
+
+    if (latestPrice != null && latestSetVal != null && boosters) {
+      const releaseDate = new Date(p.release);
+      const ageYears    = parseFloat(((today - releaseDate) / (1000 * 60 * 60 * 24 * 365.25)).toFixed(2));
+      const ageWeight   = parseFloat((ageYears >= 3 ? 1.0 : Math.max(0.10, ageYears / 3)).toFixed(2));
+      const pricePerBooster = latestPrice / boosters;
+      const svPerBooster    = latestSetVal / pricePerBooster;
+      const score           = parseFloat((svPerBooster * ageWeight).toFixed(1));
+
+      p.boosters        = boosters;
+      p.age             = ageYears;
+      p.price           = latestPrice;
+      p.setVal          = latestSetVal;
+      p.pricePerBooster = parseFloat(pricePerBooster.toFixed(1));
+      p.svPerBooster    = parseFloat(svPerBooster.toFixed(1));
+      p.ageWeight       = ageWeight;
+      p.score           = score;
+    }
+  });
+  return derivationErrors;
+}
+
 // ── main validator + parser ───────────────────────────────────
 function parseXlsx(arrayBuffer) {
   const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
@@ -2189,14 +2320,6 @@ function parseXlsx(arrayBuffer) {
   const dateSet  = [];
   const histNames = new Set();
 
-  // Booster count derived from Type — no user input needed
-  const boostersFromType = type => {
-    if (type === 'BOX')    return 36;
-    if (type === 'ETB')    return 9;
-    if (type === 'BUNDLE') return 6;
-    return null;
-  };
-
   histRows.forEach((row, i) => {
     const rowNum = i + 2;
     const name   = col(row, 'Product');
@@ -2250,36 +2373,7 @@ function parseXlsx(arrayBuffer) {
   });
 
   // ── Derive all calculated fields from static inputs + latest hist snapshot ──
-  const today = new Date();
-  newProducts.forEach(p => {
-    const hist     = newHistoricalData[p.name];
-    const boosters = boostersFromType(p.type);
-
-    // Latest non-null price and setVal from historical data
-    const latestPrice  = hist ? [...hist.price].reverse().find(v => v != null)  : null;
-    const latestSetVal = hist ? [...hist.setVal].reverse().find(v => v != null) : null;
-
-    if (latestPrice  == null) errors.push(`"${p.name}": no valid Price found in Historical Data`);
-    if (latestSetVal == null) errors.push(`"${p.name}": no valid Set Value found in Historical Data`);
-
-    if (latestPrice != null && latestSetVal != null && boosters) {
-      const releaseDate = new Date(p.release);
-      const ageYears    = parseFloat(((today - releaseDate) / (1000 * 60 * 60 * 24 * 365.25)).toFixed(2));
-      const ageWeight   = parseFloat((ageYears >= 3 ? 1.0 : Math.max(0.10, ageYears / 3)).toFixed(2));
-      const pricePerBooster = latestPrice / boosters;
-      const svPerBooster    = latestSetVal / pricePerBooster;
-      const score           = parseFloat((svPerBooster * ageWeight).toFixed(1));
-
-      p.boosters        = boosters;
-      p.age             = ageYears;
-      p.price           = latestPrice;
-      p.setVal          = latestSetVal;
-      p.pricePerBooster = parseFloat(pricePerBooster.toFixed(1));
-      p.svPerBooster    = parseFloat(svPerBooster.toFixed(1));
-      p.ageWeight       = ageWeight;
-      p.score           = score;
-    }
-  });
+  deriveProducts(newProducts, newHistoricalData).forEach(e => errors.push(e));
 
   if (errors.length) throw new Error(errors.join('||'));
 
@@ -3064,7 +3158,7 @@ document.getElementById('scenario-reset').addEventListener('click', initScenario
 // ============================================================
 // AUTO-LOAD pokemon_data.xlsx FROM SAME DIRECTORY (if present)
 // ============================================================
-(async function tryAutoLoad() {
+async function tryAutoLoad() {
   try {
     const res = await fetch('pokemon_data.xlsx', { cache: 'no-cache' });
     if (!res.ok) return; // file not found — silently fall back to hardcoded data
@@ -3075,6 +3169,257 @@ document.getElementById('scenario-reset').addEventListener('click', initScenario
   } catch (err) {
     // Parse error — log to console but don't disrupt the UI
     console.warn('Auto-load failed:', err.message);
+  }
+}
+
+// ============================================================
+// SUPABASE — optional cloud sync + per-user auth
+// ------------------------------------------------------------
+// Active only when window.SUPABASE_CONFIG.url and .anonKey are both set.
+// When inactive, none of this runs and the app behaves exactly as the plain
+// static/xlsx version (tryAutoLoad + ?admin gate). Security lives in the
+// database's Row-Level Security policies (see supabase/schema.sql), not here.
+// ============================================================
+const SB_CFG     = window.SUPABASE_CONFIG || {};
+const SB_ENABLED = !!(SB_CFG.url && SB_CFG.anonKey);
+const SB_SDK_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
+let sbClient   = null;   // Supabase JS client (created after the SDK loads)
+let sbUser     = null;   // current signed-in auth user, or null
+let sbProductIds = {};   // product name → DB uuid (for writing snapshots)
+let sbLoadedUserId = null; // user whose data is currently loaded (load guard)
+
+function loadSupabaseSdk() {
+  return new Promise((resolve, reject) => {
+    if (window.supabase) return resolve(window.supabase);
+    const s = document.createElement('script');
+    s.src = SB_SDK_URL;
+    s.onload  = () => window.supabase ? resolve(window.supabase)
+                                      : reject(new Error('Supabase SDK loaded but global missing'));
+    s.onerror = () => reject(new Error('Failed to load the Supabase SDK from CDN'));
+    document.head.appendChild(s);
+  });
+}
+
+function showAuthOverlay(show) {
+  document.getElementById('auth-overlay').classList.toggle('open', show);
+}
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  if (!msg) { el.style.display = 'none'; return; }
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// Reflect signed-in state in the UI: reveal .sb-only controls, and treat a
+// signed-in user as "admin" so the Data Entry tab and upload bar appear.
+function setAuthedUI(user) {
+  sbUser = user || null;
+  const root = document.documentElement;
+  if (sbUser) {
+    root.classList.add('sb-authed', 'is-admin');
+    document.getElementById('auth-user-email').textContent = sbUser.email || '';
+    showAuthOverlay(false);
+  } else {
+    root.classList.remove('sb-authed', 'is-admin');
+    document.getElementById('auth-user-email').textContent = '';
+    showAuthOverlay(true);
+  }
+}
+
+// Load every product + snapshot for the signed-in user and hand them to the
+// same applyNewData() path the .xlsx loader uses. Pivots the normalized
+// snapshot rows back into the aligned price[]/setVal[] arrays the app expects.
+async function loadFromSupabase() {
+  const [prodRes, snapRes, setRes] = await Promise.all([
+    sbClient.from('products').select('*').order('release', { ascending: true }),
+    sbClient.from('snapshots').select('*'),
+    sbClient.from('user_settings').select('age_threshold').maybeSingle(),
+  ]);
+  if (prodRes.error) throw prodRes.error;
+  if (snapRes.error) throw snapRes.error;
+
+  const productList = prodRes.data || [];
+  const snapList    = snapRes.data || [];
+
+  // Apply saved age threshold (if any) before deriving/rendering.
+  if (setRes && !setRes.error && setRes.data && setRes.data.age_threshold != null) {
+    ageThreshold = parseFloat(setRes.data.age_threshold);
+    const slider = document.getElementById('age-threshold-slider');
+    if (slider) slider.value = ageThreshold;
+    const disp = document.getElementById('age-threshold-display');
+    if (disp) disp.textContent = ageThreshold.toFixed(1);
+  }
+
+  // Distinct snapshot dates, chronologically.
+  const newHistDates = [...new Set(snapList.map(s => s.snapshot_date))].sort();
+
+  sbProductIds = {};
+  const newHistoricalData = {};
+  const newLinks = {};
+  const newProducts = productList.map(p => {
+    sbProductIds[p.name] = p.id;
+    const byDate = {};
+    snapList.filter(s => s.product_id === p.id).forEach(r => { byDate[r.snapshot_date] = r; });
+    newHistoricalData[p.name] = {
+      price:  newHistDates.map(d => byDate[d]?.price ?? null),
+      setVal: newHistDates.map(d => byDate[d]?.set_value ?? null),
+    };
+    if (p.cardmarket_url) newLinks[p.name] = p.cardmarket_url;
+    return {
+      name: p.name, type: String(p.type).toUpperCase(), release: p.release,
+      boosters: null, age: null, price: null, setVal: null,
+      pricePerBooster: null, svPerBooster: null, ageWeight: null, score: null,
+    };
+  });
+
+  // Derive metrics; keep only products that have at least one usable snapshot.
+  deriveProducts(newProducts, newHistoricalData);
+  const usable = newProducts.filter(p => p.price != null && p.setVal != null);
+
+  if (!usable.length) {
+    // Empty (new) account: leave the sample data on screen and prompt the user.
+    showStatus('☁ Signed in — no cloud data yet. Add products in Data Entry, then “Save to cloud”.', false);
+    return;
+  }
+  applyNewData({ newProducts: usable, newHistoricalData, newHistDates, newLinks });
+  showStatus('☁ Loaded ' + usable.length + ' products from your cloud account', false);
+}
+
+// Write the current Data Entry state (new products, entered snapshot values,
+// Cardmarket links, age threshold) to Supabase, then reload from the cloud.
+async function saveToSupabase() {
+  if (!sbUser) { showStatus('Sign in to save to the cloud', true); return; }
+  const btn = document.getElementById('save-cloud-btn');
+  const snapLabel = document.getElementById('snapshot-label').value.trim() || todayLabel();
+  try {
+    if (btn) btn.disabled = true;
+    showStatus('⏳ Saving to cloud…', false);
+
+    // 1. Insert brand-new (pending) products, capturing their DB ids.
+    const newOnes = pendingProducts.filter(p => !products.find(ep => ep.name === p.name));
+    for (const p of newOnes) {
+      const { data, error } = await sbClient.from('products')
+        .insert({ name: p.name, type: p.type, release: p.release, cardmarket_url: productUrls[p.name] || null })
+        .select('id').single();
+      if (error) throw error;
+      sbProductIds[p.name] = data.id;
+    }
+
+    // 2. Update Cardmarket links on existing products.
+    for (const [name, url] of Object.entries(productUrls)) {
+      const id = sbProductIds[name];
+      if (id && !newOnes.find(p => p.name === name)) {
+        const { error } = await sbClient.from('products').update({ cardmarket_url: url }).eq('id', id);
+        if (error) throw error;
+      }
+    }
+
+    // 3. Upsert this snapshot's entered values (one row per product per date).
+    const rows = [];
+    Object.entries(entryData).forEach(([name, d]) => {
+      const id = sbProductIds[name];
+      if (!id) return;
+      if (d.price == null && d.setVal == null) return;
+      rows.push({
+        product_id: id, snapshot_date: snapLabel,
+        price: d.price ?? null, set_value: d.setVal ?? null,
+      });
+    });
+    if (rows.length) {
+      const { error } = await sbClient.from('snapshots')
+        .upsert(rows, { onConflict: 'product_id,snapshot_date' });
+      if (error) throw error;
+    }
+
+    // 4. Persist the age-threshold setting.
+    const { error: setErr } = await sbClient.from('user_settings')
+      .upsert({ user_id: sbUser.id, age_threshold: ageThreshold });
+    if (setErr) throw setErr;
+
+    // 5. Reset the entry buffers and reload the authoritative cloud state.
+    entryData = {};
+    pendingProducts = [];
+    await loadFromSupabase();
+    renderEntryTable();
+    showStatus('✓ Saved to cloud — ' + rows.length + ' value(s) for “' + snapLabel + '”'
+               + (newOnes.length ? ', ' + newOnes.length + ' new product(s)' : ''), false);
+  } catch (err) {
+    console.error('Cloud save failed:', err);
+    showStatus('✕ Cloud save failed: ' + (err.message || err), true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── Auth control wiring (only meaningful when SB_ENABLED) ──
+function wireAuthControls() {
+  const email = () => document.getElementById('auth-email').value.trim();
+  const pass  = () => document.getElementById('auth-password').value;
+
+  document.getElementById('auth-signin-btn').addEventListener('click', async () => {
+    showAuthError('');
+    const { error } = await sbClient.auth.signInWithPassword({ email: email(), password: pass() });
+    if (error) showAuthError(error.message);
+  });
+
+  document.getElementById('auth-signup-btn').addEventListener('click', async () => {
+    showAuthError('');
+    const { data, error } = await sbClient.auth.signUp({ email: email(), password: pass() });
+    if (error) { showAuthError(error.message); return; }
+    if (data && data.user && !data.session) {
+      showAuthError('Account created — check your email to confirm, then sign in.');
+    }
+  });
+
+  document.getElementById('auth-password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('auth-signin-btn').click();
+  });
+
+  document.getElementById('auth-signout-btn').addEventListener('click', async () => {
+    await sbClient.auth.signOut();
+  });
+
+  document.getElementById('save-cloud-btn').addEventListener('click', saveToSupabase);
+}
+
+// ============================================================
+// BOOT — choose data source based on whether Supabase is configured
+// ============================================================
+(async function boot() {
+  if (!SB_ENABLED) {
+    // Plain static mode: unchanged behaviour.
+    tryAutoLoad();
+    return;
+  }
+  try {
+    const sdk = await loadSupabaseSdk();
+    sbClient = sdk.createClient(SB_CFG.url, SB_CFG.anonKey);
+    wireAuthControls();
+
+    // Single source of truth for auth state. Fires INITIAL_SESSION on startup
+    // (driving the first load), then SIGNED_IN / SIGNED_OUT on transitions.
+    // The sbLoadedUserId guard makes loading idempotent, so token refreshes
+    // and window refocus (which can re-emit SIGNED_IN) never reload the data
+    // and clobber unsaved Data Entry edits.
+    sbClient.auth.onAuthStateChange((_event, session) => {
+      setAuthedUI(session ? session.user : null);
+      const uid = session ? session.user.id : null;
+      if (uid && uid !== sbLoadedUserId) {
+        sbLoadedUserId = uid;
+        loadFromSupabase().catch(err => {
+          console.error('Cloud load failed:', err);
+          showStatus('✕ Could not load cloud data: ' + (err.message || err), true);
+        });
+      } else if (!uid) {
+        sbLoadedUserId = null;
+      }
+    });
+  } catch (err) {
+    // SDK/network failure — fall back to the static data so the app still works.
+    console.error('Supabase init failed, falling back to static data:', err);
+    showAuthOverlay(false);
+    showStatus('⚠ Cloud sync unavailable — showing local data. ' + (err.message || ''), true);
+    tryAutoLoad();
   }
 })();
 </script>

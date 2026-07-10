@@ -34,6 +34,14 @@ The workbook has two required sheets — `Summary` (one row per product) and `Hi
 
 **To change the tracked data, edit the workbook — not the HTML.**
 
+### Optional third source — Supabase (cloud sync + auth)
+
+A third, **opt-in** source exists. It is active only when both `window.SUPABASE_CONFIG.url` and `.anonKey` (a `<script>` block near the top of `index.html`) are filled in. While they are blank the app behaves exactly as the static/xlsx version — no login, no new network requests — so the default GitHub Pages deployment is unaffected.
+
+When configured, `boot()` (replacing the old bare `tryAutoLoad()` IIFE) loads the Supabase JS SDK from CDN, gates the UI behind a sign-in overlay (`#auth-overlay`, a direct child of `<body>` so it shows regardless of active tab), and on sign-in calls `loadFromSupabase()`. That function reads the `products`/`snapshots`/`user_settings` tables, **pivots** the normalized snapshot rows back into the aligned `price[]`/`setVal[]` arrays, and feeds them through the same `applyNewData()` path as the workbook. `saveToSupabase()` (the **☁ Save to cloud** button, `#save-cloud-btn`, shown only when signed in) upserts the Data Entry buffers (`entryData`, `pendingProducts`, `productUrls`) plus the age threshold. Signed-in state adds `is-admin` (revealing Data Entry) and `sb-authed` (revealing `.sb-only` controls) to `<html>`.
+
+Only **raw** inputs are stored in the DB (name/type/release/url + per-snapshot price/set-value + age threshold); derived metrics are recomputed client-side. Metric derivation is shared by both the xlsx and Supabase paths via the module-level **`deriveProducts(newProducts, newHistoricalData)`** helper (and the module-level `boostersFromType()`), so the two loaders can never drift. Schema + RLS live in `supabase/schema.sql`; setup is documented in `SUPABASE.md`.
+
 ## Metrics & scoring (the analytical core)
 
 - Boosters per product type: **BOX = 36, ETB = 9, BUNDLE = 6**.
