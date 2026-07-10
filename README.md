@@ -45,6 +45,15 @@ The page pulls Chart.js and SheetJS from a CDN, so an internet connection is req
 
 Add new products at any time from the Data Entry tab; the product name must match exactly between both sheets.
 
+## Optional: cloud sync + login
+
+The default setup is a single static file with no accounts — the workbook is the
+source of truth. If you'd rather have **per-user logins with data stored in the
+cloud** (log in from any device, save without committing a file), you can point
+the app at a [Supabase](https://supabase.com) project while still hosting the
+frontend on GitHub Pages. This is off unless you fill in `SUPABASE_CONFIG` in
+`index.html`. See **[SUPABASE.md](SUPABASE.md)** for the full walkthrough.
+
 ## Data file format
 
 `pokemon_data.xlsx` must contain two sheets with these exact (case-sensitive) column names. An optional `Links` sheet stores Cardmarket URLs.
@@ -71,8 +80,11 @@ The in-app **File Format Guide** (linked from the upload panel) documents every 
 ## Project layout
 
 ```
-index.html          Self-contained dashboard (markup, styles, and logic)
-pokemon_data.xlsx   Tracked data workbook
+index.html               Self-contained dashboard (markup, styles, and logic)
+pokemon_data.xlsx        Tracked data workbook
+SUPABASE.md              Optional cloud-sync + login setup guide
+supabase/schema.sql      Database schema + Row-Level Security policies
+supabase/migrate-xlsx.mjs  One-time workbook → Supabase migration script
 ```
 
 ## Tech
