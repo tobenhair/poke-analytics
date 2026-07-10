@@ -19,6 +19,25 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+  // Admin gate (client-side, cosmetic): reveal the Data Entry tab and the
+  // file-upload bar only when ?admin=1 is present, remembered per-device in
+  // localStorage. Visitors just see the auto-loaded data. This is a static
+  // site, so this declutters the visitor UI — it is NOT a security boundary
+  // (in-browser edits are local-only until the .xlsx is committed to the
+  // repo). Use ?admin=0 to switch back to the visitor view.
+  (function () {
+    try {
+      var params = new URLSearchParams(location.search);
+      if (params.has('admin')) {
+        var v = params.get('admin');
+        if (v === '0' || v === 'off' || v === 'false') localStorage.removeItem('sta-admin');
+        else localStorage.setItem('sta-admin', '1');
+      }
+      if (localStorage.getItem('sta-admin') === '1') document.documentElement.classList.add('is-admin');
+    } catch (e) { /* localStorage blocked — stay in visitor mode */ }
+  })();
+</script>
 <style>
   :root {
     --bg: #0a0b0f;
@@ -802,6 +821,14 @@
     .rv { opacity: 1 !important; transform: none !important; }
   }
 
+  /* ── Admin-only UI (data entry + file upload) ──
+     Hidden by default so regular visitors never see it; revealed only when
+     <html> carries .is-admin (set by the ?admin gate in <head>). The safe
+     default is "hidden", so the admin UI never flashes for visitors. */
+  html:not(.is-admin) .admin-only { display: none !important; }
+  /* With the Data Entry card hidden, let the remaining overview card fill the row */
+  html:not(.is-admin) .tab-overview { grid-template-columns: 1fr !important; }
+
 </style>
 </head>
 <body>
@@ -830,7 +857,7 @@
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="welcome">👋 Welcome</button>
     <button class="tab-btn" data-tab="analysis">📊 Analysis</button>
-    <button class="tab-btn" data-tab="entry">✏️ Data Entry</button>
+    <button class="tab-btn admin-only" data-tab="entry">✏️ Data Entry</button>
   </div>
 
   <!-- ═══════════════════ WELCOME TAB ═══════════════════ -->
@@ -853,7 +880,7 @@
       </div>
 
       <!-- Three-card overview of tabs -->
-      <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 36px;">
+      <div class="tab-overview" style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 36px;">
 
         <!-- Analysis card -->
         <div class="panel" style="cursor:pointer;" onclick="document.querySelector('[data-tab=&quot;analysis&quot;]').click()">
@@ -876,7 +903,7 @@
         </div>
 
         <!-- Data Entry card -->
-        <div class="panel" style="cursor:pointer;" onclick="document.querySelector('[data-tab=&quot;entry&quot;]').click()">
+        <div class="panel admin-only" style="cursor:pointer;" onclick="document.querySelector('[data-tab=&quot;entry&quot;]').click()">
           <div style="padding: 22px 24px;">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom: 12px;">
               <div style="font-size: 1.4rem;">✏️</div>
@@ -896,8 +923,8 @@
         </div>
       </div>
 
-      <!-- How it works section -->
-      <div class="panel" style="margin-bottom: 24px;">
+      <!-- How it works section (describes the admin update workflow) -->
+      <div class="panel admin-only" style="margin-bottom: 24px;">
         <div class="panel-header">
           <div class="panel-title">How it works</div>
         </div>
@@ -978,7 +1005,7 @@
       <div style="display:flex; gap:12px; justify-content:center; margin-bottom: 36px;">
         <button class="tab-btn" style="background: var(--accent); color: #000; font-weight:500; border-color: var(--accent); border-radius: 8px;"
           onclick="document.querySelector('[data-tab=&quot;analysis&quot;]').click()">📊 Open Analysis →</button>
-        <button class="tab-btn" style="background: transparent; color: var(--accent4); border: 1px solid var(--accent4); border-radius: 8px;"
+        <button class="tab-btn admin-only" style="background: transparent; color: var(--accent4); border: 1px solid var(--accent4); border-radius: 8px;"
           onclick="document.querySelector('[data-tab=&quot;entry&quot;]').click()">✏️ Update Data →</button>
       </div>
 
@@ -998,7 +1025,7 @@
   <input type="file" id="xlsx-file-input" accept=".xlsx" style="display:none">
 
   <!-- Upload bar -->
-  <div class="upload-bar fade-in" id="upload-bar" style="animation-delay:0.02s">
+  <div class="upload-bar fade-in admin-only" id="upload-bar" style="animation-delay:0.02s">
     <div class="upload-icon">📂</div>
     <div class="upload-text">
       <div class="upload-title">Load your data file</div>
