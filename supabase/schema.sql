@@ -55,21 +55,49 @@ alter table public.products      enable row level security;
 alter table public.snapshots     enable row level security;
 alter table public.user_settings enable row level security;
 
--- Each authenticated user may read and write only their own rows. The USING
--- clause filters reads/updates/deletes; WITH CHECK guards inserts/updates so a
--- user cannot write rows attributed to someone else.
+-- Shared-dataset model:
+--   * Product data (products + snapshots) is READ by any signed-in user, but
+--     WRITTEN only by the admin — the single account allowed to add/edit data.
+--   * user_settings stays private per user (each viewer's own age threshold).
+--
+-- The admin is identified by user UUID. Set it once below (find it under
+-- Dashboard > Authentication > Users > your user > "User UID"). Re-running this
+-- whole file is safe — every policy is dropped first.
+--
+-- Re-running note: this replaces the earlier per-user "own products/snapshots"
+-- policies, so existing product rows (all owned by the admin) become readable
+-- by every signed-in user while writes stay locked to the admin.
+
+-- 👇 SET YOUR ADMIN USER UUID HERE 👇
+-- (used by the write policies below)
+create or replace function public.is_admin() returns boolean
+  language sql stable as $$
+    select auth.uid() = 'PASTE-YOUR-ADMIN-USER-UUID'::uuid
+  $$;
+
+-- ── products: read = any signed-in user; write = admin only ──
 drop policy if exists "own products" on public.products;
-create policy "own products" on public.products
+drop policy if exists "read products" on public.products;
+drop policy if exists "admin writes products" on public.products;
+create policy "read products" on public.products
+  for select to authenticated using (true);
+create policy "admin writes products" on public.products
   for all to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (public.is_admin())
+  with check (public.is_admin());
 
+-- ── snapshots: read = any signed-in user; write = admin only ──
 drop policy if exists "own snapshots" on public.snapshots;
-create policy "own snapshots" on public.snapshots
+drop policy if exists "read snapshots" on public.snapshots;
+drop policy if exists "admin writes snapshots" on public.snapshots;
+create policy "read snapshots" on public.snapshots
+  for select to authenticated using (true);
+create policy "admin writes snapshots" on public.snapshots
   for all to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (public.is_admin())
+  with check (public.is_admin());
 
+-- ── user_settings: each user reads/writes only their own row ──
 drop policy if exists "own settings" on public.user_settings;
 create policy "own settings" on public.user_settings
   for all to authenticated
