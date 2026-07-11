@@ -21,7 +21,13 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 External libraries load from CDNs at runtime (no install step): **Chart.js 4.4.1**, **SheetJS/xlsx 0.18.5**, and Google Fonts. An internet connection is required on first load.
 
-There are no lint/test/build commands. Verify changes by serving locally and exercising the three tabs in a browser (data auto-load, charts, Data Entry, export).
+The app itself has no build/bundle step — it's still one static `index.html`. There is, however, a lightweight CI harness (Node, dev-only) that guards against regressions:
+
+- `npm run validate` — parses `pokemon_data.xlsx` and asserts the exact contract `parseXlsx()` + `deriveProducts()` enforce (sheet/column names, Types, dates, cross-references, usable latest price/set value). Catches the *silent* fallback-to-sample-data that a malformed workbook would otherwise cause. Keep `scripts/validate-workbook.mjs` in sync with `parseXlsx()`.
+- `npm run test:e2e` — a Playwright smoke test that loads the real page over HTTP against the real workbook and asserts every tab renders without runtime errors (the automated backstop for bugs like a missed `recomputeScores()` before first render). It blanks `SUPABASE_CONFIG` at request time to force the static/xlsx path, so it needs no cloud credentials.
+- `npm test` runs both. `.github/workflows/ci.yml` runs them on every push/PR.
+
+Beyond CI, still verify UI changes by hand: serve locally and exercise the three tabs in a browser (data auto-load, charts, Data Entry, export).
 
 ## Data model — two sources
 
