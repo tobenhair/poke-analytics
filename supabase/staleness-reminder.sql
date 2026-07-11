@@ -37,7 +37,7 @@ as $$
 declare
   -- ── settings — edit these three ──
   recipient text := 'tobias.grundstrom@outlook.com';   -- who gets reminded
-  sender    text := 'Sealed TCG Analytics <reminders@yourdomain.com>'; -- a Resend-verified sender
+  sender    text := 'onboarding@resend.dev.recipient'; -- a Resend-verified sender
   threshold int  := 30;                                -- days; matches the app's STALE_DAYS
 
   latest    date;
