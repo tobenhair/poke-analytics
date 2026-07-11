@@ -837,7 +837,8 @@
   }
   .auth-signout:hover { border-color: var(--accent2); color: var(--text); }
 
-  /* ── Pre-login demo page ── */
+  /* ── Pre-login demo page — reuses the app's header, section-eyebrow and
+     panel/table styles so it matches the signed-in dashboard. ── */
   #demo-page {
     display: none;
     position: fixed;
@@ -845,59 +846,18 @@
     z-index: 900;               /* above the app, below the auth overlay (1000) */
     overflow-y: auto;
     background: var(--bg);
-    padding: 48px 24px 64px;
   }
   #demo-page.open { display: block; }
   /* While the demo is up (logged out), hide the app entirely so nothing shows
      behind it and there's no second scrollbar. #demo-page precedes .wrapper. */
   #demo-page.open ~ .wrapper { display: none; }
-  .demo-inner { max-width: 1040px; margin: 0 auto; }
-  .demo-hero { text-align: center; margin-bottom: 40px; }
-  .demo-hero .logo-mark { margin-bottom: 14px; }
-  .demo-hero h1 {
-    font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.06em;
-    font-size: 2.2rem; margin-bottom: 12px;
-    background: linear-gradient(135deg, var(--accent) 0%, #f5a623 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  }
-  .demo-hero p {
-    color: var(--text); line-height: 1.6; font-size: 0.95rem;
-    max-width: 560px; margin: 0 auto 22px;
-  }
-  .demo-sets { display: flex; flex-direction: column; gap: 30px; }
-  .demo-set-head {
-    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
-    margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--hairline);
-  }
-  .demo-set-name {
-    font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.06em;
-    font-size: 1.3rem; color: var(--accent3);
-  }
-  .demo-set-date {
-    font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted);
-  }
-  .demo-cards {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px;
-  }
-  .demo-card {
-    background: var(--card); border: 1px solid var(--hairline);
-    border-radius: var(--radius); padding: 16px 18px;
-    transition: border-color 0.2s var(--ease), transform 0.2s var(--ease);
-  }
-  .demo-card:hover { border-color: rgba(92,199,242,0.4); transform: translateY(-2px); }
-  .demo-card-name { font-size: 0.9rem; font-weight: 500; margin: 10px 0 12px; line-height: 1.35; }
-  .demo-metric {
-    display: flex; justify-content: space-between; align-items: baseline;
-    font-family: 'DM Mono', monospace; font-size: 0.74rem;
-    color: var(--muted); padding: 3px 0;
-  }
-  .demo-metric b { color: var(--text); font-weight: 500; }
-  .demo-metric.headline b { color: var(--accent4); font-size: 0.95rem; }
+  .demo-inner { max-width: 1200px; margin: 0 auto; padding: 40px 28px 64px; }
   .demo-foot {
-    text-align: center; margin-top: 36px;
+    text-align: center; margin-top: 8px;
     font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted);
   }
   .demo-empty { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 40px 0; }
+  @media (max-width: 640px) { .demo-inner { padding: 28px 16px 48px; } }
 
 </style>
 </head>
@@ -968,18 +928,24 @@
      invites sign-in for the full catalogue. Direct child of <body>. -->
 <div id="demo-page">
   <div class="demo-inner">
-    <div class="demo-hero">
-      <svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="true" style="width:44px;height:44px;">
-        <rect x="16" y="34" width="7" height="16" rx="2" fill="#5cc7f2"/>
-        <rect x="28" y="24" width="7" height="26" rx="2" fill="#f4c651"/>
-        <rect x="40" y="16" width="7" height="34" rx="2" fill="#7fd493"/>
-      </svg>
-      <h1>Sealed TCG Analytics</h1>
-      <p>A quick look at the three latest sets. Sign in to explore the full
-         catalogue — value rankings, price history, and buy signals.</p>
-      <button class="auth-btn" id="demo-signin-btn" type="button" style="max-width:200px; margin:0 auto;">Sign in</button>
-    </div>
-    <div id="demo-sets" class="demo-sets"></div>
+    <header>
+      <div class="logo">
+        <svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="true">
+          <rect x="16" y="34" width="7" height="16" rx="2" fill="#5cc7f2"/>
+          <rect x="28" y="24" width="7" height="26" rx="2" fill="#f4c651"/>
+          <rect x="40" y="16" width="7" height="34" rx="2" fill="#7fd493"/>
+        </svg>
+        <div>
+          <h1>Sealed TCG Analytics</h1>
+          <div class="subtitle">Investment Decision Dashboard</div>
+        </div>
+      </div>
+      <div class="header-meta">
+        <button class="auth-btn" id="demo-signin-btn" type="button" style="width:auto; padding:9px 24px;">Sign in</button>
+      </div>
+    </header>
+    <p class="kpi-intro" style="margin-top:10px;">A preview of the three latest sets. <strong>Sign in</strong> to explore the full catalogue — value rankings, price history, and buy signals.</p>
+    <div id="demo-sets"></div>
     <p class="demo-foot">Showing the 3 most recent sets · sign in to see everything.</p>
   </div>
 </div>
@@ -3363,25 +3329,38 @@ function renderDemo(groups) {
     host.innerHTML = '<div class="demo-empty">Preview unavailable right now — sign in to view the dashboard.</div>';
     return;
   }
-  host.innerHTML = groups.map(g => {
+  host.innerHTML = groups.map((g, i) => {
     const dateLabel = new Date(g.date).toLocaleDateString('en-SE', { year: 'numeric', month: 'long', day: 'numeric' });
-    const cards = g.products.map(p => `
-      <div class="demo-card">
-        <span class="type-badge type-${p.type}">${p.type}</span>
-        <div class="demo-card-name">${p.name}</div>
-        <div class="demo-metric"><span>Price</span> <b>€${fmt(p.price)}</b></div>
-        <div class="demo-metric"><span>Set value</span> <b>€${fmt(p.setVal)}</b></div>
-        <div class="demo-metric"><span>Price / booster</span> <b>€${fmt(p.pricePerBooster, 1)}</b></div>
-        <div class="demo-metric headline"><span>SV / booster</span> <b>${fmt(p.svPerBooster, 1)}×</b></div>
-      </div>`).join('');
+    const n = g.products.length;
+    const rows = g.products.map(p => {
+      const svClass = p.svPerBooster >= 150 ? 'val-excellent' : p.svPerBooster >= 80 ? 'val-good' : 'val-poor';
+      return `<tr>
+        <td class="product-name" title="${p.name}">${p.name}</td>
+        <td><span class="type-badge type-${p.type}">${p.type}</span></td>
+        <td class="num">${fmt(p.price)}</td>
+        <td class="num">${fmt(p.setVal)}</td>
+        <td class="num">${fmt(p.pricePerBooster, 1)}</td>
+        <td class="num ${svClass}">${fmt(p.svPerBooster, 1)}×</td>
+      </tr>`;
+    }).join('');
     return `
-      <section>
-        <div class="demo-set-head">
-          <span class="demo-set-name">${demoSetName(g.products)}</span>
-          <span class="demo-set-date">Released ${dateLabel}</span>
+      <div class="section-eyebrow">${String(i + 1).padStart(2, '0')} — ${demoSetName(g.products)}</div>
+      <p class="section-desc">Released ${dateLabel} · ${n} product${n > 1 ? 's' : ''} tracked in this set.</p>
+      <div class="panel" style="margin-bottom:40px;">
+        <div class="table-wrap" style="max-height:none;">
+          <table>
+            <thead><tr>
+              <th>Product</th>
+              <th>Type</th>
+              <th style="text-align:right">Price (€)</th>
+              <th style="text-align:right">Set Value (€)</th>
+              <th style="text-align:right">€/Booster</th>
+              <th style="text-align:right">SV/Booster</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
         </div>
-        <div class="demo-cards">${cards}</div>
-      </section>`;
+      </div>`;
   }).join('');
 }
 
