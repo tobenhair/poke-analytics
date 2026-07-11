@@ -112,7 +112,7 @@ This is a **shared-dataset** setup:
 
 Because prices are entered by hand on a monthly cadence, it's easy to forget a
 month. `supabase/staleness-reminder.sql` sets up a server-side job that emails
-you when the newest snapshot is older than a threshold (default **42 days**, the
+you when the newest snapshot is older than a threshold (default **30 days**, the
 same as the in-app staleness flag) — no need for anyone to have the page open.
 
 It uses **pg_cron** (schedule) + **pg_net** (outbound HTTP) + **[Resend](https://resend.com)**

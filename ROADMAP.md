@@ -24,10 +24,10 @@ reliability of *that* process is the product's credibility.
   the same catch-it-before-it-ships spirit as the workbook validator.
 - **Data-driven "last updated" + staleness** — the header should show the real
   latest *snapshot* date (not the page-load date), and visibly flag when the
-  newest data is older than ~6 weeks. Turns the manual cadence into an honest
+  newest data is older than ~30 days. Turns the manual cadence into an honest
   freshness signal instead of a hidden weakness.
 - **Server-side staleness email reminder** — a Supabase `pg_cron` job that emails
-  the maintainer (via Resend) when the newest snapshot crosses the same ~6-week
+  the maintainer (via Resend) when the newest snapshot crosses the same ~30-day
   threshold, so a forgotten month doesn't rely on someone having the page open.
   (`supabase/staleness-reminder.sql`; setup in `SUPABASE.md`.)
 

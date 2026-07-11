@@ -2680,7 +2680,7 @@ function latestSnapshotDate() {
 
 // The data is entered by hand on a monthly cadence, so flag when the newest
 // snapshot is stale — the header date is the product's honesty about freshness.
-const STALE_DAYS = 42; // ~6 weeks
+const STALE_DAYS = 30; // ~1 month
 
 function updateLastUpdated() {
   const dateEl = document.getElementById('last-update-date');

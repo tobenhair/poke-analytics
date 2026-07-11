@@ -3,7 +3,7 @@
 -- ============================================================
 -- Emails you when the newest price snapshot is older than a threshold, so a
 -- forgotten monthly update doesn't quietly go stale. This mirrors the in-app
--- staleness flag (STALE_DAYS = 42 in index.html) but runs server-side on a
+-- staleness flag (STALE_DAYS = 30 in index.html) but runs server-side on a
 -- schedule, independent of anyone having the page open.
 --
 -- Pieces: pg_cron (schedule) + pg_net (outbound HTTP) + Resend (email) +
@@ -38,7 +38,7 @@ declare
   -- ── settings — edit these three ──
   recipient text := 'tobias.grundstrom@outlook.com';   -- who gets reminded
   sender    text := 'Sealed TCG Analytics <reminders@yourdomain.com>'; -- a Resend-verified sender
-  threshold int  := 42;                                -- days; matches the app's STALE_DAYS
+  threshold int  := 30;                                -- days; matches the app's STALE_DAYS
 
   latest    date;
   days_old  int;
