@@ -71,6 +71,22 @@ A separate script near the end of `<body>` drives **reveal-on-scroll animations*
 
 This app has a deliberate, minimalist dark aesthetic, and it must stay that way. **Any time you add or change UI** (markup, CSS, a new section/view/component, a modal, table, cards, colours, or copy), follow the **`design-review` skill** (`.claude/skills/design-review/SKILL.md`): reuse the existing design tokens and components rather than inventing new ones, and actively question whether each new element earns its place and keeps the page easy to navigate. Load it before writing UI code and review the result against its checklist before committing. Don't let the design quietly drift — when in doubt, less.
 
+## Skills (load the relevant one before you change that area)
+
+Project skills live in `.claude/skills/`. Each encodes the invariants and
+failure modes for one area — load the matching one *before* editing, and run its
+checklist before committing:
+
+- **`design-review`** — any UI change (markup, CSS, components, copy).
+- **`data-integrity`** — the workbook, `parseXlsx`/`exportXlsx`, the hardcoded
+  fallback, or the Supabase schema/RLS. Keeps the loading contract from silently
+  breaking.
+- **`metrics-review`** — the scoring math, booster constants,
+  `recomputeScores`/`deriveProducts`, or any render function. Guards number
+  correctness and the recompute-before-render ordering invariant.
+- **`verify-app`** — before committing any change: how to actually verify in an
+  app with no unit suite (serve over HTTP, `npm test`, exercise the tabs).
+
 ## Editing invariants
 
 Markup, styles, and logic share one file, and the JS builds DOM from string templates, so:
