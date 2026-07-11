@@ -837,6 +837,68 @@
   }
   .auth-signout:hover { border-color: var(--accent2); color: var(--text); }
 
+  /* ── Pre-login demo page ── */
+  #demo-page {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 900;               /* above the app, below the auth overlay (1000) */
+    overflow-y: auto;
+    background: var(--bg);
+    padding: 48px 24px 64px;
+  }
+  #demo-page.open { display: block; }
+  /* While the demo is up (logged out), hide the app entirely so nothing shows
+     behind it and there's no second scrollbar. #demo-page precedes .wrapper. */
+  #demo-page.open ~ .wrapper { display: none; }
+  .demo-inner { max-width: 1040px; margin: 0 auto; }
+  .demo-hero { text-align: center; margin-bottom: 40px; }
+  .demo-hero .logo-mark { margin-bottom: 14px; }
+  .demo-hero h1 {
+    font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.06em;
+    font-size: 2.2rem; margin-bottom: 12px;
+    background: linear-gradient(135deg, var(--accent) 0%, #f5a623 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .demo-hero p {
+    color: var(--text); line-height: 1.6; font-size: 0.95rem;
+    max-width: 560px; margin: 0 auto 22px;
+  }
+  .demo-sets { display: flex; flex-direction: column; gap: 30px; }
+  .demo-set-head {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--hairline);
+  }
+  .demo-set-name {
+    font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.06em;
+    font-size: 1.3rem; color: var(--accent3);
+  }
+  .demo-set-date {
+    font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted);
+  }
+  .demo-cards {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px;
+  }
+  .demo-card {
+    background: var(--card); border: 1px solid var(--hairline);
+    border-radius: var(--radius); padding: 16px 18px;
+    transition: border-color 0.2s var(--ease), transform 0.2s var(--ease);
+  }
+  .demo-card:hover { border-color: rgba(92,199,242,0.4); transform: translateY(-2px); }
+  .demo-card-name { font-size: 0.9rem; font-weight: 500; margin: 10px 0 12px; line-height: 1.35; }
+  .demo-metric {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: 'DM Mono', monospace; font-size: 0.74rem;
+    color: var(--muted); padding: 3px 0;
+  }
+  .demo-metric b { color: var(--text); font-weight: 500; }
+  .demo-metric.headline b { color: var(--accent4); font-size: 0.95rem; }
+  .demo-foot {
+    text-align: center; margin-top: 36px;
+    font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted);
+  }
+  .demo-empty { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 40px 0; }
+
 </style>
 </head>
 <body>
@@ -847,6 +909,7 @@
      user is signed in; never displayed in plain static mode. -->
 <div class="modal-overlay" id="auth-overlay">
   <div class="modal" style="max-width:400px;">
+    <button class="modal-close" id="auth-close" type="button">✕</button>
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
       <svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="true" style="width:32px;height:32px;">
         <rect x="16" y="34" width="7" height="16" rx="2" fill="#5cc7f2"/>
@@ -855,7 +918,7 @@
       </svg>
       <h2 style="margin:0;">Sign in</h2>
     </div>
-    <p class="modal-intro">Sign in to load and save your tracked products in the cloud.</p>
+    <p class="modal-intro">Sign in to see the full catalogue and (for the admin) edit data.</p>
     <div class="auth-field">
       <div class="field-label">Email</div>
       <input class="field-input" id="auth-email" type="email" autocomplete="email" placeholder="you@example.com">
@@ -896,6 +959,28 @@
     <div id="account-msg" style="display:none; border-radius:6px; padding:10px 14px; margin-bottom:12px;
          font-family:'DM Mono',monospace; font-size:0.72rem; line-height:1.5;"></div>
     <button class="auth-btn" id="account-save-btn" type="button">Update password</button>
+  </div>
+</div>
+
+<!-- ═══════════ PRE-LOGIN DEMO PAGE (Supabase) ═══════════
+     Shown to logged-out visitors when cloud sync is enabled. Loads the 3
+     newest release-date sets (the only rows the anon RLS policy exposes) and
+     invites sign-in for the full catalogue. Direct child of <body>. -->
+<div id="demo-page">
+  <div class="demo-inner">
+    <div class="demo-hero">
+      <svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="true" style="width:44px;height:44px;">
+        <rect x="16" y="34" width="7" height="16" rx="2" fill="#5cc7f2"/>
+        <rect x="28" y="24" width="7" height="26" rx="2" fill="#f4c651"/>
+        <rect x="40" y="16" width="7" height="34" rx="2" fill="#7fd493"/>
+      </svg>
+      <h1>Sealed TCG Analytics</h1>
+      <p>A quick look at the three latest sets. Sign in to explore the full
+         catalogue — value rankings, price history, and buy signals.</p>
+      <button class="auth-btn" id="demo-signin-btn" type="button" style="max-width:200px; margin:0 auto;">Sign in</button>
+    </div>
+    <div id="demo-sets" class="demo-sets"></div>
+    <p class="demo-foot">Showing the 3 most recent sets · sign in to see everything.</p>
   </div>
 </div>
 
@@ -3101,6 +3186,9 @@ function loadSupabaseSdk() {
 function showAuthOverlay(show) {
   document.getElementById('auth-overlay').classList.toggle('open', show);
 }
+function showDemo(show) {
+  document.getElementById('demo-page').classList.toggle('open', show);
+}
 function showAuthError(msg) {
   const el = document.getElementById('auth-error');
   if (!msg) { el.style.display = 'none'; return; }
@@ -3135,10 +3223,12 @@ function setAuthedUI(user) {
     root.classList.toggle('is-admin', isAdmin);
     document.getElementById('auth-user-email').textContent = sbUser.email || '';
     showAuthOverlay(false);
+    showDemo(false);          // signed in → full app
   } else {
     root.classList.remove('sb-authed', 'is-admin');
     document.getElementById('auth-user-email').textContent = '';
-    showAuthOverlay(true);
+    showAuthOverlay(false);   // don't force the login modal…
+    showDemo(true);           // …show the pre-login demo instead
   }
 }
 
@@ -3199,6 +3289,100 @@ async function loadFromSupabase() {
   }
   applyNewData({ newProducts: usable, newHistoricalData, newHistDates, newLinks });
   showStatus('☁ Loaded ' + usable.length + ' products from your cloud account', false);
+}
+
+// ── Pre-login demo ──
+// Loads whatever the anon RLS policy exposes (the 3 newest release-date sets),
+// derives the same metrics as the full app, groups by set, and renders read-only
+// cards. Runs as the anonymous Supabase role, so it returns only the demo slice.
+async function loadDemo() {
+  let productList = [], snapList = [];
+  try {
+    const [prodRes, snapRes] = await Promise.all([
+      sbClient.from('products').select('*'),
+      sbClient.from('snapshots').select('*'),
+    ]);
+    if (prodRes.error) throw prodRes.error;
+    if (snapRes.error) throw snapRes.error;
+    productList = prodRes.data || [];
+    snapList    = snapRes.data || [];
+  } catch (err) {
+    console.warn('Demo load failed:', err.message || err);
+  }
+
+  const histDatesLocal = [...new Set(snapList.map(s => s.snapshot_date))].sort();
+  const hist = {};
+  const demoProducts = productList.map(p => {
+    const byDate = {};
+    snapList.filter(s => s.product_id === p.id).forEach(r => { byDate[r.snapshot_date] = r; });
+    hist[p.name] = {
+      price:  histDatesLocal.map(d => byDate[d]?.price ?? null),
+      setVal: histDatesLocal.map(d => byDate[d]?.set_value ?? null),
+    };
+    return {
+      name: p.name, type: String(p.type).toUpperCase(), release: p.release,
+      boosters: null, age: null, price: null, setVal: null,
+      pricePerBooster: null, svPerBooster: null, ageWeight: null, score: null,
+    };
+  });
+  deriveProducts(demoProducts, hist);
+  const usable = demoProducts.filter(p => p.price != null && p.setVal != null);
+
+  // Group by release date, newest first, keep the 3 most recent dates.
+  const dates = [...new Set(usable.map(p => p.release))].sort().reverse().slice(0, 3);
+  const groups = dates.map(d => ({
+    date: d,
+    products: usable.filter(p => p.release === d)
+                    .sort((a, b) => b.svPerBooster - a.svPerBooster),
+  }));
+  renderDemo(groups);
+}
+
+// Longest common prefix of the product names in a set → a readable set name.
+function demoSetName(products) {
+  const names = products.map(p => p.name);
+  if (!names.length) return 'New release';
+  let pfx = names[0];
+  for (const n of names.slice(1)) {
+    let i = 0;
+    while (i < pfx.length && i < n.length && pfx[i] === n[i]) i++;
+    pfx = pfx.slice(0, i);
+  }
+  pfx = pfx.replace(/\s*[-–—]\s*$/, '').trim();
+  // Strip a trailing product-type suffix so single-product sets read as the set
+  // name (e.g. "Phantasmal Flames Booster Box" → "Phantasmal Flames").
+  const stripped = pfx.replace(/\s+(Elite Trainer Box|Booster Box|Booster Bundle|Bundle|ETB)$/i, '').trim();
+  if (stripped.length >= 3) return stripped;
+  if (pfx.length >= 3) return pfx;
+  return names[0] || 'New release';
+}
+
+function renderDemo(groups) {
+  const host = document.getElementById('demo-sets');
+  if (!groups.length) {
+    host.innerHTML = '<div class="demo-empty">Preview unavailable right now — sign in to view the dashboard.</div>';
+    return;
+  }
+  host.innerHTML = groups.map(g => {
+    const dateLabel = new Date(g.date).toLocaleDateString('en-SE', { year: 'numeric', month: 'long', day: 'numeric' });
+    const cards = g.products.map(p => `
+      <div class="demo-card">
+        <span class="type-badge type-${p.type}">${p.type}</span>
+        <div class="demo-card-name">${p.name}</div>
+        <div class="demo-metric"><span>Price</span> <b>€${fmt(p.price)}</b></div>
+        <div class="demo-metric"><span>Set value</span> <b>€${fmt(p.setVal)}</b></div>
+        <div class="demo-metric"><span>Price / booster</span> <b>€${fmt(p.pricePerBooster, 1)}</b></div>
+        <div class="demo-metric headline"><span>SV / booster</span> <b>${fmt(p.svPerBooster, 1)}×</b></div>
+      </div>`).join('');
+    return `
+      <section>
+        <div class="demo-set-head">
+          <span class="demo-set-name">${demoSetName(g.products)}</span>
+          <span class="demo-set-date">Released ${dateLabel}</span>
+        </div>
+        <div class="demo-cards">${cards}</div>
+      </section>`;
+  }).join('');
 }
 
 // Write the current Data Entry state (new products, entered snapshot values,
@@ -3271,6 +3455,17 @@ async function saveToSupabase() {
 function wireAuthControls() {
   const email = () => document.getElementById('auth-email').value.trim();
   const pass  = () => document.getElementById('auth-password').value;
+
+  // Open the sign-in overlay from the demo page; close it back to the demo.
+  document.getElementById('demo-signin-btn').addEventListener('click', () => {
+    showAuthError('');
+    showAuthOverlay(true);
+    document.getElementById('auth-email').focus();
+  });
+  document.getElementById('auth-close').addEventListener('click', () => showAuthOverlay(false));
+  document.getElementById('auth-overlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget) showAuthOverlay(false);
+  });
 
   document.getElementById('auth-signin-btn').addEventListener('click', async () => {
     showAuthError('');
@@ -3361,7 +3556,9 @@ function wireAuthControls() {
           showStatus('✕ Could not load cloud data: ' + (err.message || err), true);
         });
       } else if (!uid) {
+        // Logged out (initial load or sign-out) → show the pre-login demo.
         sbLoadedUserId = null;
+        loadDemo();
       }
     });
   } catch (err) {

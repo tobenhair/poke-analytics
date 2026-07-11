@@ -21,8 +21,9 @@ cannot bypass that. **Never put the `service_role` key in the page.**
 
 This is a **shared-dataset** setup:
 
-- **Every visitor must sign in.** Any signed-in user can **read** all product
-  data (the same shared set of products + snapshots).
+- **Logged-out visitors** see a demo of the 3 newest sets only. To see the
+  **full** catalogue they must sign in; any signed-in user can then **read** all
+  product data (the same shared set of products + snapshots).
 - **Only the admin can add or edit data** — the single account whose user UUID
   you configure below. The Data Entry UI is hidden for everyone else, and the
   database rejects writes from any non-admin account regardless of the UI.
@@ -90,7 +91,11 @@ This is a **shared-dataset** setup:
 
 ## How it works once enabled
 
-- On load, the app checks for a session. No session → sign-in overlay. Signed
+- **Logged out**, visitors see a **demo page** with the 3 newest release-date
+  sets (read-only cards) and a **Sign in** button. Those rows are exposed to the
+  anonymous role by the `"demo read …"` policies in `schema.sql`; everything
+  else still requires signing in.
+- On load, the app checks for a session. No session → demo page. Signed
   in → the shared products and snapshots are loaded from the database (the
   normalised `snapshots` rows are pivoted back into the price/value history the
   charts use). Every signed-in user sees the same data.

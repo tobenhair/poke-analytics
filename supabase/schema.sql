@@ -103,3 +103,30 @@ create policy "own settings" on public.user_settings
   for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
+
+-- ============================================================
+-- Public demo — anonymous (logged-out) read of the latest sets only
+-- ============================================================
+-- The pre-login demo shows the 3 most recent release-date "sets". These policies
+-- expose ONLY those rows to the anon role; everything else still requires login.
+-- The set of demo product ids comes from a SECURITY DEFINER function so the
+-- subquery bypasses RLS (no recursion) and anon can't widen it.
+
+create or replace function public.demo_product_ids()
+  returns setof uuid
+  language sql stable security definer set search_path = public as $$
+    select id from public.products
+    where release in (
+      select distinct release from public.products order by release desc limit 3
+    )
+  $$;
+
+drop policy if exists "demo read products" on public.products;
+create policy "demo read products" on public.products
+  for select to anon
+  using (id in (select public.demo_product_ids()));
+
+drop policy if exists "demo read snapshots" on public.snapshots;
+create policy "demo read snapshots" on public.snapshots
+  for select to anon
+  using (product_id in (select public.demo_product_ids()));
