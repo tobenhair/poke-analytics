@@ -82,10 +82,30 @@ The in-app **File Format Guide** (the 📋 button on the **Analysis** tab) docum
 ```
 index.html               Self-contained dashboard (markup, styles, and logic)
 pokemon_data.xlsx        Tracked data workbook
+scripts/validate-workbook.mjs  Checks the workbook matches the required format
+tests/smoke.spec.mjs     Playwright test: page loads and every tab renders
 SUPABASE.md              Optional cloud-sync + login setup guide
 supabase/schema.sql      Database schema + Row-Level Security policies
 supabase/migrate-xlsx.mjs  One-time workbook → Supabase migration script
 ```
+
+## Checks (optional)
+
+The dashboard needs nothing installed to run. There is an optional CI harness
+that catches two easy-to-miss breakages — a malformed workbook (which makes the
+live page silently fall back to sample data) and a change that stops a tab
+rendering:
+
+```bash
+npm install          # one-time: installs the dev dependencies
+npm run validate     # validate pokemon_data.xlsx against the required format
+npm run test:e2e     # browser smoke test (installs a browser on first run)
+npm test             # both of the above
+```
+
+These run automatically on every push and pull request via GitHub Actions
+(`.github/workflows/ci.yml`). Run `npm run validate` after editing the workbook
+to catch format mistakes before you commit.
 
 ## Tech
 

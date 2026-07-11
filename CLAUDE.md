@@ -21,7 +21,13 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 External libraries load from CDNs at runtime (no install step): **Chart.js 4.4.1**, **SheetJS/xlsx 0.18.5**, and Google Fonts. An internet connection is required on first load.
 
-There are no lint/test/build commands. Verify changes by serving locally and exercising the three tabs in a browser (data auto-load, charts, Data Entry, export).
+The app itself has no build/bundle step — it's still one static `index.html`. There is, however, a lightweight CI harness (Node, dev-only) that guards against regressions:
+
+- `npm run validate` — parses `pokemon_data.xlsx` and asserts the exact contract `parseXlsx()` + `deriveProducts()` enforce (sheet/column names, Types, dates, cross-references, usable latest price/set value). Catches the *silent* fallback-to-sample-data that a malformed workbook would otherwise cause. Keep `scripts/validate-workbook.mjs` in sync with `parseXlsx()`.
+- `npm run test:e2e` — a Playwright smoke test that loads the real page over HTTP against the real workbook and asserts every tab renders without runtime errors (the automated backstop for bugs like a missed `recomputeScores()` before first render). It blanks `SUPABASE_CONFIG` at request time to force the static/xlsx path, so it needs no cloud credentials.
+- `npm test` runs both. `.github/workflows/ci.yml` runs them on every push/PR.
+
+Beyond CI, still verify UI changes by hand: serve locally and exercise the three tabs in a browser (data auto-load, charts, Data Entry, export).
 
 ## Data model — two sources
 
@@ -64,6 +70,22 @@ A separate script near the end of `<body>` drives **reveal-on-scroll animations*
 ## Design consistency (required)
 
 This app has a deliberate, minimalist dark aesthetic, and it must stay that way. **Any time you add or change UI** (markup, CSS, a new section/view/component, a modal, table, cards, colours, or copy), follow the **`design-review` skill** (`.claude/skills/design-review/SKILL.md`): reuse the existing design tokens and components rather than inventing new ones, and actively question whether each new element earns its place and keeps the page easy to navigate. Load it before writing UI code and review the result against its checklist before committing. Don't let the design quietly drift — when in doubt, less.
+
+## Skills (load the relevant one before you change that area)
+
+Project skills live in `.claude/skills/`. Each encodes the invariants and
+failure modes for one area — load the matching one *before* editing, and run its
+checklist before committing:
+
+- **`design-review`** — any UI change (markup, CSS, components, copy).
+- **`data-integrity`** — the workbook, `parseXlsx`/`exportXlsx`, the hardcoded
+  fallback, or the Supabase schema/RLS. Keeps the loading contract from silently
+  breaking.
+- **`metrics-review`** — the scoring math, booster constants,
+  `recomputeScores`/`deriveProducts`, or any render function. Guards number
+  correctness and the recompute-before-render ordering invariant.
+- **`verify-app`** — before committing any change: how to actually verify in an
+  app with no unit suite (serve over HTTP, `npm test`, exercise the tabs).
 
 ## Editing invariants
 

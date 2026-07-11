@@ -1,0 +1,16 @@
+{
+  "name": "poke-analytics",
+  "version": "1.0.0",
+  "description": "CI tooling for the Pokémon TCG sealed-product dashboard (the app itself is the framework-free index.html).",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "validate": "node scripts/validate-workbook.mjs",
+    "test:e2e": "playwright test",
+    "test": "npm run validate && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "xlsx": "^0.18.5"
+  }
+}
