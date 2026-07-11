@@ -108,6 +108,39 @@ This is a **shared-dataset** setup:
   by drag-drop is still available.
 - The age-threshold slider is saved per user (private to each account).
 
+## Optional: email reminder when data goes stale
+
+Because prices are entered by hand on a monthly cadence, it's easy to forget a
+month. `supabase/staleness-reminder.sql` sets up a server-side job that emails
+you when the newest snapshot is older than a threshold (default **30 days**, the
+same as the in-app staleness flag) — no need for anyone to have the page open.
+
+It uses **pg_cron** (schedule) + **pg_net** (outbound HTTP) + **[Resend](https://resend.com)**
+(email) + **Supabase Vault** (stores the Resend key). One-time setup:
+
+1. **Enable the extensions** — Dashboard → Database → Extensions: turn on
+   `pg_cron` and `pg_net`.
+2. **Set up Resend** — create a free account, verify a sending domain, and copy
+   an API key. The `from` address must be on your verified domain.
+3. **Store the key in Vault** — Dashboard → Project Settings → Vault (or the SQL
+   editor):
+   ```sql
+   select vault.create_secret('re_your_key_here', 'resend_api_key');
+   ```
+4. **Edit and run the SQL** — open `supabase/staleness-reminder.sql`, set the
+   three values at the top of the function (`recipient`, `sender`, `threshold`),
+   then run the whole file in the SQL Editor.
+
+The job runs **weekly (Mondays 09:00 UTC)** so an overdue dataset nudges you a
+few times rather than every day — change the cron expression to taste. To test
+it immediately, run `select public.check_data_staleness();` (it sends a real
+email only if the data is currently stale). To remove it,
+`select cron.unschedule('staleness-reminder');`.
+
+The function is `SECURITY DEFINER` and execute is revoked from `anon` /
+`authenticated`, so only the scheduler can trigger it — a signed-in user can't
+make it send emails.
+
 ## Data model
 
 Derived metrics (age, price/booster, SV/booster, weighted score) are **not**

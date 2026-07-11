@@ -151,6 +151,8 @@
   .header-meta { text-align: right; flex-shrink: 0; }
   .last-update { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted); letter-spacing: 0.04em; }
   .last-update span { color: var(--accent); }
+  .last-update.stale #last-update-date { color: var(--accent2); }
+  .last-update .stale-note { color: var(--accent2); margin-left: 6px; }
 
   /* ── Sticky segmented nav ── */
   .tab-bar {
@@ -660,9 +662,11 @@
   }
   .entry-input:focus { border-color: var(--accent); }
   .entry-input.filled { border-color: rgba(127,212,147,0.45); background: rgba(127,212,147,0.06); }
+  .entry-input.warn   { border-color: rgba(244,198,81,0.55); background: rgba(244,198,81,0.07); }
   .entry-input.error  { border-color: rgba(239,106,96,0.5);  background: rgba(239,106,96,0.06); }
   .entry-product-name { font-weight: 500; font-size: 0.82rem; white-space: nowrap; }
   .entry-last-price { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted); }
+  .entry-delta { font-family: 'DM Mono', monospace; font-size: 0.62rem; color: var(--accent); margin-top: 4px; letter-spacing: 0.02em; }
 
   .add-product-panel { display: flex; flex-direction: column; gap: 18px; }
   .field-group { display: flex; flex-direction: column; gap: 7px; }
@@ -965,7 +969,7 @@
       </div>
     </div>
     <div class="header-meta">
-      <div class="last-update">Last updated: <span>April 20, 2026</span></div>
+      <div class="last-update" id="last-update-wrap">Last updated: <span id="last-update-date">—</span><span class="stale-note" id="last-update-stale"></span></div>
       <div class="last-update" style="margin-top:4px">Prices in <span>EUR</span></div>
       <div class="sb-only" style="margin-top:8px; display:flex; align-items:center; gap:8px; justify-content:flex-end;">
         <span id="auth-user-email" style="font-family:'DM Mono',monospace; font-size:0.68rem; color:var(--muted);"></span>
@@ -2489,9 +2493,9 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   renderRatioChart();
   initScenario();
 
-  // Update header date
-  const today = new Date().toLocaleDateString('en-SE', { year:'numeric', month:'long', day:'numeric' });
-  document.querySelector('.last-update span').textContent = today;
+  // Header "last updated" reflects the newest snapshot date (data freshness),
+  // not when the page happened to load.
+  updateLastUpdated();
   document.getElementById('kpi-total').textContent = products.length;
 }
 
@@ -2667,6 +2671,40 @@ function getLastHistSnapshot(name) {
   };
 }
 
+// Newest snapshot date in the data. histDates are ISO (YYYY-MM-DD), so a
+// lexicographic max is chronological.
+function latestSnapshotDate() {
+  if (!histDates.length) return null;
+  return histDates.reduce((a, b) => (b > a ? b : a));
+}
+
+// The data is entered by hand on a monthly cadence, so flag when the newest
+// snapshot is stale — the header date is the product's honesty about freshness.
+const STALE_DAYS = 30; // ~1 month
+
+function updateLastUpdated() {
+  const dateEl = document.getElementById('last-update-date');
+  const wrapEl = document.getElementById('last-update-wrap');
+  const noteEl = document.getElementById('last-update-stale');
+  if (!dateEl || !wrapEl || !noteEl) return;
+
+  const iso = latestSnapshotDate();
+  if (!iso) {
+    dateEl.textContent = '—';
+    wrapEl.classList.remove('stale');
+    noteEl.textContent = '';
+    return;
+  }
+
+  const d = new Date(iso);
+  dateEl.textContent = d.toLocaleDateString('en-SE', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const days  = Math.floor((Date.now() - d.getTime()) / 86400000);
+  const stale = days > STALE_DAYS;
+  wrapEl.classList.toggle('stale', stale);
+  noteEl.textContent = stale ? `⚠ ${days} days old` : '';
+}
+
 function initEntryTab() {
   // Set date display
   const label = todayLabel();
@@ -2681,6 +2719,36 @@ function initEntryTab() {
   if (!relInput.value) relInput.value = todayISO();
 
   renderEntryTable();
+}
+
+// A monthly move larger than this vs the last snapshot is worth a second look
+// before it becomes a wrong buy/sell signal — a nudge to confirm, not a block.
+const ENTRY_DELTA_WARN = 0.30; // 30%
+
+// Signed fractional change of a candidate value vs the product's last snapshot
+// for that field, or null when there's no usable baseline to compare against.
+function entryDeltaPct(name, field, val) {
+  if (val == null || isNaN(val) || val < 0) return null;
+  const last = getLastHistSnapshot(name);
+  const base = field === 'price' ? last.price : last.setVal;
+  if (base == null || base <= 0) return null;
+  return (val - base) / base;
+}
+
+// Reflect the delta warning on one entry input and its sibling note. A large
+// swing gets a gold caution (not the red error state) — the value may be right,
+// it just deserves a glance.
+function applyEntryDeltaWarning(input) {
+  const note = input.parentElement.querySelector('.entry-delta');
+  const raw  = input.value !== '' ? parseFloat(input.value) : null;
+  const pct  = entryDeltaPct(input.dataset.product, input.dataset.field, raw);
+  const over = pct != null && Math.abs(pct) >= ENTRY_DELTA_WARN && !input.classList.contains('error');
+  input.classList.toggle('warn', over);
+  if (note) {
+    note.textContent = over
+      ? `${pct > 0 ? '▲' : '▼'} ${pct > 0 ? '+' : '−'}${Math.round(Math.abs(pct) * 100)}% vs last`
+      : '';
+  }
 }
 
 function renderEntryTable() {
@@ -2727,12 +2795,14 @@ function renderEntryTable() {
           type="number" min="0" step="0.01" placeholder="price"
           data-product="${p.name}" data-field="price"
           value="${saved.price != null ? saved.price : ''}">
+        <div class="entry-delta"></div>
       </td>
       <td>
         <input class="entry-input ${saved.setVal != null ? 'filled' : ''}"
           type="number" min="0" step="0.01" placeholder="set value"
           data-product="${p.name}" data-field="setVal"
           value="${saved.setVal != null ? saved.setVal : ''}">
+        <div class="entry-delta"></div>
       </td>
       <td>
         ${pendingProducts.find(pp => pp.name === p.name)
@@ -2753,8 +2823,11 @@ function renderEntryTable() {
       entryData[name][field] = val;
       e.target.classList.toggle('filled', val != null && val >= 0);
       e.target.classList.toggle('error', e.target.value !== '' && (isNaN(val) || val < 0));
+      applyEntryDeltaWarning(e.target);
       updateEntryProgress();
     });
+    // Reflect the warning for any value already present (e.g. loaded from cloud).
+    applyEntryDeltaWarning(input);
   });
 
   // Wire up URL edit buttons ("+ link" and the ✎ edit affordance).
@@ -3100,6 +3173,7 @@ populateRatioSelects();
 renderRatioChart();
 populateScenarioSelect();
 initScenario();
+updateLastUpdated();
 document.getElementById('sv-slider').addEventListener('input', updateScenario);
 document.getElementById('price-slider').addEventListener('input', updateScenario);
 document.getElementById('scenario-reset').addEventListener('click', initScenario);
