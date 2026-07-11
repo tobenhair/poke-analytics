@@ -496,40 +496,6 @@
   .val-poor { color: var(--accent2); }
 
   /* ── Upload zone ── */
-  .upload-bar {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 18px 24px;
-    background: var(--card);
-    border: 1px solid var(--hairline);
-    border-radius: var(--radius);
-    margin-bottom: 32px;
-    flex-wrap: wrap;
-    transition: border-color 0.25s var(--ease), background 0.25s var(--ease);
-  }
-  .upload-bar.drag-over {
-    border-color: var(--accent);
-    background: rgba(244,198,81,0.05);
-  }
-  .upload-icon { font-size: 1.4rem; flex-shrink: 0; opacity: 0.9; }
-  .upload-text { flex: 1; min-width: 0; }
-  .upload-title { font-size: 0.86rem; font-weight: 500; }
-  .upload-sub { font-size: 0.7rem; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 3px; }
-  .upload-btn {
-    padding: 9px 18px;
-    border-radius: 999px;
-    border: 1px solid rgba(244,198,81,0.5);
-    background: transparent;
-    color: var(--accent);
-    font-family: 'DM Mono', monospace;
-    font-size: 0.74rem;
-    cursor: pointer;
-    letter-spacing: 0.04em;
-    transition: all 0.25s var(--ease);
-    white-space: nowrap;
-  }
-  .upload-btn:hover { background: var(--accent); color: #14100a; }
   .upload-status {
     font-family: 'DM Mono', monospace;
     font-size: 0.72rem;
@@ -1042,7 +1008,7 @@
               <span style="font-family:'DM Mono',monospace; font-size:0.7rem; color: var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Load</span>
             </div>
             <p style="font-size: 0.78rem; color: var(--text); line-height:1.55;">
-              <code style="font-family:'DM Mono',monospace; color: var(--accent); font-size:0.72rem;">pokemon_data.xlsx</code> auto-loads from the repo on every visit, or drag-drop your own file onto the Analysis tab.
+              Your tracked products and price history load from the cloud when you sign in. (If cloud sync is ever unavailable, the dashboard falls back to the committed <code style="font-family:'DM Mono',monospace; color: var(--accent); font-size:0.72rem;">pokemon_data.xlsx</code>.)
             </p>
           </div>
 
@@ -1127,19 +1093,10 @@
   <!-- ═══════════════════ ANALYSIS TAB ═══════════════════ -->
   <div class="tab-pane" id="tab-analysis">
 
-  <!-- Hidden file input -->
-  <input type="file" id="xlsx-file-input" accept=".xlsx" style="display:none">
-
-  <!-- Upload bar -->
-  <div class="upload-bar fade-in admin-only" id="upload-bar" style="animation-delay:0.02s">
-    <div class="upload-icon">📂</div>
-    <div class="upload-text">
-      <div class="upload-title">Load your data file</div>
-      <div class="upload-sub">Drag &amp; drop an .xlsx file here, or click Browse — auto-loads <code style="font-family:'DM Mono',monospace; color:var(--accent);">pokemon_data.xlsx</code> from the same folder if present</div>
-    </div>
+  <!-- Data status line — cloud load / save messages, plus the format guide -->
+  <div class="fade-in" style="display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-bottom:20px; min-height:1px; animation-delay:0.02s;">
     <span id="upload-status" class="upload-status" style="display:none"></span>
-    <button class="guide-btn" id="guide-btn">📋 Format Guide</button>
-    <button class="upload-btn" id="upload-browse-btn">Browse file</button>
+    <button class="guide-btn admin-only" id="guide-btn">📋 Format Guide</button>
   </div>
 
   <!-- Format guide modal -->
@@ -1184,7 +1141,7 @@
       </div>
 
       <div class="modal-note">
-        <b>Monthly workflow:</b> Each month, add a new column to your Historical Data sheet with that month's date label, then fill in the latest Price and Set Value for each product. Re-save the file and drop it onto the dashboard — all charts and signals will update automatically.<br><br>
+        <b>Monthly workflow:</b> Each month, enter the latest Price and Set Value for each product in the <b>Data Entry</b> tab and click <b>☁ Save to cloud</b> — all charts and signals update automatically. This guide describes the <code style="font-family:'DM Mono',monospace;">.xlsx</code> layout used by the <b>Export</b> backup and the offline fallback file.<br><br>
         <b>New products:</b> Add a new row to Summary, then add matching rows to Historical Data. The product name must match exactly in both sheets.
       </div>
     </div>
@@ -2494,93 +2451,6 @@ function showStatus(msg, isError) {
   el.style.display = 'inline-block';
 }
 
-function handleFile(file) {
-  if (!file || !file.name.endsWith('.xlsx')) {
-    showStatus('⚠ Please upload an .xlsx file', true); return;
-  }
-  showStatus('⏳ Validating…', false);
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const result = parseXlsx(e.target.result);
-      // Only reaches here if validation fully passed
-      applyNewData(result);
-      showStatus('✓ ' + file.name + ' loaded — ' + result.newProducts.length + ' products', false);
-    } catch (err) {
-      // Show first error in badge; full list in console + alert
-      const lines = err.message.split('||');
-      const summary = lines.length > 1
-        ? `✕ ${lines.length} validation error${lines.length > 1 ? 's' : ''} — see details below`
-        : '✕ ' + lines[0];
-      showStatus(summary, true);
-      showValidationErrors(lines);
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function showValidationErrors(lines) {
-  // Reuse guide modal with error content
-  const modal = document.getElementById('guide-modal');
-  const inner = modal.querySelector('.modal');
-  // Save original content to restore later
-  if (!inner.dataset.originalHtml) inner.dataset.originalHtml = inner.innerHTML;
-
-  inner.innerHTML = `
-    <button class="modal-close" id="guide-close">✕</button>
-    <h2 style="color:var(--accent2)">⚠ Validation Failed</h2>
-    <p class="modal-intro">The file was not loaded. Fix the following issues and try again.</p>
-    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
-      ${lines.map(l => `
-        <div style="background:rgba(232,71,63,0.08); border:1px solid rgba(232,71,63,0.2);
-          border-left:3px solid var(--accent2); border-radius:6px; padding:10px 14px;
-          font-family:'DM Mono',monospace; font-size:0.75rem; color:#e8a0a0; line-height:1.5;">
-          ${l.replace(/"/g, '&quot;')}
-        </div>`).join('')}
-    </div>
-    <button class="upload-btn" id="err-back-btn" style="border-color:var(--muted); color:var(--muted);">
-      ← Back to Format Guide
-    </button>
-  `;
-  modal.classList.add('open');
-
-  document.getElementById('guide-close').addEventListener('click', () => {
-    inner.innerHTML = inner.dataset.originalHtml;
-    delete inner.dataset.originalHtml;
-    modal.classList.remove('open');
-    rewireGuideModal();
-  });
-  document.getElementById('err-back-btn').addEventListener('click', () => {
-    inner.innerHTML = inner.dataset.originalHtml;
-    delete inner.dataset.originalHtml;
-    rewireGuideModal();
-  });
-}
-
-function rewireGuideModal() {
-  document.getElementById('guide-close').addEventListener('click', () => {
-    document.getElementById('guide-modal').classList.remove('open');
-  });
-}
-
-// Wire up file input
-document.getElementById('upload-browse-btn').addEventListener('click', () => {
-  document.getElementById('xlsx-file-input').click();
-});
-document.getElementById('xlsx-file-input').addEventListener('change', e => {
-  handleFile(e.target.files[0]);
-  e.target.value = '';
-});
-
-// Drag and drop on upload bar
-const uploadBar = document.getElementById('upload-bar');
-uploadBar.addEventListener('dragover', e => { e.preventDefault(); uploadBar.classList.add('drag-over'); });
-uploadBar.addEventListener('dragleave', () => uploadBar.classList.remove('drag-over'));
-uploadBar.addEventListener('drop', e => {
-  e.preventDefault();
-  uploadBar.classList.remove('drag-over');
-  handleFile(e.dataTransfer.files[0]);
-});
 
 // Format guide modal
 document.getElementById('guide-btn').addEventListener('click', () => {

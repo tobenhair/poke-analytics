@@ -28,7 +28,7 @@ There are no lint/test/build commands. Verify changes by serving locally and exe
 There are **two** data sources; the workbook wins when it loads:
 
 1. **Hardcoded fallback** in `index.html`: the `products` array, the `historicalData` object, and `histDates`. Used only if the workbook fails to load. Keep them mutually consistent if you touch the sample data.
-2. **`pokemon_data.xlsx`** (the real data), auto-loaded on every visit by `tryAutoLoad()` and applied via `applyNewData()`. Users can also drag-drop or browse to a file.
+2. **`pokemon_data.xlsx`** (the real data), auto-loaded by `tryAutoLoad()` and applied via `applyNewData()`. In Supabase mode this is only the offline fallback (loaded if cloud init fails); the drag-drop/browse upload UI has been removed, though `parseXlsx()`/`exportXlsx()` remain for the fallback and for exporting a backup.
 
 The workbook has two required sheets — `Summary` (one row per product) and `Historical Data` (one row per product per snapshot) — plus an optional `Links` sheet (Cardmarket URLs). Exact column names are validated in `parseXlsx()` and documented in the in-app "Format Guide" modal and the README. `exportXlsx()` writes these sheets back out.
 

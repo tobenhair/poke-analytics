@@ -24,7 +24,7 @@ python3 -m http.server 8000
 npx serve .
 ```
 
-Then open <http://localhost:8000>. The bundled `pokemon_data.xlsx` loads automatically. You can also drag-and-drop your own `.xlsx` onto the **Analysis** tab at any time.
+Then open <http://localhost:8000>. The bundled `pokemon_data.xlsx` loads automatically (it's also the offline fallback when cloud sync is enabled — see below).
 
 The page pulls Chart.js and SheetJS from a CDN, so an internet connection is required on first load.
 
@@ -66,7 +66,7 @@ frontend on GitHub Pages. This is off unless you fill in `SUPABASE_CONFIG` in
 
 `Product` (must match Summary exactly) · `Snapshot Date` (ISO `YYYY-MM-DD`) · `Price (€)` · `Set Value (€)`
 
-The in-app **File Format Guide** (linked from the upload panel) documents every field in detail.
+The in-app **File Format Guide** (the 📋 button on the **Analysis** tab) documents every field in detail.
 
 ## Key concepts
 
