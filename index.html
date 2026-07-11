@@ -745,6 +745,23 @@
     margin-top: 4px;
   }
   .entry-progress span { color: var(--accent4); font-weight: 500; }
+  .entry-progress.incomplete span { color: var(--accent); }
+  .entry-tools { display: flex; gap: 6px; margin-top: 2px; }
+  .entry-tool-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.64rem;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px 10px;
+    cursor: pointer;
+    letter-spacing: 0.03em;
+    transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
+  }
+  .entry-tool-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.16); }
+  .entry-tool-btn:disabled { opacity: 0.4; cursor: default; }
+  .entry-tool-btn:disabled:hover { color: var(--muted); border-color: var(--border); }
   .remove-row-btn {
     background: none;
     border: none;
@@ -1511,6 +1528,9 @@
             <div style="font-size:0.7rem; color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px;">
               Enter the latest Price and Set Value for each product
             </div>
+            <div style="font-size:0.66rem; color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px; opacity:0.85;">
+              ↵ Enter jumps down the column · paste a copied column to fill it at once
+            </div>
             <div style="font-size:0.7rem; color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px;">
               📊 Set value reference:
               <a href="https://www.getmint.app/sets/" target="_blank" rel="noopener noreferrer" style="color:var(--accent3); text-decoration:none;">getmint.app/sets<span style="font-size:0.6rem;"> ↗</span></a>
@@ -1519,6 +1539,12 @@
           <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
             <div class="entry-date-display" id="entry-date-display">📅 Today: —</div>
             <div class="entry-progress" id="entry-progress">— / — filled</div>
+            <div class="entry-tools">
+              <button type="button" class="entry-tool-btn" id="entry-prefill-btn"
+                title="Fill empty cells with each product's last snapshot value — then just edit what changed">⤵ Pre-fill last</button>
+              <button type="button" class="entry-tool-btn" id="entry-next-empty-btn"
+                title="Jump to the next product still missing a value">↧ Next empty</button>
+            </div>
           </div>
         </div>
         <div class="entry-table-wrap">
@@ -2774,6 +2800,18 @@ function renderEntryTable() {
       applyEntryDeltaWarning(e.target);
       updateEntryProgress();
     });
+    // Enter moves down the same column, so a whole column can be typed without
+    // reaching for the mouse (Shift+Enter goes back up).
+    input.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const col  = [...tbody.querySelectorAll(`.entry-input[data-field="${e.target.dataset.field}"]`)];
+      const next = col[col.indexOf(e.target) + (e.shiftKey ? -1 : 1)];
+      if (next) { next.focus(); next.select(); }
+    });
+    // Paste a copied column (e.g. from a spreadsheet) to fill straight down from
+    // this cell. A single value falls through to the normal paste.
+    input.addEventListener('paste', e => bulkPasteColumn(e, input, tbody));
     // Reflect the warning for any value already present (e.g. loaded from cloud).
     applyEntryDeltaWarning(input);
   });
@@ -2843,18 +2881,102 @@ function openUrlEditor(productName) {
   });
 }
 
-function updateEntryProgress() {
-  const allProducts = [
+// Products still missing a New Price and/or New Set Value this session — the
+// basis for both the progress badge and the "did I fill everything?" check.
+function entryAllProducts() {
+  return [
     ...products,
     ...pendingProducts.filter(p => !products.find(ep => ep.name === p.name))
   ];
-  const total   = allProducts.length;
-  const filled  = allProducts.filter(p => {
+}
+function entryMissingCount() {
+  return entryAllProducts().filter(p => {
     const d = entryData[p.name];
-    return d && d.price != null && d.setVal != null;
+    return !(d && d.price != null && d.setVal != null);
   }).length;
+}
+
+function updateEntryProgress() {
+  const total   = entryAllProducts().length;
+  const filled  = total - entryMissingCount();
   const el = document.getElementById('entry-progress');
-  el.innerHTML = `<span>${filled}</span> / ${total} filled`;
+  el.classList.toggle('incomplete', filled < total);
+  el.innerHTML = filled === total && total > 0
+    ? `✓ all <span>${total}</span> filled`
+    : `<span>${filled}</span> / ${total} filled`;
+  const nextBtn = document.getElementById('entry-next-empty-btn');
+  if (nextBtn) nextBtn.disabled = filled === total;
+}
+
+// Fill every empty New Price / New Set Value with the product's last snapshot
+// value, so the monthly pass becomes "edit what moved" instead of retyping the
+// whole board. Existing entries are left as-is.
+function prefillFromLast() {
+  entryAllProducts().forEach(p => {
+    const last = getLastHistSnapshot(p.name);
+    const d = entryData[p.name] || (entryData[p.name] = {});
+    if (d.price  == null && last.price  != null) d.price  = last.price;
+    if (d.setVal == null && last.setVal != null) d.setVal = last.setVal;
+  });
+  renderEntryTable();
+  showStatus('⤵ Pre-filled empty cells with last month’s values — edit what changed', false);
+}
+
+// Focus the first entry input (top-to-bottom, price then set value) whose
+// product still has a gap, and scroll it into view.
+function focusNextEmpty() {
+  const tbody = document.getElementById('entry-tbody');
+  const rows  = [...tbody.querySelectorAll('tr')];
+  for (const tr of rows) {
+    const inputs = [...tr.querySelectorAll('.entry-input')];
+    const gap = inputs.find(i => i.value === '');
+    if (gap) {
+      gap.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      gap.focus();
+      return;
+    }
+  }
+}
+
+// Parse one pasted cell into a number, tolerating currency symbols and both
+// European (1.234,56) and US (1,234.56) thousands/decimal conventions.
+function parseEntryNumber(raw) {
+  let s = String(raw).replace(/[^0-9.,-]/g, '');
+  if (!s) return null;
+  const hasDot = s.includes('.'), hasComma = s.includes(',');
+  if (hasDot && hasComma) {
+    s = s.lastIndexOf(',') > s.lastIndexOf('.')
+      ? s.replace(/\./g, '').replace(',', '.')   // 1.234,56 → 1234.56
+      : s.replace(/,/g, '');                        // 1,234.56 → 1234.56
+  } else if (hasComma) {
+    s = s.replace(',', '.');                        // 89,90 → 89.90
+  }
+  const n = parseFloat(s);
+  return isNaN(n) || n < 0 ? null : n;
+}
+
+// Paste a copied column of values straight down from the focused cell. Only
+// kicks in for multi-value pastes; a single value uses the browser default.
+function bulkPasteColumn(e, input, tbody) {
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  const cells = text.split(/[\r\n\t]+/).map(s => s.trim()).filter(s => s !== '');
+  if (cells.length <= 1) return; // single value → normal paste
+  e.preventDefault();
+  const field = input.dataset.field;
+  const col = [...tbody.querySelectorAll(`.entry-input[data-field="${field}"]`)];
+  const start = col.indexOf(input);
+  let n = 0;
+  cells.forEach((cell, i) => {
+    const target = col[start + i];
+    if (!target) return;
+    const val = parseEntryNumber(cell);
+    if (val == null) return;
+    const name = target.dataset.product;
+    (entryData[name] || (entryData[name] = {}))[field] = val;
+    n++;
+  });
+  renderEntryTable();
+  showStatus(`Pasted ${n} value(s) into the ${field === 'price' ? 'New Price' : 'New Set Value'} column`, false);
 }
 
 // ── Add new product ──────────────────────────────────────────
@@ -2902,7 +3024,21 @@ document.getElementById('add-product-btn').addEventListener('click', () => {
 });
 
 // ── Export .xlsx ─────────────────────────────────────────────
-document.getElementById('export-xlsx-btn').addEventListener('click', exportXlsx);
+// Data Entry quick-tools (static markup, wired once).
+document.getElementById('entry-prefill-btn').addEventListener('click', prefillFromLast);
+document.getElementById('entry-next-empty-btn').addEventListener('click', focusNextEmpty);
+
+// A last "did I fill everything?" gate before a write action. Returns false to
+// abort when the user backs out of an incomplete export/save.
+function confirmIfIncomplete(action) {
+  const missing = entryMissingCount();
+  if (missing === 0) return true;
+  return confirm(`${missing} product(s) still have no New Price / New Set Value this month.\n\n${action} anyway?`);
+}
+
+document.getElementById('export-xlsx-btn').addEventListener('click', () => {
+  if (confirmIfIncomplete('Export')) exportXlsx();
+});
 
 function exportXlsx() {
   const snapLabel = document.getElementById('snapshot-label').value.trim() || todayLabel();
@@ -3390,6 +3526,7 @@ function renderDemo(groups) {
 // Cardmarket links, age threshold) to Supabase, then reload from the cloud.
 async function saveToSupabase() {
   if (!sbUser) { showStatus('Sign in to save to the cloud', true); return; }
+  if (!confirmIfIncomplete('Save to cloud')) return;
   const btn = document.getElementById('save-cloud-btn');
   const snapLabel = document.getElementById('snapshot-label').value.trim() || todayLabel();
   try {
