@@ -3,8 +3,9 @@
 Where this goes from a personal tool toward a product other people can rely on.
 Not a commitment or a schedule — a prioritised backlog. The ordering reflects
 one deliberate decision: **the data stays manually entered by the maintainer
-for now** (see "Parked", below), so the near-term theme is *protecting and
-surfacing that hand-curated data* rather than automating it.
+for now** (see "Parked", below). The first theme — *protecting and surfacing
+that hand-curated data* rather than automating it — is now done; the current
+focus is hardening correctness and building the reasons to log in.
 
 ## Foundations (done)
 
@@ -13,30 +14,32 @@ surfacing that hand-curated data* rather than automating it.
 - **Guard skills** — `data-integrity`, `metrics-review`, `verify-app`,
   `design-review` in `.claude/skills/`.
 
-## Now — protect & surface the manual data
+## Protect & surface the manual data (done)
 
 Because one person's hand-entered numbers are the single source of truth, the
 reliability of *that* process is the product's credibility.
 
-- **Data Entry delta warnings** — flag any new price / set value that moves
-  more than a set threshold vs the last snapshot, so a fat-finger (72 → 27)
-  gets a confirm instead of silently becoming a wrong "buy" signal. Builds on
-  the same catch-it-before-it-ships spirit as the workbook validator.
-- **Data-driven "last updated" + staleness** — the header should show the real
-  latest *snapshot* date (not the page-load date), and visibly flag when the
-  newest data is older than ~30 days. Turns the manual cadence into an honest
-  freshness signal instead of a hidden weakness.
-- **Server-side staleness email reminder** — a Supabase `pg_cron` job that emails
-  the maintainer (via Resend) when the newest snapshot crosses the same ~30-day
+- **Data Entry delta warnings** — new price / set value that moves more than a
+  30% threshold vs the last snapshot is flagged inline, so a fat-finger
+  (72 → 27) gets a warning instead of silently becoming a wrong "buy" signal
+  (`applyEntryDeltaWarning`, `ENTRY_DELTA_WARN`). Same catch-it-before-it-ships
+  spirit as the workbook validator.
+- **Data-driven "last updated" + staleness** — the header shows the real latest
+  *snapshot* date (not the page-load date) and flags when the newest data is
+  older than ~30 days (`updateLastUpdated`, `STALE_DAYS`). Turns the manual
+  cadence into an honest freshness signal instead of a hidden weakness.
+- **Server-side staleness email reminder** — a Supabase `pg_cron` job emails the
+  maintainer (via Resend) when the newest snapshot crosses the same ~30-day
   threshold, so a forgotten month doesn't rely on someone having the page open.
   (`supabase/staleness-reminder.sql`; setup in `SUPABASE.md`.)
 
-## Next — quality & the reason to log in
+## Now — quality & the reason to log in
 
-- **Extract + unit-test the metrics module** — move the pure functions
+- **Extract + unit-test the metrics module** *(done)* — the pure functions
   (`deriveProducts`, `boostersFromType`, `calcAgeWeight`, `recomputeScores`)
-  into a small ES module that both `index.html` and tests import, without
-  adding a build step. Completes the correctness story CI started and turns the
+  now live in `metrics.js`, imported by both `index.html` (its main
+  `<script type="module">`) and the `node --test` suite (`tests/unit/`), with
+  no build step. Completes the correctness story CI started and turns the
   `metrics-review` skill's by-hand checklist into automated assertions.
 - **Faster monthly entry loop** — since this recurs forever: pre-fill last
   month's values, keyboard/tab flow, bulk paste, an at-a-glance "did I fill
@@ -68,5 +71,5 @@ reliability of *that* process is the product's credibility.
   numbers diverge too much to trust, and scraping is fragile / a ToS question.
   No acceptable solution today, so data stays **manually entered by the
   maintainer**. This is explicitly the *last* thing to solve before a public
-  launch — everything in "Now" exists to make manual data trustworthy in the
-  meantime.
+  launch — the "protect & surface the manual data" work exists to make manual
+  data trustworthy in the meantime.

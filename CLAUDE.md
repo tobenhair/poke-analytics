@@ -23,9 +23,10 @@ External libraries load from CDNs at runtime (no install step): **Chart.js 4.4.1
 
 The app itself has no build/bundle step — it's still one static `index.html`. There is, however, a lightweight CI harness (Node, dev-only) that guards against regressions:
 
+- `npm run test:unit` — `node --test` unit tests (`tests/unit/`) over the pure metrics module `metrics.js` (`boostersFromType`, `calcAgeWeight`, `recomputeScores`, `deriveProducts`). `index.html` imports the *same* file, so these assertions guard the live page's numbers, not a copy. No build step, no extra dependency.
 - `npm run validate` — parses `pokemon_data.xlsx` and asserts the exact contract `parseXlsx()` + `deriveProducts()` enforce (sheet/column names, Types, dates, cross-references, usable latest price/set value). Catches the *silent* fallback-to-sample-data that a malformed workbook would otherwise cause. Keep `scripts/validate-workbook.mjs` in sync with `parseXlsx()`.
 - `npm run test:e2e` — a Playwright smoke test that loads the real page over HTTP against the real workbook and asserts every tab renders without runtime errors (the automated backstop for bugs like a missed `recomputeScores()` before first render). It blanks `SUPABASE_CONFIG` at request time to force the static/xlsx path, so it needs no cloud credentials.
-- `npm test` runs both. `.github/workflows/ci.yml` runs them on every push/PR.
+- `npm test` runs all three. `.github/workflows/ci.yml` runs them on every push/PR.
 
 Beyond CI, still verify UI changes by hand: serve locally and exercise the three tabs in a browser (data auto-load, charts, Data Entry, export).
 
@@ -48,16 +49,18 @@ When configured, `boot()` (replacing the old bare `tryAutoLoad()` IIFE) loads th
 
 Logged-out visitors see a **pre-login demo** (`#demo-page`, a `<body>` child shown by `setAuthedUI(null)` instead of a hard login gate). `loadDemo()` queries products/snapshots as the anonymous role — RLS `"demo read …"` policies expose only the rows in the 3 newest release dates (via the `public.demo_product_ids()` SECURITY DEFINER function) — then derives metrics with the shared `deriveProducts()` and renders read-only cards grouped by set (`renderDemo()`/`demoSetName()`). A **Sign in** button opens `#auth-overlay` (now dismissible via `#auth-close`); the full catalogue still requires login.
 
-Only **raw** inputs are stored in the DB (name/type/release/url + per-snapshot price/set-value + age threshold); derived metrics are recomputed client-side. Metric derivation is shared by both the xlsx and Supabase paths via the module-level **`deriveProducts(newProducts, newHistoricalData)`** helper (and the module-level `boostersFromType()`), so the two loaders can never drift. Schema + RLS live in `supabase/schema.sql`; setup is documented in `SUPABASE.md`.
+Only **raw** inputs are stored in the DB (name/type/release/url + per-snapshot price/set-value + age threshold); derived metrics are recomputed client-side. Metric derivation is shared by both the xlsx and Supabase paths via the **`deriveProducts(newProducts, newHistoricalData)`** helper (and `boostersFromType()`), so the two loaders can never drift. These pure functions live in the standalone ES module **`metrics.js`**, imported by `index.html` (its main `<script type="module">`) and by the unit tests — one source of truth, no copy. Schema + RLS live in `supabase/schema.sql`; setup is documented in `SUPABASE.md`.
 
 ## Metrics & scoring (the analytical core)
 
-- Boosters per product type: **BOX = 36, ETB = 9, BUNDLE = 6**.
+The pure math lives in **`metrics.js`** (imported by `index.html` and unit-tested in `tests/unit/`). The functions take every dependency as a parameter — no DOM, no app globals — so `index.html` passes its live state (`products`, `ageThreshold`) in at each call site. Change a formula or constant *here*, once.
+
+- Boosters per product type: **BOX = 36, ETB = 9, BUNDLE = 6** (`boostersFromType()`).
 - **Price / Booster** = price ÷ boosters. **SV / Booster** = Set Value ÷ (Price/Booster) — the core value-density metric (higher is better).
-- **Age Weight** = `calcAgeWeight(age)`, a 0–1 penalty for products younger than `ageThreshold` (default **1 year**; slider range 0.5–3).
+- **Age Weight** = `calcAgeWeight(age, ageThreshold)`, a 0–1 penalty for products younger than `ageThreshold` (default **1 year**; slider range 0.5–3).
 - **Wtd. Score** = SV/Booster × Age Weight — the primary ranking metric.
 
-`recomputeScores()` recomputes each product's `ageWeight` and `score` from the current `ageThreshold`, and **must run before the first render** in both the `INIT` block and `applyNewData()` — otherwise the initial view uses the scores baked into the source data (this was a real, fixed bug). `svPerBooster` is threshold-independent.
+`recomputeScores(products, ageThreshold)` recomputes each product's `ageWeight` and `score` from the current `ageThreshold`, and **must run before the first render** in both the `INIT` block and `applyNewData()` — otherwise the initial view uses the scores baked into the source data (this was a real, fixed bug). `svPerBooster` is threshold-independent.
 
 ## UI architecture
 

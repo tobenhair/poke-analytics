@@ -6,6 +6,8 @@ const PORT = process.env.PORT || 8000;
 
 export default defineConfig({
   testDir: './tests',
+  // Only the Playwright specs; the node --test unit suite lives in tests/unit.
+  testMatch: '**/*.spec.mjs',
   timeout: 30_000,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

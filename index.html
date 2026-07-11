@@ -1623,7 +1623,14 @@
   </footer>
 </div>
 
-<script>
+<script type="module">
+// The scoring/derivation math lives in metrics.js as pure, unit-tested
+// functions so the browser and the tests share one source of truth. This
+// script is a module so it can import them; that also means its top-level
+// declarations are module-scoped (not globals), which nothing else on the
+// page relies on — the inline handlers and the reveal script use only the DOM.
+import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts } from './metrics.js';
+
 // ============================================================
 // DATA
 // ============================================================
@@ -1753,22 +1760,9 @@ function formatISO(d) {
   return s; // give up — return as-is
 }
 
-// ============================================================
-// AGE WEIGHT HELPERS
-// ============================================================
-function calcAgeWeight(ageYears) {
-  // age >= threshold → full weight (no penalty)
-  // age < threshold → linear scale from 0.10 to 1.0
-  if (ageYears >= ageThreshold) return 1.0;
-  return parseFloat(Math.max(0.10, ageYears / ageThreshold).toFixed(2));
-}
-
-function recomputeScores() {
-  products.forEach(p => {
-    p.ageWeight = calcAgeWeight(p.age);
-    p.score     = parseFloat((p.svPerBooster * p.ageWeight).toFixed(1));
-  });
-}
+// calcAgeWeight() and recomputeScores() now live in metrics.js (imported
+// above). recomputeScores(products, ageThreshold) is called with this script's
+// live state before the first render in both INIT and applyNewData().
 
 // ============================================================
 // KPIs
@@ -2190,7 +2184,7 @@ document.getElementById('sort-select').addEventListener('change', e => {
 document.getElementById('age-threshold-slider').addEventListener('input', e => {
   ageThreshold = parseFloat(e.target.value);
   document.getElementById('age-threshold-display').textContent = ageThreshold.toFixed(1);
-  recomputeScores();
+  recomputeScores(products, ageThreshold);
   updateKPIs();
   updateTable();
   updateTopPicks();
@@ -2225,54 +2219,8 @@ function isNonNegNum(v) {
 }
 
 // Booster count derived from Type — no user input needed (BOX 36, ETB 9, BUNDLE 6)
-function boostersFromType(type) {
-  if (type === 'BOX')    return 36;
-  if (type === 'ETB')    return 9;
-  if (type === 'BUNDLE') return 6;
-  return null;
-}
-
-// ── Derive calculated product fields from raw inputs + latest snapshot ──
-// Shared by the .xlsx parser and the Supabase loader so both paths compute
-// price/age/pricePerBooster/svPerBooster/score identically. Mutates each
-// product in place; returns an array of error strings for products missing a
-// usable latest Price or Set Value (the caller decides whether to reject or
-// skip them). The ageWeight/score written here are provisional — recomputeScores()
-// overwrites them using the current ageThreshold before the first render.
-function deriveProducts(newProducts, newHistoricalData) {
-  const derivationErrors = [];
-  const today = new Date();
-  newProducts.forEach(p => {
-    const hist     = newHistoricalData[p.name];
-    const boosters = boostersFromType(p.type);
-
-    // Latest non-null price and setVal from historical data
-    const latestPrice  = hist ? [...hist.price].reverse().find(v => v != null)  : null;
-    const latestSetVal = hist ? [...hist.setVal].reverse().find(v => v != null) : null;
-
-    if (latestPrice  == null) derivationErrors.push(`"${p.name}": no valid Price found in Historical Data`);
-    if (latestSetVal == null) derivationErrors.push(`"${p.name}": no valid Set Value found in Historical Data`);
-
-    if (latestPrice != null && latestSetVal != null && boosters) {
-      const releaseDate = new Date(p.release);
-      const ageYears    = parseFloat(((today - releaseDate) / (1000 * 60 * 60 * 24 * 365.25)).toFixed(2));
-      const ageWeight   = parseFloat((ageYears >= 3 ? 1.0 : Math.max(0.10, ageYears / 3)).toFixed(2));
-      const pricePerBooster = latestPrice / boosters;
-      const svPerBooster    = latestSetVal / pricePerBooster;
-      const score           = parseFloat((svPerBooster * ageWeight).toFixed(1));
-
-      p.boosters        = boosters;
-      p.age             = ageYears;
-      p.price           = latestPrice;
-      p.setVal          = latestSetVal;
-      p.pricePerBooster = parseFloat(pricePerBooster.toFixed(1));
-      p.svPerBooster    = parseFloat(svPerBooster.toFixed(1));
-      p.ageWeight       = ageWeight;
-      p.score           = score;
-    }
-  });
-  return derivationErrors;
-}
+// boostersFromType() and deriveProducts() now live in metrics.js (imported
+// above), shared with the Supabase loader and the unit tests.
 
 // ── main validator + parser ───────────────────────────────────
 function parseXlsx(arrayBuffer) {
@@ -2481,7 +2429,7 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   scenarioProduct = products[0]?.name || '';
 
   // Re-render everything
-  recomputeScores(); // apply the current age threshold to freshly loaded data
+  recomputeScores(products, ageThreshold); // apply the current age threshold to freshly loaded data
   updateKPIs();
   updateTable();
   updateTopPicks();
@@ -3159,7 +3107,7 @@ if (typeof Chart === 'undefined' || typeof XLSX === 'undefined') {
 Chart.defaults.color = '#6b6f85';
 Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
 
-recomputeScores(); // apply the default age threshold to the initial data
+recomputeScores(products, ageThreshold); // apply the default age threshold to the initial data
 updateKPIs();
 updateTable();
 updateTopPicks();
@@ -3629,7 +3577,10 @@ function wireAuthControls() {
      Progressive enhancement — if IntersectionObserver is missing,
      nothing is hidden and the page renders normally.
      ============================================================ -->
-<script>
+<script type="module">
+// A module (like the main app script above) so the two keep their source
+// order: this reveal handler must be registered after the main tab handler,
+// so the pane is already visible when a tab is clicked.
 (function () {
   if (!('IntersectionObserver' in window)) return;
 
