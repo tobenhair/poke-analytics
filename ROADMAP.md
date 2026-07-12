@@ -33,7 +33,7 @@ reliability of *that* process is the product's credibility.
   threshold, so a forgotten month doesn't rely on someone having the page open.
   (`supabase/staleness-reminder.sql`; setup in `SUPABASE.md`.)
 
-## Now — quality & the reason to log in
+## Quality & the reason to log in (done)
 
 - **Extract + unit-test the metrics module** *(done)* — the pure functions
   (`deriveProducts`, `boostersFromType`, `calcAgeWeight`, `recomputeScores`)
@@ -41,15 +41,19 @@ reliability of *that* process is the product's credibility.
   `<script type="module">`) and the `node --test` suite (`tests/unit/`), with
   no build step. Completes the correctness story CI started and turns the
   `metrics-review` skill's by-hand checklist into automated assertions.
-- **Faster monthly entry loop** — since this recurs forever: pre-fill last
-  month's values, keyboard/tab flow, bulk paste, an at-a-glance "did I fill
-  everything?" check before export.
-- **Portfolio / watchlist** — what a user owns, cost basis → unrealised P&L.
-  The feature that makes logging in worthwhile. (The Supabase auth + shared
-  catalogue + RLS + demo already exist to build on.)
-- **Price alerts** — notify when something crosses a threshold.
+- **Faster monthly entry loop** *(done)* — the Data Entry tab now pre-fills
+  empty cells with last month's values, moves down a column on Enter, accepts a
+  bulk column paste, and shows an at-a-glance completeness state with a
+  confirm-before-export when the month is incomplete.
+- **Portfolio / watchlist** *(done)* — signed-in users track holdings
+  (quantity + per-unit cost basis) in a private, RLS-scoped `holdings` table;
+  section 10 of the Analysis tab derives unrealised P&L from the shared latest
+  prices. The feature that makes logging in worthwhile.
+- **Price alerts** *(done)* — signed-in users set private buy-below targets
+  (`alerts` table); a product is flagged in section 11 and with a 🔔 on the
+  board when its latest price falls to/below target. In-app flags (no server).
 
-## Later — reliability, polish, reach
+## Now — reliability, polish, reach
 
 - **Error monitoring** (e.g. Sentry) — errors are currently swallowed into a
   toast; surface them.

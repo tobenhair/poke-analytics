@@ -775,6 +775,49 @@
   }
   .remove-row-btn:hover { color: var(--accent2); }
 
+  /* ── Portfolio (signed-in only) ── */
+  .portfolio-summary {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px;
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+  }
+  .portfolio-tile {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px;
+  }
+  .portfolio-tile .lbl {
+    font-family: 'DM Mono', monospace; font-size: 0.62rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px;
+  }
+  .portfolio-tile .val { font-family: 'Bebas Neue', sans-serif; font-size: 1.9rem; color: var(--text); line-height: 1; }
+  .portfolio-tile .sub { font-family: 'DM Mono', monospace; font-size: 0.72rem; margin-top: 6px; }
+  .portfolio-editor {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    padding: 16px 24px; border-bottom: 1px solid var(--border);
+  }
+  .portfolio-editor .field-select { max-width: 260px; }
+  .portfolio-editor .field-input { max-width: 140px; }
+  .portfolio-save-btn {
+    padding: 8px 16px; border-radius: 999px;
+    border: 1px solid var(--accent3); background: transparent; color: var(--accent3);
+    font-family: 'DM Mono', monospace; font-size: 0.72rem; cursor: pointer;
+    letter-spacing: 0.04em; transition: all 0.2s var(--ease);
+  }
+  .portfolio-save-btn:hover { background: var(--accent3); color: #05070c; }
+  .portfolio-save-btn:disabled { opacity: 0.5; cursor: default; }
+  .portfolio-error {
+    font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--accent2);
+    padding: 10px 24px 0; display: none;
+  }
+  .portfolio-remove-btn {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 0.9rem; padding: 2px 6px; border-radius: 6px; line-height: 1;
+    transition: color 0.2s var(--ease);
+  }
+  .portfolio-remove-btn:hover { color: var(--accent2); }
+  .portfolio-empty {
+    padding: 26px 24px; color: var(--muted); font-family: 'DM Mono', monospace;
+    font-size: 0.78rem; text-align: center;
+  }
+
   /* ── Welcome hover affordance ── */
   #tab-welcome .panel[onclick] { transition: transform 0.35s var(--ease), border-color 0.35s var(--ease); }
   #tab-welcome .panel[onclick]:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.14); }
@@ -1513,6 +1556,77 @@
     </div>
   </div>
 
+  <!-- ── Section: portfolio (signed-in only) ── -->
+  <div class="section-eyebrow sb-only">10 — Your Portfolio</div>
+  <p class="section-desc sb-only"><strong>What:</strong> what you own and what it's worth now. <strong>How to read:</strong> enter a quantity and the per-unit price you paid (<em>cost basis</em>); <em>unrealised P&amp;L</em> compares that to each product's latest tracked price. Private to your account.</p>
+  <div class="panel sb-only" id="portfolio-panel">
+    <div class="panel-header">
+      <div class="panel-title">Portfolio</div>
+      <button class="portfolio-save-btn" id="portfolio-save-btn" title="Save your portfolio to your cloud account">☁ Save portfolio</button>
+    </div>
+
+    <div class="portfolio-summary" id="portfolio-summary"></div>
+
+    <div class="portfolio-editor">
+      <select class="field-select" id="portfolio-product-select"></select>
+      <input class="field-input" id="portfolio-qty" type="number" min="0" step="1" placeholder="Qty">
+      <input class="field-input" id="portfolio-cost" type="number" min="0" step="0.01" placeholder="Cost € / unit">
+      <button class="add-btn" id="portfolio-add-btn" style="width:auto;">+ Add / update</button>
+    </div>
+    <div id="portfolio-editor-error" class="portfolio-error"></div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Type</th>
+            <th style="text-align:right">Qty</th>
+            <th style="text-align:right">Cost €/unit</th>
+            <th style="text-align:right">Now €/unit</th>
+            <th style="text-align:right">Value €</th>
+            <th style="text-align:right">P&amp;L €</th>
+            <th style="text-align:right">P&amp;L %</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="portfolio-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Section: price alerts (signed-in only) ── -->
+  <div class="section-eyebrow sb-only">11 — Price Alerts</div>
+  <p class="section-desc sb-only"><strong>What:</strong> buy-below targets for the products you're watching. <strong>How to read:</strong> when a product's latest tracked price falls to or below your target it's flagged here and on the board (🔔). Private to your account.</p>
+  <div class="panel sb-only" id="alerts-panel">
+    <div class="panel-header">
+      <div class="panel-title">Price Alerts</div>
+      <div class="panel-badge" id="alerts-badge">no alerts</div>
+    </div>
+    <div class="portfolio-editor">
+      <select class="field-select" id="alert-product-select"></select>
+      <input class="field-input" id="alert-target" type="number" min="0" step="0.01" placeholder="Buy below € / unit">
+      <button class="add-btn" id="alert-add-btn" style="width:auto;">+ Add / update</button>
+      <button class="portfolio-save-btn" id="alerts-save-btn" title="Save your alerts to your cloud account">☁ Save alerts</button>
+    </div>
+    <div id="alert-editor-error" class="portfolio-error"></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Type</th>
+            <th style="text-align:right">Now €/unit</th>
+            <th style="text-align:right">Target €</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="alerts-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
   </div><!-- /tab-analysis -->
 
   <!-- ═══════════════════ DATA ENTRY TAB ═══════════════════ -->
@@ -1732,6 +1846,12 @@ let activeType = "ALL";
 let sortKey = "score";
 let trendProduct = "Surging Sparks Booster Box";
 let ageThreshold = 1; // years until age weight reaches 1.0 (default)
+// Signed-in user's private portfolio (name → { quantity, costBasis }) and price
+// alerts (name → buy-below target €). Populated by loadFromSupabase(); empty in
+// static/xlsx mode. Declared here — before the render functions and INIT that
+// read them (renderPortfolio/renderAlerts, and updateTable via alertFlag).
+let holdings = {};
+let alerts = {};
 
 // ============================================================
 // HELPERS
@@ -1825,7 +1945,7 @@ function updateTable() {
     const trend = getTrend(p.name);
     tr.innerHTML = `
       <td class="product-name" title="${p.name}">
-        ${isBuySignal(p.name) ? '<span class="buy-flag" title="Price dropped ≥5% but set value held steady — potential buy opportunity">💰 </span>' : ''}${p.name}
+        ${isBuySignal(p.name) ? '<span class="buy-flag" title="Price dropped ≥5% but set value held steady — potential buy opportunity">💰 </span>' : ''}${alertFlag(p.name)}${p.name}
       </td>
       <td><span class="type-badge type-${p.type}">${p.type}</span></td>
       <td class="num">${fmt(p.price)}</td>
@@ -2467,6 +2587,9 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   renderRatioChart();
   initScenario();
 
+  renderPortfolio();
+  renderAlerts();
+
   // Header "last updated" reflects the newest snapshot date (data freshness),
   // not when the page happened to load.
   updateLastUpdated();
@@ -2479,6 +2602,277 @@ function showStatus(msg, isError) {
   el.className = 'upload-status ' + (isError ? 'err' : 'ok');
   el.style.display = 'inline-block';
 }
+
+// ============================================================
+// PORTFOLIO (signed-in only)
+// ============================================================
+// `holdings` (product name → { quantity, costBasis }) is the user's private
+// portfolio, loaded from Supabase. Unrealised P&L per holding is
+// (latest tracked price − cost basis) × quantity — derived here, never stored.
+const eur = v => '€' + Math.round(v).toLocaleString('de-DE');
+const pnlColor = v => v > 0 ? 'var(--accent4)' : v < 0 ? 'var(--accent2)' : 'var(--muted)';
+const withSign = (s, v) => (v > 0 ? '+' : v < 0 ? '−' : '') + s;
+
+function portfolioRows() {
+  return Object.entries(holdings).map(([name, h]) => {
+    const p    = products.find(pp => pp.name === name);
+    const now  = p && p.price != null ? p.price : null;   // latest whole-unit price
+    const qty  = Number(h.quantity)  || 0;
+    const cost = Number(h.costBasis) || 0;
+    const costValue = cost * qty;
+    const curValue  = now != null ? now * qty : null;
+    const pnl       = curValue != null ? curValue - costValue : null;
+    const pnlPct    = (now != null && cost > 0) ? (now - cost) / cost : null;
+    return { name, type: p ? p.type : null, qty, cost, now, costValue, curValue, pnl, pnlPct };
+  }).sort((a, b) => (b.curValue ?? 0) - (a.curValue ?? 0));
+}
+
+function populatePortfolioSelect() {
+  const sel = document.getElementById('portfolio-product-select');
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '';
+  products.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name; opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+
+function renderPortfolio() {
+  const tbody = document.getElementById('portfolio-tbody');
+  const summaryEl = document.getElementById('portfolio-summary');
+  if (!tbody || !summaryEl) return;
+  populatePortfolioSelect();
+
+  const rows = portfolioRows();
+  const totalCost = rows.reduce((s, r) => s + r.costValue, 0);
+  const totalNow  = rows.reduce((s, r) => s + (r.curValue ?? 0), 0);
+  const totalPnl  = totalNow - totalCost;
+  const totalPct  = totalCost > 0 ? totalPnl / totalCost : null;
+
+  summaryEl.style.display = rows.length ? '' : 'none';
+  summaryEl.innerHTML = rows.length ? `
+    <div class="portfolio-tile"><div class="lbl">Cost basis</div><div class="val">${eur(totalCost)}</div></div>
+    <div class="portfolio-tile"><div class="lbl">Current value</div><div class="val">${eur(totalNow)}</div></div>
+    <div class="portfolio-tile">
+      <div class="lbl">Unrealised P&L</div>
+      <div class="val" style="color:${pnlColor(totalPnl)}">${withSign(eur(Math.abs(totalPnl)), totalPnl)}</div>
+      <div class="sub" style="color:${pnlColor(totalPnl)}">${totalPct != null ? withSign((Math.abs(totalPct) * 100).toFixed(1) + '%', totalPnl) : '—'}</div>
+    </div>` : '';
+
+  tbody.innerHTML = rows.length ? rows.map(r => `
+    <tr>
+      <td class="product-name" title="${r.name}">${r.name}</td>
+      <td>${r.type ? `<span class="type-badge type-${r.type}">${r.type}</span>` : '—'}</td>
+      <td class="num">${r.qty}</td>
+      <td class="num">${eur(r.cost)}</td>
+      <td class="num">${r.now != null ? eur(r.now) : '—'}</td>
+      <td class="num">${r.curValue != null ? eur(r.curValue) : '—'}</td>
+      <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnl != null ? withSign(eur(Math.abs(r.pnl)), r.pnl) : '—'}</td>
+      <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnlPct != null ? withSign((Math.abs(r.pnlPct) * 100).toFixed(1) + '%', r.pnl) : '—'}</td>
+      <td style="text-align:center"><button class="portfolio-remove-btn" data-product="${r.name}" title="Remove holding">✕</button></td>
+    </tr>`).join('')
+    : `<tr><td colspan="9"><div class="portfolio-empty">No holdings yet — pick a product, enter quantity and cost, then “Save portfolio”.</div></td></tr>`;
+
+  tbody.querySelectorAll('.portfolio-remove-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      delete holdings[btn.dataset.product];
+      renderPortfolio();
+    });
+  });
+}
+
+// Add or update a holding from the editor inputs (local until saved).
+function addOrUpdateHolding() {
+  const sel  = document.getElementById('portfolio-product-select');
+  const qtyEl = document.getElementById('portfolio-qty');
+  const costEl = document.getElementById('portfolio-cost');
+  const errEl = document.getElementById('portfolio-editor-error');
+  const name = sel.value;
+  const qty  = parseFloat(qtyEl.value);
+  const cost = parseFloat(costEl.value);
+  const errs = [];
+  if (!name)                      errs.push('Pick a product.');
+  if (isNaN(qty)  || qty  <= 0)   errs.push('Quantity must be a positive number.');
+  if (isNaN(cost) || cost < 0)    errs.push('Cost must be a non-negative number.');
+  if (errs.length) { errEl.textContent = errs.join(' '); errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+  holdings[name] = { quantity: qty, costBasis: cost };
+  qtyEl.value = ''; costEl.value = '';
+  renderPortfolio();
+}
+
+// Persist the whole portfolio: replace the user's holdings rows with the
+// current local set (delete-all + insert keeps removals in sync). RLS scopes
+// every row to auth.uid(), so this only ever touches the caller's own rows.
+async function savePortfolio() {
+  if (!sbUser) { showStatus('Sign in to save your portfolio', true); return; }
+  const btn = document.getElementById('portfolio-save-btn');
+  try {
+    if (btn) btn.disabled = true;
+    showStatus('⏳ Saving portfolio…', false);
+    const { error: delErr } = await sbClient.from('holdings').delete().eq('user_id', sbUser.id);
+    if (delErr) throw delErr;
+    const rows = Object.entries(holdings)
+      .map(([name, h]) => ({ user_id: sbUser.id, product_id: sbProductIds[name], quantity: h.quantity, cost_basis: h.costBasis }))
+      .filter(r => r.product_id);
+    if (rows.length) {
+      const { error: insErr } = await sbClient.from('holdings').insert(rows);
+      if (insErr) throw insErr;
+    }
+    showStatus(`✓ Portfolio saved — ${rows.length} holding(s)`, false);
+  } catch (err) {
+    console.error('Portfolio save failed:', err);
+    showStatus('✕ Portfolio save failed: ' + (err.message || err), true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+document.getElementById('portfolio-add-btn').addEventListener('click', addOrUpdateHolding);
+document.getElementById('portfolio-save-btn').addEventListener('click', savePortfolio);
+
+// ============================================================
+// PRICE ALERTS (signed-in only)
+// ============================================================
+// `alerts` (product name → buy-below target €) is the user's private watchlist.
+// A product is "triggered" when its latest price is at/below target; "newly
+// crossed" when the previous snapshot was still above it. All derived here.
+function alertState(name) {
+  const target = alerts[name];
+  if (target == null) return null;
+  const p = products.find(pp => pp.name === name);
+  const price = p && p.price != null ? p.price : null;
+  const hist = historicalData[name];
+  const past = hist ? hist.price.filter(v => v != null) : [];
+  const prev = past.length >= 2 ? past[past.length - 2] : null;
+  const triggered    = price != null && price <= target;
+  const newlyCrossed = triggered && prev != null && prev > target;
+  return { target, price, triggered, newlyCrossed };
+}
+
+function triggeredAlertCount() {
+  return Object.keys(alerts).filter(n => alertState(n)?.triggered).length;
+}
+
+// Bell for the All Products board: gold when a target was just crossed, muted
+// when the price is still at/below target. Empty when no alert is triggered.
+function alertFlag(name) {
+  const s = alertState(name);
+  if (!s || !s.triggered) return '';
+  const color = s.newlyCrossed ? 'var(--accent)' : 'var(--muted)';
+  const title = `Alert: €${Math.round(s.price)} ≤ target €${Math.round(s.target)}${s.newlyCrossed ? ' (just crossed)' : ''}`;
+  return `<span class="buy-flag" style="color:${color}" title="${title}">🔔 </span>`;
+}
+
+function populateAlertSelect() {
+  const sel = document.getElementById('alert-product-select');
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '';
+  products.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name; opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+
+function renderAlerts() {
+  const tbody = document.getElementById('alerts-tbody');
+  const badge = document.getElementById('alerts-badge');
+  if (!tbody) return;
+  populateAlertSelect();
+
+  const names = Object.keys(alerts).sort((a, b) => {
+    // Triggered first, then by how far below target (deepest discount on top).
+    const sa = alertState(a), sb = alertState(b);
+    if (sa.triggered !== sb.triggered) return sa.triggered ? -1 : 1;
+    return (a.localeCompare(b));
+  });
+
+  const nTrig = triggeredAlertCount();
+  if (badge) {
+    badge.textContent = names.length
+      ? (nTrig ? `${nTrig} triggered` : 'none triggered')
+      : 'no alerts';
+    badge.style.color = nTrig ? 'var(--accent)' : 'var(--muted)';
+  }
+
+  tbody.innerHTML = names.length ? names.map(name => {
+    const s = alertState(name);
+    const p = products.find(pp => pp.name === name);
+    const type = p ? p.type : null;
+    const status = s.triggered
+      ? `<span style="color:var(--accent)">🔔 ${s.newlyCrossed ? 'just hit' : 'at/below'}</span>`
+      : `<span style="color:var(--muted)">watching</span>`;
+    return `
+      <tr>
+        <td class="product-name" title="${name}">${name}</td>
+        <td>${type ? `<span class="type-badge type-${type}">${type}</span>` : '—'}</td>
+        <td class="num">${s.price != null ? eur(s.price) : '—'}</td>
+        <td class="num">${eur(s.target)}</td>
+        <td>${status}</td>
+        <td style="text-align:center"><button class="portfolio-remove-btn" data-alert="${name}" title="Remove alert">✕</button></td>
+      </tr>`;
+  }).join('')
+    : `<tr><td colspan="6"><div class="portfolio-empty">No alerts yet — pick a product, set a buy-below target, then “Save alerts”.</div></td></tr>`;
+
+  tbody.querySelectorAll('.portfolio-remove-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      delete alerts[btn.dataset.alert];
+      renderAlerts();
+      updateTable(); // refresh the board's alert flags
+    });
+  });
+}
+
+function addOrUpdateAlert() {
+  const sel    = document.getElementById('alert-product-select');
+  const targetEl = document.getElementById('alert-target');
+  const errEl  = document.getElementById('alert-editor-error');
+  const name   = sel.value;
+  const target = parseFloat(targetEl.value);
+  const errs = [];
+  if (!name)                        errs.push('Pick a product.');
+  if (isNaN(target) || target < 0)  errs.push('Target must be a non-negative number.');
+  if (errs.length) { errEl.textContent = errs.join(' '); errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+  alerts[name] = target;
+  targetEl.value = '';
+  renderAlerts();
+  updateTable(); // reflect the new flag on the board immediately
+}
+
+// Persist alerts: replace the user's alert rows with the current local set.
+async function saveAlerts() {
+  if (!sbUser) { showStatus('Sign in to save alerts', true); return; }
+  const btn = document.getElementById('alerts-save-btn');
+  try {
+    if (btn) btn.disabled = true;
+    showStatus('⏳ Saving alerts…', false);
+    const { error: delErr } = await sbClient.from('alerts').delete().eq('user_id', sbUser.id);
+    if (delErr) throw delErr;
+    const rows = Object.entries(alerts)
+      .map(([name, target]) => ({ user_id: sbUser.id, product_id: sbProductIds[name], target_price: target }))
+      .filter(r => r.product_id);
+    if (rows.length) {
+      const { error: insErr } = await sbClient.from('alerts').insert(rows);
+      if (insErr) throw insErr;
+    }
+    showStatus(`✓ Alerts saved — ${rows.length} alert(s)`, false);
+  } catch (err) {
+    console.error('Alerts save failed:', err);
+    showStatus('✕ Alerts save failed: ' + (err.message || err), true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+document.getElementById('alert-add-btn').addEventListener('click', addOrUpdateAlert);
+document.getElementById('alerts-save-btn').addEventListener('click', saveAlerts);
 
 
 // Format guide modal
@@ -3257,6 +3651,8 @@ populateRatioSelects();
 renderRatioChart();
 populateScenarioSelect();
 initScenario();
+renderPortfolio();
+renderAlerts();
 updateLastUpdated();
 document.getElementById('sv-slider').addEventListener('input', updateScenario);
 document.getElementById('price-slider').addEventListener('input', updateScenario);
@@ -3351,6 +3747,11 @@ function setAuthedUI(user) {
   } else {
     root.classList.remove('sb-authed', 'is-admin');
     document.getElementById('auth-user-email').textContent = '';
+    holdings = {};            // clear the previous user's private portfolio
+    alerts = {};              // …and their private price alerts
+    renderPortfolio();
+    renderAlerts();
+    updateTable();            // drop any alert flags from the board
     showAuthOverlay(false);   // don't force the login modal…
     showDemo(true);           // …show the pre-login demo instead
   }
@@ -3360,10 +3761,12 @@ function setAuthedUI(user) {
 // same applyNewData() path the .xlsx loader uses. Pivots the normalized
 // snapshot rows back into the aligned price[]/setVal[] arrays the app expects.
 async function loadFromSupabase() {
-  const [prodRes, snapRes, setRes] = await Promise.all([
+  const [prodRes, snapRes, setRes, holdRes, alertRes] = await Promise.all([
     sbClient.from('products').select('*').order('release', { ascending: true }),
     sbClient.from('snapshots').select('*'),
     sbClient.from('user_settings').select('age_threshold').maybeSingle(),
+    sbClient.from('holdings').select('*'),
+    sbClient.from('alerts').select('*'),
   ]);
   if (prodRes.error) throw prodRes.error;
   if (snapRes.error) throw snapRes.error;
@@ -3400,6 +3803,22 @@ async function loadFromSupabase() {
       boosters: null, age: null, price: null, setVal: null,
       pricePerBooster: null, svPerBooster: null, ageWeight: null, score: null,
     };
+  });
+
+  // Pivot the user's private holdings into a name-keyed map (product_id → name
+  // via the id map we just built). Rows whose product no longer exists are
+  // dropped. applyNewData() → renderPortfolio() reads this.
+  const idToName = {};
+  Object.entries(sbProductIds).forEach(([name, id]) => { idToName[id] = name; });
+  holdings = {};
+  (holdRes && !holdRes.error ? holdRes.data || [] : []).forEach(h => {
+    const name = idToName[h.product_id];
+    if (name) holdings[name] = { quantity: Number(h.quantity), costBasis: Number(h.cost_basis) };
+  });
+  alerts = {};
+  (alertRes && !alertRes.error ? alertRes.data || [] : []).forEach(a => {
+    const name = idToName[a.product_id];
+    if (name) alerts[name] = Number(a.target_price);
   });
 
   // Derive metrics; keep only products that have at least one usable snapshot.

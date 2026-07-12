@@ -48,12 +48,43 @@ create table if not exists public.user_settings (
   age_threshold numeric not null default 1
 );
 
+-- ── Per-user portfolio holdings (private) ──
+-- What a signed-in user owns: quantity + per-unit cost basis (€ paid per box /
+-- ETB / bundle). Current value and unrealised P&L are derived client-side from
+-- the shared product's latest price — nothing derived is stored here.
+create table if not exists public.holdings (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade default auth.uid(),
+  product_id  uuid not null references public.products(id) on delete cascade,
+  quantity    numeric not null default 1 check (quantity >= 0),
+  cost_basis  numeric not null check (cost_basis >= 0),
+  created_at  timestamptz not null default now(),
+  unique (user_id, product_id)
+);
+create index if not exists holdings_user_idx on public.holdings (user_id);
+
+-- ── Per-user price alerts (private) ──
+-- A signed-in user's buy-target price per product. The dashboard flags a
+-- product when its latest tracked price falls to or below target_price; nothing
+-- about the "triggered" state is stored — it's derived client-side each load.
+create table if not exists public.alerts (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users(id) on delete cascade default auth.uid(),
+  product_id   uuid not null references public.products(id) on delete cascade,
+  target_price numeric not null check (target_price >= 0),
+  created_at   timestamptz not null default now(),
+  unique (user_id, product_id)
+);
+create index if not exists alerts_user_idx on public.alerts (user_id);
+
 -- ============================================================
 -- Row-Level Security — the real security boundary
 -- ============================================================
 alter table public.products      enable row level security;
 alter table public.snapshots     enable row level security;
 alter table public.user_settings enable row level security;
+alter table public.holdings      enable row level security;
+alter table public.alerts        enable row level security;
 
 -- Shared-dataset model:
 --   * Product data (products + snapshots) is READ by any signed-in user, but
@@ -100,6 +131,20 @@ create policy "admin writes snapshots" on public.snapshots
 -- ── user_settings: each user reads/writes only their own row ──
 drop policy if exists "own settings" on public.user_settings;
 create policy "own settings" on public.user_settings
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+-- ── holdings: each user reads/writes only their own portfolio ──
+drop policy if exists "own holdings" on public.holdings;
+create policy "own holdings" on public.holdings
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+-- ── alerts: each user reads/writes only their own price alerts ──
+drop policy if exists "own alerts" on public.alerts;
+create policy "own alerts" on public.alerts
   for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
