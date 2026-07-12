@@ -68,6 +68,14 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
     { message: 'board should show at least one fair price', timeout: 10_000 },
   ).toBeGreaterThan(0);
 
+  // Verdict line renders under product names, and board search narrows the table.
+  await expect(page.locator('#product-tbody .verdict-line').first()).toBeVisible();
+  const allRows = await page.locator('#product-tbody tr').count();
+  await page.fill('#board-search', 'zzzznomatch');
+  await expect(page.locator('#product-tbody')).toContainText('No products match');
+  await page.fill('#board-search', '');
+  await expect.poll(() => page.locator('#product-tbody tr').count()).toBe(allRows);
+
   // A Chart.js canvas actually drew (non-zero size).
   const svbBox = await page.locator('#svb-chart').boundingBox();
   expect(svbBox, 'value/booster chart should be rendered').not.toBeNull();

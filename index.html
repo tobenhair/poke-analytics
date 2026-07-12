@@ -249,6 +249,20 @@
     transition: border-color 0.2s var(--ease);
   }
   .sort-select:focus { border-color: var(--accent); }
+  .board-search {
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline);
+    background: var(--bg3);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.76rem;
+    outline: none;
+    width: 180px;
+    transition: border-color 0.2s var(--ease);
+  }
+  .board-search::placeholder { color: var(--muted); }
+  .board-search:focus { border-color: var(--accent); }
 
   /* ── KPI row ── */
   .kpi-row {
@@ -422,6 +436,8 @@
   .fair-gap { display: block; font-size: 0.64rem; letter-spacing: 0.02em; margin-top: 2px; white-space: nowrap; }
   /* R² confidence note in the Fair Price column header */
   .fair-fit-note { font-family: 'DM Mono', monospace; font-weight: 400; font-size: 0.6rem; opacity: 0.85; letter-spacing: 0.04em; }
+  /* Verdict: the row's plain-language headline, under the product name */
+  .verdict-line { display: block; font-family: 'DM Mono', monospace; font-size: 0.64rem; letter-spacing: 0.02em; margin-top: 3px; white-space: nowrap; }
   .score-bar-wrap { display: flex; align-items: center; gap: 10px; }
   .score-bar-bg { flex: 1; height: 3px; background: rgba(255,255,255,0.08); border-radius: 999px; min-width: 56px; overflow: hidden; }
   .score-bar-fill { height: 100%; border-radius: 999px; transition: width 0.6s var(--ease); }
@@ -1330,6 +1346,15 @@
         title="Years required before a product reaches full weight (no age penalty). Lower = more lenient on new products. Defaults to 1yr; adjustable from 0.5 to 3yr.">ⓘ</span>
     </div>
 
+    <input type="search" id="board-search" class="board-search" placeholder="Search name / set…" autocomplete="off" aria-label="Search products by name or set">
+
+    <select class="sort-select" id="verdict-filter" style="margin-left:0;" aria-label="Filter by verdict">
+      <option value="all">Verdict: All</option>
+      <option value="good">Verdict: Deals (under fair)</option>
+      <option value="neutral">Verdict: Fair / no edge</option>
+      <option value="bad">Verdict: Overpriced</option>
+    </select>
+
     <select class="sort-select" id="sort-select">
       <option value="score">Sort: Age-Weighted Score ↓</option>
       <option value="fair-gap">Sort: Best Deal (vs Fair Price) ↑</option>
@@ -1343,7 +1368,7 @@
 
   <!-- ── Section: product table (full width) ── -->
   <div class="section-eyebrow">02 — The Board</div>
-  <p class="section-desc"><strong>What:</strong> every tracked product in one sortable table. <strong>KPIs:</strong> <em>€/Booster</em> (price ÷ packs inside), <em>SV/Booster</em> (Set Value ÷ the price of <em>one</em> booster — i.e. how many times a single booster's cost the whole set is worth, shown as a <em>×</em> multiple; higher = better value, <strong>not</strong> a per-pack price), <em>Age</em>, and <em>Wtd. Score</em> (the headline ranking). <em>Fair Price</em> is what the live price <em>would</em> be at the SV/Booster expected for the product's age (section 05): a live price <span class="up">under</span> fair is cheap for its age, <span class="down">over</span> is expensive — the R² by the column header says how much to trust the fit. A 💰 marks a possible buy signal — price fell while set value held. <strong>How to read:</strong> filter with the Type pills and reorder with the Sort menu above (try <em>Best Deal</em>), or click any column header to sort.</p>
+  <p class="section-desc"><strong>What:</strong> every tracked product in one sortable table. <strong>KPIs:</strong> <em>€/Booster</em> (price ÷ packs inside), <em>SV/Booster</em> (Set Value ÷ the price of <em>one</em> booster — i.e. how many times a single booster's cost the whole set is worth, shown as a <em>×</em> multiple; higher = better value, <strong>not</strong> a per-pack price), <em>Age</em>, and <em>Wtd. Score</em> (the headline ranking). <em>Fair Price</em> is what the live price <em>would</em> be at the SV/Booster expected for the product's age (section 05): a live price <span class="up">under</span> fair is cheap for its age, <span class="down">over</span> is expensive — the R² by the column header says how much to trust the fit. A 💰 marks a possible buy signal — price fell while set value held. Under each product name is a plain-language <em>verdict</em> — the one-line synthesis of its gap to fair price, its drawdown from peak, and its set-value trend (e.g. <span class="up">Under fair price · near tracked low</span> / <span class="down">Overpriced for age</span> / Fair — no edge). <strong>How to read:</strong> filter with the Type pills and reorder with the Sort menu above — <em>Best Deal</em> ranks by verdict, best first — or click any column header to sort.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">All Products</div>
@@ -1787,7 +1812,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2 } from './metrics.js';
+import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2, verdict } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -1862,6 +1887,8 @@ let histDates = ["2026-01-18", "2026-02-23", "2026-03-20", "2026-04-20"];
 // ============================================================
 let activeType = "ALL";
 let sortKey = "score";
+let searchTerm = "";      // Board name/set search (case-insensitive substring)
+let verdictFilter = "all"; // Board filter by verdict tone: all | good | neutral | bad
 let trendProduct = "Surging Sparks Booster Box";
 let ageThreshold = 1; // years until age weight reaches 1.0 (default)
 // The age-fit line (SV/Booster ~ age) with its R², recomputed once per data
@@ -1892,10 +1919,17 @@ function scoreColor(score) {
 
 function getFiltered() {
   let data = activeType === 'ALL' ? [...products] : products.filter(p => p.type === activeType);
+  const q = searchTerm.trim().toLowerCase();
+  if (q) data = data.filter(p => p.name.toLowerCase().includes(q));
+  if (verdictFilter !== 'all') data = data.filter(p => p.verdict && p.verdict.tone === verdictFilter);
   data.sort((a, b) => {
     if (sortKey === 'score') return b.score - a.score;
-    // Most under fair price first; products without a computable gap sink last.
+    // Best deal first, by verdict rank (which folds in the fair-price gap and
+    // the weak-fit handling), tie-broken by the raw gap to fair price.
     if (sortKey === 'fair-gap') {
+      const ar = a.verdict ? a.verdict.rank : 2.5;
+      const br = b.verdict ? b.verdict.rank : 2.5;
+      if (ar !== br) return ar - br;
       const av = a.fairGap == null ? Infinity : a.fairGap;
       const bv = b.fairGap == null ? Infinity : b.fairGap;
       return av - bv;
@@ -1957,6 +1991,15 @@ function recomputeFit() {
     const fp = fairPrice(p, ageFit);
     p.fairPrice = fp ? parseFloat(fp.fair.toFixed(0)) : null;
     p.fairGap   = fp && fp.gapPct != null ? parseFloat(fp.gapPct.toFixed(0)) : null;
+    // Board verdict: synthesise the fair-price gap with drawdown and set-value
+    // trend from the tracked history (computeMomentum reads historicalData).
+    const m = computeMomentum(p.name);
+    p.verdict = verdict({
+      fairGap:     p.fairGap,
+      drawdown:    m ? m.drawdown : null,
+      svTrend:     m ? m.svSinceFirst : null,
+      fairTrusted: fairPriceTrusted(),
+    });
   });
 }
 
@@ -1994,6 +2037,10 @@ function updateTable() {
   updateFairFitNote();
   const tbody = document.getElementById('product-tbody');
   tbody.innerHTML = '';
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="portfolio-empty">No products match — clear the search or verdict filter.</div></td></tr>`;
+    return;
+  }
   data.forEach((p, i) => {
     const tr = document.createElement('tr');
     const svClass = p.svPerBooster >= 150 ? 'val-excellent' : p.svPerBooster >= 80 ? 'val-good' : 'val-poor';
@@ -2003,6 +2050,7 @@ function updateTable() {
     tr.innerHTML = `
       <td class="product-name" title="${p.name}">
         ${isBuySignal(p.name) ? '<span class="buy-flag" title="Price dropped ≥5% but set value held steady — potential buy opportunity">💰 </span>' : ''}${alertFlag(p.name)}${p.name}
+        ${verdictLine(p)}
       </td>
       <td><span class="type-badge type-${p.type}">${p.type}</span></td>
       <td class="num">${fmt(p.price)}</td>
@@ -2021,6 +2069,17 @@ function updateTable() {
     `;
     tbody.appendChild(tr);
   });
+}
+
+// The verdict shown as a small line under the product name — the row's plain-
+// language headline. Text-first (the label carries the meaning without colour);
+// tone only tints it. A dot marker keeps it a non-colour cue too.
+function verdictLine(p) {
+  const v = p.verdict;
+  if (!v) return '';
+  const col = v.tone === 'good' ? 'var(--accent4)' : v.tone === 'bad' ? 'var(--accent2)' : 'var(--muted)';
+  const mark = v.tone === 'good' ? '▲' : v.tone === 'bad' ? '▼' : '•';
+  return `<span class="verdict-line" style="color:${col}">${mark} ${v.label}</span>`;
 }
 
 // One board cell: the fair price in euros plus the signed gap of the live
@@ -2411,6 +2470,16 @@ document.querySelectorAll('.pill').forEach(pill => {
 
 document.getElementById('sort-select').addEventListener('change', e => {
   sortKey = e.target.value;
+  updateTable();
+});
+
+document.getElementById('board-search').addEventListener('input', e => {
+  searchTerm = e.target.value;
+  updateTable();
+});
+
+document.getElementById('verdict-filter').addEventListener('change', e => {
+  verdictFilter = e.target.value;
   updateTable();
 });
 

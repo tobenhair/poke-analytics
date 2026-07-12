@@ -112,6 +112,58 @@ export function fairPrice(product, fit) {
   return { fair, expected, gapPct };
 }
 
+// ── The Board verdict: one plain-language state per product ──
+// Synthesises the three signals a buyer cross-references by hand into a single
+// text-first verdict: the gap to fair price (primary), the drawdown vs the
+// tracked peak, and the set-value trend. Pure — the caller gathers the signals
+// (fair gap from fairPrice(), drawdown/svTrend from the tracked history) and
+// passes them in. Returns { label, tone, rank } where tone ∈ good|bad|neutral
+// (a non-colour cue lives in the label itself) and rank orders best deal → worst
+// for sorting (lower = better). fairTrusted gates the fair-price claim: when the
+// age fit is weak the verdict leans on drawdown/trend only and stays neutral.
+//
+// Signal thresholds (percentages):
+export const VERDICT = {
+  UNDER_STRONG: -10, // ≤ this % vs fair → clearly under fair (a deal)
+  UNDER_SOFT:    -3, // ≤ this → slightly under fair
+  OVER_SOFT:      3, // ≥ this → over fair
+  OVER_STRONG:   10, // ≥ this → overpriced
+  NEAR_LOW:     -15, // drawdown ≤ this (≥15% off peak) → near tracked low
+  SV_MOVE:        5, // |set-value trend| ≥ this → rising / falling
+};
+
+export function verdict({ fairGap, drawdown, svTrend, fairTrusted }) {
+  const nearLow  = drawdown != null && drawdown <= VERDICT.NEAR_LOW;
+  const svRising = svTrend  != null && svTrend  >=  VERDICT.SV_MOVE;
+  const svFalling= svTrend  != null && svTrend  <= -VERDICT.SV_MOVE;
+
+  // Without a trustworthy fair-price anchor, don't assert cheap/expensive —
+  // fall back to the momentum signals and stay neutral.
+  if (!fairTrusted || fairGap == null) {
+    if (nearLow)   return { label: 'Near tracked low', tone: 'neutral', rank: 2.3 };
+    if (svFalling) return { label: 'Set value slipping', tone: 'neutral', rank: 2.7 };
+    if (svRising)  return { label: 'Set value climbing', tone: 'neutral', rank: 2.4 };
+    return { label: 'No clear edge', tone: 'neutral', rank: 2.5 };
+  }
+
+  // Primary state from the gap to fair price.
+  let label, tone, rank;
+  if (fairGap <= VERDICT.UNDER_STRONG)      { label = 'Under fair price';    tone = 'good';    rank = 0; }
+  else if (fairGap <= VERDICT.UNDER_SOFT)   { label = 'Slightly under fair'; tone = 'good';    rank = 1; }
+  else if (fairGap <  VERDICT.OVER_SOFT)    { label = 'Fair — no edge';      tone = 'neutral'; rank = 2; }
+  else if (fairGap <  VERDICT.OVER_STRONG)  { label = 'Over fair price';     tone = 'bad';     rank = 3; }
+  else                                      { label = 'Overpriced for age';  tone = 'bad';     rank = 4; }
+
+  // One reinforcing clause: for a deal, flag when it's also near its low; for an
+  // overpriced product, flag a falling set value (the value is eroding too).
+  let clause = '';
+  if (tone === 'good' && nearLow)       clause = 'near tracked low';
+  else if (tone === 'bad' && svFalling) clause = 'set value falling';
+  else if (tone === 'neutral' && nearLow) clause = 'near tracked low';
+
+  return { label: clause ? `${label} · ${clause}` : label, tone, rank };
+}
+
 export function deriveProducts(newProducts, newHistoricalData) {
   const derivationErrors = [];
   const today = new Date();

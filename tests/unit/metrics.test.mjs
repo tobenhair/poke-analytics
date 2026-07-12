@@ -20,6 +20,8 @@ import {
   expectedSvPerBooster,
   fairPrice,
   FAIR_PRICE_MIN_R2,
+  verdict,
+  VERDICT,
 } from '../../metrics.js';
 
 // ── boostersFromType: the fixed physical constants ──────────────
@@ -216,4 +218,62 @@ test('fairPrice is null without a fit or when inputs are missing', () => {
 
 test('FAIR_PRICE_MIN_R2 is a sensible 0–1 confidence threshold', () => {
   assert.ok(FAIR_PRICE_MIN_R2 > 0 && FAIR_PRICE_MIN_R2 < 1);
+});
+
+// ── verdict: synthesise fair gap + drawdown + set-value trend ───
+test('verdict flags a clear deal as under fair price', () => {
+  const v = verdict({ fairGap: -20, drawdown: -5, svTrend: 0, fairTrusted: true });
+  assert.equal(v.label, 'Under fair price');
+  assert.equal(v.tone, 'good');
+  assert.equal(v.rank, 0);
+});
+
+test('verdict appends "near tracked low" to a deal deep off its peak', () => {
+  const v = verdict({ fairGap: -20, drawdown: -30, svTrend: 0, fairTrusted: true });
+  assert.equal(v.label, 'Under fair price · near tracked low');
+  assert.equal(v.tone, 'good');
+});
+
+test('verdict calls a fairly-priced product no edge', () => {
+  const v = verdict({ fairGap: 0, drawdown: -2, svTrend: 1, fairTrusted: true });
+  assert.equal(v.label, 'Fair — no edge');
+  assert.equal(v.tone, 'neutral');
+  assert.equal(v.rank, 2);
+});
+
+test('verdict flags an expensive product, and notes an eroding set value', () => {
+  const plain = verdict({ fairGap: 6, drawdown: -1, svTrend: 0, fairTrusted: true });
+  assert.equal(plain.label, 'Over fair price');
+  assert.equal(plain.tone, 'bad');
+  const eroding = verdict({ fairGap: 15, drawdown: -1, svTrend: -12, fairTrusted: true });
+  assert.equal(eroding.label, 'Overpriced for age · set value falling');
+  assert.equal(eroding.tone, 'bad');
+  assert.equal(eroding.rank, 4);
+});
+
+test('verdict ranks best deal → worst monotonically', () => {
+  const ranks = [-20, -5, 0, 6, 15].map(g =>
+    verdict({ fairGap: g, drawdown: 0, svTrend: 0, fairTrusted: true }).rank);
+  for (let i = 1; i < ranks.length; i++) assert.ok(ranks[i] > ranks[i - 1]);
+});
+
+test('verdict stays neutral and drops the fair claim when the fit is weak', () => {
+  const nearLow = verdict({ fairGap: -20, drawdown: -30, svTrend: 0, fairTrusted: false });
+  assert.equal(nearLow.label, 'Near tracked low');
+  assert.equal(nearLow.tone, 'neutral');
+  const flat = verdict({ fairGap: -20, drawdown: -1, svTrend: 0, fairTrusted: false });
+  assert.equal(flat.label, 'No clear edge');
+  assert.equal(flat.tone, 'neutral');
+});
+
+test('verdict falls back to momentum when there is no fair gap', () => {
+  const v = verdict({ fairGap: null, drawdown: -2, svTrend: -20, fairTrusted: true });
+  assert.equal(v.label, 'Set value slipping');
+  assert.equal(v.tone, 'neutral');
+});
+
+test('VERDICT thresholds are ordered under < 0 < over', () => {
+  assert.ok(VERDICT.UNDER_STRONG < VERDICT.UNDER_SOFT);
+  assert.ok(VERDICT.UNDER_SOFT < 0 && 0 < VERDICT.OVER_SOFT);
+  assert.ok(VERDICT.OVER_SOFT < VERDICT.OVER_STRONG);
 });
