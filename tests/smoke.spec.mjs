@@ -58,6 +58,16 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   // Top Picks populated.
   await expect(page.locator('#top-picks-list')).not.toBeEmpty();
 
+  // Fair Price column derived: the header carries an R² fit note and at least
+  // one board row shows a computed fair price in euros (guards recomputeFit()
+  // running before first render and the age-fit → fair-price inversion).
+  await expect(page.locator('#fair-fit-note')).toContainText('R²');
+  await expect.poll(
+    () => page.locator('#product-tbody td:nth-child(4)')
+            .filter({ hasText: '€' }).count(),
+    { message: 'board should show at least one fair price', timeout: 10_000 },
+  ).toBeGreaterThan(0);
+
   // A Chart.js canvas actually drew (non-zero size).
   const svbBox = await page.locator('#svb-chart').boundingBox();
   expect(svbBox, 'value/booster chart should be rendered').not.toBeNull();

@@ -418,6 +418,10 @@
   .type-BUNDLE { background: rgba(244,198,81,0.1); color: var(--accent); border: 1px solid rgba(244,198,81,0.22); }
 
   .num { font-family: 'DM Mono', monospace; font-size: 0.78rem; text-align: right; }
+  /* Fair-price gap: a small second line under the fair price in the board cell */
+  .fair-gap { display: block; font-size: 0.64rem; letter-spacing: 0.02em; margin-top: 2px; white-space: nowrap; }
+  /* R² confidence note in the Fair Price column header */
+  .fair-fit-note { font-family: 'DM Mono', monospace; font-weight: 400; font-size: 0.6rem; opacity: 0.85; letter-spacing: 0.04em; }
   .score-bar-wrap { display: flex; align-items: center; gap: 10px; }
   .score-bar-bg { flex: 1; height: 3px; background: rgba(255,255,255,0.08); border-radius: 999px; min-width: 56px; overflow: hidden; }
   .score-bar-fill { height: 100%; border-radius: 999px; transition: width 0.6s var(--ease); }
@@ -1328,6 +1332,7 @@
 
     <select class="sort-select" id="sort-select">
       <option value="score">Sort: Age-Weighted Score ↓</option>
+      <option value="fair-gap">Sort: Best Deal (vs Fair Price) ↑</option>
       <option value="set-value-booster">Sort: Set Value / Booster ↓</option>
       <option value="price-asc">Sort: Price ↑</option>
       <option value="price-desc">Sort: Price ↓</option>
@@ -1338,7 +1343,7 @@
 
   <!-- ── Section: product table (full width) ── -->
   <div class="section-eyebrow">02 — The Board</div>
-  <p class="section-desc"><strong>What:</strong> every tracked product in one sortable table. <strong>KPIs:</strong> <em>€/Booster</em> (price ÷ packs inside), <em>SV/Booster</em> (Set Value ÷ the price of <em>one</em> booster — i.e. how many times a single booster's cost the whole set is worth, shown as a <em>×</em> multiple; higher = better value, <strong>not</strong> a per-pack price), <em>Age</em>, and <em>Wtd. Score</em> (the headline ranking). A 💰 marks a possible buy signal — price fell while set value held. <strong>How to read:</strong> filter with the Type pills and reorder with the Sort menu above, or click any column header to sort.</p>
+  <p class="section-desc"><strong>What:</strong> every tracked product in one sortable table. <strong>KPIs:</strong> <em>€/Booster</em> (price ÷ packs inside), <em>SV/Booster</em> (Set Value ÷ the price of <em>one</em> booster — i.e. how many times a single booster's cost the whole set is worth, shown as a <em>×</em> multiple; higher = better value, <strong>not</strong> a per-pack price), <em>Age</em>, and <em>Wtd. Score</em> (the headline ranking). <em>Fair Price</em> is what the live price <em>would</em> be at the SV/Booster expected for the product's age (section 05): a live price <span class="up">under</span> fair is cheap for its age, <span class="down">over</span> is expensive — the R² by the column header says how much to trust the fit. A 💰 marks a possible buy signal — price fell while set value held. <strong>How to read:</strong> filter with the Type pills and reorder with the Sort menu above (try <em>Best Deal</em>), or click any column header to sort.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">All Products</div>
@@ -1351,6 +1356,7 @@
             <th>Product <span style="font-weight:300;opacity:0.6;font-size:0.6rem">💰 = buy signal</span></th>
             <th>Type</th>
             <th style="text-align:right">Price (€)</th>
+            <th style="text-align:right" title="What the live price would be if the product traded at the SV/Booster expected for its age (section 05). Under it = cheap for its age; over = expensive. Reliability shown as R² — greyed when the age fit is weak.">Fair Price (€) <span id="fair-fit-note" class="fair-fit-note"></span></th>
             <th style="text-align:right">Set Value (€)</th>
             <th style="text-align:right">€/Booster</th>
             <th style="text-align:right">SV/Booster</th>
@@ -1781,7 +1787,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts } from './metrics.js';
+import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2 } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -1858,6 +1864,10 @@ let activeType = "ALL";
 let sortKey = "score";
 let trendProduct = "Surging Sparks Booster Box";
 let ageThreshold = 1; // years until age weight reaches 1.0 (default)
+// The age-fit line (SV/Booster ~ age) with its R², recomputed once per data
+// load by recomputeFit(). Shared by the board's fair price, the scatter overlay
+// and the relative-value table so they can never disagree about the fit.
+let ageFit = null;
 // Signed-in user's private portfolio (name → { quantity, costBasis }) and price
 // alerts (name → buy-below target €). Populated by loadFromSupabase(); empty in
 // static/xlsx mode. Declared here — before the render functions and INIT that
@@ -1884,6 +1894,12 @@ function getFiltered() {
   let data = activeType === 'ALL' ? [...products] : products.filter(p => p.type === activeType);
   data.sort((a, b) => {
     if (sortKey === 'score') return b.score - a.score;
+    // Most under fair price first; products without a computable gap sink last.
+    if (sortKey === 'fair-gap') {
+      const av = a.fairGap == null ? Infinity : a.fairGap;
+      const bv = b.fairGap == null ? Infinity : b.fairGap;
+      return av - bv;
+    }
     if (sortKey === 'set-value-booster') return b.svPerBooster - a.svPerBooster;
     if (sortKey === 'price-asc') return a.price - b.price;
     if (sortKey === 'price-desc') return b.price - a.price;
@@ -1923,6 +1939,34 @@ function formatISO(d) {
 // live state before the first render in both INIT and applyNewData().
 
 // ============================================================
+// FAIR PRICE — the age-fit line, inverted to euros per product
+// ============================================================
+// Fit SV/Booster against age across all products, then stamp each product with
+// its fair price (what its set value would cost at the age-expected SV/Booster)
+// and the signed gap of the live price vs that fair price. Threshold-independent
+// — svPerBooster and age don't move with the age slider — so this runs once per
+// data load (INIT and applyNewData), before the first render, alongside
+// recomputeScores(). Reads: products[].age/svPerBooster/setVal/boosters/price.
+function recomputeFit() {
+  ageFit = linearFit(products.map(p => ({ x: p.age, y: p.svPerBooster })));
+  products.forEach(p => {
+    // The workbook path stamps p.boosters via deriveProducts(); the hardcoded
+    // fallback array omits it. Booster count is a pure function of type, so fill
+    // it here to keep fair price working identically across both data sources.
+    if (p.boosters == null) p.boosters = boostersFromType(p.type);
+    const fp = fairPrice(p, ageFit);
+    p.fairPrice = fp ? parseFloat(fp.fair.toFixed(0)) : null;
+    p.fairGap   = fp && fp.gapPct != null ? parseFloat(fp.gapPct.toFixed(0)) : null;
+  });
+}
+
+// Is the current fit tight enough to trust the fair price? Drives the greyed,
+// low-confidence rendering when it isn't.
+function fairPriceTrusted() {
+  return !!ageFit && ageFit.r2 >= FAIR_PRICE_MIN_R2;
+}
+
+// ============================================================
 // KPIs
 // ============================================================
 function updateKPIs() {
@@ -1947,6 +1991,7 @@ function updateTable() {
   const data = getFiltered();
   const maxScore = Math.max(...data.map(p => p.score));
   document.getElementById('count-badge').textContent = `${data.length} products`;
+  updateFairFitNote();
   const tbody = document.getElementById('product-tbody');
   tbody.innerHTML = '';
   data.forEach((p, i) => {
@@ -1961,6 +2006,7 @@ function updateTable() {
       </td>
       <td><span class="type-badge type-${p.type}">${p.type}</span></td>
       <td class="num">${fmt(p.price)}</td>
+      <td class="num">${fairPriceCell(p)}</td>
       <td class="num">${fmt(p.setVal)}</td>
       <td class="num">${fmt(p.pricePerBooster, 1)}</td>
       <td class="num ${svClass}">${fmt(p.svPerBooster, 1)}×</td>
@@ -1975,6 +2021,35 @@ function updateTable() {
     `;
     tbody.appendChild(tr);
   });
+}
+
+// One board cell: the fair price in euros plus the signed gap of the live
+// price vs fair (▼ under = a deal, green; ▲ over = expensive, red). Greyed with
+// no colour cue when the age fit is too weak to trust (see fairPriceTrusted).
+function fairPriceCell(p) {
+  if (p.fairPrice == null) return '<span style="color:var(--muted)">—</span>';
+  const trusted = fairPriceTrusted();
+  const priceCol = trusted ? 'var(--text)' : 'var(--muted)';
+  const title = trusted ? '' : ' title="Low fit confidence — the age trend is weak, so treat this as a rough guide."';
+  let gap = '';
+  if (p.fairGap != null) {
+    const under = p.fairGap < 0;
+    const gapCol = !trusted ? 'var(--muted)' : under ? 'var(--accent4)' : 'var(--accent2)';
+    const arrow = p.fairGap === 0 ? '' : under ? '▼ ' : '▲ ';
+    const label = p.fairGap === 0 ? 'at fair' : `${Math.abs(p.fairGap)}% ${under ? 'under' : 'over'}`;
+    gap = `<span class="fair-gap" style="color:${gapCol}">${arrow}${label}</span>`;
+  }
+  return `<span style="color:${priceCol}"${title}>€${fmt(p.fairPrice)}</span>${gap}`;
+}
+
+// Surface the fit confidence (R²) in the Fair Price column header, greyed when
+// below the trust threshold so the whole column reads as low-confidence at once.
+function updateFairFitNote() {
+  const note = document.getElementById('fair-fit-note');
+  if (!note) return;
+  if (!ageFit) { note.textContent = ''; return; }
+  note.textContent = `R² ${ageFit.r2.toFixed(2)}`;
+  note.style.color = fairPriceTrusted() ? 'var(--accent4)' : 'var(--muted)';
 }
 
 function getTrend(name) {
@@ -2140,7 +2215,7 @@ function renderScatterChart() {
   }));
 
   // Overlay the fitted "expected value for age" line (see Relative Value section)
-  const scatterFit = linearFit(products.map(p => ({ x: p.age, y: p.svPerBooster })));
+  const scatterFit = ageFit;
   if (scatterFit) {
     const xs = products.map(p => p.age);
     const xmin = Math.min(...xs), xmax = Math.max(...xs);
@@ -2588,6 +2663,7 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
 
   // Re-render everything
   recomputeScores(products, ageThreshold); // apply the current age threshold to freshly loaded data
+  recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
   updateKPIs();
   updateTable();
   updateTopPicks();
@@ -3576,25 +3652,17 @@ function exportXlsx() {
 // ============================================================
 // RELATIVE VALUE (actual SV/Booster vs the age-fit expectation)
 // ============================================================
-function linearFit(pts) {
-  const n = pts.length;
-  if (n < 2) return null;
-  let sx = 0, sy = 0, sxx = 0, sxy = 0;
-  pts.forEach(p => { sx += p.x; sy += p.y; sxx += p.x * p.x; sxy += p.x * p.y; });
-  const denom = n * sxx - sx * sx;
-  if (Math.abs(denom) < 1e-9) return null;
-  const b = (n * sxy - sx * sy) / denom;
-  const a = (sy - b * sx) / n;
-  return { a, b };
-}
-
+// linearFit() now lives in metrics.js (imported above) and additionally
+// returns R² — the fit-confidence signal used by the fair price. The age-fit
+// line and each product's fair price are computed once per data load in
+// recomputeFit() and read by the board, scatter and relative-value views.
 function renderRelativeValue() {
   const tbody = document.getElementById('relval-tbody');
   if (!tbody) return;
-  const fit = linearFit(products.map(p => ({ x: p.age, y: p.svPerBooster })));
+  const fit = ageFit;
   const badge = document.getElementById('relval-fit-badge');
   if (badge) badge.textContent = fit
-    ? `age trend ${fit.b >= 0 ? '+' : ''}${fit.b.toFixed(1)} SV/booster per yr`
+    ? `age trend ${fit.b >= 0 ? '+' : ''}${fit.b.toFixed(1)}/yr · R² ${fit.r2.toFixed(2)}`
     : 'flat';
 
   const rows = products.map(p => {
@@ -3707,6 +3775,7 @@ Chart.defaults.color = '#6b6f85';
 Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
 
 recomputeScores(products, ageThreshold); // apply the default age threshold to the initial data
+recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
 updateKPIs();
 updateTable();
 updateTopPicks();

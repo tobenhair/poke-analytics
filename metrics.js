@@ -51,6 +51,67 @@ export function recomputeScores(products, ageThreshold) {
 // skip them). The ageWeight/score written here are provisional — using a fixed
 // 3-year threshold — because recomputeScores() overwrites them with the current
 // ageThreshold before the first render.
+// ── Age-fit line: least-squares SV/Booster as a function of age ──
+// Ordinary least-squares regression of y (SV/Booster) on x (age in years).
+// Returns { a, b, r2 } — intercept, slope, and coefficient of determination —
+// or null when there are fewer than two points or the ages don't vary (a
+// vertical fit is undefined). r2 (0–1, higher = tighter) is the honest
+// confidence signal for how much to trust anything derived from the fit,
+// including the fair price below.
+export function linearFit(pts) {
+  const n = pts.length;
+  if (n < 2) return null;
+  let sx = 0, sy = 0, sxx = 0, sxy = 0;
+  pts.forEach(p => { sx += p.x; sy += p.y; sxx += p.x * p.x; sxy += p.x * p.y; });
+  const denom = n * sxx - sx * sx;
+  if (Math.abs(denom) < 1e-9) return null;
+  const b = (n * sxy - sx * sy) / denom;
+  const a = (sy - b * sx) / n;
+  // R² = 1 − SSres / SStot. SStot 0 (all y equal) → a flat line fits perfectly.
+  const meanY = sy / n;
+  let ssRes = 0, ssTot = 0;
+  pts.forEach(p => {
+    const yhat = a + b * p.x;
+    ssRes += (p.y - yhat) ** 2;
+    ssTot += (p.y - meanY) ** 2;
+  });
+  const r2 = ssTot < 1e-9 ? 1 : Math.max(0, 1 - ssRes / ssTot);
+  return { a, b, r2 };
+}
+
+// Below this fit quality (R²) the fair price is too speculative to lean on —
+// the UI still shows it, but greyed, and flags the low confidence.
+export const FAIR_PRICE_MIN_R2 = 0.25;
+
+// Expected SV/Booster for a product of a given age, read off the age-fit line.
+// Floored at 0: a linear fit extrapolates below zero for the oldest products,
+// which is not a meaningful expectation. Returns null without a fit.
+export function expectedSvPerBooster(fit, age) {
+  if (!fit) return null;
+  return Math.max(0, fit.a + fit.b * age);
+}
+
+// ── Fair price in euros, by inverting the age-fit line ──
+// The fit predicts the SV/Booster a product of this age "should" trade at.
+// Since  svPerBooster = setVal × boosters ÷ price, that expected value implies
+// a concrete fair price:  fairPrice = setVal × boosters ÷ expectedSvPerBooster.
+// A live price above fair is expensive for the product's age; below fair, cheap.
+// Returns { fair, expected, gapPct } — gapPct is the signed gap of the live
+// price vs fair (negative = under fair = a better deal) — or null when it can't
+// be computed (no fit, missing inputs, or a non-positive expectation that would
+// divide to a meaningless/Infinite price).
+export function fairPrice(product, fit) {
+  const expected = expectedSvPerBooster(fit, product.age);
+  if (expected == null || expected <= 0) return null;
+  if (product.setVal == null || !product.boosters) return null;
+  const fair = (product.setVal * product.boosters) / expected;
+  if (!isFinite(fair) || fair <= 0) return null;
+  const gapPct = product.price != null && product.price > 0
+    ? ((product.price - fair) / fair) * 100
+    : null;
+  return { fair, expected, gapPct };
+}
+
 export function deriveProducts(newProducts, newHistoricalData) {
   const derivationErrors = [];
   const today = new Date();
