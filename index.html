@@ -795,14 +795,19 @@
   }
   .portfolio-editor .field-select { max-width: 260px; }
   .portfolio-editor .field-input { max-width: 140px; }
-  .portfolio-save-btn {
-    padding: 8px 16px; border-radius: 999px;
-    border: 1px solid var(--accent3); background: transparent; color: var(--accent3);
+  .portfolio-cancel-btn {
+    padding: 10px 16px; border-radius: 999px;
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
     font-family: 'DM Mono', monospace; font-size: 0.72rem; cursor: pointer;
-    letter-spacing: 0.04em; transition: all 0.2s var(--ease);
+    letter-spacing: 0.04em; transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
   }
-  .portfolio-save-btn:hover { background: var(--accent3); color: #05070c; }
-  .portfolio-save-btn:disabled { opacity: 0.5; cursor: default; }
+  .portfolio-cancel-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.16); }
+  .portfolio-edit-btn {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 0.85rem; padding: 2px 6px; border-radius: 6px; line-height: 1;
+    transition: color 0.2s var(--ease);
+  }
+  .portfolio-edit-btn:hover { color: var(--accent3); }
   .portfolio-error {
     font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--accent2);
     padding: 10px 24px 0; display: none;
@@ -1044,6 +1049,7 @@
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="welcome">👋 Welcome</button>
     <button class="tab-btn" data-tab="analysis">📊 Analysis</button>
+    <button class="tab-btn sb-only" data-tab="portfolio">💼 Portfolio</button>
     <button class="tab-btn admin-only" data-tab="entry">✏️ Data Entry</button>
   </div>
 
@@ -1556,78 +1562,84 @@
     </div>
   </div>
 
-  <!-- ── Section: portfolio (signed-in only) ── -->
-  <div class="section-eyebrow sb-only">10 — Your Portfolio</div>
-  <p class="section-desc sb-only"><strong>What:</strong> what you own and what it's worth now. <strong>How to read:</strong> enter a quantity and the per-unit price you paid (<em>cost basis</em>); <em>unrealised P&amp;L</em> compares that to each product's latest tracked price. Private to your account.</p>
-  <div class="panel sb-only" id="portfolio-panel">
-    <div class="panel-header">
-      <div class="panel-title">Portfolio</div>
-      <button class="portfolio-save-btn" id="portfolio-save-btn" title="Save your portfolio to your cloud account">☁ Save portfolio</button>
-    </div>
-
-    <div class="portfolio-summary" id="portfolio-summary"></div>
-
-    <div class="portfolio-editor">
-      <select class="field-select" id="portfolio-product-select"></select>
-      <input class="field-input" id="portfolio-qty" type="number" min="0" step="1" placeholder="Qty">
-      <input class="field-input" id="portfolio-cost" type="number" min="0" step="0.01" placeholder="Cost € / unit">
-      <button class="add-btn" id="portfolio-add-btn" style="width:auto;">+ Add / update</button>
-    </div>
-    <div id="portfolio-editor-error" class="portfolio-error"></div>
-
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Type</th>
-            <th style="text-align:right">Qty</th>
-            <th style="text-align:right">Cost €/unit</th>
-            <th style="text-align:right">Now €/unit</th>
-            <th style="text-align:right">Value €</th>
-            <th style="text-align:right">P&amp;L €</th>
-            <th style="text-align:right">P&amp;L %</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="portfolio-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ── Section: price alerts (signed-in only) ── -->
-  <div class="section-eyebrow sb-only">11 — Price Alerts</div>
-  <p class="section-desc sb-only"><strong>What:</strong> buy-below targets for the products you're watching. <strong>How to read:</strong> when a product's latest tracked price falls to or below your target it's flagged here and on the board (🔔). Private to your account.</p>
-  <div class="panel sb-only" id="alerts-panel">
-    <div class="panel-header">
-      <div class="panel-title">Price Alerts</div>
-      <div class="panel-badge" id="alerts-badge">no alerts</div>
-    </div>
-    <div class="portfolio-editor">
-      <select class="field-select" id="alert-product-select"></select>
-      <input class="field-input" id="alert-target" type="number" min="0" step="0.01" placeholder="Buy below € / unit">
-      <button class="add-btn" id="alert-add-btn" style="width:auto;">+ Add / update</button>
-      <button class="portfolio-save-btn" id="alerts-save-btn" title="Save your alerts to your cloud account">☁ Save alerts</button>
-    </div>
-    <div id="alert-editor-error" class="portfolio-error"></div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Type</th>
-            <th style="text-align:right">Now €/unit</th>
-            <th style="text-align:right">Target €</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="alerts-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
   </div><!-- /tab-analysis -->
+
+  <!-- ═══════════════════ PORTFOLIO TAB (signed-in only) ═══════════════════ -->
+  <div class="tab-pane" id="tab-portfolio">
+
+    <span id="portfolio-status" class="upload-status" style="display:none"></span>
+
+    <!-- ── Section: portfolio ── -->
+    <div class="section-eyebrow">01 — Your Portfolio</div>
+    <p class="section-desc"><strong>What:</strong> what you own and what it's worth now. <strong>How to read:</strong> <em>Add / buy more</em> tops up a holding and blends the cost basis to a weighted average; use <em>✎</em> on a row to correct the exact quantity or cost. <em>Unrealised P&amp;L</em> compares your cost basis to each product's latest tracked price. Private to your account, saved automatically.</p>
+    <div class="panel" id="portfolio-panel">
+      <div class="panel-header">
+        <div class="panel-title">Portfolio</div>
+      </div>
+
+      <div class="portfolio-summary" id="portfolio-summary"></div>
+
+      <div class="portfolio-editor">
+        <select class="field-select" id="portfolio-product-select"></select>
+        <input class="field-input" id="portfolio-qty" type="number" min="0" step="1" placeholder="Qty">
+        <input class="field-input" id="portfolio-cost" type="number" min="0" step="0.01" placeholder="€ / unit">
+        <button class="add-btn" id="portfolio-add-btn" style="width:auto;">+ Add / buy more</button>
+        <button class="portfolio-cancel-btn" id="portfolio-cancel-btn" style="display:none;">Cancel</button>
+      </div>
+      <div id="portfolio-editor-error" class="portfolio-error"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Type</th>
+              <th style="text-align:right">Qty</th>
+              <th style="text-align:right">Cost €/unit</th>
+              <th style="text-align:right">Now €/unit</th>
+              <th style="text-align:right">Value €</th>
+              <th style="text-align:right">P&amp;L €</th>
+              <th style="text-align:right">P&amp;L %</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="portfolio-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Section: price alerts ── -->
+    <div class="section-eyebrow">02 — Price Alerts</div>
+    <p class="section-desc"><strong>What:</strong> buy-below targets for the products you're watching. <strong>How to read:</strong> when a product's latest tracked price falls to or below your target it's flagged here and with a 🔔 on the Analysis board. Private to your account, saved automatically.</p>
+    <div class="panel" id="alerts-panel">
+      <div class="panel-header">
+        <div class="panel-title">Price Alerts</div>
+        <div class="panel-badge" id="alerts-badge">no alerts</div>
+      </div>
+      <div class="portfolio-editor">
+        <select class="field-select" id="alert-product-select"></select>
+        <input class="field-input" id="alert-target" type="number" min="0" step="0.01" placeholder="Buy below € / unit">
+        <button class="add-btn" id="alert-add-btn" style="width:auto;">+ Add / update</button>
+      </div>
+      <div id="alert-editor-error" class="portfolio-error"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Type</th>
+              <th style="text-align:right">Now €/unit</th>
+              <th style="text-align:right">Target €</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="alerts-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /tab-portfolio -->
 
   <!-- ═══════════════════ DATA ENTRY TAB ═══════════════════ -->
   <div class="tab-pane" id="tab-entry">
@@ -2612,6 +2624,20 @@ function showStatus(msg, isError) {
 const eur = v => '€' + Math.round(v).toLocaleString('de-DE');
 const pnlColor = v => v > 0 ? 'var(--accent4)' : v < 0 ? 'var(--accent2)' : 'var(--muted)';
 const withSign = (s, v) => (v > 0 ? '+' : v < 0 ? '−' : '') + s;
+const round2 = v => Math.round(v * 100) / 100;
+
+// Which holding the editor is currently editing (null = add / buy-more mode).
+let portfolioEditName = null;
+
+// Brief save-status line for the Portfolio tab — it has its own element because
+// the Analysis tab's #upload-status isn't in this pane.
+function portfolioStatus(msg, isError) {
+  const el = document.getElementById('portfolio-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'upload-status ' + (isError ? 'err' : 'ok');
+  el.style.display = 'inline-block';
+}
 
 function portfolioRows() {
   return Object.entries(holdings).map(([name, h]) => {
@@ -2672,67 +2698,113 @@ function renderPortfolio() {
       <td class="num">${r.curValue != null ? eur(r.curValue) : '—'}</td>
       <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnl != null ? withSign(eur(Math.abs(r.pnl)), r.pnl) : '—'}</td>
       <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnlPct != null ? withSign((Math.abs(r.pnlPct) * 100).toFixed(1) + '%', r.pnl) : '—'}</td>
-      <td style="text-align:center"><button class="portfolio-remove-btn" data-product="${r.name}" title="Remove holding">✕</button></td>
+      <td style="text-align:center; white-space:nowrap;">
+        <button class="portfolio-edit-btn" data-product="${r.name}" title="Edit exact quantity / cost">✎</button>
+        <button class="portfolio-remove-btn" data-product="${r.name}" title="Remove holding">✕</button>
+      </td>
     </tr>`).join('')
-    : `<tr><td colspan="9"><div class="portfolio-empty">No holdings yet — pick a product, enter quantity and cost, then “Save portfolio”.</div></td></tr>`;
+    : `<tr><td colspan="9"><div class="portfolio-empty">No holdings yet — pick a product, enter quantity and the price you paid, then “Add / buy more”.</div></td></tr>`;
 
+  tbody.querySelectorAll('.portfolio-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => startPortfolioEdit(btn.dataset.product));
+  });
   tbody.querySelectorAll('.portfolio-remove-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      delete holdings[btn.dataset.product];
-      renderPortfolio();
-    });
+    btn.addEventListener('click', () => removeHolding(btn.dataset.product));
   });
 }
 
-// Add or update a holding from the editor inputs (local until saved).
-function addOrUpdateHolding() {
-  const sel  = document.getElementById('portfolio-product-select');
-  const qtyEl = document.getElementById('portfolio-qty');
+// Load a holding into the editor to correct its exact quantity / cost.
+function startPortfolioEdit(name) {
+  const h = holdings[name];
+  if (!h) return;
+  portfolioEditName = name;
+  const sel = document.getElementById('portfolio-product-select');
+  sel.value = name; sel.disabled = true;
+  document.getElementById('portfolio-qty').value  = h.quantity;
+  document.getElementById('portfolio-cost').value = h.costBasis;
+  document.getElementById('portfolio-add-btn').textContent = '✓ Save changes';
+  document.getElementById('portfolio-cancel-btn').style.display = '';
+  document.getElementById('portfolio-qty').focus();
+}
+
+function exitPortfolioEdit() {
+  portfolioEditName = null;
+  const sel = document.getElementById('portfolio-product-select');
+  if (sel) sel.disabled = false;
+  document.getElementById('portfolio-qty').value  = '';
+  document.getElementById('portfolio-cost').value = '';
+  document.getElementById('portfolio-add-btn').textContent = '+ Add / buy more';
+  document.getElementById('portfolio-cancel-btn').style.display = 'none';
+  document.getElementById('portfolio-editor-error').style.display = 'none';
+}
+
+// Primary editor action. In edit mode → override the holding's exact values.
+// Otherwise "buy more" → add the quantity and blend cost basis to a weighted
+// average (creating the holding if it's new). Auto-saves the affected row.
+function commitHolding() {
+  const sel    = document.getElementById('portfolio-product-select');
+  const qtyEl  = document.getElementById('portfolio-qty');
   const costEl = document.getElementById('portfolio-cost');
-  const errEl = document.getElementById('portfolio-editor-error');
-  const name = sel.value;
+  const errEl  = document.getElementById('portfolio-editor-error');
+  const editing = portfolioEditName;
+  const name = editing || sel.value;
   const qty  = parseFloat(qtyEl.value);
   const cost = parseFloat(costEl.value);
   const errs = [];
-  if (!name)                      errs.push('Pick a product.');
-  if (isNaN(qty)  || qty  <= 0)   errs.push('Quantity must be a positive number.');
-  if (isNaN(cost) || cost < 0)    errs.push('Cost must be a non-negative number.');
+  if (!name)                     errs.push('Pick a product.');
+  if (isNaN(qty)  || qty  <= 0)  errs.push('Quantity must be a positive number.');
+  if (isNaN(cost) || cost < 0)   errs.push('Cost must be a non-negative number.');
   if (errs.length) { errEl.textContent = errs.join(' '); errEl.style.display = 'block'; return; }
   errEl.style.display = 'none';
-  holdings[name] = { quantity: qty, costBasis: cost };
-  qtyEl.value = ''; costEl.value = '';
-  renderPortfolio();
-}
 
-// Persist the whole portfolio: replace the user's holdings rows with the
-// current local set (delete-all + insert keeps removals in sync). RLS scopes
-// every row to auth.uid(), so this only ever touches the caller's own rows.
-async function savePortfolio() {
-  if (!sbUser) { showStatus('Sign in to save your portfolio', true); return; }
-  const btn = document.getElementById('portfolio-save-btn');
-  try {
-    if (btn) btn.disabled = true;
-    showStatus('⏳ Saving portfolio…', false);
-    const { error: delErr } = await sbClient.from('holdings').delete().eq('user_id', sbUser.id);
-    if (delErr) throw delErr;
-    const rows = Object.entries(holdings)
-      .map(([name, h]) => ({ user_id: sbUser.id, product_id: sbProductIds[name], quantity: h.quantity, cost_basis: h.costBasis }))
-      .filter(r => r.product_id);
-    if (rows.length) {
-      const { error: insErr } = await sbClient.from('holdings').insert(rows);
-      if (insErr) throw insErr;
+  if (editing) {
+    holdings[name] = { quantity: qty, costBasis: cost };  // override exact
+    exitPortfolioEdit();
+  } else {
+    const ex = holdings[name];
+    if (ex) {
+      const totalQty = ex.quantity + qty;
+      const blended  = totalQty > 0 ? (ex.quantity * ex.costBasis + qty * cost) / totalQty : cost;
+      holdings[name] = { quantity: totalQty, costBasis: round2(blended) };
+    } else {
+      holdings[name] = { quantity: qty, costBasis: cost };
     }
-    showStatus(`✓ Portfolio saved — ${rows.length} holding(s)`, false);
-  } catch (err) {
-    console.error('Portfolio save failed:', err);
-    showStatus('✕ Portfolio save failed: ' + (err.message || err), true);
-  } finally {
-    if (btn) btn.disabled = false;
+    qtyEl.value = ''; costEl.value = '';
   }
+  renderPortfolio();
+  persistHolding(name);
 }
 
-document.getElementById('portfolio-add-btn').addEventListener('click', addOrUpdateHolding);
-document.getElementById('portfolio-save-btn').addEventListener('click', savePortfolio);
+function removeHolding(name) {
+  delete holdings[name];
+  if (portfolioEditName === name) exitPortfolioEdit();
+  renderPortfolio();
+  deleteHoldingRow(name);
+}
+
+// ── Auto-save: one row at a time (upsert on change, delete on remove). RLS
+// scopes every row to auth.uid(), so this only ever touches the caller's rows.
+async function persistHolding(name) {
+  if (!sbUser) return;
+  const id = sbProductIds[name];
+  const h  = holdings[name];
+  if (!id || !h) return;
+  const { error } = await sbClient.from('holdings')
+    .upsert({ user_id: sbUser.id, product_id: id, quantity: h.quantity, cost_basis: h.costBasis },
+            { onConflict: 'user_id,product_id' });
+  portfolioStatus(error ? '✕ Save failed: ' + error.message : '✓ Saved', !!error);
+}
+async function deleteHoldingRow(name) {
+  if (!sbUser) return;
+  const id = sbProductIds[name];
+  if (!id) return;
+  const { error } = await sbClient.from('holdings').delete()
+    .eq('user_id', sbUser.id).eq('product_id', id);
+  portfolioStatus(error ? '✕ Remove failed: ' + error.message : '✓ Removed', !!error);
+}
+
+document.getElementById('portfolio-add-btn').addEventListener('click', commitHolding);
+document.getElementById('portfolio-cancel-btn').addEventListener('click', exitPortfolioEdit);
 
 // ============================================================
 // PRICE ALERTS (signed-in only)
@@ -2818,17 +2890,20 @@ function renderAlerts() {
         <td style="text-align:center"><button class="portfolio-remove-btn" data-alert="${name}" title="Remove alert">✕</button></td>
       </tr>`;
   }).join('')
-    : `<tr><td colspan="6"><div class="portfolio-empty">No alerts yet — pick a product, set a buy-below target, then “Save alerts”.</div></td></tr>`;
+    : `<tr><td colspan="6"><div class="portfolio-empty">No alerts yet — pick a product and set a buy-below target.</div></td></tr>`;
 
   tbody.querySelectorAll('.portfolio-remove-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      delete alerts[btn.dataset.alert];
+      const name = btn.dataset.alert;
+      delete alerts[name];
       renderAlerts();
-      updateTable(); // refresh the board's alert flags
+      updateTable();       // refresh the board's alert flags
+      deleteAlertRow(name); // auto-save
     });
   });
 }
 
+// Add or update an alert target; auto-saves the affected row.
 function addOrUpdateAlert() {
   const sel    = document.getElementById('alert-product-select');
   const targetEl = document.getElementById('alert-target');
@@ -2843,36 +2918,30 @@ function addOrUpdateAlert() {
   alerts[name] = target;
   targetEl.value = '';
   renderAlerts();
-  updateTable(); // reflect the new flag on the board immediately
+  updateTable();       // reflect the new flag on the board immediately
+  persistAlert(name);  // auto-save
 }
 
-// Persist alerts: replace the user's alert rows with the current local set.
-async function saveAlerts() {
-  if (!sbUser) { showStatus('Sign in to save alerts', true); return; }
-  const btn = document.getElementById('alerts-save-btn');
-  try {
-    if (btn) btn.disabled = true;
-    showStatus('⏳ Saving alerts…', false);
-    const { error: delErr } = await sbClient.from('alerts').delete().eq('user_id', sbUser.id);
-    if (delErr) throw delErr;
-    const rows = Object.entries(alerts)
-      .map(([name, target]) => ({ user_id: sbUser.id, product_id: sbProductIds[name], target_price: target }))
-      .filter(r => r.product_id);
-    if (rows.length) {
-      const { error: insErr } = await sbClient.from('alerts').insert(rows);
-      if (insErr) throw insErr;
-    }
-    showStatus(`✓ Alerts saved — ${rows.length} alert(s)`, false);
-  } catch (err) {
-    console.error('Alerts save failed:', err);
-    showStatus('✕ Alerts save failed: ' + (err.message || err), true);
-  } finally {
-    if (btn) btn.disabled = false;
-  }
+// ── Auto-save alerts: one row at a time (upsert on change, delete on remove) ──
+async function persistAlert(name) {
+  if (!sbUser) return;
+  const id = sbProductIds[name];
+  if (id == null || alerts[name] == null) return;
+  const { error } = await sbClient.from('alerts')
+    .upsert({ user_id: sbUser.id, product_id: id, target_price: alerts[name] },
+            { onConflict: 'user_id,product_id' });
+  portfolioStatus(error ? '✕ Save failed: ' + error.message : '✓ Saved', !!error);
+}
+async function deleteAlertRow(name) {
+  if (!sbUser) return;
+  const id = sbProductIds[name];
+  if (id == null) return;
+  const { error } = await sbClient.from('alerts').delete()
+    .eq('user_id', sbUser.id).eq('product_id', id);
+  portfolioStatus(error ? '✕ Remove failed: ' + error.message : '✓ Removed', !!error);
 }
 
 document.getElementById('alert-add-btn').addEventListener('click', addOrUpdateAlert);
-document.getElementById('alerts-save-btn').addEventListener('click', saveAlerts);
 
 
 // Format guide modal
