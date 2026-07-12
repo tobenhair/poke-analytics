@@ -438,6 +438,26 @@
   .fair-fit-note { font-family: 'DM Mono', monospace; font-weight: 400; font-size: 0.6rem; opacity: 0.85; letter-spacing: 0.04em; }
   /* Verdict: the row's plain-language headline, under the product name */
   .verdict-line { display: block; font-family: 'DM Mono', monospace; font-size: 0.64rem; letter-spacing: 0.02em; margin-top: 3px; white-space: nowrap; }
+  /* Board rows open a product drill-down on click */
+  #product-tbody tr { cursor: pointer; }
+  /* ── Product drill-down modal ── */
+  .drill-verdict {
+    font-family: 'DM Mono', monospace; font-size: 0.82rem; letter-spacing: 0.02em;
+    padding: 10px 14px; border-radius: 10px; border: 1px solid var(--hairline);
+    border-left-width: 2px; background: var(--bg3); margin-bottom: 22px;
+  }
+  .drill-stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px; margin-bottom: 30px;
+  }
+  .drill-stat { background: var(--bg3); border: 1px solid var(--hairline); border-radius: 12px; padding: 12px 14px; }
+  .drill-stat .k { font-family: 'DM Mono', monospace; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 8px; }
+  .drill-stat .v { font-family: 'DM Mono', monospace; font-size: 1.05rem; color: var(--text); }
+  .drill-stat .s { font-family: 'DM Mono', monospace; font-size: 0.64rem; color: var(--muted); margin-top: 4px; }
+  .drill-chart { position: relative; height: 240px; }
+  .drill-ingredients { display: flex; flex-direction: column; gap: 8px; }
+  .drill-ingredient { display: flex; justify-content: space-between; gap: 14px; font-family: 'DM Mono', monospace; font-size: 0.74rem; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .drill-ingredient .lbl { color: var(--muted); }
   .score-bar-wrap { display: flex; align-items: center; gap: 10px; }
   .score-bar-bg { flex: 1; height: 3px; background: rgba(255,255,255,0.08); border-radius: 999px; min-width: 56px; overflow: hidden; }
   .score-bar-fill { height: 100%; border-radius: 999px; transition: width 0.6s var(--ease); }
@@ -1008,6 +1028,41 @@
     <div id="account-msg" style="display:none; border-radius:6px; padding:10px 14px; margin-bottom:12px;
          font-family:'DM Mono',monospace; font-size:0.72rem; line-height:1.5;"></div>
     <button class="auth-btn" id="account-save-btn" type="button">Update password</button>
+  </div>
+</div>
+
+<!-- ═══════════ PRODUCT DRILL-DOWN ═══════════
+     One product, one screen: the verdict and its ingredients, fair price,
+     momentum/drawdown, price history with today's fair-price band overlaid,
+     the SV/Booster trend, and (signed in) your holding + alert. Opened by
+     clicking any row on the Board. Direct child of <body> so it shows over
+     any tab. -->
+<div class="modal-overlay" id="drill-modal">
+  <div class="modal" style="max-width:820px;">
+    <button class="modal-close" id="drill-close" type="button">✕</button>
+    <h2 id="drill-title">Product</h2>
+    <div id="drill-verdict" class="drill-verdict"></div>
+    <div id="drill-stats" class="drill-stats"></div>
+
+    <div class="modal-section">
+      <h3>Price history · fair-price band</h3>
+      <div class="drill-chart"><canvas id="drill-price-chart"></canvas></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Set Value / Booster over time</h3>
+      <div class="drill-chart"><canvas id="drill-svb-chart"></canvas></div>
+    </div>
+
+    <div class="modal-section" id="drill-ingredients-sec">
+      <h3>How the verdict is built</h3>
+      <div id="drill-ingredients" class="drill-ingredients"></div>
+    </div>
+
+    <div class="modal-section" id="drill-holding-sec" style="display:none;">
+      <h3>Your position</h3>
+      <div id="drill-holding"></div>
+    </div>
   </div>
 </div>
 
@@ -1812,7 +1867,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2, verdict } from './metrics.js';
+import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2, verdict, VERDICT } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -2067,6 +2122,7 @@ function updateTable() {
         </div>
       </td>
     `;
+    tr.addEventListener('click', () => openDrill(p.name));
     tbody.appendChild(tr);
   });
 }
@@ -3210,6 +3266,15 @@ function updateScenario() {
 }
 
 
+// ── Product drill-down close wiring ──
+document.getElementById('drill-close').addEventListener('click', closeDrill);
+document.getElementById('drill-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeDrill();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('drill-modal').classList.contains('open')) closeDrill();
+});
+
 // ============================================================
 // TAB SWITCHING
 // ============================================================
@@ -3816,6 +3881,174 @@ function renderMomentum() {
     `;
     tbody.appendChild(tr);
   });
+}
+
+// ============================================================
+// PRODUCT DRILL-DOWN — one product, one screen
+// ============================================================
+let drillProduct   = null;
+let drillPriceChart = null;
+let drillSvbChart   = null;
+
+function openDrill(name) {
+  const p = products.find(pp => pp.name === name);
+  if (!p) return;
+  drillProduct = name;
+  renderDrill();
+  document.getElementById('drill-modal').classList.add('open');
+}
+function closeDrill() {
+  document.getElementById('drill-modal').classList.remove('open');
+  if (drillPriceChart) { drillPriceChart.destroy(); drillPriceChart = null; }
+  if (drillSvbChart)   { drillSvbChart.destroy();   drillSvbChart = null; }
+  drillProduct = null;
+}
+
+const toneColor = t => t === 'good' ? 'var(--accent4)' : t === 'bad' ? 'var(--accent2)' : 'var(--muted)';
+
+function renderDrill() {
+  const p = products.find(pp => pp.name === drillProduct);
+  if (!p) return;
+  const m = computeMomentum(p.name);
+  const v = p.verdict;
+
+  document.getElementById('drill-title').textContent = p.name;
+
+  // Verdict banner
+  const vb = document.getElementById('drill-verdict');
+  const vcol = toneColor(v?.tone);
+  vb.style.color = vcol;
+  vb.style.borderLeftColor = vcol;
+  vb.textContent = v ? `${v.tone === 'good' ? '▲' : v.tone === 'bad' ? '▼' : '•'} ${v.label}` : '—';
+
+  // Stat tiles
+  const trusted = fairPriceTrusted();
+  const gapTxt = p.fairGap == null ? '—'
+    : p.fairGap === 0 ? 'at fair'
+    : `${Math.abs(p.fairGap)}% ${p.fairGap < 0 ? 'under' : 'over'}`;
+  const gapCol = p.fairGap == null || !trusted ? 'var(--muted)' : p.fairGap < 0 ? 'var(--accent4)' : 'var(--accent2)';
+  const pct = (val, dp = 1) => val == null ? '—' : `${val > 0 ? '+' : ''}${fmt(val, dp)}%`;
+  const stat = (k, v, s = '', vcol = 'var(--text)') =>
+    `<div class="drill-stat"><div class="k">${k}</div><div class="v" style="color:${vcol}">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
+  document.getElementById('drill-stats').innerHTML = [
+    stat('Live Price', p.price != null ? eur(p.price) : '—'),
+    stat('Fair Price', p.fairPrice != null ? eur(p.fairPrice) : '—', gapTxt + (trusted ? '' : ' · low fit'), gapCol),
+    stat('SV / Booster', `${fmt(p.svPerBooster, 1)}×`, `set value ${pct(m?.svSinceFirst)}`),
+    stat('Drawdown', m ? pct(m.drawdown) : '—', 'vs tracked peak', m && m.drawdown < -0.05 ? 'var(--accent2)' : 'var(--muted)'),
+    stat('Price move', m ? pct(m.sinceFirst) : '—', 'since first snapshot'),
+    stat('Wtd. Score', fmt(p.score, 1), `age weight ${fmt(p.ageWeight, 2)}`),
+  ].join('');
+
+  renderDrillPriceChart(p);
+  renderDrillSvbChart(p);
+  renderDrillIngredients(p, m);
+  renderDrillHolding(p);
+}
+
+function renderDrillPriceChart(p) {
+  const h = historicalData[p.name] || { price: [], setVal: [] };
+  const labels = histDates;
+  const priceData = labels.map((_, i) => h.price[i] ?? null);
+  const fair = p.fairPrice;
+  const band = VERDICT.OVER_SOFT / 100; // the "fair — no edge" zone, ±this
+  const flat = val => labels.map(() => val);
+
+  const datasets = [{
+    label: 'Price (€)', data: priceData, spanGaps: true,
+    borderColor: '#f5c842', backgroundColor: 'rgba(245,200,66,0.06)',
+    tension: 0.35, pointRadius: 3, pointBackgroundColor: '#f5c842', fill: false, order: 0,
+  }];
+  if (fair != null) {
+    datasets.push(
+      { label: '__bandTop', data: flat(fair * (1 + band)), borderWidth: 0, pointRadius: 0, fill: false, order: 3 },
+      { label: '__bandBot', data: flat(fair * (1 - band)), borderWidth: 0, pointRadius: 0,
+        backgroundColor: 'rgba(127,212,147,0.08)', fill: '-1', order: 3 },
+      { label: 'Fair price', data: flat(fair), borderColor: 'rgba(255,255,255,0.45)',
+        borderDash: [6, 5], borderWidth: 1.5, pointRadius: 0, fill: false, order: 2 },
+    );
+  }
+  if (drillPriceChart) drillPriceChart.destroy();
+  drillPriceChart = new Chart(document.getElementById('drill-price-chart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12,
+          filter: item => !item.text.startsWith('__') } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label.startsWith('__') ? null : ` ${ctx.dataset.label}: €${ctx.parsed.y.toLocaleString('de-DE')}` } },
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') } },
+      },
+    },
+  });
+}
+
+function renderDrillSvbChart(p) {
+  const h = historicalData[p.name] || { price: [], setVal: [] };
+  const boosters = p.boosters || boostersFromType(p.type) || 1;
+  // SV/Booster at each snapshot where both price and set value are present.
+  const data = histDates.map((_, i) => {
+    const pr = h.price[i], sv = h.setVal[i];
+    return (pr != null && pr > 0 && sv != null) ? (sv * boosters) / pr : null;
+  });
+  if (drillSvbChart) drillSvbChart.destroy();
+  drillSvbChart = new Chart(document.getElementById('drill-svb-chart'), {
+    type: 'line',
+    data: { labels: histDates, datasets: [{
+      label: 'SV / Booster', data, spanGaps: true,
+      borderColor: '#4fc3f7', backgroundColor: 'rgba(79,195,247,0.06)',
+      tension: 0.35, pointRadius: 3, pointBackgroundColor: '#4fc3f7', fill: true,
+    }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(1)}× booster cost` } } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } },
+      },
+    },
+  });
+}
+
+function renderDrillIngredients(p, m) {
+  const row = (lbl, val, col = 'var(--text)') =>
+    `<div class="drill-ingredient"><span class="lbl">${lbl}</span><span style="color:${col}">${val}</span></div>`;
+  const trusted = fairPriceTrusted();
+  const gap = p.fairGap == null ? 'no fair-price read'
+    : `${p.fairGap === 0 ? 'at fair' : Math.abs(p.fairGap) + '% ' + (p.fairGap < 0 ? 'under' : 'over')} fair`;
+  const fitTxt = ageFit ? `R² ${ageFit.r2.toFixed(2)} ${trusted ? '(trusted)' : '(weak — verdict ignores fair price)'}` : '—';
+  document.getElementById('drill-ingredients').innerHTML = [
+    row('Gap to fair price', gap, p.fairGap == null || !trusted ? 'var(--muted)' : p.fairGap < 0 ? 'var(--accent4)' : 'var(--accent2)'),
+    row('Drawdown vs peak', m ? `${fmt(m.drawdown, 1)}%` : '—', m && m.drawdown <= VERDICT.NEAR_LOW ? 'var(--accent4)' : 'var(--muted)'),
+    row('Set-value trend', m && m.svSinceFirst != null ? `${m.svSinceFirst > 0 ? '+' : ''}${fmt(m.svSinceFirst, 1)}% since first snapshot` : '—',
+        m && m.svSinceFirst != null ? (m.svSinceFirst >= VERDICT.SV_MOVE ? 'var(--accent4)' : m.svSinceFirst <= -VERDICT.SV_MOVE ? 'var(--accent2)' : 'var(--muted)') : 'var(--muted)'),
+    row('Age-fit confidence', fitTxt, 'var(--muted)'),
+  ].join('');
+}
+
+function renderDrillHolding(p) {
+  const sec = document.getElementById('drill-holding-sec');
+  const box = document.getElementById('drill-holding');
+  if (!sbUser) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  const h = holdings[p.name];
+  const target = alerts[p.name];
+  const parts = [];
+  if (h) {
+    const r = portfolioRows().find(x => x.name === p.name);
+    const pnlCol = r && r.pnl != null ? (r.pnl >= 0 ? 'var(--accent4)' : 'var(--accent2)') : 'var(--muted)';
+    parts.push(`<div class="drill-ingredient"><span class="lbl">Holding</span><span>${fmt(r.qty)} × cost ${eur(r.cost)}</span></div>`);
+    parts.push(`<div class="drill-ingredient"><span class="lbl">Unrealised P&L</span><span style="color:${pnlCol}">${r.pnl != null ? (r.pnl >= 0 ? '+' : '') + eur(r.pnl) + ` (${r.pnlPct != null ? (r.pnlPct * 100).toFixed(1) + '%' : '—'})` : '—'}</span></div>`);
+  }
+  if (target != null) {
+    const s = alertState(p.name);
+    const hit = s && s.triggered;
+    parts.push(`<div class="drill-ingredient"><span class="lbl">Price alert</span><span style="color:${hit ? 'var(--accent)' : 'var(--muted)'}">${hit ? '🔔 ' : ''}buy below ${eur(target)}${hit ? ' · hit' : ''}</span></div>`);
+  }
+  box.innerHTML = parts.length ? parts.join('') : `<div class="portfolio-empty" style="padding:14px;">No holding or alert set for this product — add one in the Portfolio tab.</div>`;
 }
 
 // ============================================================

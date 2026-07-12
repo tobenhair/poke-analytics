@@ -76,6 +76,16 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   await page.fill('#board-search', '');
   await expect.poll(() => page.locator('#product-tbody tr').count()).toBe(allRows);
 
+  // Drill-down opens from a row, renders its stats and a real chart, then closes.
+  await page.locator('#product-tbody tr').first().click();
+  await expect(page.locator('#drill-modal')).toHaveClass(/open/);
+  await expect(page.locator('#drill-stats .drill-stat')).toHaveCount(6);
+  const drillChart = await page.locator('#drill-price-chart').boundingBox();
+  expect(drillChart, 'drill price chart should render').not.toBeNull();
+  expect(drillChart.width).toBeGreaterThan(0);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#drill-modal')).not.toHaveClass(/open/);
+
   // A Chart.js canvas actually drew (non-zero size).
   const svbBox = await page.locator('#svb-chart').boundingBox();
   expect(svbBox, 'value/booster chart should be rendered').not.toBeNull();
