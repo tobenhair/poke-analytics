@@ -16,6 +16,12 @@ import {
   calcAgeWeight,
   recomputeScores,
   deriveProducts,
+  linearFit,
+  expectedSvPerBooster,
+  fairPrice,
+  FAIR_PRICE_MIN_R2,
+  verdict,
+  VERDICT,
 } from '../../metrics.js';
 
 // ── boostersFromType: the fixed physical constants ──────────────
@@ -127,4 +133,147 @@ test('deriveProducts reports a product absent from historical data', () => {
   const products = [{ name: 'Ghost', type: 'ETB', release: '2000-01-01' }];
   const errors = deriveProducts(products, {});
   assert.equal(errors.length, 2); // no price and no set value
+});
+
+// ── linearFit: least-squares slope/intercept + R² ──────────────
+test('linearFit needs at least two points', () => {
+  assert.equal(linearFit([]), null);
+  assert.equal(linearFit([{ x: 1, y: 1 }]), null);
+});
+
+test('linearFit is null when the ages do not vary (vertical fit)', () => {
+  assert.equal(linearFit([{ x: 2, y: 10 }, { x: 2, y: 40 }]), null);
+});
+
+test('linearFit recovers a perfect line with R² = 1', () => {
+  // y = 5 + 2x exactly
+  const fit = linearFit([{ x: 0, y: 5 }, { x: 1, y: 7 }, { x: 2, y: 9 }]);
+  assert.ok(Math.abs(fit.a - 5) < 1e-9);
+  assert.ok(Math.abs(fit.b - 2) < 1e-9);
+  assert.ok(Math.abs(fit.r2 - 1) < 1e-9);
+});
+
+test('linearFit treats a flat spread of y as a perfect (R² = 1) flat line', () => {
+  const fit = linearFit([{ x: 0, y: 3 }, { x: 1, y: 3 }, { x: 2, y: 3 }]);
+  assert.ok(Math.abs(fit.b) < 1e-9); // zero slope
+  assert.equal(fit.r2, 1);
+});
+
+test('linearFit reports R² ≈ 0 for an uncorrelated cloud', () => {
+  // Symmetric zig-zag: best-fit slope is 0, so the fit explains no variance.
+  const fit = linearFit([{ x: 0, y: 0 }, { x: 1, y: 5 }, { x: 2, y: 5 }, { x: 3, y: 0 }]);
+  assert.ok(Math.abs(fit.b) < 1e-9);
+  assert.ok(fit.r2 < 1e-9);
+});
+
+// ── expectedSvPerBooster: read the fit at an age, floored at 0 ──
+test('expectedSvPerBooster reads the fit line at an age', () => {
+  const fit = { a: 100, b: -10, r2: 1 };
+  assert.equal(expectedSvPerBooster(fit, 3), 70); // 100 − 10·3
+});
+
+test('expectedSvPerBooster floors a negative extrapolation at 0', () => {
+  const fit = { a: 100, b: -10, r2: 1 };
+  assert.equal(expectedSvPerBooster(fit, 20), 0); // 100 − 200 → 0
+});
+
+test('expectedSvPerBooster is null without a fit', () => {
+  assert.equal(expectedSvPerBooster(null, 3), null);
+});
+
+// ── fairPrice: invert the fit to a euro price + signed gap ──────
+test('fairPrice inverts the fit: setVal × boosters ÷ expected SV/Booster', () => {
+  // Expected SV/Booster of 72 for a box worth 720 set value → fair €360.
+  const fit = { a: 72, b: 0, r2: 1 };
+  const fp = fairPrice({ age: 4, setVal: 720, boosters: 36, price: 360 }, fit);
+  assert.equal(fp.expected, 72);
+  assert.equal(fp.fair, 360);      // 720 × 36 ÷ 72
+  assert.equal(fp.gapPct, 0);      // priced exactly at fair
+});
+
+test('fairPrice reports a negative gap when priced under fair (a deal)', () => {
+  const fit = { a: 72, b: 0, r2: 1 };
+  const fp = fairPrice({ age: 4, setVal: 720, boosters: 36, price: 288 }, fit);
+  assert.equal(fp.fair, 360);
+  assert.equal(fp.gapPct, -20); // (288 − 360) / 360 → 20% under fair
+});
+
+test('fairPrice reports a positive gap when priced over fair', () => {
+  const fit = { a: 72, b: 0, r2: 1 };
+  const fp = fairPrice({ age: 4, setVal: 720, boosters: 36, price: 450 }, fit);
+  assert.equal(fp.gapPct, 25); // (450 − 360) / 360 → 25% over fair
+});
+
+test('fairPrice is null when the expected value is non-positive', () => {
+  const fit = { a: 0, b: -1, r2: 1 }; // expected floored to 0 at any positive age
+  assert.equal(fairPrice({ age: 4, setVal: 720, boosters: 36, price: 360 }, fit), null);
+});
+
+test('fairPrice is null without a fit or when inputs are missing', () => {
+  assert.equal(fairPrice({ age: 4, setVal: 720, boosters: 36, price: 360 }, null), null);
+  const fit = { a: 72, b: 0, r2: 1 };
+  assert.equal(fairPrice({ age: 4, setVal: null, boosters: 36, price: 360 }, fit), null);
+  assert.equal(fairPrice({ age: 4, setVal: 720, boosters: null, price: 360 }, fit), null);
+});
+
+test('FAIR_PRICE_MIN_R2 is a sensible 0–1 confidence threshold', () => {
+  assert.ok(FAIR_PRICE_MIN_R2 > 0 && FAIR_PRICE_MIN_R2 < 1);
+});
+
+// ── verdict: synthesise fair gap + drawdown + set-value trend ───
+test('verdict flags a clear deal as under fair price', () => {
+  const v = verdict({ fairGap: -20, drawdown: -5, svTrend: 0, fairTrusted: true });
+  assert.equal(v.label, 'Under fair price');
+  assert.equal(v.tone, 'good');
+  assert.equal(v.rank, 0);
+});
+
+test('verdict appends "near tracked low" to a deal deep off its peak', () => {
+  const v = verdict({ fairGap: -20, drawdown: -30, svTrend: 0, fairTrusted: true });
+  assert.equal(v.label, 'Under fair price · near tracked low');
+  assert.equal(v.tone, 'good');
+});
+
+test('verdict calls a fairly-priced product no edge', () => {
+  const v = verdict({ fairGap: 0, drawdown: -2, svTrend: 1, fairTrusted: true });
+  assert.equal(v.label, 'Fair — no edge');
+  assert.equal(v.tone, 'neutral');
+  assert.equal(v.rank, 2);
+});
+
+test('verdict flags an expensive product, and notes an eroding set value', () => {
+  const plain = verdict({ fairGap: 6, drawdown: -1, svTrend: 0, fairTrusted: true });
+  assert.equal(plain.label, 'Over fair price');
+  assert.equal(plain.tone, 'bad');
+  const eroding = verdict({ fairGap: 15, drawdown: -1, svTrend: -12, fairTrusted: true });
+  assert.equal(eroding.label, 'Overpriced for age · set value falling');
+  assert.equal(eroding.tone, 'bad');
+  assert.equal(eroding.rank, 4);
+});
+
+test('verdict ranks best deal → worst monotonically', () => {
+  const ranks = [-20, -5, 0, 6, 15].map(g =>
+    verdict({ fairGap: g, drawdown: 0, svTrend: 0, fairTrusted: true }).rank);
+  for (let i = 1; i < ranks.length; i++) assert.ok(ranks[i] > ranks[i - 1]);
+});
+
+test('verdict stays neutral and drops the fair claim when the fit is weak', () => {
+  const nearLow = verdict({ fairGap: -20, drawdown: -30, svTrend: 0, fairTrusted: false });
+  assert.equal(nearLow.label, 'Near tracked low');
+  assert.equal(nearLow.tone, 'neutral');
+  const flat = verdict({ fairGap: -20, drawdown: -1, svTrend: 0, fairTrusted: false });
+  assert.equal(flat.label, 'No clear edge');
+  assert.equal(flat.tone, 'neutral');
+});
+
+test('verdict falls back to momentum when there is no fair gap', () => {
+  const v = verdict({ fairGap: null, drawdown: -2, svTrend: -20, fairTrusted: true });
+  assert.equal(v.label, 'Set value slipping');
+  assert.equal(v.tone, 'neutral');
+});
+
+test('VERDICT thresholds are ordered under < 0 < over', () => {
+  assert.ok(VERDICT.UNDER_STRONG < VERDICT.UNDER_SOFT);
+  assert.ok(VERDICT.UNDER_SOFT < 0 && 0 < VERDICT.OVER_SOFT);
+  assert.ok(VERDICT.OVER_SOFT < VERDICT.OVER_STRONG);
 });

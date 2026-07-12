@@ -58,6 +58,34 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   // Top Picks populated.
   await expect(page.locator('#top-picks-list')).not.toBeEmpty();
 
+  // Fair Price column derived: the header carries an R² fit note and at least
+  // one board row shows a computed fair price in euros (guards recomputeFit()
+  // running before first render and the age-fit → fair-price inversion).
+  await expect(page.locator('#fair-fit-note')).toContainText('R²');
+  await expect.poll(
+    () => page.locator('#product-tbody td:nth-child(4)')
+            .filter({ hasText: '€' }).count(),
+    { message: 'board should show at least one fair price', timeout: 10_000 },
+  ).toBeGreaterThan(0);
+
+  // Verdict line renders under product names, and board search narrows the table.
+  await expect(page.locator('#product-tbody .verdict-line').first()).toBeVisible();
+  const allRows = await page.locator('#product-tbody tr').count();
+  await page.fill('#board-search', 'zzzznomatch');
+  await expect(page.locator('#product-tbody')).toContainText('No products match');
+  await page.fill('#board-search', '');
+  await expect.poll(() => page.locator('#product-tbody tr').count()).toBe(allRows);
+
+  // Drill-down opens from a row, renders its stats and a real chart, then closes.
+  await page.locator('#product-tbody tr').first().click();
+  await expect(page.locator('#drill-modal')).toHaveClass(/open/);
+  await expect(page.locator('#drill-stats .drill-stat')).toHaveCount(6);
+  const drillChart = await page.locator('#drill-price-chart').boundingBox();
+  expect(drillChart, 'drill price chart should render').not.toBeNull();
+  expect(drillChart.width).toBeGreaterThan(0);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#drill-modal')).not.toHaveClass(/open/);
+
   // A Chart.js canvas actually drew (non-zero size).
   const svbBox = await page.locator('#svb-chart').boundingBox();
   expect(svbBox, 'value/booster chart should be rendered').not.toBeNull();

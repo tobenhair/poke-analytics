@@ -154,6 +154,20 @@ The function is `SECURITY DEFINER` and execute is revoked from `anon` /
 `authenticated`, so only the scheduler can trigger it — a signed-in user can't
 make it send emails.
 
+## Optional: email when a price alert triggers
+
+`supabase/alert-emails.sql` emails each user whose **fixed € buy-below** price
+alerts are currently triggered (latest price ≤ target), so the in-app 🔔 reaches
+them with the page closed. It reuses the same stack and Vault key as the
+staleness job — enable `pg_cron`/`pg_net`, set `sender` at the top of the
+function, and run the file. Runs **weekly (Mondays 10:00 UTC)**; test with
+`select public.check_price_alerts();` and remove with
+`select cron.unschedule('price-alerts');`.
+
+Scope: **fixed** alerts only. **Fair-price** alerts (% below fair price) are
+evaluated in the browser — the fair price depends on the age-fit across all
+products, which isn't computed in the database — so they stay in-app.
+
 ## Data model
 
 Derived metrics (age, price/booster, SV/booster, weighted score) are **not**

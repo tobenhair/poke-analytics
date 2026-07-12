@@ -64,18 +64,44 @@ create table if not exists public.holdings (
 create index if not exists holdings_user_idx on public.holdings (user_id);
 
 -- ── Per-user price alerts (private) ──
--- A signed-in user's buy-target price per product. The dashboard flags a
--- product when its latest tracked price falls to or below target_price; nothing
--- about the "triggered" state is stored — it's derived client-side each load.
+-- A signed-in user's buy target per product, of one of two kinds:
+--   * FIXED — a euro price: trigger when the latest price ≤ target_price.
+--   * FAIR  — a percentage: trigger when the latest price is ≥ below_pct% under
+--             the product's fair price. Fair price is computed in-browser (it
+--             depends on the age-fit across all products), so fair alerts are
+--             evaluated client-side only — the 🔔 board flag and this tab. The
+--             server-side email job (staleness-reminder.sql) covers FIXED alerts.
+-- Nothing about the "triggered" state is stored — it's derived client-side.
 create table if not exists public.alerts (
   id           uuid primary key default gen_random_uuid(),
   user_id      uuid not null references auth.users(id) on delete cascade default auth.uid(),
   product_id   uuid not null references public.products(id) on delete cascade,
-  target_price numeric not null check (target_price >= 0),
+  alert_type   text not null default 'fixed' check (alert_type in ('fixed','fair')),
+  target_price numeric check (target_price is null or target_price >= 0),   -- FIXED alerts
+  below_pct    numeric check (below_pct is null or (below_pct > 0 and below_pct <= 90)), -- FAIR alerts
   created_at   timestamptz not null default now(),
-  unique (user_id, product_id)
+  unique (user_id, product_id),
+  -- each kind carries exactly the field it needs
+  constraint alerts_type_fields_chk check (
+    (alert_type = 'fixed' and target_price is not null) or
+    (alert_type = 'fair'  and below_pct    is not null)
+  )
 );
 create index if not exists alerts_user_idx on public.alerts (user_id);
+
+-- Migrate an existing alerts table (pre-fair-price alerts) in place. Safe to
+-- re-run: every step is guarded. `create table if not exists` above does NOT
+-- alter an existing table, so these carry old installs forward.
+alter table public.alerts add column if not exists alert_type text not null default 'fixed'
+  check (alert_type in ('fixed','fair'));
+alter table public.alerts add column if not exists below_pct numeric
+  check (below_pct is null or (below_pct > 0 and below_pct <= 90));
+alter table public.alerts alter column target_price drop not null;
+alter table public.alerts drop constraint if exists alerts_type_fields_chk;
+alter table public.alerts add constraint alerts_type_fields_chk check (
+  (alert_type = 'fixed' and target_price is not null) or
+  (alert_type = 'fair'  and below_pct    is not null)
+);
 
 -- ============================================================
 -- Row-Level Security — the real security boundary

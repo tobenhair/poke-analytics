@@ -249,6 +249,20 @@
     transition: border-color 0.2s var(--ease);
   }
   .sort-select:focus { border-color: var(--accent); }
+  .board-search {
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline);
+    background: var(--bg3);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.76rem;
+    outline: none;
+    width: 180px;
+    transition: border-color 0.2s var(--ease);
+  }
+  .board-search::placeholder { color: var(--muted); }
+  .board-search:focus { border-color: var(--accent); }
 
   /* ── KPI row ── */
   .kpi-row {
@@ -418,6 +432,32 @@
   .type-BUNDLE { background: rgba(244,198,81,0.1); color: var(--accent); border: 1px solid rgba(244,198,81,0.22); }
 
   .num { font-family: 'DM Mono', monospace; font-size: 0.78rem; text-align: right; }
+  /* Fair-price gap: a small second line under the fair price in the board cell */
+  .fair-gap { display: block; font-size: 0.64rem; letter-spacing: 0.02em; margin-top: 2px; white-space: nowrap; }
+  /* R² confidence note in the Fair Price column header */
+  .fair-fit-note { font-family: 'DM Mono', monospace; font-weight: 400; font-size: 0.6rem; opacity: 0.85; letter-spacing: 0.04em; }
+  /* Verdict: the row's plain-language headline, under the product name */
+  .verdict-line { display: block; font-family: 'DM Mono', monospace; font-size: 0.64rem; letter-spacing: 0.02em; margin-top: 3px; white-space: nowrap; }
+  /* Board rows open a product drill-down on click */
+  #product-tbody tr { cursor: pointer; }
+  /* ── Product drill-down modal ── */
+  .drill-verdict {
+    font-family: 'DM Mono', monospace; font-size: 0.82rem; letter-spacing: 0.02em;
+    padding: 10px 14px; border-radius: 10px; border: 1px solid var(--hairline);
+    border-left-width: 2px; background: var(--bg3); margin-bottom: 22px;
+  }
+  .drill-stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px; margin-bottom: 30px;
+  }
+  .drill-stat { background: var(--bg3); border: 1px solid var(--hairline); border-radius: 12px; padding: 12px 14px; }
+  .drill-stat .k { font-family: 'DM Mono', monospace; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 8px; }
+  .drill-stat .v { font-family: 'DM Mono', monospace; font-size: 1.05rem; color: var(--text); }
+  .drill-stat .s { font-family: 'DM Mono', monospace; font-size: 0.64rem; color: var(--muted); margin-top: 4px; }
+  .drill-chart { position: relative; height: 240px; }
+  .drill-ingredients { display: flex; flex-direction: column; gap: 8px; }
+  .drill-ingredient { display: flex; justify-content: space-between; gap: 14px; font-family: 'DM Mono', monospace; font-size: 0.74rem; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .drill-ingredient .lbl { color: var(--muted); }
   .score-bar-wrap { display: flex; align-items: center; gap: 10px; }
   .score-bar-bg { flex: 1; height: 3px; background: rgba(255,255,255,0.08); border-radius: 999px; min-width: 56px; overflow: hidden; }
   .score-bar-fill { height: 100%; border-radius: 999px; transition: width 0.6s var(--ease); }
@@ -991,6 +1031,41 @@
   </div>
 </div>
 
+<!-- ═══════════ PRODUCT DRILL-DOWN ═══════════
+     One product, one screen: the verdict and its ingredients, fair price,
+     momentum/drawdown, price history with today's fair-price band overlaid,
+     the SV/Booster trend, and (signed in) your holding + alert. Opened by
+     clicking any row on the Board. Direct child of <body> so it shows over
+     any tab. -->
+<div class="modal-overlay" id="drill-modal">
+  <div class="modal" style="max-width:820px;">
+    <button class="modal-close" id="drill-close" type="button">✕</button>
+    <h2 id="drill-title">Product</h2>
+    <div id="drill-verdict" class="drill-verdict"></div>
+    <div id="drill-stats" class="drill-stats"></div>
+
+    <div class="modal-section">
+      <h3>Price history · fair-price band</h3>
+      <div class="drill-chart"><canvas id="drill-price-chart"></canvas></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Set Value / Booster over time</h3>
+      <div class="drill-chart"><canvas id="drill-svb-chart"></canvas></div>
+    </div>
+
+    <div class="modal-section" id="drill-ingredients-sec">
+      <h3>How the verdict is built</h3>
+      <div id="drill-ingredients" class="drill-ingredients"></div>
+    </div>
+
+    <div class="modal-section" id="drill-holding-sec" style="display:none;">
+      <h3>Your position</h3>
+      <div id="drill-holding"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ PRE-LOGIN DEMO PAGE (Supabase) ═══════════
      Shown to logged-out visitors when cloud sync is enabled. Loads the 3
      newest release-date sets (the only rows the anon RLS policy exposes) and
@@ -1326,8 +1401,18 @@
         title="Years required before a product reaches full weight (no age penalty). Lower = more lenient on new products. Defaults to 1yr; adjustable from 0.5 to 3yr.">ⓘ</span>
     </div>
 
+    <input type="search" id="board-search" class="board-search" placeholder="Search name / set…" autocomplete="off" aria-label="Search products by name or set">
+
+    <select class="sort-select" id="verdict-filter" style="margin-left:0;" aria-label="Filter by verdict">
+      <option value="all">Verdict: All</option>
+      <option value="good">Verdict: Deals (under fair)</option>
+      <option value="neutral">Verdict: Fair / no edge</option>
+      <option value="bad">Verdict: Overpriced</option>
+    </select>
+
     <select class="sort-select" id="sort-select">
       <option value="score">Sort: Age-Weighted Score ↓</option>
+      <option value="fair-gap">Sort: Best Deal (vs Fair Price) ↑</option>
       <option value="set-value-booster">Sort: Set Value / Booster ↓</option>
       <option value="price-asc">Sort: Price ↑</option>
       <option value="price-desc">Sort: Price ↓</option>
@@ -1338,7 +1423,7 @@
 
   <!-- ── Section: product table (full width) ── -->
   <div class="section-eyebrow">02 — The Board</div>
-  <p class="section-desc"><strong>What:</strong> every tracked product in one sortable table. <strong>KPIs:</strong> <em>€/Booster</em> (price ÷ packs inside), <em>SV/Booster</em> (Set Value ÷ the price of <em>one</em> booster — i.e. how many times a single booster's cost the whole set is worth, shown as a <em>×</em> multiple; higher = better value, <strong>not</strong> a per-pack price), <em>Age</em>, and <em>Wtd. Score</em> (the headline ranking). A 💰 marks a possible buy signal — price fell while set value held. <strong>How to read:</strong> filter with the Type pills and reorder with the Sort menu above, or click any column header to sort.</p>
+  <p class="section-desc"><strong>What:</strong> every tracked product in one sortable table. <strong>KPIs:</strong> <em>€/Booster</em> (price ÷ packs inside), <em>SV/Booster</em> (Set Value ÷ the price of <em>one</em> booster — i.e. how many times a single booster's cost the whole set is worth, shown as a <em>×</em> multiple; higher = better value, <strong>not</strong> a per-pack price), <em>Age</em>, and <em>Wtd. Score</em> (the headline ranking). <em>Fair Price</em> is what the live price <em>would</em> be at the SV/Booster expected for the product's age (section 05): a live price <span class="up">under</span> fair is cheap for its age, <span class="down">over</span> is expensive — the R² by the column header says how much to trust the fit. A 💰 marks a possible buy signal — price fell while set value held. Under each product name is a plain-language <em>verdict</em> — the one-line synthesis of its gap to fair price, its drawdown from peak, and its set-value trend (e.g. <span class="up">Under fair price · near tracked low</span> / <span class="down">Overpriced for age</span> / Fair — no edge). <strong>How to read:</strong> filter with the Type pills and reorder with the Sort menu above — <em>Best Deal</em> ranks by verdict, best first — or click any column header to sort.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">All Products</div>
@@ -1351,6 +1436,7 @@
             <th>Product <span style="font-weight:300;opacity:0.6;font-size:0.6rem">💰 = buy signal</span></th>
             <th>Type</th>
             <th style="text-align:right">Price (€)</th>
+            <th style="text-align:right" title="What the live price would be if the product traded at the SV/Booster expected for its age (section 05). Under it = cheap for its age; over = expensive. Reliability shown as R² — greyed when the age fit is weak.">Fair Price (€) <span id="fair-fit-note" class="fair-fit-note"></span></th>
             <th style="text-align:right">Set Value (€)</th>
             <th style="text-align:right">€/Booster</th>
             <th style="text-align:right">SV/Booster</th>
@@ -1610,7 +1696,7 @@
 
     <!-- ── Section: price alerts ── -->
     <div class="section-eyebrow">02 — Price Alerts</div>
-    <p class="section-desc"><strong>What:</strong> buy-below targets for the products you're watching. <strong>How to read:</strong> when a product's latest tracked price falls to or below your target it's flagged here and with a 🔔 on the Analysis board. Private to your account, saved automatically.</p>
+    <p class="section-desc"><strong>What:</strong> buy targets for the products you're watching — a fixed <em>€</em> price, or a <em>% below fair price</em> that recomputes automatically as the age fit moves. <strong>How to read:</strong> when a product's latest tracked price falls to or below the target it's flagged here and with a 🔔 on the Analysis board. Private to your account, saved automatically.</p>
     <div class="panel" id="alerts-panel">
       <div class="panel-header">
         <div class="panel-title">Price Alerts</div>
@@ -1618,6 +1704,10 @@
       </div>
       <div class="portfolio-editor">
         <select class="field-select" id="alert-product-select"></select>
+        <select class="field-select" id="alert-type" style="max-width:180px;">
+          <option value="fixed">Buy below €</option>
+          <option value="fair">% below fair price</option>
+        </select>
         <input class="field-input" id="alert-target" type="number" min="0" step="0.01" placeholder="Buy below € / unit">
         <button class="add-btn" id="alert-add-btn" style="width:auto;">+ Add / update</button>
       </div>
@@ -1781,7 +1871,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts } from './metrics.js';
+import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2, verdict, VERDICT } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -1856,8 +1946,14 @@ let histDates = ["2026-01-18", "2026-02-23", "2026-03-20", "2026-04-20"];
 // ============================================================
 let activeType = "ALL";
 let sortKey = "score";
+let searchTerm = "";      // Board name/set search (case-insensitive substring)
+let verdictFilter = "all"; // Board filter by verdict tone: all | good | neutral | bad
 let trendProduct = "Surging Sparks Booster Box";
 let ageThreshold = 1; // years until age weight reaches 1.0 (default)
+// The age-fit line (SV/Booster ~ age) with its R², recomputed once per data
+// load by recomputeFit(). Shared by the board's fair price, the scatter overlay
+// and the relative-value table so they can never disagree about the fit.
+let ageFit = null;
 // Signed-in user's private portfolio (name → { quantity, costBasis }) and price
 // alerts (name → buy-below target €). Populated by loadFromSupabase(); empty in
 // static/xlsx mode. Declared here — before the render functions and INIT that
@@ -1882,8 +1978,21 @@ function scoreColor(score) {
 
 function getFiltered() {
   let data = activeType === 'ALL' ? [...products] : products.filter(p => p.type === activeType);
+  const q = searchTerm.trim().toLowerCase();
+  if (q) data = data.filter(p => p.name.toLowerCase().includes(q));
+  if (verdictFilter !== 'all') data = data.filter(p => p.verdict && p.verdict.tone === verdictFilter);
   data.sort((a, b) => {
     if (sortKey === 'score') return b.score - a.score;
+    // Best deal first, by verdict rank (which folds in the fair-price gap and
+    // the weak-fit handling), tie-broken by the raw gap to fair price.
+    if (sortKey === 'fair-gap') {
+      const ar = a.verdict ? a.verdict.rank : 2.5;
+      const br = b.verdict ? b.verdict.rank : 2.5;
+      if (ar !== br) return ar - br;
+      const av = a.fairGap == null ? Infinity : a.fairGap;
+      const bv = b.fairGap == null ? Infinity : b.fairGap;
+      return av - bv;
+    }
     if (sortKey === 'set-value-booster') return b.svPerBooster - a.svPerBooster;
     if (sortKey === 'price-asc') return a.price - b.price;
     if (sortKey === 'price-desc') return b.price - a.price;
@@ -1923,6 +2032,43 @@ function formatISO(d) {
 // live state before the first render in both INIT and applyNewData().
 
 // ============================================================
+// FAIR PRICE — the age-fit line, inverted to euros per product
+// ============================================================
+// Fit SV/Booster against age across all products, then stamp each product with
+// its fair price (what its set value would cost at the age-expected SV/Booster)
+// and the signed gap of the live price vs that fair price. Threshold-independent
+// — svPerBooster and age don't move with the age slider — so this runs once per
+// data load (INIT and applyNewData), before the first render, alongside
+// recomputeScores(). Reads: products[].age/svPerBooster/setVal/boosters/price.
+function recomputeFit() {
+  ageFit = linearFit(products.map(p => ({ x: p.age, y: p.svPerBooster })));
+  products.forEach(p => {
+    // The workbook path stamps p.boosters via deriveProducts(); the hardcoded
+    // fallback array omits it. Booster count is a pure function of type, so fill
+    // it here to keep fair price working identically across both data sources.
+    if (p.boosters == null) p.boosters = boostersFromType(p.type);
+    const fp = fairPrice(p, ageFit);
+    p.fairPrice = fp ? parseFloat(fp.fair.toFixed(0)) : null;
+    p.fairGap   = fp && fp.gapPct != null ? parseFloat(fp.gapPct.toFixed(0)) : null;
+    // Board verdict: synthesise the fair-price gap with drawdown and set-value
+    // trend from the tracked history (computeMomentum reads historicalData).
+    const m = computeMomentum(p.name);
+    p.verdict = verdict({
+      fairGap:     p.fairGap,
+      drawdown:    m ? m.drawdown : null,
+      svTrend:     m ? m.svSinceFirst : null,
+      fairTrusted: fairPriceTrusted(),
+    });
+  });
+}
+
+// Is the current fit tight enough to trust the fair price? Drives the greyed,
+// low-confidence rendering when it isn't.
+function fairPriceTrusted() {
+  return !!ageFit && ageFit.r2 >= FAIR_PRICE_MIN_R2;
+}
+
+// ============================================================
 // KPIs
 // ============================================================
 function updateKPIs() {
@@ -1947,8 +2093,13 @@ function updateTable() {
   const data = getFiltered();
   const maxScore = Math.max(...data.map(p => p.score));
   document.getElementById('count-badge').textContent = `${data.length} products`;
+  updateFairFitNote();
   const tbody = document.getElementById('product-tbody');
   tbody.innerHTML = '';
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="portfolio-empty">No products match — clear the search or verdict filter.</div></td></tr>`;
+    return;
+  }
   data.forEach((p, i) => {
     const tr = document.createElement('tr');
     const svClass = p.svPerBooster >= 150 ? 'val-excellent' : p.svPerBooster >= 80 ? 'val-good' : 'val-poor';
@@ -1958,9 +2109,11 @@ function updateTable() {
     tr.innerHTML = `
       <td class="product-name" title="${p.name}">
         ${isBuySignal(p.name) ? '<span class="buy-flag" title="Price dropped ≥5% but set value held steady — potential buy opportunity">💰 </span>' : ''}${alertFlag(p.name)}${p.name}
+        ${verdictLine(p)}
       </td>
       <td><span class="type-badge type-${p.type}">${p.type}</span></td>
       <td class="num">${fmt(p.price)}</td>
+      <td class="num">${fairPriceCell(p)}</td>
       <td class="num">${fmt(p.setVal)}</td>
       <td class="num">${fmt(p.pricePerBooster, 1)}</td>
       <td class="num ${svClass}">${fmt(p.svPerBooster, 1)}×</td>
@@ -1973,8 +2126,49 @@ function updateTable() {
         </div>
       </td>
     `;
+    tr.addEventListener('click', () => openDrill(p.name));
     tbody.appendChild(tr);
   });
+}
+
+// The verdict shown as a small line under the product name — the row's plain-
+// language headline. Text-first (the label carries the meaning without colour);
+// tone only tints it. A dot marker keeps it a non-colour cue too.
+function verdictLine(p) {
+  const v = p.verdict;
+  if (!v) return '';
+  const col = v.tone === 'good' ? 'var(--accent4)' : v.tone === 'bad' ? 'var(--accent2)' : 'var(--muted)';
+  const mark = v.tone === 'good' ? '▲' : v.tone === 'bad' ? '▼' : '•';
+  return `<span class="verdict-line" style="color:${col}">${mark} ${v.label}</span>`;
+}
+
+// One board cell: the fair price in euros plus the signed gap of the live
+// price vs fair (▼ under = a deal, green; ▲ over = expensive, red). Greyed with
+// no colour cue when the age fit is too weak to trust (see fairPriceTrusted).
+function fairPriceCell(p) {
+  if (p.fairPrice == null) return '<span style="color:var(--muted)">—</span>';
+  const trusted = fairPriceTrusted();
+  const priceCol = trusted ? 'var(--text)' : 'var(--muted)';
+  const title = trusted ? '' : ' title="Low fit confidence — the age trend is weak, so treat this as a rough guide."';
+  let gap = '';
+  if (p.fairGap != null) {
+    const under = p.fairGap < 0;
+    const gapCol = !trusted ? 'var(--muted)' : under ? 'var(--accent4)' : 'var(--accent2)';
+    const arrow = p.fairGap === 0 ? '' : under ? '▼ ' : '▲ ';
+    const label = p.fairGap === 0 ? 'at fair' : `${Math.abs(p.fairGap)}% ${under ? 'under' : 'over'}`;
+    gap = `<span class="fair-gap" style="color:${gapCol}">${arrow}${label}</span>`;
+  }
+  return `<span style="color:${priceCol}"${title}>€${fmt(p.fairPrice)}</span>${gap}`;
+}
+
+// Surface the fit confidence (R²) in the Fair Price column header, greyed when
+// below the trust threshold so the whole column reads as low-confidence at once.
+function updateFairFitNote() {
+  const note = document.getElementById('fair-fit-note');
+  if (!note) return;
+  if (!ageFit) { note.textContent = ''; return; }
+  note.textContent = `R² ${ageFit.r2.toFixed(2)}`;
+  note.style.color = fairPriceTrusted() ? 'var(--accent4)' : 'var(--muted)';
 }
 
 function getTrend(name) {
@@ -2140,7 +2334,7 @@ function renderScatterChart() {
   }));
 
   // Overlay the fitted "expected value for age" line (see Relative Value section)
-  const scatterFit = linearFit(products.map(p => ({ x: p.age, y: p.svPerBooster })));
+  const scatterFit = ageFit;
   if (scatterFit) {
     const xs = products.map(p => p.age);
     const xmin = Math.min(...xs), xmax = Math.max(...xs);
@@ -2336,6 +2530,16 @@ document.querySelectorAll('.pill').forEach(pill => {
 
 document.getElementById('sort-select').addEventListener('change', e => {
   sortKey = e.target.value;
+  updateTable();
+});
+
+document.getElementById('board-search').addEventListener('input', e => {
+  searchTerm = e.target.value;
+  updateTable();
+});
+
+document.getElementById('verdict-filter').addEventListener('change', e => {
+  verdictFilter = e.target.value;
   updateTable();
 });
 
@@ -2588,6 +2792,7 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
 
   // Re-render everything
   recomputeScores(products, ageThreshold); // apply the current age threshold to freshly loaded data
+  recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
   updateKPIs();
   updateTable();
   updateTopPicks();
@@ -2809,20 +3014,44 @@ document.getElementById('portfolio-cancel-btn').addEventListener('click', exitPo
 // ============================================================
 // PRICE ALERTS (signed-in only)
 // ============================================================
-// `alerts` (product name → buy-below target €) is the user's private watchlist.
-// A product is "triggered" when its latest price is at/below target; "newly
-// crossed" when the previous snapshot was still above it. All derived here.
+// `alerts` (product name → { type:'fixed'|'fair', target €|null, pct %|null })
+// is the user's private watchlist. A FIXED alert triggers when the latest price
+// is at/below its € target; a FAIR alert triggers when the price is at least
+// `pct`% below the product's live fair price — which recomputes automatically as
+// the age fit moves, something a fixed target can't do. "newly crossed" means
+// the previous snapshot was still above the threshold. All derived here.
+function alertEntry(name) {
+  const a = alerts[name];
+  if (a == null) return null;
+  // Back-compat: a bare number is a legacy fixed € target.
+  return typeof a === 'number' ? { type: 'fixed', target: a, pct: null } : a;
+}
+
+// The effective € buy-below threshold for either alert type, or null if it
+// can't be computed yet (a fair alert on a product with no fair price).
+function alertTarget(name) {
+  const a = alertEntry(name);
+  if (!a) return null;
+  if (a.type === 'fair') {
+    const p = products.find(pp => pp.name === name);
+    if (!p || p.fairPrice == null || a.pct == null) return null;
+    return p.fairPrice * (1 - a.pct / 100);
+  }
+  return a.target;
+}
+
 function alertState(name) {
-  const target = alerts[name];
-  if (target == null) return null;
+  const a = alertEntry(name);
+  if (!a) return null;
+  const target = alertTarget(name);
   const p = products.find(pp => pp.name === name);
   const price = p && p.price != null ? p.price : null;
   const hist = historicalData[name];
   const past = hist ? hist.price.filter(v => v != null) : [];
   const prev = past.length >= 2 ? past[past.length - 2] : null;
-  const triggered    = price != null && price <= target;
+  const triggered    = target != null && price != null && price <= target;
   const newlyCrossed = triggered && prev != null && prev > target;
-  return { target, price, triggered, newlyCrossed };
+  return { type: a.type, pct: a.pct, target, price, triggered, newlyCrossed };
 }
 
 function triggeredAlertCount() {
@@ -2835,7 +3064,8 @@ function alertFlag(name) {
   const s = alertState(name);
   if (!s || !s.triggered) return '';
   const color = s.newlyCrossed ? 'var(--accent)' : 'var(--muted)';
-  const title = `Alert: €${Math.round(s.price)} ≤ target €${Math.round(s.target)}${s.newlyCrossed ? ' (just crossed)' : ''}`;
+  const kind = s.type === 'fair' ? ` (≥${s.pct}% below fair)` : '';
+  const title = `Alert: €${Math.round(s.price)} ≤ target €${Math.round(s.target)}${kind}${s.newlyCrossed ? ' (just crossed)' : ''}`;
   return `<span class="buy-flag" style="color:${color}" title="${title}">🔔 </span>`;
 }
 
@@ -2880,17 +3110,20 @@ function renderAlerts() {
     const status = s.triggered
       ? `<span style="color:var(--accent)">🔔 ${s.newlyCrossed ? 'just hit' : 'at/below'}</span>`
       : `<span style="color:var(--muted)">watching</span>`;
+    const targetLabel = s.type === 'fair'
+      ? `≥${s.pct}% below fair${s.target != null ? `<span style="color:var(--muted)"> · ${eur(s.target)}</span>` : `<span style="color:var(--muted)"> · —</span>`}`
+      : (s.target != null ? eur(s.target) : '—');
     return `
       <tr>
         <td class="product-name" title="${name}">${name}</td>
         <td>${type ? `<span class="type-badge type-${type}">${type}</span>` : '—'}</td>
         <td class="num">${s.price != null ? eur(s.price) : '—'}</td>
-        <td class="num">${eur(s.target)}</td>
+        <td class="num">${targetLabel}</td>
         <td>${status}</td>
         <td style="text-align:center"><button class="portfolio-remove-btn" data-alert="${name}" title="Remove alert">✕</button></td>
       </tr>`;
   }).join('')
-    : `<tr><td colspan="6"><div class="portfolio-empty">No alerts yet — pick a product and set a buy-below target.</div></td></tr>`;
+    : `<tr><td colspan="6"><div class="portfolio-empty">No alerts yet — pick a product and set a fixed € or fair-price target.</div></td></tr>`;
 
   tbody.querySelectorAll('.portfolio-remove-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -2903,19 +3136,27 @@ function renderAlerts() {
   });
 }
 
-// Add or update an alert target; auto-saves the affected row.
+// Add or update an alert (fixed € target or % below fair price); auto-saves.
 function addOrUpdateAlert() {
   const sel    = document.getElementById('alert-product-select');
+  const typeEl = document.getElementById('alert-type');
   const targetEl = document.getElementById('alert-target');
   const errEl  = document.getElementById('alert-editor-error');
   const name   = sel.value;
-  const target = parseFloat(targetEl.value);
+  const type   = typeEl.value === 'fair' ? 'fair' : 'fixed';
+  const val    = parseFloat(targetEl.value);
   const errs = [];
-  if (!name)                        errs.push('Pick a product.');
-  if (isNaN(target) || target < 0)  errs.push('Target must be a non-negative number.');
+  if (!name) errs.push('Pick a product.');
+  if (type === 'fixed') {
+    if (isNaN(val) || val < 0) errs.push('Buy-below € must be a non-negative number.');
+  } else {
+    if (isNaN(val) || val <= 0 || val > 90) errs.push('Percent below fair must be between 0 and 90.');
+  }
   if (errs.length) { errEl.textContent = errs.join(' '); errEl.style.display = 'block'; return; }
   errEl.style.display = 'none';
-  alerts[name] = target;
+  alerts[name] = type === 'fair'
+    ? { type: 'fair', target: null, pct: val }
+    : { type: 'fixed', target: val, pct: null };
   targetEl.value = '';
   renderAlerts();
   updateTable();       // reflect the new flag on the board immediately
@@ -2926,9 +3167,12 @@ function addOrUpdateAlert() {
 async function persistAlert(name) {
   if (!sbUser) return;
   const id = sbProductIds[name];
-  if (id == null || alerts[name] == null) return;
+  const a = alertEntry(name);
+  if (id == null || a == null) return;
   const { error } = await sbClient.from('alerts')
-    .upsert({ user_id: sbUser.id, product_id: id, target_price: alerts[name] },
+    .upsert({ user_id: sbUser.id, product_id: id, alert_type: a.type,
+              target_price: a.type === 'fixed' ? a.target : null,
+              below_pct:    a.type === 'fair'  ? a.pct    : null },
             { onConflict: 'user_id,product_id' });
   portfolioStatus(error ? '✕ Save failed: ' + error.message : '✓ Saved', !!error);
 }
@@ -2942,6 +3186,13 @@ async function deleteAlertRow(name) {
 }
 
 document.getElementById('alert-add-btn').addEventListener('click', addOrUpdateAlert);
+document.getElementById('alert-type').addEventListener('change', e => {
+  const fair = e.target.value === 'fair';
+  const inp = document.getElementById('alert-target');
+  inp.placeholder = fair ? '% below fair, e.g. 10' : 'Buy below € / unit';
+  inp.step = fair ? '1' : '0.01';
+  inp.max  = fair ? '90' : '';
+});
 
 
 // Format guide modal
@@ -3064,6 +3315,15 @@ function updateScenario() {
   }
 }
 
+
+// ── Product drill-down close wiring ──
+document.getElementById('drill-close').addEventListener('click', closeDrill);
+document.getElementById('drill-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeDrill();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('drill-modal').classList.contains('open')) closeDrill();
+});
 
 // ============================================================
 // TAB SWITCHING
@@ -3576,25 +3836,17 @@ function exportXlsx() {
 // ============================================================
 // RELATIVE VALUE (actual SV/Booster vs the age-fit expectation)
 // ============================================================
-function linearFit(pts) {
-  const n = pts.length;
-  if (n < 2) return null;
-  let sx = 0, sy = 0, sxx = 0, sxy = 0;
-  pts.forEach(p => { sx += p.x; sy += p.y; sxx += p.x * p.x; sxy += p.x * p.y; });
-  const denom = n * sxx - sx * sx;
-  if (Math.abs(denom) < 1e-9) return null;
-  const b = (n * sxy - sx * sy) / denom;
-  const a = (sy - b * sx) / n;
-  return { a, b };
-}
-
+// linearFit() now lives in metrics.js (imported above) and additionally
+// returns R² — the fit-confidence signal used by the fair price. The age-fit
+// line and each product's fair price are computed once per data load in
+// recomputeFit() and read by the board, scatter and relative-value views.
 function renderRelativeValue() {
   const tbody = document.getElementById('relval-tbody');
   if (!tbody) return;
-  const fit = linearFit(products.map(p => ({ x: p.age, y: p.svPerBooster })));
+  const fit = ageFit;
   const badge = document.getElementById('relval-fit-badge');
   if (badge) badge.textContent = fit
-    ? `age trend ${fit.b >= 0 ? '+' : ''}${fit.b.toFixed(1)} SV/booster per yr`
+    ? `age trend ${fit.b >= 0 ? '+' : ''}${fit.b.toFixed(1)}/yr · R² ${fit.r2.toFixed(2)}`
     : 'flat';
 
   const rows = products.map(p => {
@@ -3682,6 +3934,177 @@ function renderMomentum() {
 }
 
 // ============================================================
+// PRODUCT DRILL-DOWN — one product, one screen
+// ============================================================
+let drillProduct   = null;
+let drillPriceChart = null;
+let drillSvbChart   = null;
+
+function openDrill(name) {
+  const p = products.find(pp => pp.name === name);
+  if (!p) return;
+  drillProduct = name;
+  renderDrill();
+  document.getElementById('drill-modal').classList.add('open');
+}
+function closeDrill() {
+  document.getElementById('drill-modal').classList.remove('open');
+  if (drillPriceChart) { drillPriceChart.destroy(); drillPriceChart = null; }
+  if (drillSvbChart)   { drillSvbChart.destroy();   drillSvbChart = null; }
+  drillProduct = null;
+}
+
+const toneColor = t => t === 'good' ? 'var(--accent4)' : t === 'bad' ? 'var(--accent2)' : 'var(--muted)';
+
+function renderDrill() {
+  const p = products.find(pp => pp.name === drillProduct);
+  if (!p) return;
+  const m = computeMomentum(p.name);
+  const v = p.verdict;
+
+  document.getElementById('drill-title').textContent = p.name;
+
+  // Verdict banner
+  const vb = document.getElementById('drill-verdict');
+  const vcol = toneColor(v?.tone);
+  vb.style.color = vcol;
+  vb.style.borderLeftColor = vcol;
+  vb.textContent = v ? `${v.tone === 'good' ? '▲' : v.tone === 'bad' ? '▼' : '•'} ${v.label}` : '—';
+
+  // Stat tiles
+  const trusted = fairPriceTrusted();
+  const gapTxt = p.fairGap == null ? '—'
+    : p.fairGap === 0 ? 'at fair'
+    : `${Math.abs(p.fairGap)}% ${p.fairGap < 0 ? 'under' : 'over'}`;
+  const gapCol = p.fairGap == null || !trusted ? 'var(--muted)' : p.fairGap < 0 ? 'var(--accent4)' : 'var(--accent2)';
+  const pct = (val, dp = 1) => val == null ? '—' : `${val > 0 ? '+' : ''}${fmt(val, dp)}%`;
+  const stat = (k, v, s = '', vcol = 'var(--text)') =>
+    `<div class="drill-stat"><div class="k">${k}</div><div class="v" style="color:${vcol}">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
+  document.getElementById('drill-stats').innerHTML = [
+    stat('Live Price', p.price != null ? eur(p.price) : '—'),
+    stat('Fair Price', p.fairPrice != null ? eur(p.fairPrice) : '—', gapTxt + (trusted ? '' : ' · low fit'), gapCol),
+    stat('SV / Booster', `${fmt(p.svPerBooster, 1)}×`, `set value ${pct(m?.svSinceFirst)}`),
+    stat('Drawdown', m ? pct(m.drawdown) : '—', 'vs tracked peak', m && m.drawdown < -0.05 ? 'var(--accent2)' : 'var(--muted)'),
+    stat('Price move', m ? pct(m.sinceFirst) : '—', 'since first snapshot'),
+    stat('Wtd. Score', fmt(p.score, 1), `age weight ${fmt(p.ageWeight, 2)}`),
+  ].join('');
+
+  renderDrillPriceChart(p);
+  renderDrillSvbChart(p);
+  renderDrillIngredients(p, m);
+  renderDrillHolding(p);
+}
+
+function renderDrillPriceChart(p) {
+  const h = historicalData[p.name] || { price: [], setVal: [] };
+  const labels = histDates;
+  const priceData = labels.map((_, i) => h.price[i] ?? null);
+  const fair = p.fairPrice;
+  const band = VERDICT.OVER_SOFT / 100; // the "fair — no edge" zone, ±this
+  const flat = val => labels.map(() => val);
+
+  const datasets = [{
+    label: 'Price (€)', data: priceData, spanGaps: true,
+    borderColor: '#f5c842', backgroundColor: 'rgba(245,200,66,0.06)',
+    tension: 0.35, pointRadius: 3, pointBackgroundColor: '#f5c842', fill: false, order: 0,
+  }];
+  if (fair != null) {
+    datasets.push(
+      { label: '__bandTop', data: flat(fair * (1 + band)), borderWidth: 0, pointRadius: 0, fill: false, order: 3 },
+      { label: '__bandBot', data: flat(fair * (1 - band)), borderWidth: 0, pointRadius: 0,
+        backgroundColor: 'rgba(127,212,147,0.08)', fill: '-1', order: 3 },
+      { label: 'Fair price', data: flat(fair), borderColor: 'rgba(255,255,255,0.45)',
+        borderDash: [6, 5], borderWidth: 1.5, pointRadius: 0, fill: false, order: 2 },
+    );
+  }
+  if (drillPriceChart) drillPriceChart.destroy();
+  drillPriceChart = new Chart(document.getElementById('drill-price-chart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12,
+          filter: item => !item.text.startsWith('__') } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label.startsWith('__') ? null : ` ${ctx.dataset.label}: €${ctx.parsed.y.toLocaleString('de-DE')}` } },
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') } },
+      },
+    },
+  });
+}
+
+function renderDrillSvbChart(p) {
+  const h = historicalData[p.name] || { price: [], setVal: [] };
+  const boosters = p.boosters || boostersFromType(p.type) || 1;
+  // SV/Booster at each snapshot where both price and set value are present.
+  const data = histDates.map((_, i) => {
+    const pr = h.price[i], sv = h.setVal[i];
+    return (pr != null && pr > 0 && sv != null) ? (sv * boosters) / pr : null;
+  });
+  if (drillSvbChart) drillSvbChart.destroy();
+  drillSvbChart = new Chart(document.getElementById('drill-svb-chart'), {
+    type: 'line',
+    data: { labels: histDates, datasets: [{
+      label: 'SV / Booster', data, spanGaps: true,
+      borderColor: '#4fc3f7', backgroundColor: 'rgba(79,195,247,0.06)',
+      tension: 0.35, pointRadius: 3, pointBackgroundColor: '#4fc3f7', fill: true,
+    }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(1)}× booster cost` } } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } },
+      },
+    },
+  });
+}
+
+function renderDrillIngredients(p, m) {
+  const row = (lbl, val, col = 'var(--text)') =>
+    `<div class="drill-ingredient"><span class="lbl">${lbl}</span><span style="color:${col}">${val}</span></div>`;
+  const trusted = fairPriceTrusted();
+  const gap = p.fairGap == null ? 'no fair-price read'
+    : `${p.fairGap === 0 ? 'at fair' : Math.abs(p.fairGap) + '% ' + (p.fairGap < 0 ? 'under' : 'over')} fair`;
+  const fitTxt = ageFit ? `R² ${ageFit.r2.toFixed(2)} ${trusted ? '(trusted)' : '(weak — verdict ignores fair price)'}` : '—';
+  document.getElementById('drill-ingredients').innerHTML = [
+    row('Gap to fair price', gap, p.fairGap == null || !trusted ? 'var(--muted)' : p.fairGap < 0 ? 'var(--accent4)' : 'var(--accent2)'),
+    row('Drawdown vs peak', m ? `${fmt(m.drawdown, 1)}%` : '—', m && m.drawdown <= VERDICT.NEAR_LOW ? 'var(--accent4)' : 'var(--muted)'),
+    row('Set-value trend', m && m.svSinceFirst != null ? `${m.svSinceFirst > 0 ? '+' : ''}${fmt(m.svSinceFirst, 1)}% since first snapshot` : '—',
+        m && m.svSinceFirst != null ? (m.svSinceFirst >= VERDICT.SV_MOVE ? 'var(--accent4)' : m.svSinceFirst <= -VERDICT.SV_MOVE ? 'var(--accent2)' : 'var(--muted)') : 'var(--muted)'),
+    row('Age-fit confidence', fitTxt, 'var(--muted)'),
+  ].join('');
+}
+
+function renderDrillHolding(p) {
+  const sec = document.getElementById('drill-holding-sec');
+  const box = document.getElementById('drill-holding');
+  if (!sbUser) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  const h = holdings[p.name];
+  const parts = [];
+  if (h) {
+    const r = portfolioRows().find(x => x.name === p.name);
+    const pnlCol = r && r.pnl != null ? (r.pnl >= 0 ? 'var(--accent4)' : 'var(--accent2)') : 'var(--muted)';
+    parts.push(`<div class="drill-ingredient"><span class="lbl">Holding</span><span>${fmt(r.qty)} × cost ${eur(r.cost)}</span></div>`);
+    parts.push(`<div class="drill-ingredient"><span class="lbl">Unrealised P&L</span><span style="color:${pnlCol}">${r.pnl != null ? (r.pnl >= 0 ? '+' : '') + eur(r.pnl) + ` (${r.pnlPct != null ? (r.pnlPct * 100).toFixed(1) + '%' : '—'})` : '—'}</span></div>`);
+  }
+  const a = alertEntry(p.name);
+  if (a) {
+    const s = alertState(p.name);
+    const hit = s && s.triggered;
+    const lbl = a.type === 'fair'
+      ? `≥${a.pct}% below fair${s && s.target != null ? ` (${eur(s.target)})` : ''}`
+      : `below ${eur(a.target)}`;
+    parts.push(`<div class="drill-ingredient"><span class="lbl">Price alert</span><span style="color:${hit ? 'var(--accent)' : 'var(--muted)'}">${hit ? '🔔 ' : ''}buy ${lbl}${hit ? ' · hit' : ''}</span></div>`);
+  }
+  box.innerHTML = parts.length ? parts.join('') : `<div class="portfolio-empty" style="padding:14px;">No holding or alert set for this product — add one in the Portfolio tab.</div>`;
+}
+
+// ============================================================
 // INIT
 // ============================================================
 // Guard: the app depends on Chart.js and SheetJS loading from their CDNs.
@@ -3707,6 +4130,7 @@ Chart.defaults.color = '#6b6f85';
 Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
 
 recomputeScores(products, ageThreshold); // apply the default age threshold to the initial data
+recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
 updateKPIs();
 updateTable();
 updateTopPicks();
@@ -3887,7 +4311,11 @@ async function loadFromSupabase() {
   alerts = {};
   (alertRes && !alertRes.error ? alertRes.data || [] : []).forEach(a => {
     const name = idToName[a.product_id];
-    if (name) alerts[name] = Number(a.target_price);
+    if (name) alerts[name] = {
+      type:   a.alert_type === 'fair' ? 'fair' : 'fixed',
+      target: a.target_price != null ? Number(a.target_price) : null,
+      pct:    a.below_pct    != null ? Number(a.below_pct)    : null,
+    };
   });
 
   // Derive metrics; keep only products that have at least one usable snapshot.
