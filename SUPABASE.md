@@ -108,16 +108,18 @@ This is a **shared-dataset** setup:
 - **⬇ Export updated .xlsx** still works as a backup, and importing an `.xlsx`
   by drag-drop is still available.
 - The age-threshold slider is saved per user (private to each account).
-- Every signed-in user can build a private **Portfolio** (section 10 of the
-  Analysis tab): quantity + per-unit cost basis for products they own, with
-  unrealised P&L derived from the shared latest prices. Holdings live in the
-  per-user `holdings` table (RLS-scoped to the account) and never affect the
-  shared data.
-- Signed-in users can also set private **price alerts** (section 11): a
-  buy-below target per product. When a product's latest tracked price falls to
-  or below its target it's flagged in the alerts list and with a 🔔 on the All
-  Products board. Targets live in the per-user `alerts` table; the triggered
-  state is derived client-side, never stored.
+- Signed-in users get their own **Portfolio** tab (private to the account),
+  holding two things:
+  - **Portfolio** — quantity + per-unit cost basis for products they own, with
+    unrealised P&L derived from the shared latest prices. Adding tops up a
+    holding and blends the cost basis to a weighted average; a per-row edit
+    corrects exact values. Holdings live in the per-user `holdings` table.
+  - **Price alerts** — a buy-below target per product. When a product's latest
+    tracked price falls to or below its target it's flagged in the alerts list
+    and with a 🔔 on the Analysis board. Targets live in the per-user `alerts`
+    table; the triggered state is derived client-side, never stored.
+  Both are RLS-scoped to the account, never affect the shared data, and
+  **save automatically** on every change (no explicit save button).
 
 ## Optional: email reminder when data goes stale
 
