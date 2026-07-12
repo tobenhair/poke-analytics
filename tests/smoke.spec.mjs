@@ -100,6 +100,16 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
     { message: 'data-entry table should have rows', timeout: 10_000 },
   ).toBeGreaterThan(0);
 
+  // A focused number input must not step its value on wheel (the 0.01 bug):
+  // it blurs instead, leaving the value untouched.
+  const priceInput = page.locator('#entry-tbody .entry-input[data-field="price"]').first();
+  await priceInput.focus();
+  const beforeWheel = await priceInput.inputValue();
+  const ib = await priceInput.boundingBox();
+  await page.mouse.move(ib.x + ib.width / 2, ib.y + ib.height / 2);
+  await page.mouse.wheel(0, 120);
+  expect(await priceInput.inputValue(), 'wheel must not change a number input').toBe(beforeWheel);
+
   // No uncaught exceptions anywhere along the way.
   expect(pageErrors, `uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([]);
 });

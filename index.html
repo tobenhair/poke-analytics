@@ -3357,6 +3357,20 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Guard: a focused <input type="number"> steps its value on mouse-wheel scroll
+// (and would fire 'input', writing to entryData). Scrolling the page with the
+// cursor over a focused price cell once silently set it to 0.01 — one step from
+// empty — and that reached the DB. Blur on wheel so scrolling never edits a
+// number field; the value is only ever changed by typing or paste. One global
+// capture-phase listener covers every number input (entry, alerts, portfolio).
+document.addEventListener('wheel', e => {
+  const el = e.target;
+  if (el instanceof HTMLInputElement && el.type === 'number' && document.activeElement === el) {
+    e.preventDefault(); // stop this tick from stepping the value…
+    el.blur();          // …and drop focus so further scrolling is safe
+  }
+}, { passive: false });
+
 function getLastHistSnapshot(name) {
   const h = historicalData[name];
   if (!h) return { price: null, setVal: null };
@@ -3430,6 +3444,41 @@ function entryDeltaPct(name, field, val) {
   const base = field === 'price' ? last.price : last.setVal;
   if (base == null || base <= 0) return null;
   return (val - base) / base;
+}
+
+// A swing this large vs the last snapshot almost certainly isn't a real monthly
+// move — it's a fat-finger or a stray-scroll (the 0.01 bug). Unlike the 30%
+// inline nudge, this one interrupts the save with an explicit confirm.
+const ENTRY_DELTA_BLOCK = 0.80; // 80%
+
+// Scan the pending entries for implausible values and, if any, make the user
+// confirm before they reach the DB. Catches both huge deltas vs the last
+// snapshot and a suspiciously tiny price with no baseline to compare against.
+// Returns true to proceed, false to abort the save/export.
+function confirmSuspiciousEntries(action) {
+  const suspicious = [];
+  Object.entries(entryData).forEach(([name, d]) => {
+    ['price', 'setVal'].forEach(field => {
+      const val = d[field];
+      if (val == null || isNaN(val) || val < 0) return;
+      const last = getLastHistSnapshot(name);
+      const base = field === 'price' ? last.price : last.setVal;
+      const label = field === 'price' ? 'price' : 'set value';
+      const pct = entryDeltaPct(name, field, val);
+      if (pct != null && Math.abs(pct) >= ENTRY_DELTA_BLOCK) {
+        suspicious.push(`• ${name} — ${label} ${base} → ${val} (${pct > 0 ? '+' : '−'}${Math.round(Math.abs(pct) * 100)}%)`);
+      } else if (pct == null && field === 'price' && val > 0 && val < 1) {
+        // No baseline, but a sub-€1 box/ETB/bundle price is implausible.
+        suspicious.push(`• ${name} — ${label} ${val} (implausibly low)`);
+      }
+    });
+  });
+  if (!suspicious.length) return true;
+  return confirm(
+    `${suspicious.length} entered value(s) look implausible — a likely fat-finger or stray scroll:\n\n` +
+    suspicious.join('\n') +
+    `\n\n${action} anyway?`
+  );
 }
 
 // Reflect the delta warning on one entry input and its sibling note. A large
@@ -3760,7 +3809,7 @@ function confirmIfIncomplete(action) {
 }
 
 document.getElementById('export-xlsx-btn').addEventListener('click', () => {
-  if (confirmIfIncomplete('Export')) exportXlsx();
+  if (confirmSuspiciousEntries('Export') && confirmIfIncomplete('Export')) exportXlsx();
 });
 
 function exportXlsx() {
@@ -4442,6 +4491,7 @@ function renderDemo(groups) {
 // Cardmarket links, age threshold) to Supabase, then reload from the cloud.
 async function saveToSupabase() {
   if (!sbUser) { showStatus('Sign in to save to the cloud', true); return; }
+  if (!confirmSuspiciousEntries('Save to cloud')) return;
   if (!confirmIfIncomplete('Save to cloud')) return;
   const btn = document.getElementById('save-cloud-btn');
   const snapLabel = document.getElementById('snapshot-label').value.trim() || todayLabel();
