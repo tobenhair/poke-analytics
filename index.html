@@ -745,6 +745,23 @@
     margin-top: 4px;
   }
   .entry-progress span { color: var(--accent4); font-weight: 500; }
+  .entry-progress.incomplete span { color: var(--accent); }
+  .entry-tools { display: flex; gap: 6px; margin-top: 2px; }
+  .entry-tool-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.64rem;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px 10px;
+    cursor: pointer;
+    letter-spacing: 0.03em;
+    transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
+  }
+  .entry-tool-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.16); }
+  .entry-tool-btn:disabled { opacity: 0.4; cursor: default; }
+  .entry-tool-btn:disabled:hover { color: var(--muted); border-color: var(--border); }
   .remove-row-btn {
     background: none;
     border: none;
@@ -757,6 +774,49 @@
     line-height: 1;
   }
   .remove-row-btn:hover { color: var(--accent2); }
+
+  /* ── Portfolio (signed-in only) ── */
+  .portfolio-summary {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px;
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+  }
+  .portfolio-tile {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px;
+  }
+  .portfolio-tile .lbl {
+    font-family: 'DM Mono', monospace; font-size: 0.62rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px;
+  }
+  .portfolio-tile .val { font-family: 'Bebas Neue', sans-serif; font-size: 1.9rem; color: var(--text); line-height: 1; }
+  .portfolio-tile .sub { font-family: 'DM Mono', monospace; font-size: 0.72rem; margin-top: 6px; }
+  .portfolio-editor {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    padding: 16px 24px; border-bottom: 1px solid var(--border);
+  }
+  .portfolio-editor .field-select { max-width: 260px; }
+  .portfolio-editor .field-input { max-width: 140px; }
+  .portfolio-save-btn {
+    padding: 8px 16px; border-radius: 999px;
+    border: 1px solid var(--accent3); background: transparent; color: var(--accent3);
+    font-family: 'DM Mono', monospace; font-size: 0.72rem; cursor: pointer;
+    letter-spacing: 0.04em; transition: all 0.2s var(--ease);
+  }
+  .portfolio-save-btn:hover { background: var(--accent3); color: #05070c; }
+  .portfolio-save-btn:disabled { opacity: 0.5; cursor: default; }
+  .portfolio-error {
+    font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--accent2);
+    padding: 10px 24px 0; display: none;
+  }
+  .portfolio-remove-btn {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 0.9rem; padding: 2px 6px; border-radius: 6px; line-height: 1;
+    transition: color 0.2s var(--ease);
+  }
+  .portfolio-remove-btn:hover { color: var(--accent2); }
+  .portfolio-empty {
+    padding: 26px 24px; color: var(--muted); font-family: 'DM Mono', monospace;
+    font-size: 0.78rem; text-align: center;
+  }
 
   /* ── Welcome hover affordance ── */
   #tab-welcome .panel[onclick] { transition: transform 0.35s var(--ease), border-color 0.35s var(--ease); }
@@ -1496,6 +1556,77 @@
     </div>
   </div>
 
+  <!-- ── Section: portfolio (signed-in only) ── -->
+  <div class="section-eyebrow sb-only">10 — Your Portfolio</div>
+  <p class="section-desc sb-only"><strong>What:</strong> what you own and what it's worth now. <strong>How to read:</strong> enter a quantity and the per-unit price you paid (<em>cost basis</em>); <em>unrealised P&amp;L</em> compares that to each product's latest tracked price. Private to your account.</p>
+  <div class="panel sb-only" id="portfolio-panel">
+    <div class="panel-header">
+      <div class="panel-title">Portfolio</div>
+      <button class="portfolio-save-btn" id="portfolio-save-btn" title="Save your portfolio to your cloud account">☁ Save portfolio</button>
+    </div>
+
+    <div class="portfolio-summary" id="portfolio-summary"></div>
+
+    <div class="portfolio-editor">
+      <select class="field-select" id="portfolio-product-select"></select>
+      <input class="field-input" id="portfolio-qty" type="number" min="0" step="1" placeholder="Qty">
+      <input class="field-input" id="portfolio-cost" type="number" min="0" step="0.01" placeholder="Cost € / unit">
+      <button class="add-btn" id="portfolio-add-btn" style="width:auto;">+ Add / update</button>
+    </div>
+    <div id="portfolio-editor-error" class="portfolio-error"></div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Type</th>
+            <th style="text-align:right">Qty</th>
+            <th style="text-align:right">Cost €/unit</th>
+            <th style="text-align:right">Now €/unit</th>
+            <th style="text-align:right">Value €</th>
+            <th style="text-align:right">P&amp;L €</th>
+            <th style="text-align:right">P&amp;L %</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="portfolio-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Section: price alerts (signed-in only) ── -->
+  <div class="section-eyebrow sb-only">11 — Price Alerts</div>
+  <p class="section-desc sb-only"><strong>What:</strong> buy-below targets for the products you're watching. <strong>How to read:</strong> when a product's latest tracked price falls to or below your target it's flagged here and on the board (🔔). Private to your account.</p>
+  <div class="panel sb-only" id="alerts-panel">
+    <div class="panel-header">
+      <div class="panel-title">Price Alerts</div>
+      <div class="panel-badge" id="alerts-badge">no alerts</div>
+    </div>
+    <div class="portfolio-editor">
+      <select class="field-select" id="alert-product-select"></select>
+      <input class="field-input" id="alert-target" type="number" min="0" step="0.01" placeholder="Buy below € / unit">
+      <button class="add-btn" id="alert-add-btn" style="width:auto;">+ Add / update</button>
+      <button class="portfolio-save-btn" id="alerts-save-btn" title="Save your alerts to your cloud account">☁ Save alerts</button>
+    </div>
+    <div id="alert-editor-error" class="portfolio-error"></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Type</th>
+            <th style="text-align:right">Now €/unit</th>
+            <th style="text-align:right">Target €</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="alerts-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
   </div><!-- /tab-analysis -->
 
   <!-- ═══════════════════ DATA ENTRY TAB ═══════════════════ -->
@@ -1511,6 +1642,9 @@
             <div style="font-size:0.7rem; color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px;">
               Enter the latest Price and Set Value for each product
             </div>
+            <div style="font-size:0.66rem; color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px; opacity:0.85;">
+              ↵ Enter jumps down the column · paste a copied column to fill it at once
+            </div>
             <div style="font-size:0.7rem; color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px;">
               📊 Set value reference:
               <a href="https://www.getmint.app/sets/" target="_blank" rel="noopener noreferrer" style="color:var(--accent3); text-decoration:none;">getmint.app/sets<span style="font-size:0.6rem;"> ↗</span></a>
@@ -1519,6 +1653,12 @@
           <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
             <div class="entry-date-display" id="entry-date-display">📅 Today: —</div>
             <div class="entry-progress" id="entry-progress">— / — filled</div>
+            <div class="entry-tools">
+              <button type="button" class="entry-tool-btn" id="entry-prefill-btn"
+                title="Fill empty cells with each product's last snapshot value — then just edit what changed">⤵ Pre-fill last</button>
+              <button type="button" class="entry-tool-btn" id="entry-next-empty-btn"
+                title="Jump to the next product still missing a value">↧ Next empty</button>
+            </div>
           </div>
         </div>
         <div class="entry-table-wrap">
@@ -1623,7 +1763,14 @@
   </footer>
 </div>
 
-<script>
+<script type="module">
+// The scoring/derivation math lives in metrics.js as pure, unit-tested
+// functions so the browser and the tests share one source of truth. This
+// script is a module so it can import them; that also means its top-level
+// declarations are module-scoped (not globals), which nothing else on the
+// page relies on — the inline handlers and the reveal script use only the DOM.
+import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts } from './metrics.js';
+
 // ============================================================
 // DATA
 // ============================================================
@@ -1699,6 +1846,12 @@ let activeType = "ALL";
 let sortKey = "score";
 let trendProduct = "Surging Sparks Booster Box";
 let ageThreshold = 1; // years until age weight reaches 1.0 (default)
+// Signed-in user's private portfolio (name → { quantity, costBasis }) and price
+// alerts (name → buy-below target €). Populated by loadFromSupabase(); empty in
+// static/xlsx mode. Declared here — before the render functions and INIT that
+// read them (renderPortfolio/renderAlerts, and updateTable via alertFlag).
+let holdings = {};
+let alerts = {};
 
 // ============================================================
 // HELPERS
@@ -1753,22 +1906,9 @@ function formatISO(d) {
   return s; // give up — return as-is
 }
 
-// ============================================================
-// AGE WEIGHT HELPERS
-// ============================================================
-function calcAgeWeight(ageYears) {
-  // age >= threshold → full weight (no penalty)
-  // age < threshold → linear scale from 0.10 to 1.0
-  if (ageYears >= ageThreshold) return 1.0;
-  return parseFloat(Math.max(0.10, ageYears / ageThreshold).toFixed(2));
-}
-
-function recomputeScores() {
-  products.forEach(p => {
-    p.ageWeight = calcAgeWeight(p.age);
-    p.score     = parseFloat((p.svPerBooster * p.ageWeight).toFixed(1));
-  });
-}
+// calcAgeWeight() and recomputeScores() now live in metrics.js (imported
+// above). recomputeScores(products, ageThreshold) is called with this script's
+// live state before the first render in both INIT and applyNewData().
 
 // ============================================================
 // KPIs
@@ -1805,7 +1945,7 @@ function updateTable() {
     const trend = getTrend(p.name);
     tr.innerHTML = `
       <td class="product-name" title="${p.name}">
-        ${isBuySignal(p.name) ? '<span class="buy-flag" title="Price dropped ≥5% but set value held steady — potential buy opportunity">💰 </span>' : ''}${p.name}
+        ${isBuySignal(p.name) ? '<span class="buy-flag" title="Price dropped ≥5% but set value held steady — potential buy opportunity">💰 </span>' : ''}${alertFlag(p.name)}${p.name}
       </td>
       <td><span class="type-badge type-${p.type}">${p.type}</span></td>
       <td class="num">${fmt(p.price)}</td>
@@ -2190,7 +2330,7 @@ document.getElementById('sort-select').addEventListener('change', e => {
 document.getElementById('age-threshold-slider').addEventListener('input', e => {
   ageThreshold = parseFloat(e.target.value);
   document.getElementById('age-threshold-display').textContent = ageThreshold.toFixed(1);
-  recomputeScores();
+  recomputeScores(products, ageThreshold);
   updateKPIs();
   updateTable();
   updateTopPicks();
@@ -2225,54 +2365,8 @@ function isNonNegNum(v) {
 }
 
 // Booster count derived from Type — no user input needed (BOX 36, ETB 9, BUNDLE 6)
-function boostersFromType(type) {
-  if (type === 'BOX')    return 36;
-  if (type === 'ETB')    return 9;
-  if (type === 'BUNDLE') return 6;
-  return null;
-}
-
-// ── Derive calculated product fields from raw inputs + latest snapshot ──
-// Shared by the .xlsx parser and the Supabase loader so both paths compute
-// price/age/pricePerBooster/svPerBooster/score identically. Mutates each
-// product in place; returns an array of error strings for products missing a
-// usable latest Price or Set Value (the caller decides whether to reject or
-// skip them). The ageWeight/score written here are provisional — recomputeScores()
-// overwrites them using the current ageThreshold before the first render.
-function deriveProducts(newProducts, newHistoricalData) {
-  const derivationErrors = [];
-  const today = new Date();
-  newProducts.forEach(p => {
-    const hist     = newHistoricalData[p.name];
-    const boosters = boostersFromType(p.type);
-
-    // Latest non-null price and setVal from historical data
-    const latestPrice  = hist ? [...hist.price].reverse().find(v => v != null)  : null;
-    const latestSetVal = hist ? [...hist.setVal].reverse().find(v => v != null) : null;
-
-    if (latestPrice  == null) derivationErrors.push(`"${p.name}": no valid Price found in Historical Data`);
-    if (latestSetVal == null) derivationErrors.push(`"${p.name}": no valid Set Value found in Historical Data`);
-
-    if (latestPrice != null && latestSetVal != null && boosters) {
-      const releaseDate = new Date(p.release);
-      const ageYears    = parseFloat(((today - releaseDate) / (1000 * 60 * 60 * 24 * 365.25)).toFixed(2));
-      const ageWeight   = parseFloat((ageYears >= 3 ? 1.0 : Math.max(0.10, ageYears / 3)).toFixed(2));
-      const pricePerBooster = latestPrice / boosters;
-      const svPerBooster    = latestSetVal / pricePerBooster;
-      const score           = parseFloat((svPerBooster * ageWeight).toFixed(1));
-
-      p.boosters        = boosters;
-      p.age             = ageYears;
-      p.price           = latestPrice;
-      p.setVal          = latestSetVal;
-      p.pricePerBooster = parseFloat(pricePerBooster.toFixed(1));
-      p.svPerBooster    = parseFloat(svPerBooster.toFixed(1));
-      p.ageWeight       = ageWeight;
-      p.score           = score;
-    }
-  });
-  return derivationErrors;
-}
+// boostersFromType() and deriveProducts() now live in metrics.js (imported
+// above), shared with the Supabase loader and the unit tests.
 
 // ── main validator + parser ───────────────────────────────────
 function parseXlsx(arrayBuffer) {
@@ -2481,7 +2575,7 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   scenarioProduct = products[0]?.name || '';
 
   // Re-render everything
-  recomputeScores(); // apply the current age threshold to freshly loaded data
+  recomputeScores(products, ageThreshold); // apply the current age threshold to freshly loaded data
   updateKPIs();
   updateTable();
   updateTopPicks();
@@ -2492,6 +2586,9 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   renderMomentum();
   renderRatioChart();
   initScenario();
+
+  renderPortfolio();
+  renderAlerts();
 
   // Header "last updated" reflects the newest snapshot date (data freshness),
   // not when the page happened to load.
@@ -2505,6 +2602,277 @@ function showStatus(msg, isError) {
   el.className = 'upload-status ' + (isError ? 'err' : 'ok');
   el.style.display = 'inline-block';
 }
+
+// ============================================================
+// PORTFOLIO (signed-in only)
+// ============================================================
+// `holdings` (product name → { quantity, costBasis }) is the user's private
+// portfolio, loaded from Supabase. Unrealised P&L per holding is
+// (latest tracked price − cost basis) × quantity — derived here, never stored.
+const eur = v => '€' + Math.round(v).toLocaleString('de-DE');
+const pnlColor = v => v > 0 ? 'var(--accent4)' : v < 0 ? 'var(--accent2)' : 'var(--muted)';
+const withSign = (s, v) => (v > 0 ? '+' : v < 0 ? '−' : '') + s;
+
+function portfolioRows() {
+  return Object.entries(holdings).map(([name, h]) => {
+    const p    = products.find(pp => pp.name === name);
+    const now  = p && p.price != null ? p.price : null;   // latest whole-unit price
+    const qty  = Number(h.quantity)  || 0;
+    const cost = Number(h.costBasis) || 0;
+    const costValue = cost * qty;
+    const curValue  = now != null ? now * qty : null;
+    const pnl       = curValue != null ? curValue - costValue : null;
+    const pnlPct    = (now != null && cost > 0) ? (now - cost) / cost : null;
+    return { name, type: p ? p.type : null, qty, cost, now, costValue, curValue, pnl, pnlPct };
+  }).sort((a, b) => (b.curValue ?? 0) - (a.curValue ?? 0));
+}
+
+function populatePortfolioSelect() {
+  const sel = document.getElementById('portfolio-product-select');
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '';
+  products.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name; opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+
+function renderPortfolio() {
+  const tbody = document.getElementById('portfolio-tbody');
+  const summaryEl = document.getElementById('portfolio-summary');
+  if (!tbody || !summaryEl) return;
+  populatePortfolioSelect();
+
+  const rows = portfolioRows();
+  const totalCost = rows.reduce((s, r) => s + r.costValue, 0);
+  const totalNow  = rows.reduce((s, r) => s + (r.curValue ?? 0), 0);
+  const totalPnl  = totalNow - totalCost;
+  const totalPct  = totalCost > 0 ? totalPnl / totalCost : null;
+
+  summaryEl.style.display = rows.length ? '' : 'none';
+  summaryEl.innerHTML = rows.length ? `
+    <div class="portfolio-tile"><div class="lbl">Cost basis</div><div class="val">${eur(totalCost)}</div></div>
+    <div class="portfolio-tile"><div class="lbl">Current value</div><div class="val">${eur(totalNow)}</div></div>
+    <div class="portfolio-tile">
+      <div class="lbl">Unrealised P&L</div>
+      <div class="val" style="color:${pnlColor(totalPnl)}">${withSign(eur(Math.abs(totalPnl)), totalPnl)}</div>
+      <div class="sub" style="color:${pnlColor(totalPnl)}">${totalPct != null ? withSign((Math.abs(totalPct) * 100).toFixed(1) + '%', totalPnl) : '—'}</div>
+    </div>` : '';
+
+  tbody.innerHTML = rows.length ? rows.map(r => `
+    <tr>
+      <td class="product-name" title="${r.name}">${r.name}</td>
+      <td>${r.type ? `<span class="type-badge type-${r.type}">${r.type}</span>` : '—'}</td>
+      <td class="num">${r.qty}</td>
+      <td class="num">${eur(r.cost)}</td>
+      <td class="num">${r.now != null ? eur(r.now) : '—'}</td>
+      <td class="num">${r.curValue != null ? eur(r.curValue) : '—'}</td>
+      <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnl != null ? withSign(eur(Math.abs(r.pnl)), r.pnl) : '—'}</td>
+      <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnlPct != null ? withSign((Math.abs(r.pnlPct) * 100).toFixed(1) + '%', r.pnl) : '—'}</td>
+      <td style="text-align:center"><button class="portfolio-remove-btn" data-product="${r.name}" title="Remove holding">✕</button></td>
+    </tr>`).join('')
+    : `<tr><td colspan="9"><div class="portfolio-empty">No holdings yet — pick a product, enter quantity and cost, then “Save portfolio”.</div></td></tr>`;
+
+  tbody.querySelectorAll('.portfolio-remove-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      delete holdings[btn.dataset.product];
+      renderPortfolio();
+    });
+  });
+}
+
+// Add or update a holding from the editor inputs (local until saved).
+function addOrUpdateHolding() {
+  const sel  = document.getElementById('portfolio-product-select');
+  const qtyEl = document.getElementById('portfolio-qty');
+  const costEl = document.getElementById('portfolio-cost');
+  const errEl = document.getElementById('portfolio-editor-error');
+  const name = sel.value;
+  const qty  = parseFloat(qtyEl.value);
+  const cost = parseFloat(costEl.value);
+  const errs = [];
+  if (!name)                      errs.push('Pick a product.');
+  if (isNaN(qty)  || qty  <= 0)   errs.push('Quantity must be a positive number.');
+  if (isNaN(cost) || cost < 0)    errs.push('Cost must be a non-negative number.');
+  if (errs.length) { errEl.textContent = errs.join(' '); errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+  holdings[name] = { quantity: qty, costBasis: cost };
+  qtyEl.value = ''; costEl.value = '';
+  renderPortfolio();
+}
+
+// Persist the whole portfolio: replace the user's holdings rows with the
+// current local set (delete-all + insert keeps removals in sync). RLS scopes
+// every row to auth.uid(), so this only ever touches the caller's own rows.
+async function savePortfolio() {
+  if (!sbUser) { showStatus('Sign in to save your portfolio', true); return; }
+  const btn = document.getElementById('portfolio-save-btn');
+  try {
+    if (btn) btn.disabled = true;
+    showStatus('⏳ Saving portfolio…', false);
+    const { error: delErr } = await sbClient.from('holdings').delete().eq('user_id', sbUser.id);
+    if (delErr) throw delErr;
+    const rows = Object.entries(holdings)
+      .map(([name, h]) => ({ user_id: sbUser.id, product_id: sbProductIds[name], quantity: h.quantity, cost_basis: h.costBasis }))
+      .filter(r => r.product_id);
+    if (rows.length) {
+      const { error: insErr } = await sbClient.from('holdings').insert(rows);
+      if (insErr) throw insErr;
+    }
+    showStatus(`✓ Portfolio saved — ${rows.length} holding(s)`, false);
+  } catch (err) {
+    console.error('Portfolio save failed:', err);
+    showStatus('✕ Portfolio save failed: ' + (err.message || err), true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+document.getElementById('portfolio-add-btn').addEventListener('click', addOrUpdateHolding);
+document.getElementById('portfolio-save-btn').addEventListener('click', savePortfolio);
+
+// ============================================================
+// PRICE ALERTS (signed-in only)
+// ============================================================
+// `alerts` (product name → buy-below target €) is the user's private watchlist.
+// A product is "triggered" when its latest price is at/below target; "newly
+// crossed" when the previous snapshot was still above it. All derived here.
+function alertState(name) {
+  const target = alerts[name];
+  if (target == null) return null;
+  const p = products.find(pp => pp.name === name);
+  const price = p && p.price != null ? p.price : null;
+  const hist = historicalData[name];
+  const past = hist ? hist.price.filter(v => v != null) : [];
+  const prev = past.length >= 2 ? past[past.length - 2] : null;
+  const triggered    = price != null && price <= target;
+  const newlyCrossed = triggered && prev != null && prev > target;
+  return { target, price, triggered, newlyCrossed };
+}
+
+function triggeredAlertCount() {
+  return Object.keys(alerts).filter(n => alertState(n)?.triggered).length;
+}
+
+// Bell for the All Products board: gold when a target was just crossed, muted
+// when the price is still at/below target. Empty when no alert is triggered.
+function alertFlag(name) {
+  const s = alertState(name);
+  if (!s || !s.triggered) return '';
+  const color = s.newlyCrossed ? 'var(--accent)' : 'var(--muted)';
+  const title = `Alert: €${Math.round(s.price)} ≤ target €${Math.round(s.target)}${s.newlyCrossed ? ' (just crossed)' : ''}`;
+  return `<span class="buy-flag" style="color:${color}" title="${title}">🔔 </span>`;
+}
+
+function populateAlertSelect() {
+  const sel = document.getElementById('alert-product-select');
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '';
+  products.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name; opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+
+function renderAlerts() {
+  const tbody = document.getElementById('alerts-tbody');
+  const badge = document.getElementById('alerts-badge');
+  if (!tbody) return;
+  populateAlertSelect();
+
+  const names = Object.keys(alerts).sort((a, b) => {
+    // Triggered first, then by how far below target (deepest discount on top).
+    const sa = alertState(a), sb = alertState(b);
+    if (sa.triggered !== sb.triggered) return sa.triggered ? -1 : 1;
+    return (a.localeCompare(b));
+  });
+
+  const nTrig = triggeredAlertCount();
+  if (badge) {
+    badge.textContent = names.length
+      ? (nTrig ? `${nTrig} triggered` : 'none triggered')
+      : 'no alerts';
+    badge.style.color = nTrig ? 'var(--accent)' : 'var(--muted)';
+  }
+
+  tbody.innerHTML = names.length ? names.map(name => {
+    const s = alertState(name);
+    const p = products.find(pp => pp.name === name);
+    const type = p ? p.type : null;
+    const status = s.triggered
+      ? `<span style="color:var(--accent)">🔔 ${s.newlyCrossed ? 'just hit' : 'at/below'}</span>`
+      : `<span style="color:var(--muted)">watching</span>`;
+    return `
+      <tr>
+        <td class="product-name" title="${name}">${name}</td>
+        <td>${type ? `<span class="type-badge type-${type}">${type}</span>` : '—'}</td>
+        <td class="num">${s.price != null ? eur(s.price) : '—'}</td>
+        <td class="num">${eur(s.target)}</td>
+        <td>${status}</td>
+        <td style="text-align:center"><button class="portfolio-remove-btn" data-alert="${name}" title="Remove alert">✕</button></td>
+      </tr>`;
+  }).join('')
+    : `<tr><td colspan="6"><div class="portfolio-empty">No alerts yet — pick a product, set a buy-below target, then “Save alerts”.</div></td></tr>`;
+
+  tbody.querySelectorAll('.portfolio-remove-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      delete alerts[btn.dataset.alert];
+      renderAlerts();
+      updateTable(); // refresh the board's alert flags
+    });
+  });
+}
+
+function addOrUpdateAlert() {
+  const sel    = document.getElementById('alert-product-select');
+  const targetEl = document.getElementById('alert-target');
+  const errEl  = document.getElementById('alert-editor-error');
+  const name   = sel.value;
+  const target = parseFloat(targetEl.value);
+  const errs = [];
+  if (!name)                        errs.push('Pick a product.');
+  if (isNaN(target) || target < 0)  errs.push('Target must be a non-negative number.');
+  if (errs.length) { errEl.textContent = errs.join(' '); errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+  alerts[name] = target;
+  targetEl.value = '';
+  renderAlerts();
+  updateTable(); // reflect the new flag on the board immediately
+}
+
+// Persist alerts: replace the user's alert rows with the current local set.
+async function saveAlerts() {
+  if (!sbUser) { showStatus('Sign in to save alerts', true); return; }
+  const btn = document.getElementById('alerts-save-btn');
+  try {
+    if (btn) btn.disabled = true;
+    showStatus('⏳ Saving alerts…', false);
+    const { error: delErr } = await sbClient.from('alerts').delete().eq('user_id', sbUser.id);
+    if (delErr) throw delErr;
+    const rows = Object.entries(alerts)
+      .map(([name, target]) => ({ user_id: sbUser.id, product_id: sbProductIds[name], target_price: target }))
+      .filter(r => r.product_id);
+    if (rows.length) {
+      const { error: insErr } = await sbClient.from('alerts').insert(rows);
+      if (insErr) throw insErr;
+    }
+    showStatus(`✓ Alerts saved — ${rows.length} alert(s)`, false);
+  } catch (err) {
+    console.error('Alerts save failed:', err);
+    showStatus('✕ Alerts save failed: ' + (err.message || err), true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+document.getElementById('alert-add-btn').addEventListener('click', addOrUpdateAlert);
+document.getElementById('alerts-save-btn').addEventListener('click', saveAlerts);
 
 
 // Format guide modal
@@ -2826,6 +3194,18 @@ function renderEntryTable() {
       applyEntryDeltaWarning(e.target);
       updateEntryProgress();
     });
+    // Enter moves down the same column, so a whole column can be typed without
+    // reaching for the mouse (Shift+Enter goes back up).
+    input.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const col  = [...tbody.querySelectorAll(`.entry-input[data-field="${e.target.dataset.field}"]`)];
+      const next = col[col.indexOf(e.target) + (e.shiftKey ? -1 : 1)];
+      if (next) { next.focus(); next.select(); }
+    });
+    // Paste a copied column (e.g. from a spreadsheet) to fill straight down from
+    // this cell. A single value falls through to the normal paste.
+    input.addEventListener('paste', e => bulkPasteColumn(e, input, tbody));
     // Reflect the warning for any value already present (e.g. loaded from cloud).
     applyEntryDeltaWarning(input);
   });
@@ -2895,18 +3275,102 @@ function openUrlEditor(productName) {
   });
 }
 
-function updateEntryProgress() {
-  const allProducts = [
+// Products still missing a New Price and/or New Set Value this session — the
+// basis for both the progress badge and the "did I fill everything?" check.
+function entryAllProducts() {
+  return [
     ...products,
     ...pendingProducts.filter(p => !products.find(ep => ep.name === p.name))
   ];
-  const total   = allProducts.length;
-  const filled  = allProducts.filter(p => {
+}
+function entryMissingCount() {
+  return entryAllProducts().filter(p => {
     const d = entryData[p.name];
-    return d && d.price != null && d.setVal != null;
+    return !(d && d.price != null && d.setVal != null);
   }).length;
+}
+
+function updateEntryProgress() {
+  const total   = entryAllProducts().length;
+  const filled  = total - entryMissingCount();
   const el = document.getElementById('entry-progress');
-  el.innerHTML = `<span>${filled}</span> / ${total} filled`;
+  el.classList.toggle('incomplete', filled < total);
+  el.innerHTML = filled === total && total > 0
+    ? `✓ all <span>${total}</span> filled`
+    : `<span>${filled}</span> / ${total} filled`;
+  const nextBtn = document.getElementById('entry-next-empty-btn');
+  if (nextBtn) nextBtn.disabled = filled === total;
+}
+
+// Fill every empty New Price / New Set Value with the product's last snapshot
+// value, so the monthly pass becomes "edit what moved" instead of retyping the
+// whole board. Existing entries are left as-is.
+function prefillFromLast() {
+  entryAllProducts().forEach(p => {
+    const last = getLastHistSnapshot(p.name);
+    const d = entryData[p.name] || (entryData[p.name] = {});
+    if (d.price  == null && last.price  != null) d.price  = last.price;
+    if (d.setVal == null && last.setVal != null) d.setVal = last.setVal;
+  });
+  renderEntryTable();
+  showStatus('⤵ Pre-filled empty cells with last month’s values — edit what changed', false);
+}
+
+// Focus the first entry input (top-to-bottom, price then set value) whose
+// product still has a gap, and scroll it into view.
+function focusNextEmpty() {
+  const tbody = document.getElementById('entry-tbody');
+  const rows  = [...tbody.querySelectorAll('tr')];
+  for (const tr of rows) {
+    const inputs = [...tr.querySelectorAll('.entry-input')];
+    const gap = inputs.find(i => i.value === '');
+    if (gap) {
+      gap.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      gap.focus();
+      return;
+    }
+  }
+}
+
+// Parse one pasted cell into a number, tolerating currency symbols and both
+// European (1.234,56) and US (1,234.56) thousands/decimal conventions.
+function parseEntryNumber(raw) {
+  let s = String(raw).replace(/[^0-9.,-]/g, '');
+  if (!s) return null;
+  const hasDot = s.includes('.'), hasComma = s.includes(',');
+  if (hasDot && hasComma) {
+    s = s.lastIndexOf(',') > s.lastIndexOf('.')
+      ? s.replace(/\./g, '').replace(',', '.')   // 1.234,56 → 1234.56
+      : s.replace(/,/g, '');                        // 1,234.56 → 1234.56
+  } else if (hasComma) {
+    s = s.replace(',', '.');                        // 89,90 → 89.90
+  }
+  const n = parseFloat(s);
+  return isNaN(n) || n < 0 ? null : n;
+}
+
+// Paste a copied column of values straight down from the focused cell. Only
+// kicks in for multi-value pastes; a single value uses the browser default.
+function bulkPasteColumn(e, input, tbody) {
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  const cells = text.split(/[\r\n\t]+/).map(s => s.trim()).filter(s => s !== '');
+  if (cells.length <= 1) return; // single value → normal paste
+  e.preventDefault();
+  const field = input.dataset.field;
+  const col = [...tbody.querySelectorAll(`.entry-input[data-field="${field}"]`)];
+  const start = col.indexOf(input);
+  let n = 0;
+  cells.forEach((cell, i) => {
+    const target = col[start + i];
+    if (!target) return;
+    const val = parseEntryNumber(cell);
+    if (val == null) return;
+    const name = target.dataset.product;
+    (entryData[name] || (entryData[name] = {}))[field] = val;
+    n++;
+  });
+  renderEntryTable();
+  showStatus(`Pasted ${n} value(s) into the ${field === 'price' ? 'New Price' : 'New Set Value'} column`, false);
 }
 
 // ── Add new product ──────────────────────────────────────────
@@ -2954,7 +3418,21 @@ document.getElementById('add-product-btn').addEventListener('click', () => {
 });
 
 // ── Export .xlsx ─────────────────────────────────────────────
-document.getElementById('export-xlsx-btn').addEventListener('click', exportXlsx);
+// Data Entry quick-tools (static markup, wired once).
+document.getElementById('entry-prefill-btn').addEventListener('click', prefillFromLast);
+document.getElementById('entry-next-empty-btn').addEventListener('click', focusNextEmpty);
+
+// A last "did I fill everything?" gate before a write action. Returns false to
+// abort when the user backs out of an incomplete export/save.
+function confirmIfIncomplete(action) {
+  const missing = entryMissingCount();
+  if (missing === 0) return true;
+  return confirm(`${missing} product(s) still have no New Price / New Set Value this month.\n\n${action} anyway?`);
+}
+
+document.getElementById('export-xlsx-btn').addEventListener('click', () => {
+  if (confirmIfIncomplete('Export')) exportXlsx();
+});
 
 function exportXlsx() {
   const snapLabel = document.getElementById('snapshot-label').value.trim() || todayLabel();
@@ -3159,7 +3637,7 @@ if (typeof Chart === 'undefined' || typeof XLSX === 'undefined') {
 Chart.defaults.color = '#6b6f85';
 Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
 
-recomputeScores(); // apply the default age threshold to the initial data
+recomputeScores(products, ageThreshold); // apply the default age threshold to the initial data
 updateKPIs();
 updateTable();
 updateTopPicks();
@@ -3173,6 +3651,8 @@ populateRatioSelects();
 renderRatioChart();
 populateScenarioSelect();
 initScenario();
+renderPortfolio();
+renderAlerts();
 updateLastUpdated();
 document.getElementById('sv-slider').addEventListener('input', updateScenario);
 document.getElementById('price-slider').addEventListener('input', updateScenario);
@@ -3267,6 +3747,11 @@ function setAuthedUI(user) {
   } else {
     root.classList.remove('sb-authed', 'is-admin');
     document.getElementById('auth-user-email').textContent = '';
+    holdings = {};            // clear the previous user's private portfolio
+    alerts = {};              // …and their private price alerts
+    renderPortfolio();
+    renderAlerts();
+    updateTable();            // drop any alert flags from the board
     showAuthOverlay(false);   // don't force the login modal…
     showDemo(true);           // …show the pre-login demo instead
   }
@@ -3276,10 +3761,12 @@ function setAuthedUI(user) {
 // same applyNewData() path the .xlsx loader uses. Pivots the normalized
 // snapshot rows back into the aligned price[]/setVal[] arrays the app expects.
 async function loadFromSupabase() {
-  const [prodRes, snapRes, setRes] = await Promise.all([
+  const [prodRes, snapRes, setRes, holdRes, alertRes] = await Promise.all([
     sbClient.from('products').select('*').order('release', { ascending: true }),
     sbClient.from('snapshots').select('*'),
     sbClient.from('user_settings').select('age_threshold').maybeSingle(),
+    sbClient.from('holdings').select('*'),
+    sbClient.from('alerts').select('*'),
   ]);
   if (prodRes.error) throw prodRes.error;
   if (snapRes.error) throw snapRes.error;
@@ -3316,6 +3803,22 @@ async function loadFromSupabase() {
       boosters: null, age: null, price: null, setVal: null,
       pricePerBooster: null, svPerBooster: null, ageWeight: null, score: null,
     };
+  });
+
+  // Pivot the user's private holdings into a name-keyed map (product_id → name
+  // via the id map we just built). Rows whose product no longer exists are
+  // dropped. applyNewData() → renderPortfolio() reads this.
+  const idToName = {};
+  Object.entries(sbProductIds).forEach(([name, id]) => { idToName[id] = name; });
+  holdings = {};
+  (holdRes && !holdRes.error ? holdRes.data || [] : []).forEach(h => {
+    const name = idToName[h.product_id];
+    if (name) holdings[name] = { quantity: Number(h.quantity), costBasis: Number(h.cost_basis) };
+  });
+  alerts = {};
+  (alertRes && !alertRes.error ? alertRes.data || [] : []).forEach(a => {
+    const name = idToName[a.product_id];
+    if (name) alerts[name] = Number(a.target_price);
   });
 
   // Derive metrics; keep only products that have at least one usable snapshot.
@@ -3442,6 +3945,7 @@ function renderDemo(groups) {
 // Cardmarket links, age threshold) to Supabase, then reload from the cloud.
 async function saveToSupabase() {
   if (!sbUser) { showStatus('Sign in to save to the cloud', true); return; }
+  if (!confirmIfIncomplete('Save to cloud')) return;
   const btn = document.getElementById('save-cloud-btn');
   const snapLabel = document.getElementById('snapshot-label').value.trim() || todayLabel();
   try {
@@ -3629,7 +4133,10 @@ function wireAuthControls() {
      Progressive enhancement — if IntersectionObserver is missing,
      nothing is hidden and the page renders normally.
      ============================================================ -->
-<script>
+<script type="module">
+// A module (like the main app script above) so the two keep their source
+// order: this reveal handler must be registered after the main tab handler,
+// so the pane is already visible when a tab is clicked.
 (function () {
   if (!('IntersectionObserver' in window)) return;
 

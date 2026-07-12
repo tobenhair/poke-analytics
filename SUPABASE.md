@@ -44,8 +44,9 @@ This is a **shared-dataset** setup:
 3. **Apply the schema.** Open [`supabase/schema.sql`](supabase/schema.sql),
    replace `PASTE-YOUR-ADMIN-USER-UUID` with the UUID from step 2, then paste
    the whole file into *SQL Editor → New query → Run*. This creates the
-   `products`, `snapshots`, and `user_settings` tables and the RLS policies
-   (shared read, admin-only write). Safe to re-run.
+   `products`, `snapshots`, `user_settings`, `holdings`, and `alerts` tables and
+   the RLS policies (shared read, admin-only write; private per-user settings,
+   portfolio, and alerts). Safe to re-run.
 
 4. **Add your keys + admin UUID to the app.** In `index.html`, fill in the
    `SUPABASE_CONFIG` block near the top:
@@ -107,6 +108,16 @@ This is a **shared-dataset** setup:
 - **⬇ Export updated .xlsx** still works as a backup, and importing an `.xlsx`
   by drag-drop is still available.
 - The age-threshold slider is saved per user (private to each account).
+- Every signed-in user can build a private **Portfolio** (section 10 of the
+  Analysis tab): quantity + per-unit cost basis for products they own, with
+  unrealised P&L derived from the shared latest prices. Holdings live in the
+  per-user `holdings` table (RLS-scoped to the account) and never affect the
+  shared data.
+- Signed-in users can also set private **price alerts** (section 11): a
+  buy-below target per product. When a product's latest tracked price falls to
+  or below its target it's flagged in the alerts list and with a 🔔 on the All
+  Products board. Targets live in the per-user `alerts` table; the triggered
+  state is derived client-side, never stored.
 
 ## Optional: email reminder when data goes stale
 
@@ -152,6 +163,8 @@ inputs live in the database:
 | `products` | one row per tracked product | read: all signed-in · write: admin | `name`, `type`, `release`, `cardmarket_url` |
 | `snapshots` | one row per product per date | read: all signed-in · write: admin | `product_id`, `snapshot_date`, `price`, `set_value` |
 | `user_settings` | per-user preferences | read/write: own row | `age_threshold` |
+| `holdings` | per-user portfolio | read/write: own row | `product_id`, `quantity`, `cost_basis` |
+| `alerts` | per-user price alerts | read/write: own row | `product_id`, `target_price` |
 
 The admin is identified by user UUID in a `public.is_admin()` SQL function that
 the write policies call; it must match `SUPABASE_CONFIG.adminUserId` in the app.
