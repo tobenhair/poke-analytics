@@ -1696,7 +1696,7 @@
 
     <!-- ── Section: price alerts ── -->
     <div class="section-eyebrow">02 — Price Alerts</div>
-    <p class="section-desc"><strong>What:</strong> buy-below targets for the products you're watching. <strong>How to read:</strong> when a product's latest tracked price falls to or below your target it's flagged here and with a 🔔 on the Analysis board. Private to your account, saved automatically.</p>
+    <p class="section-desc"><strong>What:</strong> buy targets for the products you're watching — a fixed <em>€</em> price, or a <em>% below fair price</em> that recomputes automatically as the age fit moves. <strong>How to read:</strong> when a product's latest tracked price falls to or below the target it's flagged here and with a 🔔 on the Analysis board. Private to your account, saved automatically.</p>
     <div class="panel" id="alerts-panel">
       <div class="panel-header">
         <div class="panel-title">Price Alerts</div>
@@ -1704,6 +1704,10 @@
       </div>
       <div class="portfolio-editor">
         <select class="field-select" id="alert-product-select"></select>
+        <select class="field-select" id="alert-type" style="max-width:180px;">
+          <option value="fixed">Buy below €</option>
+          <option value="fair">% below fair price</option>
+        </select>
         <input class="field-input" id="alert-target" type="number" min="0" step="0.01" placeholder="Buy below € / unit">
         <button class="add-btn" id="alert-add-btn" style="width:auto;">+ Add / update</button>
       </div>
@@ -3010,20 +3014,44 @@ document.getElementById('portfolio-cancel-btn').addEventListener('click', exitPo
 // ============================================================
 // PRICE ALERTS (signed-in only)
 // ============================================================
-// `alerts` (product name → buy-below target €) is the user's private watchlist.
-// A product is "triggered" when its latest price is at/below target; "newly
-// crossed" when the previous snapshot was still above it. All derived here.
+// `alerts` (product name → { type:'fixed'|'fair', target €|null, pct %|null })
+// is the user's private watchlist. A FIXED alert triggers when the latest price
+// is at/below its € target; a FAIR alert triggers when the price is at least
+// `pct`% below the product's live fair price — which recomputes automatically as
+// the age fit moves, something a fixed target can't do. "newly crossed" means
+// the previous snapshot was still above the threshold. All derived here.
+function alertEntry(name) {
+  const a = alerts[name];
+  if (a == null) return null;
+  // Back-compat: a bare number is a legacy fixed € target.
+  return typeof a === 'number' ? { type: 'fixed', target: a, pct: null } : a;
+}
+
+// The effective € buy-below threshold for either alert type, or null if it
+// can't be computed yet (a fair alert on a product with no fair price).
+function alertTarget(name) {
+  const a = alertEntry(name);
+  if (!a) return null;
+  if (a.type === 'fair') {
+    const p = products.find(pp => pp.name === name);
+    if (!p || p.fairPrice == null || a.pct == null) return null;
+    return p.fairPrice * (1 - a.pct / 100);
+  }
+  return a.target;
+}
+
 function alertState(name) {
-  const target = alerts[name];
-  if (target == null) return null;
+  const a = alertEntry(name);
+  if (!a) return null;
+  const target = alertTarget(name);
   const p = products.find(pp => pp.name === name);
   const price = p && p.price != null ? p.price : null;
   const hist = historicalData[name];
   const past = hist ? hist.price.filter(v => v != null) : [];
   const prev = past.length >= 2 ? past[past.length - 2] : null;
-  const triggered    = price != null && price <= target;
+  const triggered    = target != null && price != null && price <= target;
   const newlyCrossed = triggered && prev != null && prev > target;
-  return { target, price, triggered, newlyCrossed };
+  return { type: a.type, pct: a.pct, target, price, triggered, newlyCrossed };
 }
 
 function triggeredAlertCount() {
@@ -3036,7 +3064,8 @@ function alertFlag(name) {
   const s = alertState(name);
   if (!s || !s.triggered) return '';
   const color = s.newlyCrossed ? 'var(--accent)' : 'var(--muted)';
-  const title = `Alert: €${Math.round(s.price)} ≤ target €${Math.round(s.target)}${s.newlyCrossed ? ' (just crossed)' : ''}`;
+  const kind = s.type === 'fair' ? ` (≥${s.pct}% below fair)` : '';
+  const title = `Alert: €${Math.round(s.price)} ≤ target €${Math.round(s.target)}${kind}${s.newlyCrossed ? ' (just crossed)' : ''}`;
   return `<span class="buy-flag" style="color:${color}" title="${title}">🔔 </span>`;
 }
 
@@ -3081,17 +3110,20 @@ function renderAlerts() {
     const status = s.triggered
       ? `<span style="color:var(--accent)">🔔 ${s.newlyCrossed ? 'just hit' : 'at/below'}</span>`
       : `<span style="color:var(--muted)">watching</span>`;
+    const targetLabel = s.type === 'fair'
+      ? `≥${s.pct}% below fair${s.target != null ? `<span style="color:var(--muted)"> · ${eur(s.target)}</span>` : `<span style="color:var(--muted)"> · —</span>`}`
+      : (s.target != null ? eur(s.target) : '—');
     return `
       <tr>
         <td class="product-name" title="${name}">${name}</td>
         <td>${type ? `<span class="type-badge type-${type}">${type}</span>` : '—'}</td>
         <td class="num">${s.price != null ? eur(s.price) : '—'}</td>
-        <td class="num">${eur(s.target)}</td>
+        <td class="num">${targetLabel}</td>
         <td>${status}</td>
         <td style="text-align:center"><button class="portfolio-remove-btn" data-alert="${name}" title="Remove alert">✕</button></td>
       </tr>`;
   }).join('')
-    : `<tr><td colspan="6"><div class="portfolio-empty">No alerts yet — pick a product and set a buy-below target.</div></td></tr>`;
+    : `<tr><td colspan="6"><div class="portfolio-empty">No alerts yet — pick a product and set a fixed € or fair-price target.</div></td></tr>`;
 
   tbody.querySelectorAll('.portfolio-remove-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -3104,19 +3136,27 @@ function renderAlerts() {
   });
 }
 
-// Add or update an alert target; auto-saves the affected row.
+// Add or update an alert (fixed € target or % below fair price); auto-saves.
 function addOrUpdateAlert() {
   const sel    = document.getElementById('alert-product-select');
+  const typeEl = document.getElementById('alert-type');
   const targetEl = document.getElementById('alert-target');
   const errEl  = document.getElementById('alert-editor-error');
   const name   = sel.value;
-  const target = parseFloat(targetEl.value);
+  const type   = typeEl.value === 'fair' ? 'fair' : 'fixed';
+  const val    = parseFloat(targetEl.value);
   const errs = [];
-  if (!name)                        errs.push('Pick a product.');
-  if (isNaN(target) || target < 0)  errs.push('Target must be a non-negative number.');
+  if (!name) errs.push('Pick a product.');
+  if (type === 'fixed') {
+    if (isNaN(val) || val < 0) errs.push('Buy-below € must be a non-negative number.');
+  } else {
+    if (isNaN(val) || val <= 0 || val > 90) errs.push('Percent below fair must be between 0 and 90.');
+  }
   if (errs.length) { errEl.textContent = errs.join(' '); errEl.style.display = 'block'; return; }
   errEl.style.display = 'none';
-  alerts[name] = target;
+  alerts[name] = type === 'fair'
+    ? { type: 'fair', target: null, pct: val }
+    : { type: 'fixed', target: val, pct: null };
   targetEl.value = '';
   renderAlerts();
   updateTable();       // reflect the new flag on the board immediately
@@ -3127,9 +3167,12 @@ function addOrUpdateAlert() {
 async function persistAlert(name) {
   if (!sbUser) return;
   const id = sbProductIds[name];
-  if (id == null || alerts[name] == null) return;
+  const a = alertEntry(name);
+  if (id == null || a == null) return;
   const { error } = await sbClient.from('alerts')
-    .upsert({ user_id: sbUser.id, product_id: id, target_price: alerts[name] },
+    .upsert({ user_id: sbUser.id, product_id: id, alert_type: a.type,
+              target_price: a.type === 'fixed' ? a.target : null,
+              below_pct:    a.type === 'fair'  ? a.pct    : null },
             { onConflict: 'user_id,product_id' });
   portfolioStatus(error ? '✕ Save failed: ' + error.message : '✓ Saved', !!error);
 }
@@ -3143,6 +3186,13 @@ async function deleteAlertRow(name) {
 }
 
 document.getElementById('alert-add-btn').addEventListener('click', addOrUpdateAlert);
+document.getElementById('alert-type').addEventListener('change', e => {
+  const fair = e.target.value === 'fair';
+  const inp = document.getElementById('alert-target');
+  inp.placeholder = fair ? '% below fair, e.g. 10' : 'Buy below € / unit';
+  inp.step = fair ? '1' : '0.01';
+  inp.max  = fair ? '90' : '';
+});
 
 
 // Format guide modal
@@ -4035,7 +4085,6 @@ function renderDrillHolding(p) {
   if (!sbUser) { sec.style.display = 'none'; return; }
   sec.style.display = '';
   const h = holdings[p.name];
-  const target = alerts[p.name];
   const parts = [];
   if (h) {
     const r = portfolioRows().find(x => x.name === p.name);
@@ -4043,10 +4092,14 @@ function renderDrillHolding(p) {
     parts.push(`<div class="drill-ingredient"><span class="lbl">Holding</span><span>${fmt(r.qty)} × cost ${eur(r.cost)}</span></div>`);
     parts.push(`<div class="drill-ingredient"><span class="lbl">Unrealised P&L</span><span style="color:${pnlCol}">${r.pnl != null ? (r.pnl >= 0 ? '+' : '') + eur(r.pnl) + ` (${r.pnlPct != null ? (r.pnlPct * 100).toFixed(1) + '%' : '—'})` : '—'}</span></div>`);
   }
-  if (target != null) {
+  const a = alertEntry(p.name);
+  if (a) {
     const s = alertState(p.name);
     const hit = s && s.triggered;
-    parts.push(`<div class="drill-ingredient"><span class="lbl">Price alert</span><span style="color:${hit ? 'var(--accent)' : 'var(--muted)'}">${hit ? '🔔 ' : ''}buy below ${eur(target)}${hit ? ' · hit' : ''}</span></div>`);
+    const lbl = a.type === 'fair'
+      ? `≥${a.pct}% below fair${s && s.target != null ? ` (${eur(s.target)})` : ''}`
+      : `below ${eur(a.target)}`;
+    parts.push(`<div class="drill-ingredient"><span class="lbl">Price alert</span><span style="color:${hit ? 'var(--accent)' : 'var(--muted)'}">${hit ? '🔔 ' : ''}buy ${lbl}${hit ? ' · hit' : ''}</span></div>`);
   }
   box.innerHTML = parts.length ? parts.join('') : `<div class="portfolio-empty" style="padding:14px;">No holding or alert set for this product — add one in the Portfolio tab.</div>`;
 }
@@ -4258,7 +4311,11 @@ async function loadFromSupabase() {
   alerts = {};
   (alertRes && !alertRes.error ? alertRes.data || [] : []).forEach(a => {
     const name = idToName[a.product_id];
-    if (name) alerts[name] = Number(a.target_price);
+    if (name) alerts[name] = {
+      type:   a.alert_type === 'fair' ? 'fair' : 'fixed',
+      target: a.target_price != null ? Number(a.target_price) : null,
+      pct:    a.below_pct    != null ? Number(a.below_pct)    : null,
+    };
   });
 
   // Derive metrics; keep only products that have at least one usable snapshot.
