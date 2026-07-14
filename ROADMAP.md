@@ -130,6 +130,17 @@ The aesthetic is deliberate and stays (dark, minimalist, `design-review`-
 enforced). This theme is about the page working as hard for a first-time
 visitor on a phone as it does for the maintainer on a desktop.
 
+- **UX assessment.** Before the individual fixes below, a structured pass over
+  the whole experience end-to-end: walk the real journeys — a logged-out
+  visitor landing on the demo, a first-time sign-in, the maintainer's monthly
+  Data Entry loop, someone checking a price on a phone — and catalogue where
+  each one stalls, confuses, or asks too much. The nine-section Analysis scroll,
+  the tab model, and the Data Entry grid are the obvious suspects, but the point
+  is to find the friction we've stopped seeing rather than assume it. Output is
+  a prioritised list of concrete issues that feeds the bullets below (and may
+  reorder them), not a redesign — the aesthetic stays; this is about whether the
+  page *works*, judged against the north star: how fast can someone actually get
+  to "is this fairly priced, and should I buy?"
 - **Overview-first restructure.** With the verdict shipped, the top of the
   Analysis tab can *answer the question* — best deals now, each with its fair
   price gap — and the nine numbered sections become the supporting evidence a
