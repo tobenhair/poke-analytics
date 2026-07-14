@@ -114,6 +114,18 @@ not visual noise.
   balancer above (where the value sits) and the per-product P&L (how each
   holding moved). Signed-in only, derived client-side, one more Chart.js
   instance in the existing destroy-and-recreate pattern.
+- **User-configured portfolio currency.** Let a signed-in user pick the currency
+  their **portfolio** is shown in (€ stays the default and the canonical stored
+  unit). Persist the choice as a per-user `user_settings` field (private, RLS-
+  scoped, saved through the existing auto-save path) and convert the portfolio's
+  displayed values — holdings value, cost basis, unrealised P&L, the value-over-
+  time chart — at render time. Honest dependency: this needs an **FX rate**, the
+  first bit of non-Cardmarket external data the app would carry, so it comes with
+  its own questions — a rate source, a refresh cadence, and storing the rate used
+  with each snapshot so historical P&L stays reproducible rather than silently
+  re-based when rates move. Keep conversion **display-only** and confined to the
+  portfolio: the shared catalogue, set values, and all the SV/Booster maths stay
+  in € so the ranking metrics remain comparable across every user.
 
 ## Next — trustworthy numbers (stability & quality)
 
