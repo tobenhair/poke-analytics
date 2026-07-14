@@ -263,6 +263,20 @@ visitor on a phone as it does for the maintainer on a desktop.
   runs server-side via an Edge Function, never exposing a key client-side) —
   the first feature that adds real per-use cost, so it lands late and behind
   accounts.
+- **Mobile app / installable experience.** For a price-checking tool used in
+  shops, a home-screen presence and a native-feeling mobile experience are worth
+  real weight — this is the "how do we ship mobile" bet, and it depends on the
+  **Mobile optimisation** work under "Then" landing first (no point wrapping an
+  unoptimised page). Sequenced cheapest-first: (1) a **PWA** — installable, an
+  app icon, offline shell, splash — is the natural fit for a single static
+  `index.html` and buys most of the "feels like an app" value for the least
+  work and no app-store overhead; (2) a thin **wrapper** (e.g. Capacitor) around
+  the same page if an actual App Store / Play Store listing is wanted, reusing
+  the web codebase; (3) a **native/React-Native rewrite** only if a real
+  platform capability demands it — it abandons the deliberate no-build,
+  single-file model and doubles the surface to maintain, so it needs a
+  concrete reason beyond "native is nicer." Recommendation: PWA first, revisit
+  the heavier options only if it falls short.
 - **Privacy-friendly analytics** — know which views are actually used before
   investing further in them.
 - **Legal/compliance for launch** — privacy policy, GDPR basics, cookie consent
