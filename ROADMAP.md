@@ -267,8 +267,14 @@ visitor on a phone as it does for the maintainer on a desktop.
 
 - **Automated EU price ingestion.** Cardmarket has no open API, PriceCharting's
   numbers diverge too much to trust, and scraping is fragile / a ToS question.
-  No acceptable solution today, so data stays **manually entered by the
-  maintainer**. This is explicitly the *last* thing to solve before a public
+  One mitigation on the ToS front worth weighing: we only need a *limited* slice
+  — the few dozen sealed products actually tracked, fetched at a polite cadence —
+  not a harvest of the whole catalogue. A minimal, targeted footprint materially
+  lowers the practical risk and is a friendlier posture, though it does not by
+  itself make automated access compliant (terms often restrict automation
+  regardless of volume), so it's a point for genuine review, not an assumption
+  to build on. No acceptable solution today, so data stays **manually entered by
+  the maintainer**. This is explicitly the *last* thing to solve before a public
   launch — deliberately: everything above makes the product worth launching,
   and the manual-data work keeps it trustworthy in the meantime. When it is
   solved, the payoff compounds: fair prices recompute daily instead of monthly,
