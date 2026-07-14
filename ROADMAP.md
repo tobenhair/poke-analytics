@@ -267,13 +267,21 @@ visitor on a phone as it does for the maintainer on a desktop.
 
 - **Automated EU price ingestion.** Cardmarket has no open API, PriceCharting's
   numbers diverge too much to trust, and scraping is fragile / a ToS question.
-  One mitigation on the ToS front worth weighing: we only need a *limited* slice
-  — the few dozen sealed products actually tracked, fetched at a polite cadence —
-  not a harvest of the whole catalogue. A minimal, targeted footprint materially
-  lowers the practical risk and is a friendlier posture, though it does not by
-  itself make automated access compliant (terms often restrict automation
-  regardless of volume), so it's a point for genuine review, not an assumption
-  to build on. No acceptable solution today, so data stays **manually entered by
+  A July 2026 read of Cardmarket's General Terms and Conditions closed the door
+  on the tempting "just fetch a small amount" workaround: the terms bar
+  automated access *as a category, not by volume* — reportedly *"Spidering,
+  crawling, or accessing the site through any automated means is not allowed"* —
+  so a limited, polite footprint lowers **practical/detection** risk but is
+  **not** a compliance basis; there is no small-amount carve-out to fit into.
+  Separately, the GTC restricts reuse of listings/prices — the API *"may only be
+  used for managing your own contents,"* and *"the presentation of the trading
+  cards and their respective prices require prior written agreement"* — which
+  bites on this app regardless of how the data was obtained, because it
+  **publishes** prices. (Not legal advice; the primary text should be re-read at
+  source before relying on it — Cardmarket even 403s automated fetches of the
+  terms page itself.) The one genuinely ToS-clean route the terms point to is
+  therefore **seeking that prior written agreement** — asking Cardmarket for
+  permission — not staying small. Absent that, data stays **manually entered by
   the maintainer**. This is explicitly the *last* thing to solve before a public
   launch — deliberately: everything above makes the product worth launching,
   and the manual-data work keeps it trustworthy in the meantime. When it is
@@ -313,7 +321,11 @@ visitor on a phone as it does for the maintainer on a desktop.
   or browser extension) that, while you're *already* browsing a product's
   Cardmarket page, grabs the price and set value and stages them for the monthly
   update — turning manual entry from typing into one click per product. It
-  sidesteps the scheduled-crawl ToS question (a human is doing normal browsing,
-  not an automated fetch) and keeps a person in the loop by construction, at the
-  cost of not being hands-off — it speeds the manual loop rather than replacing
-  it. A pragmatic middle rung between today's typing and full automation.
+  sidesteps the *automated-access* prohibition (a human is doing normal
+  browsing, not spidering) and keeps a person in the loop by construction, at
+  the cost of not being hands-off — it speeds the manual loop rather than
+  replacing it. Note it does **not** clear the separate reuse restriction: the
+  GTC's bar on presenting Cardmarket's prices without prior written agreement
+  applies however the number was captured, since this app publishes them. A
+  pragmatic middle rung between today's typing and full automation, but the
+  written-agreement question above still stands.
