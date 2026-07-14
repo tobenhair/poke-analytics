@@ -287,3 +287,27 @@ visitor on a phone as it does for the maintainer on a desktop.
   snapshot table — never coupled into the static page. If it proves out, it's
   what turns monthly manual entry into daily automated snapshots and makes
   staleness stop being a failure mode.
+- **Candidate path — agent-assisted ingestion (recurring Claude Code).** A
+  variation on the scraper that reuses infra already in play: a scheduled Claude
+  Code session (the same Routines/triggers this repo already runs on) that, each
+  month, fetches the prices, updates `pokemon_data.xlsx` or the `snapshots`
+  table, runs `npm run validate` as a gate, and opens a **PR for the maintainer
+  to review and merge** — semi-automation with a human at the merge, which
+  preserves the credibility the manual model earns. Its real edge over a bespoke
+  scraper is resilience (it adapts to page changes instead of breaking on a
+  selector) and judgment (sanity-check against last month, flag implausible
+  jumps, write the PR rationale). Be honest that it is *LLM-as-scraper*: it does
+  **not** dissolve the source problem — whatever it fetches from carries the same
+  ToS/legal and accuracy questions as the scraper above — and it adds one the
+  scraper doesn't: an LLM can misread or fabricate a number, which for a
+  trust-first tool is the worst failure, so strict grounding, the delta/
+  implausible-jump guards, and human review of every PR are non-negotiable.
+- **Candidate path — browser-capture helper.** The least-automated option, and
+  the one that keeps the maintainer as the source: a small helper (bookmarklet
+  or browser extension) that, while you're *already* browsing a product's
+  Cardmarket page, grabs the price and set value and stages them for the monthly
+  update — turning manual entry from typing into one click per product. It
+  sidesteps the scheduled-crawl ToS question (a human is doing normal browsing,
+  not an automated fetch) and keeps a person in the loop by construction, at the
+  cost of not being hands-off — it speeds the manual loop rather than replacing
+  it. A pragmatic middle rung between today's typing and full automation.
