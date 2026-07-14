@@ -165,6 +165,22 @@ visitor on a phone as it does for the maintainer on a desktop.
 
 ## Later — reach & launch readiness
 
+- **LLM assistant — data & portfolio assessment, reasoning, dialogue.** A
+  conversational layer over everything the dashboard already computes: ask "is
+  now a good time to buy Prismatic Evolutions?" or "how exposed is my portfolio,
+  and what should I buy next?" and get a reasoned, plain-language answer that
+  cites the underlying numbers — fair-price gap, drawdown vs peak, set-value
+  trend, and (signed in) the user's own holdings and concentration. It reasons
+  over the derived metrics rather than replacing them: the maths stays in
+  `metrics.js` as the ground truth, the model explains and synthesises it and
+  holds a dialogue, so it can never invent a price. Grounding it in structured
+  values (not free-form scraping) is what keeps it honest. Depends on the
+  fair-price verdict and the portfolio balancer being in place to reason about;
+  gated behind sign-in, with clear "not financial advice" framing and a guard
+  against over-confident calls on weak-fit products. A back-end call (the model
+  runs server-side via an Edge Function, never exposing a key client-side) —
+  the first feature that adds real per-use cost, so it lands late and behind
+  accounts.
 - **Privacy-friendly analytics** — know which views are actually used before
   investing further in them.
 - **Legal/compliance for launch** — privacy policy, GDPR basics, cookie consent
