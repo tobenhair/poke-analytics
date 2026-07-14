@@ -145,6 +145,22 @@ on the page and every failure mode around it.
 - **Performance at catalogue scale.** Measure the board and charts at several
   hundred products before it happens organically; cap, paginate, or virtualise
   the table only if the measurements say so.
+- **Cleanup & refactor pass.** Pay down accumulated cruft: remove stale and
+  obsolete comments and any dead code, reconcile the folder structure with what
+  the project actually is today (`scripts/`, `tests/`, `supabase/`,
+  `metrics.js`), and check that `CLAUDE.md`, the README, and the skills still
+  describe reality. `index.html` stays one inline file by design, but pure logic
+  keeps migrating to `metrics.js` — keep that boundary clean and the docs
+  honest. A hygiene pass, not a rewrite; the no-build, single-file deployment
+  model is deliberate and stays.
+- **Architecture overview diagram.** A single image committed to the repo
+  (alongside `CLAUDE.md`) that maps the moving parts at a glance — the data
+  sources (hardcoded fallback, `pokemon_data.xlsx`, Supabase), the load path
+  (`boot` → `loadFromSupabase`/`tryAutoLoad` → `applyNewData` → the render
+  functions), `metrics.js` as the shared math, and the tab/render structure — so
+  a human or a new contributor can navigate the codebase without
+  reverse-engineering it from one ~2,900-line file. Kept in sync when the
+  architecture moves.
 
 ## Then — design & usability at product level
 
