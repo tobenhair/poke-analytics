@@ -82,6 +82,21 @@ not visual noise.
   ("show me everything under fair price"). Cheap now, mandatory before the
   catalogue reaches hundreds of products; also the groundwork for the scale
   work in the next theme.
+- **Expanded set/product comparison (beyond two).** The Trend Over Time view
+  (section 08) and its ratio-compare dropdown currently pit one product against
+  a single second — enough to check A vs B, not enough to weigh a whole shortlist
+  at once. Let the comparison views hold several series: three-plus products, or
+  rolled up to compare *sets* head to head (SV/Booster and its trend per set), so
+  "which release is the best value right now?" is answerable on one chart instead
+  of by flipping pairs. Keeping the chart legible as series grow — a capped
+  palette, a legend that can toggle series — is the `design-review` constraint,
+  not an afterthought.
+- **Per-product-type filtering across the views.** Today the type control
+  (`activeType`) scopes only the board table. Promote BOX / ETB / BUNDLE to a
+  first-class filter that also applies to the charts and comparison views, so
+  "show me only ETBs" holds everywhere, not just on one table. A natural
+  companion to board search & filters above, and an increasing need as the
+  catalogue and the product-type mix grow.
 - **Portfolio balancer (concentration risk).** The signed-in Portfolio shows
   what you hold and its P&L, but not the risk hiding in it: concentration. Add a
   read on how the position is spread — share of portfolio value (and cost basis)
