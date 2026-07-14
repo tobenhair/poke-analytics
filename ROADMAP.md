@@ -161,9 +161,21 @@ visitor on a phone as it does for the maintainer on a desktop.
   price gap — and the nine numbered sections become the supporting evidence a
   curious user drills into (progressive disclosure), rather than a wall to
   scroll. Less on screen, more answered.
-- **Mobile pass.** Verify and fix the real phone experience end-to-end: the
-  70vh table scroll, chart legibility, tap targets, the Data Entry grid.
-  A price-checking tool gets used in shops, standing up.
+- **Collapsible section descriptions.** Every Analysis section carries a
+  `.section-desc` explainer — invaluable on first read, pure scroll once you
+  know the page, and on mobile the nine of them dominate the viewport before a
+  single number is visible. Add a show/hide toggle (per-section and a global
+  "hide descriptions") that collapses each to a tappable "ⓘ" affordance and
+  remembers the choice (localStorage), so a returning user isn't scrolling past
+  prose every visit. The text stays in the DOM for first-timers and screen
+  readers; it just starts collapsed on small screens. Important for mobile
+  specifically, useful everywhere.
+- **Mobile optimisation.** Verify and fix the real phone experience
+  end-to-end: the 70vh table scroll, chart legibility, tap targets, the Data
+  Entry grid, and the vertical density of nine full-width sections stacked with
+  their descriptions (the collapsible-descriptions toggle above is the first
+  lever). A price-checking tool gets used in shops, standing up — the phone
+  layout has to answer "is this fairly priced?" without a desktop.
 - **Accessibility.** Keyboard navigation for tabs, tables and the drill-down;
   ARIA roles on the tab system; visible focus states; non-colour cues wherever
   green/red still carries meaning alone (the text verdict resolves the worst
@@ -173,10 +185,15 @@ visitor on a phone as it does for the maintainer on a desktop.
   panel or a toast — including the currently-invisible "workbook failed,
   showing sample data" fallback, which must never masquerade as real data.
 - **Onboarding & the demo as a pitch.** The section descriptions explain each
-  chart; nothing yet explains the *method*. A short first-visit walkthrough
-  ("set value vs price, why age matters, what the verdict means") plus a
-  glossary, and a demo page reworked to tell the fair-price story — the
-  logged-out page is the marketing site, and its job is to earn a sign-in.
+  chart; nothing yet explains the *method* — or, on the logged-out demo, even
+  what the tool *is*. Lead the demo page with a plain statement of the tool's
+  purpose and goal (what it tracks, the one question it answers, why sealed
+  product and set value) before the demo cards, so a first-time visitor
+  understands what they're looking at in one screen. Then a short first-visit
+  walkthrough ("set value vs price, why age matters, what the verdict means")
+  plus a glossary, and the rest of the demo reworked to tell the fair-price
+  story — the logged-out page is the marketing site, and its job is to earn a
+  sign-in.
 
 ## Later — reach & launch readiness
 
