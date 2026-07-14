@@ -329,3 +329,18 @@ visitor on a phone as it does for the maintainer on a desktop.
   applies however the number was captured, since this app publishes them. A
   pragmatic middle rung between today's typing and full automation, but the
   written-agreement question above still stands.
+
+## Known bugs
+
+Defects to fix, separate from the forward-looking themes above. Newest first.
+
+- **Format Guide modal opens far down the page, not centred in view.** Opening
+  the 📋 Format Guide (`#guide-btn`) shows the modal well below the current
+  scroll position instead of centred in the viewport where the page is. Likely
+  cause: `#guide-modal` is `position: fixed` but lives inside `#tab-analysis`,
+  and the page applies CSS `transform`s for its fade/reveal-on-scroll animations
+  — a transformed ancestor makes `position: fixed` anchor to that ancestor
+  rather than the viewport, offsetting the overlay downward. Probable fix: move
+  the modal overlay to be a direct child of `<body>` (as `#auth-overlay` /
+  `#account-overlay` already are), or otherwise ensure no transformed ancestor
+  contains it. Verify per the `design-review` and `verify-app` skills.
