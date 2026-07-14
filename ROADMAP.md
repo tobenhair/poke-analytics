@@ -82,6 +82,16 @@ not visual noise.
   ("show me everything under fair price"). Cheap now, mandatory before the
   catalogue reaches hundreds of products; also the groundwork for the scale
   work in the next theme.
+- **Portfolio balancer (concentration risk).** The signed-in Portfolio shows
+  what you hold and its P&L, but not the risk hiding in it: concentration. Add a
+  read on how the position is spread — share of portfolio value (and cost basis)
+  per set, era, and product type — that flags "X% of your holdings ride on one
+  set" so a single set's crash can't sink the whole position. Then make it
+  actionable by pairing it with the fair-price gap above: when the balancer says
+  you're over-exposed to one set, it points the next euro at *under-fair-price*
+  products in the sets you underweight — turning "don't put all your eggs in one
+  basket" from a proverb into a ranked, data-backed shortlist. Signed-in only,
+  reads the existing `holdings` map; no new raw data, all derived client-side.
 
 ## Next — trustworthy numbers (stability & quality)
 
