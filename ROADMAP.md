@@ -275,3 +275,15 @@ visitor on a phone as it does for the maintainer on a desktop.
   alerts fire the day a dip happens, and staleness stops being a failure mode.
   Design decisions above should quietly keep that door open (snapshots are
   already source-agnostic rows; nothing should assume a monthly cadence).
+- **Candidate path — a Cardmarket scraper.** The most likely concrete route to
+  solving the above: a scraper that fetches sealed-product prices from
+  Cardmarket on a schedule and writes the same source-agnostic snapshot rows the
+  app already consumes. Clear-eyed about the caveats already listed — markup
+  changes make it fragile, and its Terms-of-Service and legal standing is a
+  question to answer *before* it ships, not after. Approach it as a low-key
+  spike first (do the scraped numbers match the maintainer's hand-entered ones?
+  how often does it break? what's the polite crawl rate?) before betting the
+  launch on it, and keep it a separate ingestion service feeding the existing
+  snapshot table — never coupled into the static page. If it proves out, it's
+  what turns monthly manual entry into daily automated snapshots and makes
+  staleness stop being a failure mode.
