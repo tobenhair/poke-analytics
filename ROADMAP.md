@@ -224,6 +224,14 @@ visitor on a phone as it does for the maintainer on a desktop.
   plus a glossary, and the rest of the demo reworked to tell the fair-price
   story — the logged-out page is the marketing site, and its job is to earn a
   sign-in.
+- **Reconcile the Welcome tab with the demo page.** Do this *at the same time*
+  as the demo rework above, rather than leaving two overlapping intros to drift.
+  Decide the Welcome tab's fate: either fold the parts of it the logged-out demo
+  lacks into the demo page and retire the tab, or make the Welcome page visible
+  to logged-out visitors too so signed-in and signed-out users share one
+  explanation instead of maintaining two. The goal either way is a single
+  authoritative "what this is and how to read it" surface — not today's split
+  where the pitch lives in one place for visitors and another for members.
 
 ## Later — reach & launch readiness
 
