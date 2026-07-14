@@ -107,6 +107,13 @@ not visual noise.
   products in the sets you underweight — turning "don't put all your eggs in one
   basket" from a proverb into a ranked, data-backed shortlist. Signed-in only,
   reads the existing `holdings` map; no new raw data, all derived client-side.
+- **Portfolio value over time (change chart).** A chart of the signed-in user's
+  total holdings value across snapshots — cost basis vs latest tracked value —
+  so P&L reads as a trajectory, not just today's number. Reuses the pivoted
+  snapshot history the portfolio already loads; pairs naturally with the
+  balancer above (where the value sits) and the per-product P&L (how each
+  holding moved). Signed-in only, derived client-side, one more Chart.js
+  instance in the existing destroy-and-recreate pattern.
 
 ## Next — trustworthy numbers (stability & quality)
 
@@ -176,6 +183,13 @@ visitor on a phone as it does for the maintainer on a desktop.
   their descriptions (the collapsible-descriptions toggle above is the first
   lever). A price-checking tool gets used in shops, standing up — the phone
   layout has to answer "is this fairly priced?" without a desktop.
+- **Set logos (drill-down first).** Give each set a visual anchor: the
+  expansion logo, at least on the product drill-down view where there's room to
+  frame a single product, and later a small mark on board rows and set
+  groupings. An identity and scannability aid only — it stays subordinate to the
+  numbers and honours the minimalist dark aesthetic (`design-review`). Needs a
+  licensing-clean asset source, a consistent sizing/placement rule, and a
+  graceful fallback when a set has no logo (never a broken image).
 - **Accessibility.** Keyboard navigation for tabs, tables and the drill-down;
   ARIA roles on the tab system; visible focus states; non-colour cues wherever
   green/red still carries meaning alone (the text verdict resolves the worst
