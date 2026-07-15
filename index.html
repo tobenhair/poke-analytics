@@ -1052,6 +1052,57 @@
   </div>
 </div>
 
+<!-- Format guide modal — direct child of <body> (not inside #tab-analysis):
+     the tab panes get CSS transforms for the reveal-on-scroll animations, and a
+     transformed ancestor makes position:fixed anchor to that ancestor instead
+     of the viewport, which pushed this overlay far down the page. -->
+<div class="modal-overlay" id="guide-modal">
+  <div class="modal">
+    <button class="modal-close" id="guide-close">✕</button>
+    <h2>📋 File Format Guide</h2>
+    <p class="modal-intro">Your .xlsx file must contain exactly two sheets named <b>Summary</b> and <b>Historical Data</b>. Column names must match exactly (case-sensitive).</p>
+
+    <div class="modal-section">
+      <h3>Sheet 1 — Summary</h3>
+      <p style="font-size:0.75rem; color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product. Each row becomes an entry in the main table.</p>
+      <table class="col-table">
+        <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Full product name — must also appear in Historical Data sheet</td></tr>
+          <tr><td>Type</td><td><span class="tag-req">required</span></td><td>Exactly one of: <b>BOX</b>, <b>ETB</b>, or <b>BUNDLE</b></td></tr>
+          <tr><td>Release Date</td><td><span class="tag-req">required</span></td><td>Date value or text in YYYY-MM-DD format</td></tr>
+          <tr><td>Age (years)</td><td><span class="tag-req">required</span></td><td>Decimal number, e.g. 1.47</td></tr>
+          <tr><td>Current Price (€)</td><td><span class="tag-req">required</span></td><td>Number in cents or euros — must be consistent across rows</td></tr>
+          <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Total set value — same unit as price</td></tr>
+          <tr><td>Price / Booster (€)</td><td><span class="tag-req">required</span></td><td>Current price divided by number of boosters in the product</td></tr>
+          <tr><td>SV / Booster</td><td><span class="tag-req">required</span></td><td>Set Value divided by Price / Booster — a value-for-money ×multiple (how many boosters' price the set is worth), not a euro amount</td></tr>
+          <tr><td>Age Weight</td><td><span class="tag-req">required</span></td><td>Decimal 0–1. Products &lt;1yr are penalised; ≥3yr = 1.0</td></tr>
+          <tr><td>Wtd. Score</td><td><span class="tag-req">required</span></td><td>SV / Booster × Age Weight</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal-section">
+      <h3>Sheet 2 — Historical Data</h3>
+      <p style="font-size:0.75rem; color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product per snapshot. Add a new row each month when you update prices.</p>
+      <table class="col-table">
+        <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Must exactly match the Product name in the Summary sheet</td></tr>
+          <tr><td>Snapshot Date</td><td><span class="tag-req">required</span></td><td>Date label shown on chart axes, must be in <b>YYYY-MM-DD</b> format (ISO 8601), e.g. <b>2026-04-20</b></td></tr>
+          <tr><td>Price (€)</td><td><span class="tag-req">required</span></td><td>Product price at that snapshot. Leave blank if not yet tracked.</td></tr>
+          <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Set value at that snapshot. Leave blank if not yet tracked.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal-note">
+      <b>Monthly workflow:</b> Each month, enter the latest Price and Set Value for each product in the <b>Data Entry</b> tab and click <b>☁ Save to cloud</b> — all charts and signals update automatically. This guide describes the <code style="font-family:'DM Mono',monospace;">.xlsx</code> layout used by the <b>Export</b> backup and the offline fallback file.<br><br>
+      <b>New products:</b> Add a new row to Summary, then add matching rows to Historical Data. The product name must match exactly in both sheets.
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ PRODUCT DRILL-DOWN ═══════════
      One product, one screen: the verdict and its ingredients, fair price,
      momentum/drawdown, price history with today's fair-price band overlaid,
@@ -1314,54 +1365,6 @@
   <div class="fade-in" style="display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-bottom:20px; min-height:1px; animation-delay:0.02s;">
     <span id="upload-status" class="upload-status" style="display:none"></span>
     <button class="guide-btn admin-only" id="guide-btn">📋 Format Guide</button>
-  </div>
-
-  <!-- Format guide modal -->
-  <div class="modal-overlay" id="guide-modal">
-    <div class="modal">
-      <button class="modal-close" id="guide-close">✕</button>
-      <h2>📋 File Format Guide</h2>
-      <p class="modal-intro">Your .xlsx file must contain exactly two sheets named <b>Summary</b> and <b>Historical Data</b>. Column names must match exactly (case-sensitive).</p>
-
-      <div class="modal-section">
-        <h3>Sheet 1 — Summary</h3>
-        <p style="font-size:0.75rem; color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product. Each row becomes an entry in the main table.</p>
-        <table class="col-table">
-          <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
-          <tbody>
-            <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Full product name — must also appear in Historical Data sheet</td></tr>
-            <tr><td>Type</td><td><span class="tag-req">required</span></td><td>Exactly one of: <b>BOX</b>, <b>ETB</b>, or <b>BUNDLE</b></td></tr>
-            <tr><td>Release Date</td><td><span class="tag-req">required</span></td><td>Date value or text in YYYY-MM-DD format</td></tr>
-            <tr><td>Age (years)</td><td><span class="tag-req">required</span></td><td>Decimal number, e.g. 1.47</td></tr>
-            <tr><td>Current Price (€)</td><td><span class="tag-req">required</span></td><td>Number in cents or euros — must be consistent across rows</td></tr>
-            <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Total set value — same unit as price</td></tr>
-            <tr><td>Price / Booster (€)</td><td><span class="tag-req">required</span></td><td>Current price divided by number of boosters in the product</td></tr>
-            <tr><td>SV / Booster</td><td><span class="tag-req">required</span></td><td>Set Value divided by Price / Booster — a value-for-money ×multiple (how many boosters' price the set is worth), not a euro amount</td></tr>
-            <tr><td>Age Weight</td><td><span class="tag-req">required</span></td><td>Decimal 0–1. Products &lt;1yr are penalised; ≥3yr = 1.0</td></tr>
-            <tr><td>Wtd. Score</td><td><span class="tag-req">required</span></td><td>SV / Booster × Age Weight</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="modal-section">
-        <h3>Sheet 2 — Historical Data</h3>
-        <p style="font-size:0.75rem; color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product per snapshot. Add a new row each month when you update prices.</p>
-        <table class="col-table">
-          <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
-          <tbody>
-            <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Must exactly match the Product name in the Summary sheet</td></tr>
-            <tr><td>Snapshot Date</td><td><span class="tag-req">required</span></td><td>Date label shown on chart axes, must be in <b>YYYY-MM-DD</b> format (ISO 8601), e.g. <b>2026-04-20</b></td></tr>
-            <tr><td>Price (€)</td><td><span class="tag-req">required</span></td><td>Product price at that snapshot. Leave blank if not yet tracked.</td></tr>
-            <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Set value at that snapshot. Leave blank if not yet tracked.</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="modal-note">
-        <b>Monthly workflow:</b> Each month, enter the latest Price and Set Value for each product in the <b>Data Entry</b> tab and click <b>☁ Save to cloud</b> — all charts and signals update automatically. This guide describes the <code style="font-family:'DM Mono',monospace;">.xlsx</code> layout used by the <b>Export</b> backup and the offline fallback file.<br><br>
-        <b>New products:</b> Add a new row to Summary, then add matching rows to Historical Data. The product name must match exactly in both sheets.
-      </div>
-    </div>
   </div>
 
   <!-- KPIs -->
