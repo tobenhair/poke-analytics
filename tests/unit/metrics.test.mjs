@@ -25,6 +25,9 @@ import {
   setLabel,
   groupSets,
   meanSeries,
+  concentrationShares,
+  rebalanceSuggestions,
+  OVER_EXPOSED_SHARE,
 } from '../../metrics.js';
 
 // ── boostersFromType: the fixed physical constants ──────────────
@@ -330,4 +333,72 @@ test('meanSeries ignores nulls but keeps a genuine all-null gap', () => {
 test('meanSeries handles a single input and empty input', () => {
   assert.deepEqual(meanSeries([[4, 8]]), [4, 8]);
   assert.deepEqual(meanSeries([]), []);
+});
+
+// ── concentrationShares: portfolio spread per bucket ────────────
+test('concentrationShares aggregates by bucket and computes value shares', () => {
+  const rows = [
+    { bucket: 'A', value: 60, cost: 50 },
+    { bucket: 'A', value: 20, cost: 10 },
+    { bucket: 'B', value: 20, cost: 20 },
+  ];
+  const { totalValue, totalCost, buckets } = concentrationShares(rows);
+  assert.equal(totalValue, 100);
+  assert.equal(totalCost, 80);
+  assert.equal(buckets[0].bucket, 'A');      // sorted by value desc
+  assert.equal(buckets[0].value, 80);
+  assert.equal(buckets[0].valueShare, 0.8);
+  assert.equal(buckets[0].over, true);       // 0.8 ≥ 0.4
+  assert.equal(buckets[1].bucket, 'B');
+  assert.equal(buckets[1].valueShare, 0.2);
+  assert.equal(buckets[1].over, false);
+});
+
+test('concentrationShares never divides by zero on an empty/zero portfolio', () => {
+  const empty = concentrationShares([]);
+  assert.equal(empty.totalValue, 0);
+  assert.deepEqual(empty.buckets, []);
+  const zero = concentrationShares([{ bucket: 'X', value: 0, cost: 0 }]);
+  assert.equal(zero.buckets[0].valueShare, 0);
+  assert.equal(zero.buckets[0].over, false);
+});
+
+test('OVER_EXPOSED_SHARE is the 40% concentration threshold', () => {
+  assert.equal(OVER_EXPOSED_SHARE, 0.4);
+  const { buckets } = concentrationShares([
+    { bucket: 'A', value: 40, cost: 40 },
+    { bucket: 'B', value: 60, cost: 60 },
+  ]);
+  assert.equal(buckets.find(b => b.bucket === 'A').over, true);  // exactly 0.4 → over
+});
+
+// ── rebalanceSuggestions: fair-price-aware diversifiers ─────────
+test('rebalanceSuggestions ranks under-fair-price diversifiers, unheld sets first', () => {
+  const products = [
+    { name: 'Held deal',  type: 'BOX', setKey: 's1', fairGap: -20, fairTrusted: true },
+    { name: 'New deal',   type: 'ETB', setKey: 's2', fairGap: -10, fairTrusted: true },
+    { name: 'Over set',   type: 'BOX', setKey: 's3', fairGap: -30, fairTrusted: true },
+    { name: 'Not a deal', type: 'ETB', setKey: 's4', fairGap:   5, fairTrusted: true },
+    { name: 'Weak fit',   type: 'ETB', setKey: 's5', fairGap: -40, fairTrusted: false },
+  ];
+  const out = rebalanceSuggestions(products, {
+    overSets: new Set(['s3']), overTypes: new Set(), heldSets: new Set(['s1']),
+  });
+  // unheld 'New deal' outranks held 'Held deal'; over-exposed set, non-deal and
+  // weak-fit products are all excluded.
+  assert.deepEqual(out.map(o => o.name), ['New deal', 'Held deal']);
+  assert.equal(out[0].newSet, true);
+  assert.equal(out[1].newSet, false);
+});
+
+test('rebalanceSuggestions excludes over-exposed types and honours the limit', () => {
+  const products = [
+    { name: 'A', type: 'BOX', setKey: 'a', fairGap: -10, fairTrusted: true },
+    { name: 'B', type: 'ETB', setKey: 'b', fairGap: -20, fairTrusted: true },
+    { name: 'C', type: 'BOX', setKey: 'c', fairGap: -30, fairTrusted: true },
+  ];
+  const excl = rebalanceSuggestions(products, { overTypes: new Set(['ETB']) });
+  assert.deepEqual(excl.map(o => o.name).sort(), ['A', 'C']); // ETB 'B' gone
+  const limited = rebalanceSuggestions(products, { limit: 1 });
+  assert.equal(limited.length, 1);
 });

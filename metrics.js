@@ -261,3 +261,61 @@ export function deriveProducts(newProducts, newHistoricalData) {
   });
   return derivationErrors;
 }
+
+// ── Portfolio balancer: concentration & fair-price-aware rebalancing ──
+// Pure helpers for the signed-in Portfolio tab. The caller enriches its holdings
+// with each product's set/era/type and fair-price gap and passes plain rows in;
+// nothing here touches the DOM or app globals.
+
+// ≥ this share of portfolio value sitting in a single bucket → a concentration
+// flag ("X% of your value rides on one set"). 40% is deliberately conservative:
+// below it a single set's crash can't sink the whole position.
+export const OVER_EXPOSED_SHARE = 0.4;
+
+// Sum value & cost per bucket and each bucket's share of the totals.
+// rows: [{ bucket, value, cost }] (one per holding). Returns
+// { totalValue, totalCost, buckets: [{ bucket, value, cost, valueShare, costShare, over }] }
+// sorted by value desc; `over` flags buckets at/above OVER_EXPOSED_SHARE of value.
+// Shares are 0 (not NaN) for an empty or zero-value portfolio.
+export function concentrationShares(rows) {
+  const map = new Map();
+  let totalValue = 0, totalCost = 0;
+  for (const r of rows) {
+    const v = Number(r.value) || 0, c = Number(r.cost) || 0;
+    totalValue += v; totalCost += c;
+    const b = map.get(r.bucket) || { bucket: r.bucket, value: 0, cost: 0 };
+    b.value += v; b.cost += c;
+    map.set(r.bucket, b);
+  }
+  const buckets = [...map.values()].map(b => ({
+    bucket: b.bucket,
+    value: b.value,
+    cost: b.cost,
+    valueShare: totalValue > 0 ? b.value / totalValue : 0,
+    costShare:  totalCost  > 0 ? b.cost  / totalCost  : 0,
+    over: totalValue > 0 && b.value / totalValue >= OVER_EXPOSED_SHARE,
+  }));
+  buckets.sort((a, b) => b.value - a.value);
+  return { totalValue, totalCost, buckets };
+}
+
+// Rank rebalance buys: products under fair price that diversify the position.
+// products: [{ name, type, setKey, fairGap, fairTrusted }]. `opts`:
+//   overSets/overTypes — Sets of bucket keys flagged over-exposed (excluded, as
+//     buying into them wouldn't rebalance);
+//   heldSets — Set of set keys already held (unheld sets rank first);
+//   limit — max suggestions (default 5).
+// Only trusted, under-fair-price (gap ≤ VERDICT.UNDER_SOFT) products qualify;
+// results are sorted new-set-first, then best deal (most negative gap).
+export function rebalanceSuggestions(products, opts = {}) {
+  const overSets  = opts.overSets  || new Set();
+  const overTypes = opts.overTypes || new Set();
+  const heldSets  = opts.heldSets  || new Set();
+  const limit     = opts.limit != null ? opts.limit : 5;
+  return products
+    .filter(p => p.fairTrusted && p.fairGap != null && p.fairGap <= VERDICT.UNDER_SOFT)
+    .filter(p => !overSets.has(p.setKey) && !overTypes.has(p.type))
+    .map(p => ({ ...p, newSet: !heldSets.has(p.setKey) }))
+    .sort((a, b) => (a.newSet !== b.newSet ? (a.newSet ? -1 : 1) : a.fairGap - b.fairGap))
+    .slice(0, limit);
+}

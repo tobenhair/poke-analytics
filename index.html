@@ -256,6 +256,31 @@
   .cmp-chip button:hover { color: var(--accent2); }
   .cmp-empty { color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.72rem; letter-spacing: 0.02em; }
 
+  /* Portfolio balancer — concentration bars + rebalance shortlist. Built from
+     tokens: blue = neutral share, red = over-exposed (a risk), green = a deal. */
+  .balancer-flag { padding: 16px 24px; font-size: 0.84rem; color: var(--text); border-bottom: 1px solid var(--hairline); }
+  .balancer-flag.ok { color: var(--muted); }
+  .balancer-flag strong { color: var(--accent2); }
+  .balancer-flag.ok strong { color: var(--text); }
+  .balancer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 26px; padding: 22px 24px; }
+  .conc-group h4, .balancer-suggest h4 { font-family: 'DM Mono', monospace; font-size: 0.68rem; font-weight: 500; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+  .conc-row { margin-bottom: 11px; }
+  .conc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 5px; }
+  .conc-name { font-size: 0.8rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .conc-pct { font-family: 'DM Mono', monospace; font-size: 0.76rem; color: var(--muted); flex-shrink: 0; }
+  .conc-bar { height: 6px; border-radius: 999px; background: var(--bg3); overflow: hidden; }
+  .conc-fill { height: 100%; border-radius: 999px; background: var(--accent3); transition: width 0.4s var(--ease); }
+  .conc-row.over .conc-fill { background: var(--accent2); }
+  .conc-row.over .conc-pct { color: var(--accent2); }
+  .balancer-suggest { border-top: 1px solid var(--hairline); padding: 20px 24px 24px; }
+  .suggest-item { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--hairline); font-size: 0.82rem; }
+  .suggest-item:last-child { border-bottom: none; }
+  .suggest-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .suggest-set { color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.7rem; white-space: nowrap; }
+  .suggest-gap { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 0.76rem; color: var(--accent4); flex-shrink: 0; }
+  .balancer-note, .balancer-empty { color: var(--muted); font-size: 0.82rem; line-height: 1.6; }
+  .balancer-empty { padding: 26px 24px; }
+
   .sort-select {
     padding: 8px 16px;
     border-radius: 999px;
@@ -1727,8 +1752,15 @@
       </div>
     </div>
 
+    <!-- ── Section: concentration & rebalance (portfolio balancer) ── -->
+    <div class="section-eyebrow">02 — Concentration &amp; Rebalance</div>
+    <p class="section-desc"><strong>What:</strong> how your holdings are spread across <em>sets</em>, <em>release years</em> and <em>product types</em> — and, when you're over-exposed, which <em>under-fair-price</em> products in areas you underweight would diversify you. <strong>How to read:</strong> a bar near full means a large share of your value rides on one bucket (red = over-exposed); the shortlist points the next euro at good-value buys that spread the risk. Derived live from your holdings — nothing saved.</p>
+    <div class="panel" id="balancer-panel">
+      <div id="balancer-body"></div>
+    </div>
+
     <!-- ── Section: price alerts ── -->
-    <div class="section-eyebrow">02 — Price Alerts</div>
+    <div class="section-eyebrow">03 — Price Alerts</div>
     <p class="section-desc"><strong>What:</strong> buy targets for the products you're watching — a fixed <em>€</em> price, or a <em>% below fair price</em> that recomputes automatically as the age fit moves. <strong>How to read:</strong> when a product's latest tracked price falls to or below the target it's flagged here and with a 🔔 on the Analysis board. Private to your account, saved automatically.</p>
     <div class="panel" id="alerts-panel">
       <div class="panel-header">
@@ -1904,7 +1936,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2, verdict, VERDICT, setLabel, groupSets, meanSeries } from './metrics.js';
+import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2, verdict, VERDICT, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -3042,6 +3074,101 @@ function renderPortfolio() {
   tbody.querySelectorAll('.portfolio-remove-btn').forEach(btn => {
     btn.addEventListener('click', () => removeHolding(btn.dataset.product));
   });
+
+  renderBalancer(rows);
+}
+
+// ── Portfolio balancer (concentration risk + fair-price rebalance) ──
+// Reads the same portfolio rows, groups current value by set / release year /
+// product type via the pure concentrationShares(), flags over-exposure, and —
+// when over-exposed — lists under-fair-price products in areas you underweight
+// (rebalanceSuggestions()). Signed-in, all derived client-side; wired via
+// renderPortfolio() so it updates on load, data reload and every holding edit.
+function renderBalancer(portfolioRowsArg) {
+  const host = document.getElementById('balancer-body');
+  if (!host) return;
+  const rows = (portfolioRowsArg || portfolioRows()).filter(r => r.curValue != null && r.curValue > 0);
+  if (!rows.length) {
+    host.innerHTML = `<div class="balancer-empty">Add holdings above to see how your position is spread across sets, release years and product types — and where the next euro would diversify you.</div>`;
+    return;
+  }
+
+  // Set label per release date (a "set" = products sharing a release).
+  const setNameByRelease = {};
+  groupSets(products).forEach(s => { setNameByRelease[s.release] = s.label; });
+  const setNameFor = key => setNameByRelease[key] || key || '—';
+
+  // Enrich each holding with its set key, release-year era and type.
+  const enriched = rows.map(r => {
+    const p = products.find(pp => pp.name === r.name);
+    return {
+      name: r.name,
+      value: r.curValue,
+      cost: r.costValue,
+      setKey: p ? p.release : '—',
+      era: p && p.release ? String(p.release).slice(0, 4) : '—',
+      type: r.type || (p ? p.type : '—'),
+    };
+  });
+
+  const bySet  = concentrationShares(enriched.map(r => ({ bucket: r.setKey, value: r.value, cost: r.cost })));
+  const byEra  = concentrationShares(enriched.map(r => ({ bucket: r.era,    value: r.value, cost: r.cost })));
+  const byType = concentrationShares(enriched.map(r => ({ bucket: r.type,   value: r.value, cost: r.cost })));
+
+  const groupHtml = (title, res, labelFor) => `
+    <div class="conc-group">
+      <h4>${title}</h4>
+      ${res.buckets.map(b => {
+        const label = labelFor ? labelFor(b.bucket) : b.bucket;
+        const pct = (b.valueShare * 100);
+        return `<div class="conc-row${b.over ? ' over' : ''}">
+          <div class="conc-head">
+            <span class="conc-name" title="${label}">${label}${b.over ? ' ⚠' : ''}</span>
+            <span class="conc-pct">${pct.toFixed(0)}%</span>
+          </div>
+          <div class="conc-bar"><div class="conc-fill" style="width:${Math.max(2, pct).toFixed(1)}%"></div></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  // Headline concentration flag from the most-concentrated set.
+  const topSet = bySet.buckets.find(b => b.over);
+  const flag = topSet
+    ? `<div class="balancer-flag">⚠ ${(topSet.valueShare * 100).toFixed(0)}% of your value rides on <strong>${setNameFor(topSet.bucket)}</strong> — a dip in one set would hit the whole position hard.</div>`
+    : `<div class="balancer-flag ok">Well spread — no single set is over ${(OVER_EXPOSED_SHARE * 100).toFixed(0)}% of your value.</div>`;
+
+  // Rebalance shortlist: under-fair-price products in sets/types you're not
+  // over-exposed to, unheld sets first. Excludes over-exposed buckets.
+  const trusted   = fairPriceTrusted();
+  const overSets  = new Set(bySet.buckets.filter(b => b.over).map(b => b.bucket));
+  const overTypes = new Set(byType.buckets.filter(b => b.over).map(b => b.bucket));
+  const heldSets  = new Set(enriched.map(r => r.setKey));
+  const suggestions = rebalanceSuggestions(
+    products.map(p => ({ name: p.name, type: p.type, setKey: p.release, fairGap: p.fairGap, fairTrusted: trusted })),
+    { overSets, overTypes, heldSets, limit: 5 }
+  );
+
+  const suggestHtml = suggestions.length
+    ? suggestions.map(s => `
+        <div class="suggest-item">
+          <span class="type-badge type-${s.type}">${s.type}</span>
+          <span class="suggest-name" title="${s.name}">${s.name}</span>
+          <span class="suggest-set">${setNameFor(s.setKey)}${s.newSet ? ' · new set' : ''}</span>
+          <span class="suggest-gap">${Math.abs(s.fairGap)}% under fair</span>
+        </div>`).join('')
+    : `<div class="balancer-note">No under-fair-price buys in sets you underweight right now${trusted ? '' : ' — the age fit is currently too weak to trust the fair price'}.</div>`;
+
+  host.innerHTML = `
+    ${flag}
+    <div class="balancer-grid">
+      ${groupHtml('By set', bySet, setNameFor)}
+      ${groupHtml('By release year', byEra, null)}
+      ${groupHtml('By product type', byType, null)}
+    </div>
+    <div class="balancer-suggest">
+      <h4>Rebalance — next-euro shortlist</h4>
+      ${suggestHtml}
+    </div>`;
 }
 
 // Load a holding into the editor to correct its exact quantity / cost.
