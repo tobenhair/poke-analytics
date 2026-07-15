@@ -28,6 +28,7 @@ import {
   concentrationShares,
   rebalanceSuggestions,
   OVER_EXPOSED_SHARE,
+  portfolioValueSeries,
 } from '../../metrics.js';
 
 // ── boostersFromType: the fixed physical constants ──────────────
@@ -401,4 +402,22 @@ test('rebalanceSuggestions excludes over-exposed types and honours the limit', (
   assert.deepEqual(excl.map(o => o.name).sort(), ['A', 'C']); // ETB 'B' gone
   const limited = rebalanceSuggestions(products, { limit: 1 });
   assert.equal(limited.length, 1);
+});
+
+// ── portfolioValueSeries: total holdings value across snapshots ──
+test('portfolioValueSeries sums qty×price per snapshot, carry-filling gaps', () => {
+  const holdings = { A: { quantity: 2 }, B: { quantity: 1 } };
+  const hist = {
+    A: { price: [10, null, 20], setVal: [] },
+    B: { price: [null, 5, 6],  setVal: [] },
+  };
+  // A carry-fills to [10,10,20]; B back-fills the leading gap to [5,5,6].
+  // i0: 2·10 + 1·5 = 25; i1: 2·10 + 1·5 = 25; i2: 2·20 + 1·6 = 46
+  assert.deepEqual(portfolioValueSeries(holdings, hist, 3), [25, 25, 46]);
+});
+
+test('portfolioValueSeries returns [] when nothing is valuable', () => {
+  assert.deepEqual(portfolioValueSeries({}, {}, 3), []);
+  assert.deepEqual(portfolioValueSeries({ A: { quantity: 0 } }, { A: { price: [1] } }, 1), []);
+  assert.deepEqual(portfolioValueSeries({ A: { quantity: 1 } }, { A: { price: [null] } }, 1), []);
 });

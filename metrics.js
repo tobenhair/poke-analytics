@@ -319,3 +319,37 @@ export function rebalanceSuggestions(products, opts = {}) {
     .sort((a, b) => (a.newSet !== b.newSet ? (a.newSet ? -1 : 1) : a.fairGap - b.fairGap))
     .slice(0, limit);
 }
+
+// ── Portfolio value over time (the change chart) ──
+// Total € value of the given holdings at each snapshot date: each holding valued
+// at qty × its tracked price, with gaps carry-filled from the nearest known
+// price (forward, then backward for leading gaps) so the line is continuous
+// rather than dropping to zero on a missing snapshot. Values the *current*
+// basket back across history (acquisition dates aren't tracked). holdings:
+// { name: { quantity } }; historicalData: { name: { price: [...] } } aligned to
+// the shared date axis. Returns number[] of length dateCount, or [] when nothing
+// is valuable. Display-only currency conversion happens in the caller; € here.
+function carryFill(arr, n) {
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(arr && arr[i] != null ? arr[i] : null);
+  let last = null;
+  for (let i = 0; i < n; i++) { if (out[i] != null) last = out[i]; else if (last != null) out[i] = last; }
+  let next = null;
+  for (let i = n - 1; i >= 0; i--) { if (out[i] != null) next = out[i]; else if (next != null) out[i] = next; }
+  return out;
+}
+
+export function portfolioValueSeries(holdings, historicalData, dateCount) {
+  const totals = new Array(dateCount).fill(0);
+  let any = false;
+  for (const [name, h] of Object.entries(holdings || {})) {
+    const qty  = Number(h && h.quantity) || 0;
+    const hist = historicalData ? historicalData[name] : null;
+    if (!qty || !hist || !hist.price) continue;
+    const filled = carryFill(hist.price, dateCount);
+    for (let i = 0; i < dateCount; i++) {
+      if (filled[i] != null) { totals[i] += filled[i] * qty; any = true; }
+    }
+  }
+  return any ? totals : [];
+}

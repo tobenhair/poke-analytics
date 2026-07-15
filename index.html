@@ -1719,6 +1719,10 @@
     <div class="panel" id="portfolio-panel">
       <div class="panel-header">
         <div class="panel-title">Portfolio</div>
+        <div class="cmp-controls">
+          <label class="cmp-empty" for="portfolio-currency" style="margin:0;">Shown in</label>
+          <select class="trend-select" id="portfolio-currency" style="max-width:130px;"></select>
+        </div>
       </div>
 
       <div class="portfolio-summary" id="portfolio-summary"></div>
@@ -1752,15 +1756,25 @@
       </div>
     </div>
 
+    <!-- ── Section: portfolio value over time ── -->
+    <div class="section-eyebrow">02 — Value Over Time</div>
+    <p class="section-desc"><strong>What:</strong> what your <em>current</em> holdings would have been worth across every tracked snapshot — the <em>portfolio value</em> line against your flat <em>cost basis</em>, so unrealised P&amp;L reads as a trajectory rather than just today's number. <strong>How to read:</strong> the gap between the lines is your gain (value above cost) or loss (below); a rising value line means the basket you hold has appreciated. Values your current quantities back across history — purchase dates aren't tracked.</p>
+    <div class="panel" id="portfolio-value-panel">
+      <div class="chart-panel" id="portfolio-value-chart-wrap" style="padding: 20px 24px;">
+        <canvas id="portfolio-value-chart" style="max-height: 280px;"></canvas>
+      </div>
+      <div id="portfolio-value-empty" class="balancer-empty" style="display:none;">Add holdings above to see how their value has moved across the tracked snapshots.</div>
+    </div>
+
     <!-- ── Section: concentration & rebalance (portfolio balancer) ── -->
-    <div class="section-eyebrow">02 — Concentration &amp; Rebalance</div>
+    <div class="section-eyebrow">03 — Concentration &amp; Rebalance</div>
     <p class="section-desc"><strong>What:</strong> how your holdings are spread across <em>sets</em>, <em>release years</em> and <em>product types</em> — and, when you're over-exposed, which <em>under-fair-price</em> products in areas you underweight would diversify you. <strong>How to read:</strong> a bar near full means a large share of your value rides on one bucket (red = over-exposed); the shortlist points the next euro at good-value buys that spread the risk. Derived live from your holdings — nothing saved.</p>
     <div class="panel" id="balancer-panel">
       <div id="balancer-body"></div>
     </div>
 
     <!-- ── Section: price alerts ── -->
-    <div class="section-eyebrow">03 — Price Alerts</div>
+    <div class="section-eyebrow">04 — Price Alerts</div>
     <p class="section-desc"><strong>What:</strong> buy targets for the products you're watching — a fixed <em>€</em> price, or a <em>% below fair price</em> that recomputes automatically as the age fit moves. <strong>How to read:</strong> when a product's latest tracked price falls to or below the target it's flagged here and with a 🔔 on the Analysis board. Private to your account, saved automatically.</p>
     <div class="panel" id="alerts-panel">
       <div class="panel-header">
@@ -1936,7 +1950,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2, verdict, VERDICT, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE } from './metrics.js';
+import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2, verdict, VERDICT, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -2989,6 +3003,45 @@ const pnlColor = v => v > 0 ? 'var(--accent4)' : v < 0 ? 'var(--accent2)' : 'var
 const withSign = (s, v) => (v > 0 ? '+' : v < 0 ? '−' : '') + s;
 const round2 = v => Math.round(v * 100) / 100;
 
+// ── Portfolio display currency (display-only; € stays the canonical unit) ──
+// The user's chosen currency, the EUR→currency rates (fetched once from a free
+// key-less FX API), and a currency-aware money formatter. Conversion is confined
+// to the Portfolio tab — the shared catalogue, set values and all SV/Booster
+// maths stay in €, so the ranking metrics stay comparable across users. A single
+// current rate is used everywhere (including the history chart); if the FX fetch
+// fails we fall back to €-only, so the portfolio is never blocked on the network.
+const CURRENCY_META = {
+  EUR: { symbol: '€',  suffix: '' },
+  USD: { symbol: '$',  suffix: '' },
+  GBP: { symbol: '£',  suffix: '' },
+  SEK: { symbol: '',   suffix: ' kr' },
+};
+let portfolioCurrency = 'EUR';
+let fxRates = { EUR: 1 };   // EUR → currency multipliers; EUR always present
+
+// Format a canonical € amount in the active portfolio currency.
+function money(vEur) {
+  if (vEur == null || isNaN(vEur)) return '—';
+  const rate = fxRates[portfolioCurrency] != null ? fxRates[portfolioCurrency] : 1;
+  const meta = CURRENCY_META[portfolioCurrency] || CURRENCY_META.EUR;
+  const n = Math.round(vEur * rate).toLocaleString('de-DE');
+  return `${meta.symbol}${n}${meta.suffix}`;
+}
+
+// Fetch EUR→{USD,GBP,SEK} once (frankfurter.app, ECB data, no key). Best-effort:
+// on any failure fxRates stays €-only and the currency picker offers just €.
+async function fetchFxRates() {
+  const wanted = Object.keys(CURRENCY_META).filter(c => c !== 'EUR');
+  try {
+    const res = await fetch(`https://api.frankfurter.app/latest?from=EUR&to=${wanted.join(',')}`);
+    if (!res.ok) throw new Error('FX HTTP ' + res.status);
+    const data = await res.json();
+    if (data && data.rates) fxRates = { EUR: 1, ...data.rates };
+  } catch {
+    fxRates = { EUR: 1 };  // graceful: € only
+  }
+}
+
 // Which holding the editor is currently editing (null = add / buy-more mode).
 let portfolioEditName = null;
 
@@ -3029,6 +3082,36 @@ function populatePortfolioSelect() {
   if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
 }
 
+// Populate the Portfolio currency picker with € plus any currencies we have a
+// live rate for (falls back to €-only if the FX fetch failed).
+function populateCurrencySelect() {
+  const sel = document.getElementById('portfolio-currency');
+  if (!sel) return;
+  if (!CURRENCY_META[portfolioCurrency]) portfolioCurrency = 'EUR';
+  // € plus any currency we have a rate for — and always the active one, so a
+  // saved currency stays selected even if the FX fetch hasn't resolved yet.
+  const avail = Object.keys(CURRENCY_META).filter(c =>
+    c === 'EUR' || c === portfolioCurrency || fxRates[c] != null);
+  sel.innerHTML = '';
+  avail.forEach(c => {
+    const meta = CURRENCY_META[c];
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = `${(meta.symbol || meta.suffix.trim())} ${c}`.trim();
+    sel.appendChild(opt);
+  });
+  sel.value = portfolioCurrency;
+}
+
+// Persist the chosen currency to the user's own settings row (best-effort;
+// per-user via RLS, mirrors persistHolding). No-op when signed out.
+async function persistCurrency() {
+  if (!sbUser) return;
+  const { error } = await sbClient.from('user_settings')
+    .upsert({ user_id: sbUser.id, currency: portfolioCurrency }, { onConflict: 'user_id' });
+  if (error) portfolioStatus('Currency not saved: ' + error.message, true);
+}
+
 function renderPortfolio() {
   const tbody = document.getElementById('portfolio-tbody');
   const summaryEl = document.getElementById('portfolio-summary');
@@ -3043,11 +3126,11 @@ function renderPortfolio() {
 
   summaryEl.style.display = rows.length ? '' : 'none';
   summaryEl.innerHTML = rows.length ? `
-    <div class="portfolio-tile"><div class="lbl">Cost basis</div><div class="val">${eur(totalCost)}</div></div>
-    <div class="portfolio-tile"><div class="lbl">Current value</div><div class="val">${eur(totalNow)}</div></div>
+    <div class="portfolio-tile"><div class="lbl">Cost basis</div><div class="val">${money(totalCost)}</div></div>
+    <div class="portfolio-tile"><div class="lbl">Current value</div><div class="val">${money(totalNow)}</div></div>
     <div class="portfolio-tile">
       <div class="lbl">Unrealised P&L</div>
-      <div class="val" style="color:${pnlColor(totalPnl)}">${withSign(eur(Math.abs(totalPnl)), totalPnl)}</div>
+      <div class="val" style="color:${pnlColor(totalPnl)}">${withSign(money(Math.abs(totalPnl)), totalPnl)}</div>
       <div class="sub" style="color:${pnlColor(totalPnl)}">${totalPct != null ? withSign((Math.abs(totalPct) * 100).toFixed(1) + '%', totalPnl) : '—'}</div>
     </div>` : '';
 
@@ -3056,10 +3139,10 @@ function renderPortfolio() {
       <td class="product-name" title="${r.name}">${r.name}</td>
       <td>${r.type ? `<span class="type-badge type-${r.type}">${r.type}</span>` : '—'}</td>
       <td class="num">${r.qty}</td>
-      <td class="num">${eur(r.cost)}</td>
-      <td class="num">${r.now != null ? eur(r.now) : '—'}</td>
-      <td class="num">${r.curValue != null ? eur(r.curValue) : '—'}</td>
-      <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnl != null ? withSign(eur(Math.abs(r.pnl)), r.pnl) : '—'}</td>
+      <td class="num">${money(r.cost)}</td>
+      <td class="num">${r.now != null ? money(r.now) : '—'}</td>
+      <td class="num">${r.curValue != null ? money(r.curValue) : '—'}</td>
+      <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnl != null ? withSign(money(Math.abs(r.pnl)), r.pnl) : '—'}</td>
       <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnlPct != null ? withSign((Math.abs(r.pnlPct) * 100).toFixed(1) + '%', r.pnl) : '—'}</td>
       <td style="text-align:center; white-space:nowrap;">
         <button class="portfolio-edit-btn" data-product="${r.name}" title="Edit exact quantity / cost">✎</button>
@@ -3075,7 +3158,86 @@ function renderPortfolio() {
     btn.addEventListener('click', () => removeHolding(btn.dataset.product));
   });
 
+  renderPortfolioValueChart();
   renderBalancer(rows);
+}
+
+// ── Portfolio value over time (the change chart) ──
+// Values the current holdings at every tracked snapshot (portfolioValueSeries)
+// and plots that trajectory against the flat cost-basis line, so unrealised P&L
+// reads as a trend. Currency-aware via money()/the active FX rate; wired through
+// renderPortfolio() so it updates on load, data reload, holding edits and
+// currency changes. One Chart.js instance in the destroy-and-recreate pattern.
+let portfolioValueChart = null;
+function renderPortfolioValueChart() {
+  const wrap  = document.getElementById('portfolio-value-chart-wrap');
+  const empty = document.getElementById('portfolio-value-empty');
+  const canvas = document.getElementById('portfolio-value-chart');
+  if (!wrap || !empty || !canvas) return;
+
+  const rate = fxRates[portfolioCurrency] != null ? fxRates[portfolioCurrency] : 1;
+  const valuesEur = portfolioValueSeries(holdings, historicalData, histDates.length);
+  const costTotalEur = Object.entries(holdings).reduce((s, [, h]) =>
+    s + (Number(h.quantity) || 0) * (Number(h.costBasis) || 0), 0);
+
+  if (!valuesEur.length) {
+    wrap.style.display = 'none';
+    empty.style.display = '';
+    if (portfolioValueChart) { portfolioValueChart.destroy(); portfolioValueChart = null; }
+    return;
+  }
+  wrap.style.display = '';
+  empty.style.display = 'none';
+
+  const values = valuesEur.map(v => v * rate);
+  const costLine = histDates.map(() => costTotalEur * rate);
+
+  if (portfolioValueChart) portfolioValueChart.destroy();
+  portfolioValueChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: [...histDates],
+      datasets: [
+        {
+          label: 'Portfolio value',
+          data: values,
+          borderColor: '#5cc7f2', backgroundColor: 'rgba(92,199,242,0.10)',
+          tension: 0.4, pointRadius: 3, pointBackgroundColor: '#5cc7f2', borderWidth: 2, fill: true,
+        },
+        {
+          label: 'Cost basis',
+          data: costLine,
+          borderColor: '#8b8fa3', borderDash: [5, 4], borderWidth: 1.5,
+          pointRadius: 0, fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
+        tooltip: { callbacks: {
+          label: ctx => ` ${ctx.dataset.label}: ${money(ctx.parsed.y / rate)}`,
+          afterBody: items => {
+            const pv = items.find(i => i.datasetIndex === 0);
+            if (!pv) return '';
+            const pnl = (pv.parsed.y / rate) - costTotalEur;
+            const pct = costTotalEur > 0 ? (pnl / costTotalEur) * 100 : null;
+            const sign = pnl > 0 ? '+' : pnl < 0 ? '−' : '';
+            return ['', `P&L: ${sign}${money(Math.abs(pnl))}${pct != null ? ` (${sign}${Math.abs(pct).toFixed(1)}%)` : ''}`];
+          },
+        } },
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#8b8fa3', font: { family: 'DM Mono', size: 10 }, callback: v => money(v / rate) },
+        },
+      },
+    },
+  });
 }
 
 // ── Portfolio balancer (concentration risk + fair-price rebalance) ──
@@ -4444,12 +4606,23 @@ renderMomentum();
 cmpSvb.init();
 populateScenarioSelect();
 initScenario();
+populateCurrencySelect();
 renderPortfolio();
 renderAlerts();
 updateLastUpdated();
 document.getElementById('sv-slider').addEventListener('input', updateScenario);
 document.getElementById('price-slider').addEventListener('input', updateScenario);
 document.getElementById('scenario-reset').addEventListener('click', initScenario);
+// Portfolio currency picker: re-render the (money-aware) portfolio and persist.
+document.getElementById('portfolio-currency').addEventListener('change', e => {
+  portfolioCurrency = e.target.value;
+  renderPortfolio();
+  persistCurrency();
+});
+// Fetch live FX rates once, then reveal the extra currencies and re-render with
+// real rates (the initial € view is correct meanwhile). Best-effort — a blocked
+// fetch just leaves the picker on €.
+fetchFxRates().then(() => { populateCurrencySelect(); renderPortfolio(); });
 
 // ============================================================
 // AUTO-LOAD pokemon_data.xlsx FROM SAME DIRECTORY (if present)
@@ -4557,7 +4730,7 @@ async function loadFromSupabase() {
   const [prodRes, snapRes, setRes, holdRes, alertRes] = await Promise.all([
     sbClient.from('products').select('*').order('release', { ascending: true }),
     sbClient.from('snapshots').select('*'),
-    sbClient.from('user_settings').select('age_threshold').maybeSingle(),
+    sbClient.from('user_settings').select('*').maybeSingle(),
     sbClient.from('holdings').select('*'),
     sbClient.from('alerts').select('*'),
   ]);
@@ -4574,6 +4747,11 @@ async function loadFromSupabase() {
     if (slider) slider.value = ageThreshold;
     const disp = document.getElementById('age-threshold-display');
     if (disp) disp.textContent = ageThreshold.toFixed(1);
+  }
+  // Apply saved portfolio currency (tolerates a pre-migration DB with no column).
+  if (setRes && !setRes.error && setRes.data && setRes.data.currency) {
+    portfolioCurrency = setRes.data.currency;
+    populateCurrencySelect();
   }
 
   // Distinct snapshot dates, chronologically.
