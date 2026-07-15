@@ -43,11 +43,13 @@ it is *not* recomputed there.
 ## The render-wiring invariant
 
 Rendering is a **state + render-function** pattern: module-level state
-(`activeType`, `sortKey`, `ageThreshold`, `trendProduct`, `ratioProduct`, …)
+(`activeType` — the global type filter, `sortKey`, `ageThreshold`, …)
 plus render functions (`updateTable`, `updateKPIs`, `updateTopPicks`,
 `renderSVBChart`, `renderScatterChart`, `renderRelativeValue`, `renderMomentum`,
-`renderTrendChart`, `renderRatioChart`, `initScenario`, …). Chart.js instances
-are destroyed and recreated on each re-render.
+`initScenario`, …) and the §06/§08 comparison controllers (`cmpHist`/`cmpSvb`,
+built by `createCompareView()`; `init()` in INIT, `refresh()` in
+`applyNewData()` and on type-filter change). Chart.js instances are destroyed
+and recreated on each re-render.
 
 **Any new render function must be wired into both `INIT` and `applyNewData()`**
 — otherwise it works on first load but not after a data file loads, or vice

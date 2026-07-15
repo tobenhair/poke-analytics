@@ -164,6 +164,69 @@ export function verdict({ fairGap, drawdown, svTrend, fairTrusted }) {
   return { label: clause ? `${label} · ${clause}` : label, tone, rank };
 }
 
+// ── Set identity & roll-up helpers (the expanded comparison views) ──
+// A "set" is every product sharing a release date; there is no explicit set
+// field. These pure helpers let the §06/§08 comparison charts roll products up
+// to set level, and are the single source of truth for set naming (index.html's
+// demoSetName delegates here) so the demo grouping and the comparison views can
+// never disagree.
+
+// The display name for a set: the longest common prefix of its members' names
+// with a trailing product-type suffix stripped, e.g.
+// ["Surging Sparks Booster Box", "Surging Sparks ETB"] → "Surging Sparks".
+// Falls back to the first name when the members share too little to name a set.
+export function setLabel(names) {
+  if (!names.length) return 'New release';
+  let pfx = names[0];
+  for (const n of names.slice(1)) {
+    let i = 0;
+    while (i < pfx.length && i < n.length && pfx[i] === n[i]) i++;
+    pfx = pfx.slice(0, i);
+  }
+  pfx = pfx.replace(/\s*[-–—]\s*$/, '').trim();
+  const stripped = pfx.replace(/\s+(Elite Trainer Box|Booster Box|Booster Bundle|Bundle|ETB)$/i, '').trim();
+  if (stripped.length >= 3) return stripped;
+  if (pfx.length >= 3) return pfx;
+  return names[0] || 'New release';
+}
+
+// Group products into sets by shared release date. Returns
+// [{ release, label, members: [name…] }, …] sorted newest release first.
+// Call it on the *already type-filtered* product pool so "ETB only" rolls a set
+// up from its ETB members alone (and drops sets with no member in scope).
+export function groupSets(products) {
+  const byRelease = new Map();
+  products.forEach(p => {
+    if (!byRelease.has(p.release)) byRelease.set(p.release, []);
+    byRelease.get(p.release).push(p.name);
+  });
+  const sets = [];
+  for (const [release, members] of byRelease) {
+    sets.push({ release, label: setLabel(members), members });
+  }
+  sets.sort((a, b) => (a.release < b.release ? 1 : a.release > b.release ? -1 : 0));
+  return sets;
+}
+
+// Aggregate several snapshot-aligned series (same shared date axis) into one
+// mean series: at each index the mean of the non-null values across inputs, or
+// null when every input is null there (a genuine gap the chart should span).
+// Rolls a set's member products up into one comparison line. Rounded to 2dp to
+// match the per-product series the charts already plot.
+export function meanSeries(seriesList) {
+  const len = seriesList.reduce((m, s) => Math.max(m, s.length), 0);
+  const out = [];
+  for (let i = 0; i < len; i++) {
+    let sum = 0, n = 0;
+    for (const s of seriesList) {
+      const v = s[i];
+      if (v != null && isFinite(v)) { sum += v; n++; }
+    }
+    out.push(n ? parseFloat((sum / n).toFixed(2)) : null);
+  }
+  return out;
+}
+
 export function deriveProducts(newProducts, newHistoricalData) {
   const derivationErrors = [];
   const today = new Date();

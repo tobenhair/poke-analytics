@@ -235,6 +235,27 @@
   .pill:hover { border-color: rgba(244,198,81,0.4); color: var(--text); }
   .pill.active { background: var(--accent-soft); color: var(--accent); border-color: rgba(244,198,81,0.45); }
 
+  /* Comparison-series controls (§06/§08 multi-series picker). Chips manage the
+     selection (add via the dropdown, remove via ×); the chart's own legend is
+     the show/hide toggle. Built from existing tokens. */
+  .cmp-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .cmp-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 2px; }
+  .cmp-chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 7px 5px 10px; border-radius: 999px;
+    border: 1px solid var(--hairline); background: var(--bg3);
+    font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--text);
+    letter-spacing: 0.02em;
+  }
+  .cmp-chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .cmp-chip button {
+    border: none; background: transparent; color: var(--muted);
+    cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0 1px;
+    transition: color 0.2s var(--ease);
+  }
+  .cmp-chip button:hover { color: var(--accent2); }
+  .cmp-empty { color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.72rem; letter-spacing: 0.02em; }
+
   .sort-select {
     padding: 8px 16px;
     border-radius: 999px;
@@ -1502,12 +1523,19 @@
 
   <!-- ── Section: price history (full width) ── -->
   <div class="section-eyebrow">06 — Price History</div>
-  <p class="section-desc"><strong>What:</strong> the tracked <em>price over time</em> for one selected product (choose from the dropdown). <strong>How to read:</strong> a falling line means it's getting cheaper — pair a dip here with a steady set value (sections 05 &amp; 07) to spot a buying window.</p>
+  <p class="section-desc"><strong>What:</strong> tracked <em>price over time</em> — add several products, or switch to <em>Sets</em> to compare whole releases (a set's line is the average price per booster of its products). <strong>How to read:</strong> a falling line means it's getting cheaper; with a single product the set value is overlaid too, so you can pair a price dip with a steady set value to spot a buying window. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">Price History</div>
-      <select class="trend-select" id="trend-product-select"></select>
+      <div class="cmp-controls">
+        <div class="pill-group" id="hist-mode">
+          <button class="pill active" data-mode="product">Products</button>
+          <button class="pill" data-mode="set">Sets</button>
+        </div>
+        <select class="trend-select" id="hist-add" style="max-width:220px"></select>
+      </div>
     </div>
+    <div class="cmp-chips" id="hist-chips"></div>
     <div class="chart-panel">
       <canvas id="trend-chart"></canvas>
     </div>
@@ -1541,17 +1569,19 @@
 
   <!-- ── Section: SV/Booster trend over time (full width) ── -->
   <div class="section-eyebrow">08 — Trend Over Time</div>
-  <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> for one or more products — add a second from the compare dropdown. <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means the set is worth more relative to a booster's cost (better value); because it's expressed as a multiple of booster cost, BOX, ETB and BUNDLE are directly comparable.</p>
+  <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> — add several products to compare, or switch to <em>Sets</em> to weigh whole releases head to head (a set's line is the average SV/Booster of its products). <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means the set is worth more relative to a booster's cost (better value); because it's a multiple of booster cost, BOX, ETB and BUNDLE are directly comparable. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">Set Value / Booster — Trend Over Time</div>
-      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-        <select class="trend-select" id="ratio-product-select" style="max-width:200px"></select>
-        <select class="trend-select" id="ratio-compare-select" style="max-width:200px">
-          <option value="">+ Compare with...</option>
-        </select>
+      <div class="cmp-controls">
+        <div class="pill-group" id="svb-mode">
+          <button class="pill active" data-mode="product">Products</button>
+          <button class="pill" data-mode="set">Sets</button>
+        </div>
+        <select class="trend-select" id="svb-add" style="max-width:220px"></select>
       </div>
     </div>
+    <div class="cmp-chips" id="svb-chips"></div>
     <div class="chart-panel" style="padding: 20px 24px;">
       <canvas id="ratio-chart" style="max-height: 260px;"></canvas>
     </div>
@@ -1871,7 +1901,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2, verdict, VERDICT } from './metrics.js';
+import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2, verdict, VERDICT, setLabel, groupSets, meanSeries } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -1948,7 +1978,6 @@ let activeType = "ALL";
 let sortKey = "score";
 let searchTerm = "";      // Board name/set search (case-insensitive substring)
 let verdictFilter = "all"; // Board filter by verdict tone: all | good | neutral | bad
-let trendProduct = "Surging Sparks Booster Box";
 let ageThreshold = 1; // years until age weight reaches 1.0 (default)
 // The age-fit line (SV/Booster ~ age) with its R², recomputed once per data
 // load by recomputeFit(). Shared by the board's fair price, the scatter overlay
@@ -2001,6 +2030,14 @@ function getFiltered() {
     return 0;
   });
   return data;
+}
+
+// The product pool the analytical charts and comparison views render — the
+// global BOX/ETB/BUNDLE type filter (the board pills) applied, without the
+// board's search/verdict filters or sort. One source of "what's in scope" so
+// "show me only ETBs" holds across every chart, not just the board table.
+function visibleProducts() {
+  return activeType === 'ALL' ? products : products.filter(p => p.type === activeType);
 }
 
 
@@ -2221,7 +2258,7 @@ function updateTopPicks() {
 // ============================================================
 let svbChart = null;
 function renderSVBChart() {
-  const data = [...products].sort((a, b) => b.svPerBooster - a.svPerBooster).slice(0, 10);
+  const data = [...visibleProducts()].sort((a, b) => b.svPerBooster - a.svPerBooster).slice(0, 10);
   const labels = data.map(p => p.name.replace(' Booster Box', '').replace(' Booster Bundle', '').replace(' Elite Trainer Box', '').replace(' ETB', ''));
   const values = data.map(p => p.svPerBooster);
   const colors = data.map(p => p.type === 'BOX' ? '#4fc3f7' : p.type === 'ETB' ? '#81c784' : '#f5c842');
@@ -2250,74 +2287,225 @@ function renderSVBChart() {
 // ============================================================
 // TREND CHART
 // ============================================================
-let trendChart = null;
-function populateTrendSelect() {
-  const sel = document.getElementById('trend-product-select');
-  Object.keys(historicalData).forEach(name => {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    if (name === trendProduct) opt.selected = true;
-    sel.appendChild(opt);
-  });
-  sel.addEventListener('change', e => { trendProduct = e.target.value; renderTrendChart(); });
+// ── Comparison views (§06 Price History, §08 SV/Booster trend) ──
+// Both sections are the same interaction: a Products⇄Sets mode toggle, a
+// multi-select (add via the dropdown, remove via a chip), one line per
+// selection from a capped palette, and the chart's own legend as the show/hide
+// toggle. The per-metric differences (what a line plots, the y-axis) come in
+// through cfg, so the two views can't drift. Series always align to the full
+// histDates axis with spanGaps:true, which is what lets 3+ series with uneven
+// snapshot coverage line up (the old "longest labels win" approach broke past
+// two). Set mode rolls a set (products sharing a release) up with meanSeries();
+// the type filter is applied via visibleProducts() so "ETB only" holds here too.
+
+// Capped series palette — the legibility cap the design-review skill calls for.
+// Six distinct hues: the three chart accent tokens plus three identity-only
+// colours (a comparison line's colour is an identity, not a good/bad value cue,
+// so it doesn't carry the gold/green/red meaning fixed elsewhere). Selection is
+// capped at the palette length so the chart never grows illegible.
+const COMPARE_PALETTE = ['#5cc7f2', '#f4c651', '#7fd493', '#b39ddb', '#e8975a', '#e5789f'];
+const COMPARE_CAP = COMPARE_PALETTE.length;
+
+function createCompareView(cfg) {
+  let mode = 'product';   // 'product' | 'set'
+  let sel = [];           // product names (product mode) or release dates (set mode)
+  let chart = null;
+
+  const el = id => document.getElementById(id);
+
+  // Selectable items for the current mode, respecting the global type filter.
+  function options() {
+    if (mode === 'set') {
+      return groupSets(visibleProducts()).map(s => ({ key: s.release, label: s.label, members: s.members }));
+    }
+    return visibleProducts()
+      .filter(p => historicalData[p.name])
+      .map(p => ({ key: p.name, label: shortName(p.name) }));
+  }
+  function optByKey(key) { return options().find(o => o.key === key); }
+
+  function refreshAddSelect() {
+    const s = el(cfg.addId);
+    if (!s) return;
+    const chosen = new Set(sel);
+    const avail = options().filter(o => !chosen.has(o.key));
+    const atCap = sel.length >= COMPARE_CAP;
+    s.innerHTML = '';
+    const ph = document.createElement('option');
+    ph.value = '';
+    ph.textContent = atCap ? `Max ${COMPARE_CAP} lines` : (mode === 'set' ? '+ Add set…' : '+ Add product…');
+    ph.selected = true;
+    s.appendChild(ph);
+    avail.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.key; opt.textContent = o.label;
+      s.appendChild(opt);
+    });
+    s.disabled = atCap || avail.length === 0;
+  }
+
+  function renderChips() {
+    const host = el(cfg.chipsId);
+    if (!host) return;
+    host.innerHTML = '';
+    if (!sel.length) {
+      host.innerHTML = `<span class="cmp-empty">Add a ${mode === 'set' ? 'set' : 'product'} to chart it.</span>`;
+      return;
+    }
+    sel.forEach((key, i) => {
+      const o = optByKey(key);
+      const label = o ? o.label : key;
+      const chip = document.createElement('span');
+      chip.className = 'cmp-chip';
+      chip.innerHTML = `<span class="dot" style="background:${COMPARE_PALETTE[i % COMPARE_CAP]}"></span>` +
+                       `<span>${label}</span><button type="button" aria-label="Remove ${label}" title="Remove">×</button>`;
+      chip.querySelector('button').addEventListener('click', () => { sel = sel.filter(k => k !== key); sync(); });
+      host.appendChild(chip);
+    });
+  }
+
+  // Aligned data array for one selection key in the current mode.
+  function lineFor(key) {
+    if (mode === 'set') {
+      const o = optByKey(key);
+      return o ? meanSeries(o.members.map(cfg.setMemberLine)) : [];
+    }
+    return cfg.productLine(key);
+  }
+
+  function render() {
+    const datasets = sel.map((key, i) => {
+      const o = optByKey(key);
+      const color = COMPARE_PALETTE[i % COMPARE_CAP];
+      return {
+        label: o ? o.label : key,
+        data: lineFor(key),
+        borderColor: color, backgroundColor: color + '20', pointBackgroundColor: color,
+        tension: 0.4, pointRadius: 3, borderWidth: 2, fill: false, spanGaps: true, yAxisID: 'y'
+      };
+    });
+
+    // Single-product extra (§06 overlays the set-value line when exactly one
+    // product is charted) — preserves the old one-product richness.
+    let extraScales = {};
+    const hasExtra = mode === 'product' && sel.length === 1 && !!cfg.singleExtra;
+    if (hasExtra) {
+      const ex = cfg.singleExtra(sel[0]);
+      if (ex) { datasets.push(ex.dataset); extraScales = ex.scale; }
+    }
+
+    const scales = Object.assign(
+      { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } } },
+      mode === 'set' ? cfg.setScale() : cfg.productScale(hasExtra),
+      extraScales
+    );
+
+    if (chart) chart.destroy();
+    chart = new Chart(el(cfg.canvasId), {
+      type: 'line',
+      data: { labels: [...histDates], datasets },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
+          tooltip: { callbacks: Object.assign(
+            { label: ctx => cfg.tooltip(ctx, mode) },
+            cfg.afterBody ? { afterBody: cfg.afterBody } : {}
+          ) }
+        },
+        scales
+      }
+    });
+  }
+
+  function sync() { refreshAddSelect(); renderChips(); render(); }
+
+  // Drop selections that vanished (data reload / type filter), seed a default
+  // when empty, then re-sync. Public — called after data loads and on filter change.
+  function refresh() {
+    const valid = new Set(options().map(o => o.key));
+    sel = sel.filter(k => valid.has(k));
+    if (!sel.length) {
+      const opts = options();
+      const seed = opts.find(o => o.key === cfg.defaultKey) || opts[0];
+      if (seed) sel = [seed.key];
+    }
+    if (sel.length > COMPARE_CAP) sel = sel.slice(0, COMPARE_CAP);
+    sync();
+  }
+
+  function init() {
+    const mg = el(cfg.modeId);
+    if (mg) mg.querySelectorAll('.pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (mode === btn.dataset.mode) return;
+        mode = btn.dataset.mode;
+        mg.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+        sel = [];
+        refresh();
+      });
+    });
+    const s = el(cfg.addId);
+    if (s) s.addEventListener('change', e => {
+      const key = e.target.value;
+      if (key && !sel.includes(key) && sel.length < COMPARE_CAP) sel.push(key);
+      sync();
+    });
+    refresh();
+  }
+
+  return { init, refresh };
 }
 
-function renderTrendChart() {
-  const h = historicalData[trendProduct];
-  if (!h) return;
-  const validDates = histDates.filter((_, i) => h.price[i] != null || h.setVal[i] != null);
-  const priceData = h.price.filter(v => v != null);
-  const svData = h.setVal.filter(v => v != null);
-
-  if (trendChart) trendChart.destroy();
-  trendChart = new Chart(document.getElementById('trend-chart'), {
-    type: 'line',
-    data: {
-      labels: validDates,
-      datasets: [
-        {
-          label: 'Product Price (€)',
-          data: priceData,
-          borderColor: '#f5c842',
-          backgroundColor: 'rgba(245,200,66,0.08)',
-          tension: 0.4, pointRadius: 4, pointBackgroundColor: '#f5c842', fill: true,
-          yAxisID: 'yPrice'
-        },
-        {
-          label: 'Set Value (€)',
-          data: svData,
-          borderColor: '#4fc3f7',
-          backgroundColor: 'rgba(79,195,247,0.05)',
-          tension: 0.4, pointRadius: 4, pointBackgroundColor: '#4fc3f7', fill: false,
-          yAxisID: 'ySetVal'
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
-        tooltip: { callbacks: { label: ctx => ` €${ctx.parsed.y.toLocaleString('de-DE')}` } }
+// §06 Price History — raw € price per product; set mode rolls up as average
+// price-per-booster (a raw-€ average across a box and a bundle is meaningless).
+const cmpHist = createCompareView({
+  canvasId: 'trend-chart', modeId: 'hist-mode', addId: 'hist-add', chipsId: 'hist-chips',
+  defaultKey: 'Surging Sparks Booster Box',
+  productLine: name => { const h = historicalData[name]; return h ? h.price.slice() : []; },
+  setMemberLine: name => {
+    const h = historicalData[name];
+    const p = products.find(x => x.name === name);
+    const b = p ? boostersFromType(p.type) : null;
+    if (!h || !b) return [];
+    return h.price.map(v => v != null ? parseFloat((v / b).toFixed(2)) : null);
+  },
+  productScale: hasExtra => ({
+    y: {
+      type: 'linear', position: 'left', grid: { color: 'rgba(255,255,255,0.05)' },
+      ticks: { color: '#8b8fa3', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
+      title: { display: true, text: hasExtra ? 'Product Price' : 'Price (€)', color: '#8b8fa3', font: { family: 'DM Mono', size: 9 } }
+    }
+  }),
+  setScale: () => ({
+    y: {
+      grid: { color: 'rgba(255,255,255,0.05)' },
+      ticks: { color: '#8b8fa3', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toFixed(1) },
+      title: { display: true, text: '€ / Booster', color: '#8b8fa3', font: { family: 'DM Mono', size: 9 } }
+    }
+  }),
+  singleExtra: name => {
+    const h = historicalData[name];
+    if (!h) return null;
+    return {
+      dataset: {
+        label: 'Set Value (€)', data: h.setVal.slice(),
+        borderColor: '#f4c651', backgroundColor: 'rgba(244,198,81,0.05)',
+        tension: 0.4, pointRadius: 3, borderWidth: 2, borderDash: [5, 4],
+        fill: false, spanGaps: true, yAxisID: 'ySetVal'
       },
-      scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
-        yPrice: {
-          type: 'linear', position: 'left',
-          grid: { color: 'rgba(255,255,255,0.05)' },
-          ticks: { color: '#f5c842', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
-          title: { display: true, text: 'Product Price', color: '#f5c842', font: { family: 'DM Mono', size: 9 } }
-        },
+      scale: {
         ySetVal: {
-          type: 'linear', position: 'right',
-          grid: { drawOnChartArea: false },
-          ticks: { color: '#4fc3f7', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
-          title: { display: true, text: 'Set Value', color: '#4fc3f7', font: { family: 'DM Mono', size: 9 } }
+          type: 'linear', position: 'right', grid: { drawOnChartArea: false },
+          ticks: { color: '#f4c651', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
+          title: { display: true, text: 'Set Value', color: '#f4c651', font: { family: 'DM Mono', size: 9 } }
         }
       }
-    }
-  });
-}
+    };
+  },
+  tooltip: (ctx, mode) => ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? '€' + ctx.parsed.y.toLocaleString('de-DE') : '—'}${mode === 'set' && ctx.dataset.yAxisID === 'y' ? ' /booster' : ''}`
+});
 
 // ============================================================
 // SCATTER CHART
@@ -2325,18 +2513,22 @@ function renderTrendChart() {
 let scatterChart = null;
 function renderScatterChart() {
   const typeColors = { BOX: '#4fc3f7', ETB: '#81c784', BUNDLE: '#f5c842' };
-  const datasets = ['BOX', 'ETB', 'BUNDLE'].map(type => ({
+  const pool = visibleProducts();
+  // Global type filter: show only the active type's series (all three when ALL).
+  const types = activeType === 'ALL' ? ['BOX', 'ETB', 'BUNDLE'] : [activeType];
+  const datasets = types.map(type => ({
     label: type,
-    data: products.filter(p => p.type === type).map(p => ({ x: p.age, y: p.svPerBooster, name: p.name })),
+    data: pool.filter(p => p.type === type).map(p => ({ x: p.age, y: p.svPerBooster, name: p.name })),
     backgroundColor: typeColors[type] + 'bb',
     pointRadius: 6,
     pointHoverRadius: 8
   }));
 
-  // Overlay the fitted "expected value for age" line (see Relative Value section)
+  // Overlay the fitted "expected value for age" line (the whole-catalogue age
+  // trend — kept global so it's a stable reference even when a type is filtered).
   const scatterFit = ageFit;
-  if (scatterFit) {
-    const xs = products.map(p => p.age);
+  if (scatterFit && pool.length) {
+    const xs = pool.map(p => p.age);
     const xmin = Math.min(...xs), xmax = Math.max(...xs);
     datasets.push({
       type: 'line',
@@ -2390,143 +2582,77 @@ products.forEach(p => {
   if (p.setVal && p.svPerBooster) svbDivisor[p.name] = p.setVal / p.svPerBooster;
 });
 
-let ratioChart = null;
-let ratioProduct = "Surging Sparks Booster Box";
-let ratioCompare = "";
+// Short product label for chart legends/chips (drops the product-type suffix).
+function shortName(name) {
+  return name.replace(' Booster Box','').replace(' Booster Bundle','').replace(' Elite Trainer Box','').replace(' ETB','');
+}
 
-function getSVBSeries(name) {
+// SV/Booster over time for one product: setVal[i] ÷ the product's latest
+// price-per-booster (svbDivisor), so the series moves with set value and matches
+// the board's svPerBooster exactly. Shared by product lines and set roll-ups.
+function svbSeries(name) {
   const h = historicalData[name];
   const divisor = svbDivisor[name];
   if (!h || !divisor) return [];
   return h.setVal.map(sv => sv != null ? parseFloat((sv / divisor).toFixed(2)) : null);
 }
 
-function getSVBLabels(name) {
-  const h = historicalData[name];
-  if (!h) return histDates;
-  return histDates.filter((_, i) => h.setVal[i] != null);
-}
-
-function svbTrendColor(series) {
-  const valid = series.filter(v => v != null);
-  if (valid.length < 2) return '#6b6f85';
-  const delta = valid[valid.length - 1] - valid[valid.length - 2];
-  if (delta > 2) return '#81c784';
-  if (delta < -2) return '#e8473f';
-  return '#f5c842';
-}
-
-function shortName(name) {
-  return name.replace(' Booster Box','').replace(' Booster Bundle','').replace(' Elite Trainer Box','').replace(' ETB','');
-}
-
-function populateRatioSelects() {
-  const names = Object.keys(historicalData);
-  const main = document.getElementById('ratio-product-select');
-  const compare = document.getElementById('ratio-compare-select');
-  names.forEach(name => {
-    [main, compare].forEach((sel, si) => {
-      const opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = name;
-      if (si === 0 && name === ratioProduct) opt.selected = true;
-      sel.appendChild(opt);
-    });
-  });
-  main.addEventListener('change', e => { ratioProduct = e.target.value; renderRatioChart(); });
-  compare.addEventListener('change', e => { ratioCompare = e.target.value; renderRatioChart(); });
-}
-
-function renderRatioChart() {
-  const series1 = getSVBSeries(ratioProduct);
-  const labels1 = getSVBLabels(ratioProduct);
-  const color1 = svbTrendColor(series1);
-  const valid1 = series1.filter(v => v != null);
-
-  const datasets = [{
-    label: shortName(ratioProduct),
-    data: valid1,
-    borderColor: color1,
-    backgroundColor: color1 + '18',
-    tension: 0.4, pointRadius: 5, pointBackgroundColor: color1,
-    fill: true, yAxisID: 'y'
-  }];
-
-  let labels = labels1;
-
-  if (ratioCompare && ratioCompare !== ratioProduct && historicalData[ratioCompare]) {
-    const series2 = getSVBSeries(ratioCompare);
-    const valid2 = series2.filter(v => v != null);
-    const color2 = '#4fc3f7';
-    datasets.push({
-      label: shortName(ratioCompare),
-      data: valid2,
-      borderColor: color2,
-      backgroundColor: color2 + '12',
-      tension: 0.4, pointRadius: 5, pointBackgroundColor: color2,
-      fill: false, yAxisID: 'y'
-    });
-    const labels2 = getSVBLabels(ratioCompare);
-    if (labels2.length > labels.length) labels = labels2;
-  }
-
-  if (ratioChart) ratioChart.destroy();
-  ratioChart = new Chart(document.getElementById('ratio-chart'), {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
-        tooltip: {
-          callbacks: {
-            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}× booster cost`,
-            afterBody: (items) => {
-              const v = items[0]?.parsed?.y;
-              if (v == null) return '';
-              if (v >= 30) return ['', '🟢 Strong value vs booster cost'];
-              if (v >= 15) return ['', '🟡 Decent value — worth watching'];
-              return ['', '🔴 Low value vs booster cost'];
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          grid: { color: 'rgba(255,255,255,0.05)' },
-          ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } }
-        },
-        y: {
-          grid: { color: 'rgba(255,255,255,0.05)' },
-          ticks: {
-            color: '#aaa',
-            font: { family: 'DM Mono', size: 10 },
-            callback: v => v.toFixed(0) + '×'
-          },
-          title: {
-            display: true,
-            text: 'SV / Booster (× booster cost)',
-            color: '#6b6f85',
-            font: { family: 'DM Mono', size: 10 }
-          }
-        }
-      }
+function svbYScale() {
+  return {
+    y: {
+      grid: { color: 'rgba(255,255,255,0.05)' },
+      ticks: { color: '#8b8fa3', font: { family: 'DM Mono', size: 10 }, callback: v => v.toFixed(0) + '×' },
+      title: { display: true, text: 'SV / Booster (× booster cost)', color: '#8b8fa3', font: { family: 'DM Mono', size: 9 } }
     }
-  });
+  };
 }
+
+// §08 Trend Over Time — SV/Booster; product and set roll-up use the same metric
+// (directly comparable across BOX/ETB/BUNDLE), so a set line is the mean of its
+// members' SV/Booster series.
+const cmpSvb = createCompareView({
+  canvasId: 'ratio-chart', modeId: 'svb-mode', addId: 'svb-add', chipsId: 'svb-chips',
+  defaultKey: 'Surging Sparks Booster Box',
+  productLine: svbSeries,
+  setMemberLine: svbSeries,
+  productScale: () => svbYScale(),
+  setScale: () => svbYScale(),
+  tooltip: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(1) : '—'}× booster cost`,
+  afterBody: items => {
+    const v = items[0]?.parsed?.y;
+    if (v == null) return '';
+    if (v >= 30) return ['', '🟢 Strong value vs booster cost'];
+    if (v >= 15) return ['', '🟡 Decent value — worth watching'];
+    return ['', '🔴 Low value vs booster cost'];
+  }
+});
 
 // ============================================================
 // EVENT LISTENERS
 // ============================================================
-document.querySelectorAll('.pill').forEach(pill => {
+// Board type pills (BOX/ETB/BUNDLE) are now the global type filter: scoped to
+// #type-filters so they don't collide with the comparison views' own mode
+// pills, and they re-render every analytical view — not just the board table.
+document.querySelectorAll('#type-filters .pill').forEach(pill => {
   pill.addEventListener('click', () => {
-    document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('#type-filters .pill').forEach(p => p.classList.remove('active'));
     pill.classList.add('active');
     activeType = pill.dataset.type;
-    updateTable();
+    applyTypeFilter();
   });
 });
+
+// Re-render everything the global type filter scopes: the board plus the
+// analytical charts/tables and the comparison views.
+function applyTypeFilter() {
+  updateTable();
+  renderSVBChart();
+  renderScatterChart();
+  renderRelativeValue();
+  renderMomentum();
+  cmpHist.refresh();
+  cmpSvb.refresh();
+}
 
 document.getElementById('sort-select').addEventListener('change', e => {
   sortKey = e.target.value;
@@ -2760,14 +2886,14 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
     if (p.setVal && p.svPerBooster) svbDivisor[p.name] = p.setVal / p.svPerBooster;
   });
 
-  // Repopulate selects
-  ['trend-product-select','ratio-product-select','ratio-compare-select','scenario-product-select'].forEach(id => {
+  // Repopulate the scenario select (the §06/§08 comparison views manage their
+  // own pickers via cmpHist.refresh()/cmpSvb.refresh() below).
+  ['scenario-product-select'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     const prev = sel.value;
-    sel.innerHTML = id === 'ratio-compare-select' ? '<option value="">+ Compare with...</option>' : '';
-    const pool = id.startsWith('trend') || id.startsWith('ratio')
-      ? Object.keys(historicalData) : products.map(p => p.name);
+    sel.innerHTML = '';
+    const pool = products.map(p => p.name);
     pool.forEach(name => {
       const opt = document.createElement('option');
       opt.value = name; opt.textContent = name;
@@ -2785,9 +2911,6 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   } else {
     Object.keys(productUrls).forEach(k => { if (!newProducts.find(p => p.name === k)) delete productUrls[k]; });
   }
-  trendProduct  = document.getElementById('trend-product-select').value;
-  ratioProduct  = document.getElementById('ratio-product-select').value;
-  ratioCompare  = '';
   scenarioProduct = products[0]?.name || '';
 
   // Re-render everything
@@ -2797,11 +2920,11 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   updateTable();
   updateTopPicks();
   renderSVBChart();
-  renderTrendChart();
+  cmpHist.refresh();
   renderScatterChart();
   renderRelativeValue();
   renderMomentum();
-  renderRatioChart();
+  cmpSvb.refresh();
   initScenario();
 
   renderPortfolio();
@@ -3898,7 +4021,7 @@ function renderRelativeValue() {
     ? `age trend ${fit.b >= 0 ? '+' : ''}${fit.b.toFixed(1)}/yr · R² ${fit.r2.toFixed(2)}`
     : 'flat';
 
-  const rows = products.map(p => {
+  const rows = visibleProducts().map(p => {
     // Floor the fitted expectation at 0 — a linear fit can extrapolate below
     // zero for the oldest products, which would otherwise inflate their delta.
     const expected = Math.max(0, fit ? fit.a + fit.b * p.age : p.svPerBooster);
@@ -3962,7 +4085,7 @@ function renderMomentum() {
     const c = v < -0.05 ? 'var(--accent2)' : 'var(--muted)';
     return `<td class="num" style="color:${c}">${fmt(v, 1)}%</td>`;
   };
-  const rows = products.map(p => ({ p, m: computeMomentum(p.name) }))
+  const rows = visibleProducts().map(p => ({ p, m: computeMomentum(p.name) }))
     .filter(r => r.m)
     .sort((a, b) => (a.m.drawdown ?? 0) - (b.m.drawdown ?? 0)); // deepest dip first
 
@@ -4184,13 +4307,11 @@ updateKPIs();
 updateTable();
 updateTopPicks();
 renderSVBChart();
-populateTrendSelect();
-renderTrendChart();
+cmpHist.init();
 renderScatterChart();
 renderRelativeValue();
 renderMomentum();
-populateRatioSelects();
-renderRatioChart();
+cmpSvb.init();
 populateScenarioSelect();
 initScenario();
 renderPortfolio();
@@ -4428,22 +4549,11 @@ async function loadDemo() {
 }
 
 // Longest common prefix of the product names in a set → a readable set name.
+// Set display name for the demo grouping — delegates to the shared, unit-tested
+// setLabel() in metrics.js so the demo and the §06/§08 comparison views name a
+// set the same way.
 function demoSetName(products) {
-  const names = products.map(p => p.name);
-  if (!names.length) return 'New release';
-  let pfx = names[0];
-  for (const n of names.slice(1)) {
-    let i = 0;
-    while (i < pfx.length && i < n.length && pfx[i] === n[i]) i++;
-    pfx = pfx.slice(0, i);
-  }
-  pfx = pfx.replace(/\s*[-–—]\s*$/, '').trim();
-  // Strip a trailing product-type suffix so single-product sets read as the set
-  // name (e.g. "Phantasmal Flames Booster Box" → "Phantasmal Flames").
-  const stripped = pfx.replace(/\s+(Elite Trainer Box|Booster Box|Booster Bundle|Bundle|ETB)$/i, '').trim();
-  if (stripped.length >= 3) return stripped;
-  if (pfx.length >= 3) return pfx;
-  return names[0] || 'New release';
+  return setLabel(products.map(p => p.name));
 }
 
 function renderDemo(groups) {

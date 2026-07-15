@@ -22,6 +22,9 @@ import {
   FAIR_PRICE_MIN_R2,
   verdict,
   VERDICT,
+  setLabel,
+  groupSets,
+  meanSeries,
 } from '../../metrics.js';
 
 // ── boostersFromType: the fixed physical constants ──────────────
@@ -276,4 +279,55 @@ test('VERDICT thresholds are ordered under < 0 < over', () => {
   assert.ok(VERDICT.UNDER_STRONG < VERDICT.UNDER_SOFT);
   assert.ok(VERDICT.UNDER_SOFT < 0 && 0 < VERDICT.OVER_SOFT);
   assert.ok(VERDICT.OVER_SOFT < VERDICT.OVER_STRONG);
+});
+
+// ── setLabel: name a set from its members' common prefix ────────
+test('setLabel strips the product-type suffix from a common prefix', () => {
+  assert.equal(setLabel(['Surging Sparks Booster Box', 'Surging Sparks Elite Trainer Box']), 'Surging Sparks');
+  assert.equal(setLabel(['Prismatic Evolutions Booster Bundle']), 'Prismatic Evolutions');
+});
+
+test('setLabel falls back to the first name when members share too little', () => {
+  assert.equal(setLabel(['Ab', 'Xy']), 'Ab');
+  assert.equal(setLabel([]), 'New release');
+});
+
+// ── groupSets: group products by release, newest first ──────────
+test('groupSets groups by release date and names each set', () => {
+  const products = [
+    { name: 'Surging Sparks Booster Box', type: 'BOX', release: '2024-11-08' },
+    { name: 'Surging Sparks Elite Trainer Box', type: 'ETB', release: '2024-11-08' },
+    { name: 'Prismatic Evolutions Booster Box', type: 'BOX', release: '2025-01-17' },
+  ];
+  const sets = groupSets(products);
+  assert.equal(sets.length, 2);
+  // newest release first
+  assert.equal(sets[0].label, 'Prismatic Evolutions');
+  assert.equal(sets[1].label, 'Surging Sparks');
+  assert.deepEqual(sets[1].members, ['Surging Sparks Booster Box', 'Surging Sparks Elite Trainer Box']);
+});
+
+test('groupSets over a type-filtered pool rolls a set up from members in scope', () => {
+  // Passing only ETBs mimics the global "ETB only" filter: the BOX-only set drops out.
+  const etbsOnly = [
+    { name: 'Surging Sparks Elite Trainer Box', type: 'ETB', release: '2024-11-08' },
+  ];
+  const sets = groupSets(etbsOnly);
+  assert.equal(sets.length, 1);
+  assert.deepEqual(sets[0].members, ['Surging Sparks Elite Trainer Box']);
+});
+
+// ── meanSeries: snapshot-aligned mean with gap preservation ─────
+test('meanSeries averages non-null values per index', () => {
+  assert.deepEqual(meanSeries([[10, 20, 30], [20, 40, 60]]), [15, 30, 45]);
+});
+
+test('meanSeries ignores nulls but keeps a genuine all-null gap', () => {
+  // index 1: only the second series has a value → that value; index 2: both null → null
+  assert.deepEqual(meanSeries([[10, null, null], [30, 50, null]]), [20, 50, null]);
+});
+
+test('meanSeries handles a single input and empty input', () => {
+  assert.deepEqual(meanSeries([[4, 8]]), [4, 8]);
+  assert.deepEqual(meanSeries([]), []);
 });
