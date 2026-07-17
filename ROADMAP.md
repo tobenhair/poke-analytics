@@ -357,20 +357,34 @@ visitor on a phone as it does for the maintainer on a desktop.
   must be **EUR** too — which lands conveniently: getmint's Cardmarket-derived
   values are already EUR (no conversion), and a TCGdex singles-sum reads Cardmarket
   EUR as well, so SV/Booster stays coherent with no SEK anywhere in the stored
-  data. Candidate sources: **(a) getmint.app/sets** — "Mint", a TCG
-  tracker that aggregates CardMarket/TCGPlayer and publishes every set's total
-  value on one page, so a single fetch could cover all tracked sets. Attractively
-  small footprint, but: it is an app-style **SPA**, so "download one page" likely
-  yields an empty shell — the real data is a backing **JSON endpoint** to find
-  and use instead of scraping rendered HTML; its values are EUR/USD (need
-  conversion to the price currency); and because its numbers ultimately **derive
-  from Cardmarket**, the reuse/publishing question this section already raises may
-  travel with them, on top of Mint's own ToS (it 403s automated fetches today).
-  **(b) Sum a free singles API per set** — e.g. TCGdex (free, no key, carries
-  Cardmarket single-card prices) totalled across a set's cards: more requests but
-  an official API and no scraping. Prototype getmint's JSON endpoint first for the
-  one-request win; keep the TCGdex-sum as the robust fallback if Mint locks down
-  or its ToS doesn't clear.
+  data. Candidate sources, in preference order: **(a) sum a free singles API
+  per set — the preferred route.** TCGdex is free, needs **no API key**, carries
+  **Cardmarket (EUR) single-card prices**, and is an **official API with no
+  scraping and no ToS ambiguity** — so with prices already normalised to EUR, a
+  per-card sum drops straight in. The one design question is staying a polite
+  citizen of a free service, and it is very controllable: TCGdex publishes **no
+  hard rate limit** but asks callers to be considerate and **cache rather than
+  refetch**. Use the **GraphQL endpoint** (`api.tcgdex.net/v2/graphql`) to pull a
+  whole set's cards and prices in **one query** — ~30 queries covers every tracked
+  set, not thousands of per-card calls; **cache and recompute on a slow cadence**
+  (set values drift slowly — weekly, or monthly for older sets, is plenty),
+  refreshing only the newest/volatile sets often; **self-throttle and stagger**
+  across the run. A scheduled GitHub Action / Edge Function with those controls
+  sits comfortably inside fair-use, which is what makes this the best long-term
+  option. A spike must settle two things: whether the GraphQL response returns a
+  usable **Cardmarket EUR price per card today** (per-variant Cardmarket IDs are
+  still "in development"), and the **definition of the sum** that reproduces the
+  hand-curated Set Value (every card's market price, or chase/holo-rare only) —
+  pin that definition down once and it becomes the canonical formula. **(b)
+  getmint.app/sets — the one-request convenience alternative.** "Mint" aggregates
+  CardMarket/TCGPlayer and publishes every set's total on one page, so a single
+  fetch could cover all sets — but it is an app-style **SPA** (the real data is a
+  backing **JSON endpoint** to find, not the rendered HTML), use its **EUR
+  (Cardmarket)** figure directly (its USD/TCGPlayer one would need conversion),
+  and because its numbers ultimately **derive from Cardmarket** the
+  reuse/publishing question this section already raises may travel with them, on
+  top of Mint's own ToS (it 403s automated fetches today). Good for a fast
+  prototype; **TCGdex is the one to build on.**
 - **Candidate path — a Cardmarket scraper.** The most likely concrete route to
   solving the above: a scraper that fetches sealed-product prices from
   Cardmarket on a schedule and writes the same source-agnostic snapshot rows the
