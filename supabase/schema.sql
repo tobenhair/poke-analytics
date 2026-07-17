@@ -10,7 +10,7 @@
 -- Data model (mirrors the app's in-memory structures):
 --   products       raw product facts        (was the Summary sheet + Links sheet)
 --   snapshots      one row per product/date  (was Historical Data; normalised)
---   user_settings  per-user preferences      (age threshold slider)
+--   user_settings  per-user preferences      (age threshold slider, portfolio currency)
 -- Derived metrics (age, price/booster, SV/booster, score) are NOT stored — the
 -- client recomputes them, exactly as it does for the .xlsx path.
 -- ============================================================
@@ -45,8 +45,12 @@ create index if not exists snapshots_product_idx on public.snapshots (product_id
 -- ── Per-user settings ──
 create table if not exists public.user_settings (
   user_id       uuid primary key references auth.users(id) on delete cascade default auth.uid(),
-  age_threshold numeric not null default 1
+  age_threshold numeric not null default 1,
+  currency      text not null default 'EUR'   -- display currency for the Portfolio tab (€ is canonical)
 );
+-- Idempotent add for deployments created before the currency column existed
+-- (create table if not exists above won't alter an existing table).
+alter table public.user_settings add column if not exists currency text not null default 'EUR';
 
 -- ── Per-user portfolio holdings (private) ──
 -- What a signed-in user owns: quantity + per-unit cost basis (€ paid per box /

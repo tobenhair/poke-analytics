@@ -22,6 +22,13 @@ import {
   FAIR_PRICE_MIN_R2,
   verdict,
   VERDICT,
+  setLabel,
+  groupSets,
+  meanSeries,
+  concentrationShares,
+  rebalanceSuggestions,
+  OVER_EXPOSED_SHARE,
+  portfolioValueSeries,
 } from '../../metrics.js';
 
 // ── boostersFromType: the fixed physical constants ──────────────
@@ -276,4 +283,141 @@ test('VERDICT thresholds are ordered under < 0 < over', () => {
   assert.ok(VERDICT.UNDER_STRONG < VERDICT.UNDER_SOFT);
   assert.ok(VERDICT.UNDER_SOFT < 0 && 0 < VERDICT.OVER_SOFT);
   assert.ok(VERDICT.OVER_SOFT < VERDICT.OVER_STRONG);
+});
+
+// ── setLabel: name a set from its members' common prefix ────────
+test('setLabel strips the product-type suffix from a common prefix', () => {
+  assert.equal(setLabel(['Surging Sparks Booster Box', 'Surging Sparks Elite Trainer Box']), 'Surging Sparks');
+  assert.equal(setLabel(['Prismatic Evolutions Booster Bundle']), 'Prismatic Evolutions');
+});
+
+test('setLabel falls back to the first name when members share too little', () => {
+  assert.equal(setLabel(['Ab', 'Xy']), 'Ab');
+  assert.equal(setLabel([]), 'New release');
+});
+
+// ── groupSets: group products by release, newest first ──────────
+test('groupSets groups by release date and names each set', () => {
+  const products = [
+    { name: 'Surging Sparks Booster Box', type: 'BOX', release: '2024-11-08' },
+    { name: 'Surging Sparks Elite Trainer Box', type: 'ETB', release: '2024-11-08' },
+    { name: 'Prismatic Evolutions Booster Box', type: 'BOX', release: '2025-01-17' },
+  ];
+  const sets = groupSets(products);
+  assert.equal(sets.length, 2);
+  // newest release first
+  assert.equal(sets[0].label, 'Prismatic Evolutions');
+  assert.equal(sets[1].label, 'Surging Sparks');
+  assert.deepEqual(sets[1].members, ['Surging Sparks Booster Box', 'Surging Sparks Elite Trainer Box']);
+});
+
+test('groupSets over a type-filtered pool rolls a set up from members in scope', () => {
+  // Passing only ETBs mimics the global "ETB only" filter: the BOX-only set drops out.
+  const etbsOnly = [
+    { name: 'Surging Sparks Elite Trainer Box', type: 'ETB', release: '2024-11-08' },
+  ];
+  const sets = groupSets(etbsOnly);
+  assert.equal(sets.length, 1);
+  assert.deepEqual(sets[0].members, ['Surging Sparks Elite Trainer Box']);
+});
+
+// ── meanSeries: snapshot-aligned mean with gap preservation ─────
+test('meanSeries averages non-null values per index', () => {
+  assert.deepEqual(meanSeries([[10, 20, 30], [20, 40, 60]]), [15, 30, 45]);
+});
+
+test('meanSeries ignores nulls but keeps a genuine all-null gap', () => {
+  // index 1: only the second series has a value → that value; index 2: both null → null
+  assert.deepEqual(meanSeries([[10, null, null], [30, 50, null]]), [20, 50, null]);
+});
+
+test('meanSeries handles a single input and empty input', () => {
+  assert.deepEqual(meanSeries([[4, 8]]), [4, 8]);
+  assert.deepEqual(meanSeries([]), []);
+});
+
+// ── concentrationShares: portfolio spread per bucket ────────────
+test('concentrationShares aggregates by bucket and computes value shares', () => {
+  const rows = [
+    { bucket: 'A', value: 60, cost: 50 },
+    { bucket: 'A', value: 20, cost: 10 },
+    { bucket: 'B', value: 20, cost: 20 },
+  ];
+  const { totalValue, totalCost, buckets } = concentrationShares(rows);
+  assert.equal(totalValue, 100);
+  assert.equal(totalCost, 80);
+  assert.equal(buckets[0].bucket, 'A');      // sorted by value desc
+  assert.equal(buckets[0].value, 80);
+  assert.equal(buckets[0].valueShare, 0.8);
+  assert.equal(buckets[0].over, true);       // 0.8 ≥ 0.4
+  assert.equal(buckets[1].bucket, 'B');
+  assert.equal(buckets[1].valueShare, 0.2);
+  assert.equal(buckets[1].over, false);
+});
+
+test('concentrationShares never divides by zero on an empty/zero portfolio', () => {
+  const empty = concentrationShares([]);
+  assert.equal(empty.totalValue, 0);
+  assert.deepEqual(empty.buckets, []);
+  const zero = concentrationShares([{ bucket: 'X', value: 0, cost: 0 }]);
+  assert.equal(zero.buckets[0].valueShare, 0);
+  assert.equal(zero.buckets[0].over, false);
+});
+
+test('OVER_EXPOSED_SHARE is the 40% concentration threshold', () => {
+  assert.equal(OVER_EXPOSED_SHARE, 0.4);
+  const { buckets } = concentrationShares([
+    { bucket: 'A', value: 40, cost: 40 },
+    { bucket: 'B', value: 60, cost: 60 },
+  ]);
+  assert.equal(buckets.find(b => b.bucket === 'A').over, true);  // exactly 0.4 → over
+});
+
+// ── rebalanceSuggestions: fair-price-aware diversifiers ─────────
+test('rebalanceSuggestions ranks under-fair-price diversifiers, unheld sets first', () => {
+  const products = [
+    { name: 'Held deal',  type: 'BOX', setKey: 's1', fairGap: -20, fairTrusted: true },
+    { name: 'New deal',   type: 'ETB', setKey: 's2', fairGap: -10, fairTrusted: true },
+    { name: 'Over set',   type: 'BOX', setKey: 's3', fairGap: -30, fairTrusted: true },
+    { name: 'Not a deal', type: 'ETB', setKey: 's4', fairGap:   5, fairTrusted: true },
+    { name: 'Weak fit',   type: 'ETB', setKey: 's5', fairGap: -40, fairTrusted: false },
+  ];
+  const out = rebalanceSuggestions(products, {
+    overSets: new Set(['s3']), overTypes: new Set(), heldSets: new Set(['s1']),
+  });
+  // unheld 'New deal' outranks held 'Held deal'; over-exposed set, non-deal and
+  // weak-fit products are all excluded.
+  assert.deepEqual(out.map(o => o.name), ['New deal', 'Held deal']);
+  assert.equal(out[0].newSet, true);
+  assert.equal(out[1].newSet, false);
+});
+
+test('rebalanceSuggestions excludes over-exposed types and honours the limit', () => {
+  const products = [
+    { name: 'A', type: 'BOX', setKey: 'a', fairGap: -10, fairTrusted: true },
+    { name: 'B', type: 'ETB', setKey: 'b', fairGap: -20, fairTrusted: true },
+    { name: 'C', type: 'BOX', setKey: 'c', fairGap: -30, fairTrusted: true },
+  ];
+  const excl = rebalanceSuggestions(products, { overTypes: new Set(['ETB']) });
+  assert.deepEqual(excl.map(o => o.name).sort(), ['A', 'C']); // ETB 'B' gone
+  const limited = rebalanceSuggestions(products, { limit: 1 });
+  assert.equal(limited.length, 1);
+});
+
+// ── portfolioValueSeries: total holdings value across snapshots ──
+test('portfolioValueSeries sums qty×price per snapshot, carry-filling gaps', () => {
+  const holdings = { A: { quantity: 2 }, B: { quantity: 1 } };
+  const hist = {
+    A: { price: [10, null, 20], setVal: [] },
+    B: { price: [null, 5, 6],  setVal: [] },
+  };
+  // A carry-fills to [10,10,20]; B back-fills the leading gap to [5,5,6].
+  // i0: 2·10 + 1·5 = 25; i1: 2·10 + 1·5 = 25; i2: 2·20 + 1·6 = 46
+  assert.deepEqual(portfolioValueSeries(holdings, hist, 3), [25, 25, 46]);
+});
+
+test('portfolioValueSeries returns [] when nothing is valuable', () => {
+  assert.deepEqual(portfolioValueSeries({}, {}, 3), []);
+  assert.deepEqual(portfolioValueSeries({ A: { quantity: 0 } }, { A: { price: [1] } }, 1), []);
+  assert.deepEqual(portfolioValueSeries({ A: { quantity: 1 } }, { A: { price: [null] } }, 1), []);
 });

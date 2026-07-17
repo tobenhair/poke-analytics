@@ -164,6 +164,69 @@ export function verdict({ fairGap, drawdown, svTrend, fairTrusted }) {
   return { label: clause ? `${label} · ${clause}` : label, tone, rank };
 }
 
+// ── Set identity & roll-up helpers (the expanded comparison views) ──
+// A "set" is every product sharing a release date; there is no explicit set
+// field. These pure helpers let the §06/§08 comparison charts roll products up
+// to set level, and are the single source of truth for set naming (index.html's
+// demoSetName delegates here) so the demo grouping and the comparison views can
+// never disagree.
+
+// The display name for a set: the longest common prefix of its members' names
+// with a trailing product-type suffix stripped, e.g.
+// ["Surging Sparks Booster Box", "Surging Sparks ETB"] → "Surging Sparks".
+// Falls back to the first name when the members share too little to name a set.
+export function setLabel(names) {
+  if (!names.length) return 'New release';
+  let pfx = names[0];
+  for (const n of names.slice(1)) {
+    let i = 0;
+    while (i < pfx.length && i < n.length && pfx[i] === n[i]) i++;
+    pfx = pfx.slice(0, i);
+  }
+  pfx = pfx.replace(/\s*[-–—]\s*$/, '').trim();
+  const stripped = pfx.replace(/\s+(Elite Trainer Box|Booster Box|Booster Bundle|Bundle|ETB)$/i, '').trim();
+  if (stripped.length >= 3) return stripped;
+  if (pfx.length >= 3) return pfx;
+  return names[0] || 'New release';
+}
+
+// Group products into sets by shared release date. Returns
+// [{ release, label, members: [name…] }, …] sorted newest release first.
+// Call it on the *already type-filtered* product pool so "ETB only" rolls a set
+// up from its ETB members alone (and drops sets with no member in scope).
+export function groupSets(products) {
+  const byRelease = new Map();
+  products.forEach(p => {
+    if (!byRelease.has(p.release)) byRelease.set(p.release, []);
+    byRelease.get(p.release).push(p.name);
+  });
+  const sets = [];
+  for (const [release, members] of byRelease) {
+    sets.push({ release, label: setLabel(members), members });
+  }
+  sets.sort((a, b) => (a.release < b.release ? 1 : a.release > b.release ? -1 : 0));
+  return sets;
+}
+
+// Aggregate several snapshot-aligned series (same shared date axis) into one
+// mean series: at each index the mean of the non-null values across inputs, or
+// null when every input is null there (a genuine gap the chart should span).
+// Rolls a set's member products up into one comparison line. Rounded to 2dp to
+// match the per-product series the charts already plot.
+export function meanSeries(seriesList) {
+  const len = seriesList.reduce((m, s) => Math.max(m, s.length), 0);
+  const out = [];
+  for (let i = 0; i < len; i++) {
+    let sum = 0, n = 0;
+    for (const s of seriesList) {
+      const v = s[i];
+      if (v != null && isFinite(v)) { sum += v; n++; }
+    }
+    out.push(n ? parseFloat((sum / n).toFixed(2)) : null);
+  }
+  return out;
+}
+
 export function deriveProducts(newProducts, newHistoricalData) {
   const derivationErrors = [];
   const today = new Date();
@@ -197,4 +260,96 @@ export function deriveProducts(newProducts, newHistoricalData) {
     }
   });
   return derivationErrors;
+}
+
+// ── Portfolio balancer: concentration & fair-price-aware rebalancing ──
+// Pure helpers for the signed-in Portfolio tab. The caller enriches its holdings
+// with each product's set/era/type and fair-price gap and passes plain rows in;
+// nothing here touches the DOM or app globals.
+
+// ≥ this share of portfolio value sitting in a single bucket → a concentration
+// flag ("X% of your value rides on one set"). 40% is deliberately conservative:
+// below it a single set's crash can't sink the whole position.
+export const OVER_EXPOSED_SHARE = 0.4;
+
+// Sum value & cost per bucket and each bucket's share of the totals.
+// rows: [{ bucket, value, cost }] (one per holding). Returns
+// { totalValue, totalCost, buckets: [{ bucket, value, cost, valueShare, costShare, over }] }
+// sorted by value desc; `over` flags buckets at/above OVER_EXPOSED_SHARE of value.
+// Shares are 0 (not NaN) for an empty or zero-value portfolio.
+export function concentrationShares(rows) {
+  const map = new Map();
+  let totalValue = 0, totalCost = 0;
+  for (const r of rows) {
+    const v = Number(r.value) || 0, c = Number(r.cost) || 0;
+    totalValue += v; totalCost += c;
+    const b = map.get(r.bucket) || { bucket: r.bucket, value: 0, cost: 0 };
+    b.value += v; b.cost += c;
+    map.set(r.bucket, b);
+  }
+  const buckets = [...map.values()].map(b => ({
+    bucket: b.bucket,
+    value: b.value,
+    cost: b.cost,
+    valueShare: totalValue > 0 ? b.value / totalValue : 0,
+    costShare:  totalCost  > 0 ? b.cost  / totalCost  : 0,
+    over: totalValue > 0 && b.value / totalValue >= OVER_EXPOSED_SHARE,
+  }));
+  buckets.sort((a, b) => b.value - a.value);
+  return { totalValue, totalCost, buckets };
+}
+
+// Rank rebalance buys: products under fair price that diversify the position.
+// products: [{ name, type, setKey, fairGap, fairTrusted }]. `opts`:
+//   overSets/overTypes — Sets of bucket keys flagged over-exposed (excluded, as
+//     buying into them wouldn't rebalance);
+//   heldSets — Set of set keys already held (unheld sets rank first);
+//   limit — max suggestions (default 5).
+// Only trusted, under-fair-price (gap ≤ VERDICT.UNDER_SOFT) products qualify;
+// results are sorted new-set-first, then best deal (most negative gap).
+export function rebalanceSuggestions(products, opts = {}) {
+  const overSets  = opts.overSets  || new Set();
+  const overTypes = opts.overTypes || new Set();
+  const heldSets  = opts.heldSets  || new Set();
+  const limit     = opts.limit != null ? opts.limit : 5;
+  return products
+    .filter(p => p.fairTrusted && p.fairGap != null && p.fairGap <= VERDICT.UNDER_SOFT)
+    .filter(p => !overSets.has(p.setKey) && !overTypes.has(p.type))
+    .map(p => ({ ...p, newSet: !heldSets.has(p.setKey) }))
+    .sort((a, b) => (a.newSet !== b.newSet ? (a.newSet ? -1 : 1) : a.fairGap - b.fairGap))
+    .slice(0, limit);
+}
+
+// ── Portfolio value over time (the change chart) ──
+// Total € value of the given holdings at each snapshot date: each holding valued
+// at qty × its tracked price, with gaps carry-filled from the nearest known
+// price (forward, then backward for leading gaps) so the line is continuous
+// rather than dropping to zero on a missing snapshot. Values the *current*
+// basket back across history (acquisition dates aren't tracked). holdings:
+// { name: { quantity } }; historicalData: { name: { price: [...] } } aligned to
+// the shared date axis. Returns number[] of length dateCount, or [] when nothing
+// is valuable. Display-only currency conversion happens in the caller; € here.
+function carryFill(arr, n) {
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(arr && arr[i] != null ? arr[i] : null);
+  let last = null;
+  for (let i = 0; i < n; i++) { if (out[i] != null) last = out[i]; else if (last != null) out[i] = last; }
+  let next = null;
+  for (let i = n - 1; i >= 0; i--) { if (out[i] != null) next = out[i]; else if (next != null) out[i] = next; }
+  return out;
+}
+
+export function portfolioValueSeries(holdings, historicalData, dateCount) {
+  const totals = new Array(dateCount).fill(0);
+  let any = false;
+  for (const [name, h] of Object.entries(holdings || {})) {
+    const qty  = Number(h && h.quantity) || 0;
+    const hist = historicalData ? historicalData[name] : null;
+    if (!qty || !hist || !hist.price) continue;
+    const filled = carryFill(hist.price, dateCount);
+    for (let i = 0; i < dateCount; i++) {
+      if (filled[i] != null) { totals[i] += filled[i] * qty; any = true; }
+    }
+  }
+  return any ? totals : [];
 }

@@ -235,6 +235,52 @@
   .pill:hover { border-color: rgba(244,198,81,0.4); color: var(--text); }
   .pill.active { background: var(--accent-soft); color: var(--accent); border-color: rgba(244,198,81,0.45); }
 
+  /* Comparison-series controls (§06/§08 multi-series picker). Chips manage the
+     selection (add via the dropdown, remove via ×); the chart's own legend is
+     the show/hide toggle. Built from existing tokens. */
+  .cmp-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .cmp-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 2px; }
+  .cmp-chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 7px 5px 10px; border-radius: 999px;
+    border: 1px solid var(--hairline); background: var(--bg3);
+    font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--text);
+    letter-spacing: 0.02em;
+  }
+  .cmp-chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .cmp-chip button {
+    border: none; background: transparent; color: var(--muted);
+    cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0 1px;
+    transition: color 0.2s var(--ease);
+  }
+  .cmp-chip button:hover { color: var(--accent2); }
+  .cmp-empty { color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.72rem; letter-spacing: 0.02em; }
+
+  /* Portfolio balancer — concentration bars + rebalance shortlist. Built from
+     tokens: blue = neutral share, red = over-exposed (a risk), green = a deal. */
+  .balancer-flag { padding: 16px 24px; font-size: 0.84rem; color: var(--text); border-bottom: 1px solid var(--hairline); }
+  .balancer-flag.ok { color: var(--muted); }
+  .balancer-flag strong { color: var(--accent2); }
+  .balancer-flag.ok strong { color: var(--text); }
+  .balancer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 26px; padding: 22px 24px; }
+  .conc-group h4, .balancer-suggest h4 { font-family: 'DM Mono', monospace; font-size: 0.68rem; font-weight: 500; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+  .conc-row { margin-bottom: 11px; }
+  .conc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 5px; }
+  .conc-name { font-size: 0.8rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .conc-pct { font-family: 'DM Mono', monospace; font-size: 0.76rem; color: var(--muted); flex-shrink: 0; }
+  .conc-bar { height: 6px; border-radius: 999px; background: var(--bg3); overflow: hidden; }
+  .conc-fill { height: 100%; border-radius: 999px; background: var(--accent3); transition: width 0.4s var(--ease); }
+  .conc-row.over .conc-fill { background: var(--accent2); }
+  .conc-row.over .conc-pct { color: var(--accent2); }
+  .balancer-suggest { border-top: 1px solid var(--hairline); padding: 20px 24px 24px; }
+  .suggest-item { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--hairline); font-size: 0.82rem; }
+  .suggest-item:last-child { border-bottom: none; }
+  .suggest-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .suggest-set { color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.7rem; white-space: nowrap; }
+  .suggest-gap { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 0.76rem; color: var(--accent4); flex-shrink: 0; }
+  .balancer-note, .balancer-empty { color: var(--muted); font-size: 0.82rem; line-height: 1.6; }
+  .balancer-empty { padding: 26px 24px; }
+
   .sort-select {
     padding: 8px 16px;
     border-radius: 999px;
@@ -1031,6 +1077,57 @@
   </div>
 </div>
 
+<!-- Format guide modal — direct child of <body> (not inside #tab-analysis):
+     the tab panes get CSS transforms for the reveal-on-scroll animations, and a
+     transformed ancestor makes position:fixed anchor to that ancestor instead
+     of the viewport, which pushed this overlay far down the page. -->
+<div class="modal-overlay" id="guide-modal">
+  <div class="modal">
+    <button class="modal-close" id="guide-close">✕</button>
+    <h2>📋 File Format Guide</h2>
+    <p class="modal-intro">Your .xlsx file must contain exactly two sheets named <b>Summary</b> and <b>Historical Data</b>. Column names must match exactly (case-sensitive).</p>
+
+    <div class="modal-section">
+      <h3>Sheet 1 — Summary</h3>
+      <p style="font-size:0.75rem; color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product. Each row becomes an entry in the main table.</p>
+      <table class="col-table">
+        <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Full product name — must also appear in Historical Data sheet</td></tr>
+          <tr><td>Type</td><td><span class="tag-req">required</span></td><td>Exactly one of: <b>BOX</b>, <b>ETB</b>, or <b>BUNDLE</b></td></tr>
+          <tr><td>Release Date</td><td><span class="tag-req">required</span></td><td>Date value or text in YYYY-MM-DD format</td></tr>
+          <tr><td>Age (years)</td><td><span class="tag-req">required</span></td><td>Decimal number, e.g. 1.47</td></tr>
+          <tr><td>Current Price (€)</td><td><span class="tag-req">required</span></td><td>Number in cents or euros — must be consistent across rows</td></tr>
+          <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Total set value — same unit as price</td></tr>
+          <tr><td>Price / Booster (€)</td><td><span class="tag-req">required</span></td><td>Current price divided by number of boosters in the product</td></tr>
+          <tr><td>SV / Booster</td><td><span class="tag-req">required</span></td><td>Set Value divided by Price / Booster — a value-for-money ×multiple (how many boosters' price the set is worth), not a euro amount</td></tr>
+          <tr><td>Age Weight</td><td><span class="tag-req">required</span></td><td>Decimal 0–1. Products &lt;1yr are penalised; ≥3yr = 1.0</td></tr>
+          <tr><td>Wtd. Score</td><td><span class="tag-req">required</span></td><td>SV / Booster × Age Weight</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal-section">
+      <h3>Sheet 2 — Historical Data</h3>
+      <p style="font-size:0.75rem; color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product per snapshot. Add a new row each month when you update prices.</p>
+      <table class="col-table">
+        <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Must exactly match the Product name in the Summary sheet</td></tr>
+          <tr><td>Snapshot Date</td><td><span class="tag-req">required</span></td><td>Date label shown on chart axes, must be in <b>YYYY-MM-DD</b> format (ISO 8601), e.g. <b>2026-04-20</b></td></tr>
+          <tr><td>Price (€)</td><td><span class="tag-req">required</span></td><td>Product price at that snapshot. Leave blank if not yet tracked.</td></tr>
+          <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Set value at that snapshot. Leave blank if not yet tracked.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal-note">
+      <b>Monthly workflow:</b> Each month, enter the latest Price and Set Value for each product in the <b>Data Entry</b> tab and click <b>☁ Save to cloud</b> — all charts and signals update automatically. This guide describes the <code style="font-family:'DM Mono',monospace;">.xlsx</code> layout used by the <b>Export</b> backup and the offline fallback file.<br><br>
+      <b>New products:</b> Add a new row to Summary, then add matching rows to Historical Data. The product name must match exactly in both sheets.
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ PRODUCT DRILL-DOWN ═══════════
      One product, one screen: the verdict and its ingredients, fair price,
      momentum/drawdown, price history with today's fair-price band overlaid,
@@ -1295,54 +1392,6 @@
     <button class="guide-btn admin-only" id="guide-btn">📋 Format Guide</button>
   </div>
 
-  <!-- Format guide modal -->
-  <div class="modal-overlay" id="guide-modal">
-    <div class="modal">
-      <button class="modal-close" id="guide-close">✕</button>
-      <h2>📋 File Format Guide</h2>
-      <p class="modal-intro">Your .xlsx file must contain exactly two sheets named <b>Summary</b> and <b>Historical Data</b>. Column names must match exactly (case-sensitive).</p>
-
-      <div class="modal-section">
-        <h3>Sheet 1 — Summary</h3>
-        <p style="font-size:0.75rem; color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product. Each row becomes an entry in the main table.</p>
-        <table class="col-table">
-          <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
-          <tbody>
-            <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Full product name — must also appear in Historical Data sheet</td></tr>
-            <tr><td>Type</td><td><span class="tag-req">required</span></td><td>Exactly one of: <b>BOX</b>, <b>ETB</b>, or <b>BUNDLE</b></td></tr>
-            <tr><td>Release Date</td><td><span class="tag-req">required</span></td><td>Date value or text in YYYY-MM-DD format</td></tr>
-            <tr><td>Age (years)</td><td><span class="tag-req">required</span></td><td>Decimal number, e.g. 1.47</td></tr>
-            <tr><td>Current Price (€)</td><td><span class="tag-req">required</span></td><td>Number in cents or euros — must be consistent across rows</td></tr>
-            <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Total set value — same unit as price</td></tr>
-            <tr><td>Price / Booster (€)</td><td><span class="tag-req">required</span></td><td>Current price divided by number of boosters in the product</td></tr>
-            <tr><td>SV / Booster</td><td><span class="tag-req">required</span></td><td>Set Value divided by Price / Booster — a value-for-money ×multiple (how many boosters' price the set is worth), not a euro amount</td></tr>
-            <tr><td>Age Weight</td><td><span class="tag-req">required</span></td><td>Decimal 0–1. Products &lt;1yr are penalised; ≥3yr = 1.0</td></tr>
-            <tr><td>Wtd. Score</td><td><span class="tag-req">required</span></td><td>SV / Booster × Age Weight</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="modal-section">
-        <h3>Sheet 2 — Historical Data</h3>
-        <p style="font-size:0.75rem; color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product per snapshot. Add a new row each month when you update prices.</p>
-        <table class="col-table">
-          <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
-          <tbody>
-            <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Must exactly match the Product name in the Summary sheet</td></tr>
-            <tr><td>Snapshot Date</td><td><span class="tag-req">required</span></td><td>Date label shown on chart axes, must be in <b>YYYY-MM-DD</b> format (ISO 8601), e.g. <b>2026-04-20</b></td></tr>
-            <tr><td>Price (€)</td><td><span class="tag-req">required</span></td><td>Product price at that snapshot. Leave blank if not yet tracked.</td></tr>
-            <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Set value at that snapshot. Leave blank if not yet tracked.</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="modal-note">
-        <b>Monthly workflow:</b> Each month, enter the latest Price and Set Value for each product in the <b>Data Entry</b> tab and click <b>☁ Save to cloud</b> — all charts and signals update automatically. This guide describes the <code style="font-family:'DM Mono',monospace;">.xlsx</code> layout used by the <b>Export</b> backup and the offline fallback file.<br><br>
-        <b>New products:</b> Add a new row to Summary, then add matching rows to Historical Data. The product name must match exactly in both sheets.
-      </div>
-    </div>
-  </div>
-
   <!-- KPIs -->
   <p class="kpi-intro"><strong>At-a-glance headline metrics.</strong> <em>Products Tracked</em> is the size of your dataset · <em>Top Score</em> is the current #1 by Weighted Score · <em>Best Value / Booster</em> is the highest SV/Booster (set value as a multiple of one booster's cost) · <em>Newest Release</em> flags the most recent set. Every metric is explained in the numbered sections below.</p>
   <div class="kpi-row fade-in" style="animation-delay:0.05s">
@@ -1502,12 +1551,19 @@
 
   <!-- ── Section: price history (full width) ── -->
   <div class="section-eyebrow">06 — Price History</div>
-  <p class="section-desc"><strong>What:</strong> the tracked <em>price over time</em> for one selected product (choose from the dropdown). <strong>How to read:</strong> a falling line means it's getting cheaper — pair a dip here with a steady set value (sections 05 &amp; 07) to spot a buying window.</p>
+  <p class="section-desc"><strong>What:</strong> tracked <em>price over time</em> — add several products, or switch to <em>Sets</em> to compare whole releases (a set's line is the average price per booster of its products). <strong>How to read:</strong> a falling line means it's getting cheaper; with a single product the set value is overlaid too, so you can pair a price dip with a steady set value to spot a buying window. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">Price History</div>
-      <select class="trend-select" id="trend-product-select"></select>
+      <div class="cmp-controls">
+        <div class="pill-group" id="hist-mode">
+          <button class="pill active" data-mode="product">Products</button>
+          <button class="pill" data-mode="set">Sets</button>
+        </div>
+        <select class="trend-select" id="hist-add" style="max-width:220px"></select>
+      </div>
     </div>
+    <div class="cmp-chips" id="hist-chips"></div>
     <div class="chart-panel">
       <canvas id="trend-chart"></canvas>
     </div>
@@ -1541,17 +1597,19 @@
 
   <!-- ── Section: SV/Booster trend over time (full width) ── -->
   <div class="section-eyebrow">08 — Trend Over Time</div>
-  <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> for one or more products — add a second from the compare dropdown. <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means the set is worth more relative to a booster's cost (better value); because it's expressed as a multiple of booster cost, BOX, ETB and BUNDLE are directly comparable.</p>
+  <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> — add several products to compare, or switch to <em>Sets</em> to weigh whole releases head to head (a set's line is the average SV/Booster of its products). <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means the set is worth more relative to a booster's cost (better value); because it's a multiple of booster cost, BOX, ETB and BUNDLE are directly comparable. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">Set Value / Booster — Trend Over Time</div>
-      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-        <select class="trend-select" id="ratio-product-select" style="max-width:200px"></select>
-        <select class="trend-select" id="ratio-compare-select" style="max-width:200px">
-          <option value="">+ Compare with...</option>
-        </select>
+      <div class="cmp-controls">
+        <div class="pill-group" id="svb-mode">
+          <button class="pill active" data-mode="product">Products</button>
+          <button class="pill" data-mode="set">Sets</button>
+        </div>
+        <select class="trend-select" id="svb-add" style="max-width:220px"></select>
       </div>
     </div>
+    <div class="cmp-chips" id="svb-chips"></div>
     <div class="chart-panel" style="padding: 20px 24px;">
       <canvas id="ratio-chart" style="max-height: 260px;"></canvas>
     </div>
@@ -1661,6 +1719,10 @@
     <div class="panel" id="portfolio-panel">
       <div class="panel-header">
         <div class="panel-title">Portfolio</div>
+        <div class="cmp-controls">
+          <label class="cmp-empty" for="portfolio-currency" style="margin:0;">Shown in</label>
+          <select class="trend-select" id="portfolio-currency" style="max-width:130px;"></select>
+        </div>
       </div>
 
       <div class="portfolio-summary" id="portfolio-summary"></div>
@@ -1694,8 +1756,25 @@
       </div>
     </div>
 
+    <!-- ── Section: portfolio value over time ── -->
+    <div class="section-eyebrow">02 — Value Over Time</div>
+    <p class="section-desc"><strong>What:</strong> what your <em>current</em> holdings would have been worth across every tracked snapshot — the <em>portfolio value</em> line against your flat <em>cost basis</em>, so unrealised P&amp;L reads as a trajectory rather than just today's number. <strong>How to read:</strong> the gap between the lines is your gain (value above cost) or loss (below); a rising value line means the basket you hold has appreciated. Values your current quantities back across history — purchase dates aren't tracked.</p>
+    <div class="panel" id="portfolio-value-panel">
+      <div class="chart-panel" id="portfolio-value-chart-wrap" style="padding: 20px 24px;">
+        <canvas id="portfolio-value-chart" style="max-height: 280px;"></canvas>
+      </div>
+      <div id="portfolio-value-empty" class="balancer-empty" style="display:none;">Add holdings above to see how their value has moved across the tracked snapshots.</div>
+    </div>
+
+    <!-- ── Section: concentration & rebalance (portfolio balancer) ── -->
+    <div class="section-eyebrow">03 — Concentration &amp; Rebalance</div>
+    <p class="section-desc"><strong>What:</strong> how your holdings are spread across <em>sets</em>, <em>release years</em> and <em>product types</em> — and, when you're over-exposed, which <em>under-fair-price</em> products in areas you underweight would diversify you. <strong>How to read:</strong> a bar near full means a large share of your value rides on one bucket (red = over-exposed); the shortlist points the next euro at good-value buys that spread the risk. Derived live from your holdings — nothing saved.</p>
+    <div class="panel" id="balancer-panel">
+      <div id="balancer-body"></div>
+    </div>
+
     <!-- ── Section: price alerts ── -->
-    <div class="section-eyebrow">02 — Price Alerts</div>
+    <div class="section-eyebrow">04 — Price Alerts</div>
     <p class="section-desc"><strong>What:</strong> buy targets for the products you're watching — a fixed <em>€</em> price, or a <em>% below fair price</em> that recomputes automatically as the age fit moves. <strong>How to read:</strong> when a product's latest tracked price falls to or below the target it's flagged here and with a 🔔 on the Analysis board. Private to your account, saved automatically.</p>
     <div class="panel" id="alerts-panel">
       <div class="panel-header">
@@ -1871,7 +1950,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2, verdict, VERDICT } from './metrics.js';
+import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2, verdict, VERDICT, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -1948,7 +2027,6 @@ let activeType = "ALL";
 let sortKey = "score";
 let searchTerm = "";      // Board name/set search (case-insensitive substring)
 let verdictFilter = "all"; // Board filter by verdict tone: all | good | neutral | bad
-let trendProduct = "Surging Sparks Booster Box";
 let ageThreshold = 1; // years until age weight reaches 1.0 (default)
 // The age-fit line (SV/Booster ~ age) with its R², recomputed once per data
 // load by recomputeFit(). Shared by the board's fair price, the scatter overlay
@@ -2001,6 +2079,14 @@ function getFiltered() {
     return 0;
   });
   return data;
+}
+
+// The product pool the analytical charts and comparison views render — the
+// global BOX/ETB/BUNDLE type filter (the board pills) applied, without the
+// board's search/verdict filters or sort. One source of "what's in scope" so
+// "show me only ETBs" holds across every chart, not just the board table.
+function visibleProducts() {
+  return activeType === 'ALL' ? products : products.filter(p => p.type === activeType);
 }
 
 
@@ -2221,7 +2307,7 @@ function updateTopPicks() {
 // ============================================================
 let svbChart = null;
 function renderSVBChart() {
-  const data = [...products].sort((a, b) => b.svPerBooster - a.svPerBooster).slice(0, 10);
+  const data = [...visibleProducts()].sort((a, b) => b.svPerBooster - a.svPerBooster).slice(0, 10);
   const labels = data.map(p => p.name.replace(' Booster Box', '').replace(' Booster Bundle', '').replace(' Elite Trainer Box', '').replace(' ETB', ''));
   const values = data.map(p => p.svPerBooster);
   const colors = data.map(p => p.type === 'BOX' ? '#4fc3f7' : p.type === 'ETB' ? '#81c784' : '#f5c842');
@@ -2250,74 +2336,225 @@ function renderSVBChart() {
 // ============================================================
 // TREND CHART
 // ============================================================
-let trendChart = null;
-function populateTrendSelect() {
-  const sel = document.getElementById('trend-product-select');
-  Object.keys(historicalData).forEach(name => {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    if (name === trendProduct) opt.selected = true;
-    sel.appendChild(opt);
-  });
-  sel.addEventListener('change', e => { trendProduct = e.target.value; renderTrendChart(); });
+// ── Comparison views (§06 Price History, §08 SV/Booster trend) ──
+// Both sections are the same interaction: a Products⇄Sets mode toggle, a
+// multi-select (add via the dropdown, remove via a chip), one line per
+// selection from a capped palette, and the chart's own legend as the show/hide
+// toggle. The per-metric differences (what a line plots, the y-axis) come in
+// through cfg, so the two views can't drift. Series always align to the full
+// histDates axis with spanGaps:true, which is what lets 3+ series with uneven
+// snapshot coverage line up (the old "longest labels win" approach broke past
+// two). Set mode rolls a set (products sharing a release) up with meanSeries();
+// the type filter is applied via visibleProducts() so "ETB only" holds here too.
+
+// Capped series palette — the legibility cap the design-review skill calls for.
+// Six distinct hues: the three chart accent tokens plus three identity-only
+// colours (a comparison line's colour is an identity, not a good/bad value cue,
+// so it doesn't carry the gold/green/red meaning fixed elsewhere). Selection is
+// capped at the palette length so the chart never grows illegible.
+const COMPARE_PALETTE = ['#5cc7f2', '#f4c651', '#7fd493', '#b39ddb', '#e8975a', '#e5789f'];
+const COMPARE_CAP = COMPARE_PALETTE.length;
+
+function createCompareView(cfg) {
+  let mode = 'product';   // 'product' | 'set'
+  let sel = [];           // product names (product mode) or release dates (set mode)
+  let chart = null;
+
+  const el = id => document.getElementById(id);
+
+  // Selectable items for the current mode, respecting the global type filter.
+  function options() {
+    if (mode === 'set') {
+      return groupSets(visibleProducts()).map(s => ({ key: s.release, label: s.label, members: s.members }));
+    }
+    return visibleProducts()
+      .filter(p => historicalData[p.name])
+      .map(p => ({ key: p.name, label: shortName(p.name) }));
+  }
+  function optByKey(key) { return options().find(o => o.key === key); }
+
+  function refreshAddSelect() {
+    const s = el(cfg.addId);
+    if (!s) return;
+    const chosen = new Set(sel);
+    const avail = options().filter(o => !chosen.has(o.key));
+    const atCap = sel.length >= COMPARE_CAP;
+    s.innerHTML = '';
+    const ph = document.createElement('option');
+    ph.value = '';
+    ph.textContent = atCap ? `Max ${COMPARE_CAP} lines` : (mode === 'set' ? '+ Add set…' : '+ Add product…');
+    ph.selected = true;
+    s.appendChild(ph);
+    avail.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.key; opt.textContent = o.label;
+      s.appendChild(opt);
+    });
+    s.disabled = atCap || avail.length === 0;
+  }
+
+  function renderChips() {
+    const host = el(cfg.chipsId);
+    if (!host) return;
+    host.innerHTML = '';
+    if (!sel.length) {
+      host.innerHTML = `<span class="cmp-empty">Add a ${mode === 'set' ? 'set' : 'product'} to chart it.</span>`;
+      return;
+    }
+    sel.forEach((key, i) => {
+      const o = optByKey(key);
+      const label = o ? o.label : key;
+      const chip = document.createElement('span');
+      chip.className = 'cmp-chip';
+      chip.innerHTML = `<span class="dot" style="background:${COMPARE_PALETTE[i % COMPARE_CAP]}"></span>` +
+                       `<span>${label}</span><button type="button" aria-label="Remove ${label}" title="Remove">×</button>`;
+      chip.querySelector('button').addEventListener('click', () => { sel = sel.filter(k => k !== key); sync(); });
+      host.appendChild(chip);
+    });
+  }
+
+  // Aligned data array for one selection key in the current mode.
+  function lineFor(key) {
+    if (mode === 'set') {
+      const o = optByKey(key);
+      return o ? meanSeries(o.members.map(cfg.setMemberLine)) : [];
+    }
+    return cfg.productLine(key);
+  }
+
+  function render() {
+    const datasets = sel.map((key, i) => {
+      const o = optByKey(key);
+      const color = COMPARE_PALETTE[i % COMPARE_CAP];
+      return {
+        label: o ? o.label : key,
+        data: lineFor(key),
+        borderColor: color, backgroundColor: color + '20', pointBackgroundColor: color,
+        tension: 0.4, pointRadius: 3, borderWidth: 2, fill: false, spanGaps: true, yAxisID: 'y'
+      };
+    });
+
+    // Single-product extra (§06 overlays the set-value line when exactly one
+    // product is charted) — preserves the old one-product richness.
+    let extraScales = {};
+    const hasExtra = mode === 'product' && sel.length === 1 && !!cfg.singleExtra;
+    if (hasExtra) {
+      const ex = cfg.singleExtra(sel[0]);
+      if (ex) { datasets.push(ex.dataset); extraScales = ex.scale; }
+    }
+
+    const scales = Object.assign(
+      { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } } },
+      mode === 'set' ? cfg.setScale() : cfg.productScale(hasExtra),
+      extraScales
+    );
+
+    if (chart) chart.destroy();
+    chart = new Chart(el(cfg.canvasId), {
+      type: 'line',
+      data: { labels: [...histDates], datasets },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
+          tooltip: { callbacks: Object.assign(
+            { label: ctx => cfg.tooltip(ctx, mode) },
+            cfg.afterBody ? { afterBody: cfg.afterBody } : {}
+          ) }
+        },
+        scales
+      }
+    });
+  }
+
+  function sync() { refreshAddSelect(); renderChips(); render(); }
+
+  // Drop selections that vanished (data reload / type filter), seed a default
+  // when empty, then re-sync. Public — called after data loads and on filter change.
+  function refresh() {
+    const valid = new Set(options().map(o => o.key));
+    sel = sel.filter(k => valid.has(k));
+    if (!sel.length) {
+      const opts = options();
+      const seed = opts.find(o => o.key === cfg.defaultKey) || opts[0];
+      if (seed) sel = [seed.key];
+    }
+    if (sel.length > COMPARE_CAP) sel = sel.slice(0, COMPARE_CAP);
+    sync();
+  }
+
+  function init() {
+    const mg = el(cfg.modeId);
+    if (mg) mg.querySelectorAll('.pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (mode === btn.dataset.mode) return;
+        mode = btn.dataset.mode;
+        mg.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+        sel = [];
+        refresh();
+      });
+    });
+    const s = el(cfg.addId);
+    if (s) s.addEventListener('change', e => {
+      const key = e.target.value;
+      if (key && !sel.includes(key) && sel.length < COMPARE_CAP) sel.push(key);
+      sync();
+    });
+    refresh();
+  }
+
+  return { init, refresh };
 }
 
-function renderTrendChart() {
-  const h = historicalData[trendProduct];
-  if (!h) return;
-  const validDates = histDates.filter((_, i) => h.price[i] != null || h.setVal[i] != null);
-  const priceData = h.price.filter(v => v != null);
-  const svData = h.setVal.filter(v => v != null);
-
-  if (trendChart) trendChart.destroy();
-  trendChart = new Chart(document.getElementById('trend-chart'), {
-    type: 'line',
-    data: {
-      labels: validDates,
-      datasets: [
-        {
-          label: 'Product Price (€)',
-          data: priceData,
-          borderColor: '#f5c842',
-          backgroundColor: 'rgba(245,200,66,0.08)',
-          tension: 0.4, pointRadius: 4, pointBackgroundColor: '#f5c842', fill: true,
-          yAxisID: 'yPrice'
-        },
-        {
-          label: 'Set Value (€)',
-          data: svData,
-          borderColor: '#4fc3f7',
-          backgroundColor: 'rgba(79,195,247,0.05)',
-          tension: 0.4, pointRadius: 4, pointBackgroundColor: '#4fc3f7', fill: false,
-          yAxisID: 'ySetVal'
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
-        tooltip: { callbacks: { label: ctx => ` €${ctx.parsed.y.toLocaleString('de-DE')}` } }
+// §06 Price History — raw € price per product; set mode rolls up as average
+// price-per-booster (a raw-€ average across a box and a bundle is meaningless).
+const cmpHist = createCompareView({
+  canvasId: 'trend-chart', modeId: 'hist-mode', addId: 'hist-add', chipsId: 'hist-chips',
+  defaultKey: 'Surging Sparks Booster Box',
+  productLine: name => { const h = historicalData[name]; return h ? h.price.slice() : []; },
+  setMemberLine: name => {
+    const h = historicalData[name];
+    const p = products.find(x => x.name === name);
+    const b = p ? boostersFromType(p.type) : null;
+    if (!h || !b) return [];
+    return h.price.map(v => v != null ? parseFloat((v / b).toFixed(2)) : null);
+  },
+  productScale: hasExtra => ({
+    y: {
+      type: 'linear', position: 'left', grid: { color: 'rgba(255,255,255,0.05)' },
+      ticks: { color: '#8b8fa3', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
+      title: { display: true, text: hasExtra ? 'Product Price' : 'Price (€)', color: '#8b8fa3', font: { family: 'DM Mono', size: 9 } }
+    }
+  }),
+  setScale: () => ({
+    y: {
+      grid: { color: 'rgba(255,255,255,0.05)' },
+      ticks: { color: '#8b8fa3', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toFixed(1) },
+      title: { display: true, text: '€ / Booster', color: '#8b8fa3', font: { family: 'DM Mono', size: 9 } }
+    }
+  }),
+  singleExtra: name => {
+    const h = historicalData[name];
+    if (!h) return null;
+    return {
+      dataset: {
+        label: 'Set Value (€)', data: h.setVal.slice(),
+        borderColor: '#f4c651', backgroundColor: 'rgba(244,198,81,0.05)',
+        tension: 0.4, pointRadius: 3, borderWidth: 2, borderDash: [5, 4],
+        fill: false, spanGaps: true, yAxisID: 'ySetVal'
       },
-      scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
-        yPrice: {
-          type: 'linear', position: 'left',
-          grid: { color: 'rgba(255,255,255,0.05)' },
-          ticks: { color: '#f5c842', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
-          title: { display: true, text: 'Product Price', color: '#f5c842', font: { family: 'DM Mono', size: 9 } }
-        },
+      scale: {
         ySetVal: {
-          type: 'linear', position: 'right',
-          grid: { drawOnChartArea: false },
-          ticks: { color: '#4fc3f7', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
-          title: { display: true, text: 'Set Value', color: '#4fc3f7', font: { family: 'DM Mono', size: 9 } }
+          type: 'linear', position: 'right', grid: { drawOnChartArea: false },
+          ticks: { color: '#f4c651', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
+          title: { display: true, text: 'Set Value', color: '#f4c651', font: { family: 'DM Mono', size: 9 } }
         }
       }
-    }
-  });
-}
+    };
+  },
+  tooltip: (ctx, mode) => ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? '€' + ctx.parsed.y.toLocaleString('de-DE') : '—'}${mode === 'set' && ctx.dataset.yAxisID === 'y' ? ' /booster' : ''}`
+});
 
 // ============================================================
 // SCATTER CHART
@@ -2325,18 +2562,22 @@ function renderTrendChart() {
 let scatterChart = null;
 function renderScatterChart() {
   const typeColors = { BOX: '#4fc3f7', ETB: '#81c784', BUNDLE: '#f5c842' };
-  const datasets = ['BOX', 'ETB', 'BUNDLE'].map(type => ({
+  const pool = visibleProducts();
+  // Global type filter: show only the active type's series (all three when ALL).
+  const types = activeType === 'ALL' ? ['BOX', 'ETB', 'BUNDLE'] : [activeType];
+  const datasets = types.map(type => ({
     label: type,
-    data: products.filter(p => p.type === type).map(p => ({ x: p.age, y: p.svPerBooster, name: p.name })),
+    data: pool.filter(p => p.type === type).map(p => ({ x: p.age, y: p.svPerBooster, name: p.name })),
     backgroundColor: typeColors[type] + 'bb',
     pointRadius: 6,
     pointHoverRadius: 8
   }));
 
-  // Overlay the fitted "expected value for age" line (see Relative Value section)
+  // Overlay the fitted "expected value for age" line (the whole-catalogue age
+  // trend — kept global so it's a stable reference even when a type is filtered).
   const scatterFit = ageFit;
-  if (scatterFit) {
-    const xs = products.map(p => p.age);
+  if (scatterFit && pool.length) {
+    const xs = pool.map(p => p.age);
     const xmin = Math.min(...xs), xmax = Math.max(...xs);
     datasets.push({
       type: 'line',
@@ -2390,143 +2631,77 @@ products.forEach(p => {
   if (p.setVal && p.svPerBooster) svbDivisor[p.name] = p.setVal / p.svPerBooster;
 });
 
-let ratioChart = null;
-let ratioProduct = "Surging Sparks Booster Box";
-let ratioCompare = "";
+// Short product label for chart legends/chips (drops the product-type suffix).
+function shortName(name) {
+  return name.replace(' Booster Box','').replace(' Booster Bundle','').replace(' Elite Trainer Box','').replace(' ETB','');
+}
 
-function getSVBSeries(name) {
+// SV/Booster over time for one product: setVal[i] ÷ the product's latest
+// price-per-booster (svbDivisor), so the series moves with set value and matches
+// the board's svPerBooster exactly. Shared by product lines and set roll-ups.
+function svbSeries(name) {
   const h = historicalData[name];
   const divisor = svbDivisor[name];
   if (!h || !divisor) return [];
   return h.setVal.map(sv => sv != null ? parseFloat((sv / divisor).toFixed(2)) : null);
 }
 
-function getSVBLabels(name) {
-  const h = historicalData[name];
-  if (!h) return histDates;
-  return histDates.filter((_, i) => h.setVal[i] != null);
-}
-
-function svbTrendColor(series) {
-  const valid = series.filter(v => v != null);
-  if (valid.length < 2) return '#6b6f85';
-  const delta = valid[valid.length - 1] - valid[valid.length - 2];
-  if (delta > 2) return '#81c784';
-  if (delta < -2) return '#e8473f';
-  return '#f5c842';
-}
-
-function shortName(name) {
-  return name.replace(' Booster Box','').replace(' Booster Bundle','').replace(' Elite Trainer Box','').replace(' ETB','');
-}
-
-function populateRatioSelects() {
-  const names = Object.keys(historicalData);
-  const main = document.getElementById('ratio-product-select');
-  const compare = document.getElementById('ratio-compare-select');
-  names.forEach(name => {
-    [main, compare].forEach((sel, si) => {
-      const opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = name;
-      if (si === 0 && name === ratioProduct) opt.selected = true;
-      sel.appendChild(opt);
-    });
-  });
-  main.addEventListener('change', e => { ratioProduct = e.target.value; renderRatioChart(); });
-  compare.addEventListener('change', e => { ratioCompare = e.target.value; renderRatioChart(); });
-}
-
-function renderRatioChart() {
-  const series1 = getSVBSeries(ratioProduct);
-  const labels1 = getSVBLabels(ratioProduct);
-  const color1 = svbTrendColor(series1);
-  const valid1 = series1.filter(v => v != null);
-
-  const datasets = [{
-    label: shortName(ratioProduct),
-    data: valid1,
-    borderColor: color1,
-    backgroundColor: color1 + '18',
-    tension: 0.4, pointRadius: 5, pointBackgroundColor: color1,
-    fill: true, yAxisID: 'y'
-  }];
-
-  let labels = labels1;
-
-  if (ratioCompare && ratioCompare !== ratioProduct && historicalData[ratioCompare]) {
-    const series2 = getSVBSeries(ratioCompare);
-    const valid2 = series2.filter(v => v != null);
-    const color2 = '#4fc3f7';
-    datasets.push({
-      label: shortName(ratioCompare),
-      data: valid2,
-      borderColor: color2,
-      backgroundColor: color2 + '12',
-      tension: 0.4, pointRadius: 5, pointBackgroundColor: color2,
-      fill: false, yAxisID: 'y'
-    });
-    const labels2 = getSVBLabels(ratioCompare);
-    if (labels2.length > labels.length) labels = labels2;
-  }
-
-  if (ratioChart) ratioChart.destroy();
-  ratioChart = new Chart(document.getElementById('ratio-chart'), {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
-        tooltip: {
-          callbacks: {
-            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}× booster cost`,
-            afterBody: (items) => {
-              const v = items[0]?.parsed?.y;
-              if (v == null) return '';
-              if (v >= 30) return ['', '🟢 Strong value vs booster cost'];
-              if (v >= 15) return ['', '🟡 Decent value — worth watching'];
-              return ['', '🔴 Low value vs booster cost'];
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          grid: { color: 'rgba(255,255,255,0.05)' },
-          ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } }
-        },
-        y: {
-          grid: { color: 'rgba(255,255,255,0.05)' },
-          ticks: {
-            color: '#aaa',
-            font: { family: 'DM Mono', size: 10 },
-            callback: v => v.toFixed(0) + '×'
-          },
-          title: {
-            display: true,
-            text: 'SV / Booster (× booster cost)',
-            color: '#6b6f85',
-            font: { family: 'DM Mono', size: 10 }
-          }
-        }
-      }
+function svbYScale() {
+  return {
+    y: {
+      grid: { color: 'rgba(255,255,255,0.05)' },
+      ticks: { color: '#8b8fa3', font: { family: 'DM Mono', size: 10 }, callback: v => v.toFixed(0) + '×' },
+      title: { display: true, text: 'SV / Booster (× booster cost)', color: '#8b8fa3', font: { family: 'DM Mono', size: 9 } }
     }
-  });
+  };
 }
+
+// §08 Trend Over Time — SV/Booster; product and set roll-up use the same metric
+// (directly comparable across BOX/ETB/BUNDLE), so a set line is the mean of its
+// members' SV/Booster series.
+const cmpSvb = createCompareView({
+  canvasId: 'ratio-chart', modeId: 'svb-mode', addId: 'svb-add', chipsId: 'svb-chips',
+  defaultKey: 'Surging Sparks Booster Box',
+  productLine: svbSeries,
+  setMemberLine: svbSeries,
+  productScale: () => svbYScale(),
+  setScale: () => svbYScale(),
+  tooltip: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(1) : '—'}× booster cost`,
+  afterBody: items => {
+    const v = items[0]?.parsed?.y;
+    if (v == null) return '';
+    if (v >= 30) return ['', '🟢 Strong value vs booster cost'];
+    if (v >= 15) return ['', '🟡 Decent value — worth watching'];
+    return ['', '🔴 Low value vs booster cost'];
+  }
+});
 
 // ============================================================
 // EVENT LISTENERS
 // ============================================================
-document.querySelectorAll('.pill').forEach(pill => {
+// Board type pills (BOX/ETB/BUNDLE) are now the global type filter: scoped to
+// #type-filters so they don't collide with the comparison views' own mode
+// pills, and they re-render every analytical view — not just the board table.
+document.querySelectorAll('#type-filters .pill').forEach(pill => {
   pill.addEventListener('click', () => {
-    document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('#type-filters .pill').forEach(p => p.classList.remove('active'));
     pill.classList.add('active');
     activeType = pill.dataset.type;
-    updateTable();
+    applyTypeFilter();
   });
 });
+
+// Re-render everything the global type filter scopes: the board plus the
+// analytical charts/tables and the comparison views.
+function applyTypeFilter() {
+  updateTable();
+  renderSVBChart();
+  renderScatterChart();
+  renderRelativeValue();
+  renderMomentum();
+  cmpHist.refresh();
+  cmpSvb.refresh();
+}
 
 document.getElementById('sort-select').addEventListener('change', e => {
   sortKey = e.target.value;
@@ -2760,14 +2935,14 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
     if (p.setVal && p.svPerBooster) svbDivisor[p.name] = p.setVal / p.svPerBooster;
   });
 
-  // Repopulate selects
-  ['trend-product-select','ratio-product-select','ratio-compare-select','scenario-product-select'].forEach(id => {
+  // Repopulate the scenario select (the §06/§08 comparison views manage their
+  // own pickers via cmpHist.refresh()/cmpSvb.refresh() below).
+  ['scenario-product-select'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     const prev = sel.value;
-    sel.innerHTML = id === 'ratio-compare-select' ? '<option value="">+ Compare with...</option>' : '';
-    const pool = id.startsWith('trend') || id.startsWith('ratio')
-      ? Object.keys(historicalData) : products.map(p => p.name);
+    sel.innerHTML = '';
+    const pool = products.map(p => p.name);
     pool.forEach(name => {
       const opt = document.createElement('option');
       opt.value = name; opt.textContent = name;
@@ -2785,9 +2960,6 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   } else {
     Object.keys(productUrls).forEach(k => { if (!newProducts.find(p => p.name === k)) delete productUrls[k]; });
   }
-  trendProduct  = document.getElementById('trend-product-select').value;
-  ratioProduct  = document.getElementById('ratio-product-select').value;
-  ratioCompare  = '';
   scenarioProduct = products[0]?.name || '';
 
   // Re-render everything
@@ -2797,11 +2969,11 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   updateTable();
   updateTopPicks();
   renderSVBChart();
-  renderTrendChart();
+  cmpHist.refresh();
   renderScatterChart();
   renderRelativeValue();
   renderMomentum();
-  renderRatioChart();
+  cmpSvb.refresh();
   initScenario();
 
   renderPortfolio();
@@ -2830,6 +3002,45 @@ const eur = v => '€' + Math.round(v).toLocaleString('de-DE');
 const pnlColor = v => v > 0 ? 'var(--accent4)' : v < 0 ? 'var(--accent2)' : 'var(--muted)';
 const withSign = (s, v) => (v > 0 ? '+' : v < 0 ? '−' : '') + s;
 const round2 = v => Math.round(v * 100) / 100;
+
+// ── Portfolio display currency (display-only; € stays the canonical unit) ──
+// The user's chosen currency, the EUR→currency rates (fetched once from a free
+// key-less FX API), and a currency-aware money formatter. Conversion is confined
+// to the Portfolio tab — the shared catalogue, set values and all SV/Booster
+// maths stay in €, so the ranking metrics stay comparable across users. A single
+// current rate is used everywhere (including the history chart); if the FX fetch
+// fails we fall back to €-only, so the portfolio is never blocked on the network.
+const CURRENCY_META = {
+  EUR: { symbol: '€',  suffix: '' },
+  USD: { symbol: '$',  suffix: '' },
+  GBP: { symbol: '£',  suffix: '' },
+  SEK: { symbol: '',   suffix: ' kr' },
+};
+let portfolioCurrency = 'EUR';
+let fxRates = { EUR: 1 };   // EUR → currency multipliers; EUR always present
+
+// Format a canonical € amount in the active portfolio currency.
+function money(vEur) {
+  if (vEur == null || isNaN(vEur)) return '—';
+  const rate = fxRates[portfolioCurrency] != null ? fxRates[portfolioCurrency] : 1;
+  const meta = CURRENCY_META[portfolioCurrency] || CURRENCY_META.EUR;
+  const n = Math.round(vEur * rate).toLocaleString('de-DE');
+  return `${meta.symbol}${n}${meta.suffix}`;
+}
+
+// Fetch EUR→{USD,GBP,SEK} once (frankfurter.app, ECB data, no key). Best-effort:
+// on any failure fxRates stays €-only and the currency picker offers just €.
+async function fetchFxRates() {
+  const wanted = Object.keys(CURRENCY_META).filter(c => c !== 'EUR');
+  try {
+    const res = await fetch(`https://api.frankfurter.app/latest?from=EUR&to=${wanted.join(',')}`);
+    if (!res.ok) throw new Error('FX HTTP ' + res.status);
+    const data = await res.json();
+    if (data && data.rates) fxRates = { EUR: 1, ...data.rates };
+  } catch {
+    fxRates = { EUR: 1 };  // graceful: € only
+  }
+}
 
 // Which holding the editor is currently editing (null = add / buy-more mode).
 let portfolioEditName = null;
@@ -2871,6 +3082,36 @@ function populatePortfolioSelect() {
   if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
 }
 
+// Populate the Portfolio currency picker with € plus any currencies we have a
+// live rate for (falls back to €-only if the FX fetch failed).
+function populateCurrencySelect() {
+  const sel = document.getElementById('portfolio-currency');
+  if (!sel) return;
+  if (!CURRENCY_META[portfolioCurrency]) portfolioCurrency = 'EUR';
+  // € plus any currency we have a rate for — and always the active one, so a
+  // saved currency stays selected even if the FX fetch hasn't resolved yet.
+  const avail = Object.keys(CURRENCY_META).filter(c =>
+    c === 'EUR' || c === portfolioCurrency || fxRates[c] != null);
+  sel.innerHTML = '';
+  avail.forEach(c => {
+    const meta = CURRENCY_META[c];
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = `${(meta.symbol || meta.suffix.trim())} ${c}`.trim();
+    sel.appendChild(opt);
+  });
+  sel.value = portfolioCurrency;
+}
+
+// Persist the chosen currency to the user's own settings row (best-effort;
+// per-user via RLS, mirrors persistHolding). No-op when signed out.
+async function persistCurrency() {
+  if (!sbUser) return;
+  const { error } = await sbClient.from('user_settings')
+    .upsert({ user_id: sbUser.id, currency: portfolioCurrency }, { onConflict: 'user_id' });
+  if (error) portfolioStatus('Currency not saved: ' + error.message, true);
+}
+
 function renderPortfolio() {
   const tbody = document.getElementById('portfolio-tbody');
   const summaryEl = document.getElementById('portfolio-summary');
@@ -2885,11 +3126,11 @@ function renderPortfolio() {
 
   summaryEl.style.display = rows.length ? '' : 'none';
   summaryEl.innerHTML = rows.length ? `
-    <div class="portfolio-tile"><div class="lbl">Cost basis</div><div class="val">${eur(totalCost)}</div></div>
-    <div class="portfolio-tile"><div class="lbl">Current value</div><div class="val">${eur(totalNow)}</div></div>
+    <div class="portfolio-tile"><div class="lbl">Cost basis</div><div class="val">${money(totalCost)}</div></div>
+    <div class="portfolio-tile"><div class="lbl">Current value</div><div class="val">${money(totalNow)}</div></div>
     <div class="portfolio-tile">
       <div class="lbl">Unrealised P&L</div>
-      <div class="val" style="color:${pnlColor(totalPnl)}">${withSign(eur(Math.abs(totalPnl)), totalPnl)}</div>
+      <div class="val" style="color:${pnlColor(totalPnl)}">${withSign(money(Math.abs(totalPnl)), totalPnl)}</div>
       <div class="sub" style="color:${pnlColor(totalPnl)}">${totalPct != null ? withSign((Math.abs(totalPct) * 100).toFixed(1) + '%', totalPnl) : '—'}</div>
     </div>` : '';
 
@@ -2898,10 +3139,10 @@ function renderPortfolio() {
       <td class="product-name" title="${r.name}">${r.name}</td>
       <td>${r.type ? `<span class="type-badge type-${r.type}">${r.type}</span>` : '—'}</td>
       <td class="num">${r.qty}</td>
-      <td class="num">${eur(r.cost)}</td>
-      <td class="num">${r.now != null ? eur(r.now) : '—'}</td>
-      <td class="num">${r.curValue != null ? eur(r.curValue) : '—'}</td>
-      <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnl != null ? withSign(eur(Math.abs(r.pnl)), r.pnl) : '—'}</td>
+      <td class="num">${money(r.cost)}</td>
+      <td class="num">${r.now != null ? money(r.now) : '—'}</td>
+      <td class="num">${r.curValue != null ? money(r.curValue) : '—'}</td>
+      <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnl != null ? withSign(money(Math.abs(r.pnl)), r.pnl) : '—'}</td>
       <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnlPct != null ? withSign((Math.abs(r.pnlPct) * 100).toFixed(1) + '%', r.pnl) : '—'}</td>
       <td style="text-align:center; white-space:nowrap;">
         <button class="portfolio-edit-btn" data-product="${r.name}" title="Edit exact quantity / cost">✎</button>
@@ -2916,6 +3157,180 @@ function renderPortfolio() {
   tbody.querySelectorAll('.portfolio-remove-btn').forEach(btn => {
     btn.addEventListener('click', () => removeHolding(btn.dataset.product));
   });
+
+  renderPortfolioValueChart();
+  renderBalancer(rows);
+}
+
+// ── Portfolio value over time (the change chart) ──
+// Values the current holdings at every tracked snapshot (portfolioValueSeries)
+// and plots that trajectory against the flat cost-basis line, so unrealised P&L
+// reads as a trend. Currency-aware via money()/the active FX rate; wired through
+// renderPortfolio() so it updates on load, data reload, holding edits and
+// currency changes. One Chart.js instance in the destroy-and-recreate pattern.
+let portfolioValueChart = null;
+function renderPortfolioValueChart() {
+  const wrap  = document.getElementById('portfolio-value-chart-wrap');
+  const empty = document.getElementById('portfolio-value-empty');
+  const canvas = document.getElementById('portfolio-value-chart');
+  if (!wrap || !empty || !canvas) return;
+
+  const rate = fxRates[portfolioCurrency] != null ? fxRates[portfolioCurrency] : 1;
+  const valuesEur = portfolioValueSeries(holdings, historicalData, histDates.length);
+  const costTotalEur = Object.entries(holdings).reduce((s, [, h]) =>
+    s + (Number(h.quantity) || 0) * (Number(h.costBasis) || 0), 0);
+
+  if (!valuesEur.length) {
+    wrap.style.display = 'none';
+    empty.style.display = '';
+    if (portfolioValueChart) { portfolioValueChart.destroy(); portfolioValueChart = null; }
+    return;
+  }
+  wrap.style.display = '';
+  empty.style.display = 'none';
+
+  const values = valuesEur.map(v => v * rate);
+  const costLine = histDates.map(() => costTotalEur * rate);
+
+  if (portfolioValueChart) portfolioValueChart.destroy();
+  portfolioValueChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: [...histDates],
+      datasets: [
+        {
+          label: 'Portfolio value',
+          data: values,
+          borderColor: '#5cc7f2', backgroundColor: 'rgba(92,199,242,0.10)',
+          tension: 0.4, pointRadius: 3, pointBackgroundColor: '#5cc7f2', borderWidth: 2, fill: true,
+        },
+        {
+          label: 'Cost basis',
+          data: costLine,
+          borderColor: '#8b8fa3', borderDash: [5, 4], borderWidth: 1.5,
+          pointRadius: 0, fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
+        tooltip: { callbacks: {
+          label: ctx => ` ${ctx.dataset.label}: ${money(ctx.parsed.y / rate)}`,
+          afterBody: items => {
+            const pv = items.find(i => i.datasetIndex === 0);
+            if (!pv) return '';
+            const pnl = (pv.parsed.y / rate) - costTotalEur;
+            const pct = costTotalEur > 0 ? (pnl / costTotalEur) * 100 : null;
+            const sign = pnl > 0 ? '+' : pnl < 0 ? '−' : '';
+            return ['', `P&L: ${sign}${money(Math.abs(pnl))}${pct != null ? ` (${sign}${Math.abs(pct).toFixed(1)}%)` : ''}`];
+          },
+        } },
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#8b8fa3', font: { family: 'DM Mono', size: 10 }, callback: v => money(v / rate) },
+        },
+      },
+    },
+  });
+}
+
+// ── Portfolio balancer (concentration risk + fair-price rebalance) ──
+// Reads the same portfolio rows, groups current value by set / release year /
+// product type via the pure concentrationShares(), flags over-exposure, and —
+// when over-exposed — lists under-fair-price products in areas you underweight
+// (rebalanceSuggestions()). Signed-in, all derived client-side; wired via
+// renderPortfolio() so it updates on load, data reload and every holding edit.
+function renderBalancer(portfolioRowsArg) {
+  const host = document.getElementById('balancer-body');
+  if (!host) return;
+  const rows = (portfolioRowsArg || portfolioRows()).filter(r => r.curValue != null && r.curValue > 0);
+  if (!rows.length) {
+    host.innerHTML = `<div class="balancer-empty">Add holdings above to see how your position is spread across sets, release years and product types — and where the next euro would diversify you.</div>`;
+    return;
+  }
+
+  // Set label per release date (a "set" = products sharing a release).
+  const setNameByRelease = {};
+  groupSets(products).forEach(s => { setNameByRelease[s.release] = s.label; });
+  const setNameFor = key => setNameByRelease[key] || key || '—';
+
+  // Enrich each holding with its set key, release-year era and type.
+  const enriched = rows.map(r => {
+    const p = products.find(pp => pp.name === r.name);
+    return {
+      name: r.name,
+      value: r.curValue,
+      cost: r.costValue,
+      setKey: p ? p.release : '—',
+      era: p && p.release ? String(p.release).slice(0, 4) : '—',
+      type: r.type || (p ? p.type : '—'),
+    };
+  });
+
+  const bySet  = concentrationShares(enriched.map(r => ({ bucket: r.setKey, value: r.value, cost: r.cost })));
+  const byEra  = concentrationShares(enriched.map(r => ({ bucket: r.era,    value: r.value, cost: r.cost })));
+  const byType = concentrationShares(enriched.map(r => ({ bucket: r.type,   value: r.value, cost: r.cost })));
+
+  const groupHtml = (title, res, labelFor) => `
+    <div class="conc-group">
+      <h4>${title}</h4>
+      ${res.buckets.map(b => {
+        const label = labelFor ? labelFor(b.bucket) : b.bucket;
+        const pct = (b.valueShare * 100);
+        return `<div class="conc-row${b.over ? ' over' : ''}">
+          <div class="conc-head">
+            <span class="conc-name" title="${label}">${label}${b.over ? ' ⚠' : ''}</span>
+            <span class="conc-pct">${pct.toFixed(0)}%</span>
+          </div>
+          <div class="conc-bar"><div class="conc-fill" style="width:${Math.max(2, pct).toFixed(1)}%"></div></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  // Headline concentration flag from the most-concentrated set.
+  const topSet = bySet.buckets.find(b => b.over);
+  const flag = topSet
+    ? `<div class="balancer-flag">⚠ ${(topSet.valueShare * 100).toFixed(0)}% of your value rides on <strong>${setNameFor(topSet.bucket)}</strong> — a dip in one set would hit the whole position hard.</div>`
+    : `<div class="balancer-flag ok">Well spread — no single set is over ${(OVER_EXPOSED_SHARE * 100).toFixed(0)}% of your value.</div>`;
+
+  // Rebalance shortlist: under-fair-price products in sets/types you're not
+  // over-exposed to, unheld sets first. Excludes over-exposed buckets.
+  const trusted   = fairPriceTrusted();
+  const overSets  = new Set(bySet.buckets.filter(b => b.over).map(b => b.bucket));
+  const overTypes = new Set(byType.buckets.filter(b => b.over).map(b => b.bucket));
+  const heldSets  = new Set(enriched.map(r => r.setKey));
+  const suggestions = rebalanceSuggestions(
+    products.map(p => ({ name: p.name, type: p.type, setKey: p.release, fairGap: p.fairGap, fairTrusted: trusted })),
+    { overSets, overTypes, heldSets, limit: 5 }
+  );
+
+  const suggestHtml = suggestions.length
+    ? suggestions.map(s => `
+        <div class="suggest-item">
+          <span class="type-badge type-${s.type}">${s.type}</span>
+          <span class="suggest-name" title="${s.name}">${s.name}</span>
+          <span class="suggest-set">${setNameFor(s.setKey)}${s.newSet ? ' · new set' : ''}</span>
+          <span class="suggest-gap">${Math.abs(s.fairGap)}% under fair</span>
+        </div>`).join('')
+    : `<div class="balancer-note">No under-fair-price buys in sets you underweight right now${trusted ? '' : ' — the age fit is currently too weak to trust the fair price'}.</div>`;
+
+  host.innerHTML = `
+    ${flag}
+    <div class="balancer-grid">
+      ${groupHtml('By set', bySet, setNameFor)}
+      ${groupHtml('By release year', byEra, null)}
+      ${groupHtml('By product type', byType, null)}
+    </div>
+    <div class="balancer-suggest">
+      <h4>Rebalance — next-euro shortlist</h4>
+      ${suggestHtml}
+    </div>`;
 }
 
 // Load a holding into the editor to correct its exact quantity / cost.
@@ -3898,7 +4313,7 @@ function renderRelativeValue() {
     ? `age trend ${fit.b >= 0 ? '+' : ''}${fit.b.toFixed(1)}/yr · R² ${fit.r2.toFixed(2)}`
     : 'flat';
 
-  const rows = products.map(p => {
+  const rows = visibleProducts().map(p => {
     // Floor the fitted expectation at 0 — a linear fit can extrapolate below
     // zero for the oldest products, which would otherwise inflate their delta.
     const expected = Math.max(0, fit ? fit.a + fit.b * p.age : p.svPerBooster);
@@ -3962,7 +4377,7 @@ function renderMomentum() {
     const c = v < -0.05 ? 'var(--accent2)' : 'var(--muted)';
     return `<td class="num" style="color:${c}">${fmt(v, 1)}%</td>`;
   };
-  const rows = products.map(p => ({ p, m: computeMomentum(p.name) }))
+  const rows = visibleProducts().map(p => ({ p, m: computeMomentum(p.name) }))
     .filter(r => r.m)
     .sort((a, b) => (a.m.drawdown ?? 0) - (b.m.drawdown ?? 0)); // deepest dip first
 
@@ -4184,21 +4599,30 @@ updateKPIs();
 updateTable();
 updateTopPicks();
 renderSVBChart();
-populateTrendSelect();
-renderTrendChart();
+cmpHist.init();
 renderScatterChart();
 renderRelativeValue();
 renderMomentum();
-populateRatioSelects();
-renderRatioChart();
+cmpSvb.init();
 populateScenarioSelect();
 initScenario();
+populateCurrencySelect();
 renderPortfolio();
 renderAlerts();
 updateLastUpdated();
 document.getElementById('sv-slider').addEventListener('input', updateScenario);
 document.getElementById('price-slider').addEventListener('input', updateScenario);
 document.getElementById('scenario-reset').addEventListener('click', initScenario);
+// Portfolio currency picker: re-render the (money-aware) portfolio and persist.
+document.getElementById('portfolio-currency').addEventListener('change', e => {
+  portfolioCurrency = e.target.value;
+  renderPortfolio();
+  persistCurrency();
+});
+// Fetch live FX rates once, then reveal the extra currencies and re-render with
+// real rates (the initial € view is correct meanwhile). Best-effort — a blocked
+// fetch just leaves the picker on €.
+fetchFxRates().then(() => { populateCurrencySelect(); renderPortfolio(); });
 
 // ============================================================
 // AUTO-LOAD pokemon_data.xlsx FROM SAME DIRECTORY (if present)
@@ -4306,7 +4730,7 @@ async function loadFromSupabase() {
   const [prodRes, snapRes, setRes, holdRes, alertRes] = await Promise.all([
     sbClient.from('products').select('*').order('release', { ascending: true }),
     sbClient.from('snapshots').select('*'),
-    sbClient.from('user_settings').select('age_threshold').maybeSingle(),
+    sbClient.from('user_settings').select('*').maybeSingle(),
     sbClient.from('holdings').select('*'),
     sbClient.from('alerts').select('*'),
   ]);
@@ -4323,6 +4747,11 @@ async function loadFromSupabase() {
     if (slider) slider.value = ageThreshold;
     const disp = document.getElementById('age-threshold-display');
     if (disp) disp.textContent = ageThreshold.toFixed(1);
+  }
+  // Apply saved portfolio currency (tolerates a pre-migration DB with no column).
+  if (setRes && !setRes.error && setRes.data && setRes.data.currency) {
+    portfolioCurrency = setRes.data.currency;
+    populateCurrencySelect();
   }
 
   // Distinct snapshot dates, chronologically.
@@ -4428,22 +4857,11 @@ async function loadDemo() {
 }
 
 // Longest common prefix of the product names in a set → a readable set name.
+// Set display name for the demo grouping — delegates to the shared, unit-tested
+// setLabel() in metrics.js so the demo and the §06/§08 comparison views name a
+// set the same way.
 function demoSetName(products) {
-  const names = products.map(p => p.name);
-  if (!names.length) return 'New release';
-  let pfx = names[0];
-  for (const n of names.slice(1)) {
-    let i = 0;
-    while (i < pfx.length && i < n.length && pfx[i] === n[i]) i++;
-    pfx = pfx.slice(0, i);
-  }
-  pfx = pfx.replace(/\s*[-–—]\s*$/, '').trim();
-  // Strip a trailing product-type suffix so single-product sets read as the set
-  // name (e.g. "Phantasmal Flames Booster Box" → "Phantasmal Flames").
-  const stripped = pfx.replace(/\s+(Elite Trainer Box|Booster Box|Booster Bundle|Bundle|ETB)$/i, '').trim();
-  if (stripped.length >= 3) return stripped;
-  if (pfx.length >= 3) return pfx;
-  return names[0] || 'New release';
+  return setLabel(products.map(p => p.name));
 }
 
 function renderDemo(groups) {
