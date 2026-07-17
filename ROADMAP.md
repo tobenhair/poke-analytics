@@ -336,8 +336,13 @@ visitor on a phone as it does for the maintainer on a desktop.
   Pokémon Center exclusives, empty display boxes) needs price-bound + keyword
   filtering and a median-of-cleanest; (3) thin liquidity on old grails (Roaring
   Skies, Team Up) and speculative future sets means some weeks have few or zero
-  Swedish listings — carry-forward or manual fallback for those; (4) it moves the
-  price unit from **EUR to SEK**, with a knock-on for set value below. Feeds the
+  Swedish listings — carry-forward or manual fallback for those; (4) Tradera
+  prices are in **SEK**, but the database's canonical price unit stays **EUR** —
+  so a SEK listing must be **converted to EUR at ingestion**, never stored as SEK.
+  That adds an **FX dependency**: a rate source, a refresh cadence, and storing
+  the rate used **with each snapshot** so historical prices stay reproducible
+  rather than silently re-based when SEK/EUR moves — the same discipline the
+  "User-configured portfolio currency" item already calls for. Feeds the
   same source-agnostic snapshot rows via a GitHub Action or Supabase Edge
   Function — never coupled into the static page. A live liquidity spot-check
   (Jul 2026) confirmed healthy active listings for mainstream sets (Evolving
@@ -347,9 +352,12 @@ visitor on a phone as it does for the maintainer on a desktop.
   Tradera solves *product* prices but **not Set Value** (the summed singles value
   SV/Booster divides into), which stays hand-entered. Hard constraint the metric
   imposes: `SV/Booster = setVal ÷ (price ÷ boosters)` is only meaningful when
-  **setVal and price share a currency** — so a Tradera (SEK) price path forces
-  Set Value into SEK too (or everything normalised to one currency), or the ratio
-  silently breaks. Candidate sources: **(a) getmint.app/sets** — "Mint", a TCG
+  **setVal and price share a currency**. Since all stored prices are canonically
+  **EUR** (Tradera's SEK converted on ingestion, per the FX note above), Set Value
+  must be **EUR** too — which lands conveniently: getmint's Cardmarket-derived
+  values are already EUR (no conversion), and a TCGdex singles-sum reads Cardmarket
+  EUR as well, so SV/Booster stays coherent with no SEK anywhere in the stored
+  data. Candidate sources: **(a) getmint.app/sets** — "Mint", a TCG
   tracker that aggregates CardMarket/TCGPlayer and publishes every set's total
   value on one page, so a single fetch could cover all tracked sets. Attractively
   small footprint, but: it is an app-style **SPA**, so "download one page" likely
