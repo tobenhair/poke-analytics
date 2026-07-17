@@ -3,7 +3,8 @@
 Where this goes from a personal tool toward a product other people can rely on.
 Not a commitment or a schedule — a prioritised backlog. The ordering reflects
 one deliberate decision: **the data stays manually entered by the maintainer
-for now** (see "Parked", below), so everything else is sequenced to make that
+for now** — though a viable automated path has now been identified (see
+"Automated ingestion", below) — so everything else is sequenced to make that
 hand-curated data as useful, trustworthy, and easy to act on as possible.
 
 ## North star
@@ -289,35 +290,27 @@ visitor on a phone as it does for the maintainer on a desktop.
   changelog, a public "how the numbers work" methodology page (the trust
   document for a tool that claims to know what's fairly priced).
 
-## Parked — the pre-launch blocker
+## Automated ingestion — now viable (Tradera + TCGdex)
 
-- **Automated EU price ingestion.** Cardmarket has no open API, PriceCharting's
-  numbers diverge too much to trust, and scraping is fragile / a ToS question.
-  A July 2026 read of Cardmarket's General Terms and Conditions closed the door
-  on the tempting "just fetch a small amount" workaround: the terms bar
-  automated access *as a category, not by volume* — reportedly *"Spidering,
-  crawling, or accessing the site through any automated means is not allowed"* —
-  so a limited, polite footprint lowers **practical/detection** risk but is
-  **not** a compliance basis; there is no small-amount carve-out to fit into.
-  Separately, the GTC restricts reuse of listings/prices — the API *"may only be
-  used for managing your own contents,"* and *"the presentation of the trading
-  cards and their respective prices require prior written agreement"* — which
-  bites on this app regardless of how the data was obtained, because it
-  **publishes** prices. (Not legal advice; the primary text should be re-read at
-  source before relying on it — Cardmarket even 403s automated fetches of the
-  terms page itself.) The one genuinely ToS-clean route the terms point to is
-  therefore **seeking that prior written agreement** — asking Cardmarket for
-  permission — not staying small. Absent that, data stays **manually entered by
-  the maintainer**. This is explicitly the *last* thing to solve before a public
-  launch — deliberately: everything above makes the product worth launching,
-  and the manual-data work keeps it trustworthy in the meantime. When it is
-  solved, the payoff compounds: fair prices recompute daily instead of monthly,
-  alerts fire the day a dip happens, and staleness stops being a failure mode.
-  Design decisions above should quietly keep that door open (snapshots are
-  already source-agnostic rows; nothing should assume a monthly cadence).
-- **Candidate path — Tradera official API (local Swedish prices).** The most
-  promising ingestion route found, and unlike every option in this section it is
-  *sanctioned*. Tradera — Sweden's largest marketplace, and where the maintainer
+The ingestion problem that sat parked as a pre-launch blocker now has a
+concrete, **sanctioned, free** path — enough to move it out of "parked" and
+treat it as a real plan. The unlock was to stop forcing the two hard sources
+(Cardmarket's ToS-blocked prices; a paid, US-skewed PriceCharting) and instead
+pair two official free APIs: **Tradera for product prices** — the maintainer's
+actual Swedish market — and **TCGdex for set values**. Both are schedulable and
+stay inside their free limits, both feed the existing source-agnostic snapshot
+rows via a GitHub Action or Supabase Edge Function (never coupled into the
+static page), and everything is stored canonically in **EUR**. Neither half is a
+blocker any more — each is buildable now. Sensible sequencing: the correctness
+guards under "Next" (data-quality guards, error monitoring) still come first, so
+automated numbers are trustworthy the day they land, and each half starts as a
+**spike** to validate coverage before the loop depends on it. When it ships the
+payoff compounds — fair prices recompute daily instead of monthly, alerts fire
+the day a dip happens, and staleness stops being a failure mode.
+
+- **Product prices — Tradera official API (SEK → EUR).** The most
+  promising ingestion route found, and unlike the now-parked Cardmarket-direct
+  routes below it is *sanctioned*. Tradera — Sweden's largest marketplace, and where the maintainer
   actually trades — runs an official free Developer Program: register, accept the
   ToS, create an app for an Application Key; the SOAP `SearchService` (six SOAP
   services; a REST v4 also exists) does category + keyword search, and sealed
@@ -348,7 +341,7 @@ visitor on a phone as it does for the maintainer on a desktop.
   (Jul 2026) confirmed healthy active listings for mainstream sets (Evolving
   Skies, Surging Sparks, Prismatic Evolutions); the coverage of the full 36 is
   the first thing a spike should measure.
-- **Open sub-question — where "Set Value" comes from once prices are automated.**
+- **Set values — TCGdex singles-sum (preferred), getmint as a quick alternative.**
   Tradera solves *product* prices but **not Set Value** (the summed singles value
   SV/Booster divides into), which stays hand-entered. Hard constraint the metric
   imposes: `SV/Booster = setVal ÷ (price ÷ boosters)` is only meaningful when
@@ -385,6 +378,33 @@ visitor on a phone as it does for the maintainer on a desktop.
   reuse/publishing question this section already raises may travel with them, on
   top of Mint's own ToS (it 403s automated fetches today). Good for a fast
   prototype; **TCGdex is the one to build on.**
+
+## Parked — superseded Cardmarket routes
+
+Kept for reference and as a fallback if the Tradera + TCGdex path above doesn't
+pan out — the original **Cardmarket-direct** approaches, still blocked on the
+same Terms-of-Service problem. No longer the plan of record, but the analysis is
+worth keeping: it is *why* the pivot to Tradera/TCGdex was the right call.
+
+- **Automated EU price ingestion — why the Cardmarket-direct route stays blocked.**
+  Cardmarket has no open API, PriceCharting's numbers diverge too much to trust
+  (and its API is paid), and scraping is fragile / a ToS question. A July 2026
+  read of Cardmarket's General Terms and Conditions closed the door on the
+  tempting "just fetch a small amount" workaround: the terms bar automated access
+  *as a category, not by volume* — reportedly *"Spidering, crawling, or accessing
+  the site through any automated means is not allowed"* — so a limited, polite
+  footprint lowers **practical/detection** risk but is **not** a compliance basis;
+  there is no small-amount carve-out to fit into. Separately, the GTC restricts
+  reuse of listings/prices — the API *"may only be used for managing your own
+  contents,"* and *"the presentation of the trading cards and their respective
+  prices require prior written agreement"* — which bites on this app regardless of
+  how the data was obtained, because it **publishes** prices. (Not legal advice;
+  the primary text should be re-read at source before relying on it — Cardmarket
+  even 403s automated fetches of the terms page itself.) The one genuinely
+  ToS-clean route the terms point to is **seeking that prior written agreement** —
+  asking Cardmarket for permission. The Tradera + TCGdex path above sidesteps this
+  entirely by not depending on Cardmarket's own surface; the snapshot table stays
+  source-agnostic, so nothing assumes a monthly cadence or a single source.
 - **Candidate path — a Cardmarket scraper.** The most likely concrete route to
   solving the above: a scraper that fetches sealed-product prices from
   Cardmarket on a schedule and writes the same source-agnostic snapshot rows the
