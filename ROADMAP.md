@@ -315,6 +315,54 @@ visitor on a phone as it does for the maintainer on a desktop.
   alerts fire the day a dip happens, and staleness stops being a failure mode.
   Design decisions above should quietly keep that door open (snapshots are
   already source-agnostic rows; nothing should assume a monthly cadence).
+- **Candidate path — Tradera official API (local Swedish prices).** The most
+  promising ingestion route found, and unlike every option in this section it is
+  *sanctioned*. Tradera — Sweden's largest marketplace, and where the maintainer
+  actually trades — runs an official free Developer Program: register, accept the
+  ToS, create an app for an Application Key; the SOAP `SearchService` (six SOAP
+  services; a REST v4 also exists) does category + keyword search, and sealed
+  products sit under their own category IDs (Booster boxes `1001340`, Other
+  boxes/ETBs `1001341`, Booster packs `1001339`) so results filter cleanly
+  instead of drowning in singles. Default rate limit is **100 calls/method/24h**
+  — trivially inside budget for ~36 products, daily or weekly, no Cloudflare, no
+  ToS grey area. This *reframes* the whole blocker: instead of fighting
+  Cardmarket's automated-access prohibition for *pan-EU* prices, pull an official
+  feed for the *local* market the maintainer buys in. (Tradera also publicly
+  launched an "AI-adapted API" for agents in 2026, and a community MCP bridge
+  *Begagnad* exists — signals they welcome this use.) Caveats to settle in a
+  spike: (1) `SearchService` returns **active** listings (asking / current bid),
+  not confirmed sold — median of active "Köp nu" is a clean proxy but it is
+  asking, not sold; (2) C2C free-text noise (cases of 6, 2-packs, sleeved boxes,
+  Pokémon Center exclusives, empty display boxes) needs price-bound + keyword
+  filtering and a median-of-cleanest; (3) thin liquidity on old grails (Roaring
+  Skies, Team Up) and speculative future sets means some weeks have few or zero
+  Swedish listings — carry-forward or manual fallback for those; (4) it moves the
+  price unit from **EUR to SEK**, with a knock-on for set value below. Feeds the
+  same source-agnostic snapshot rows via a GitHub Action or Supabase Edge
+  Function — never coupled into the static page. A live liquidity spot-check
+  (Jul 2026) confirmed healthy active listings for mainstream sets (Evolving
+  Skies, Surging Sparks, Prismatic Evolutions); the coverage of the full 36 is
+  the first thing a spike should measure.
+- **Open sub-question — where "Set Value" comes from once prices are automated.**
+  Tradera solves *product* prices but **not Set Value** (the summed singles value
+  SV/Booster divides into), which stays hand-entered. Hard constraint the metric
+  imposes: `SV/Booster = setVal ÷ (price ÷ boosters)` is only meaningful when
+  **setVal and price share a currency** — so a Tradera (SEK) price path forces
+  Set Value into SEK too (or everything normalised to one currency), or the ratio
+  silently breaks. Candidate sources: **(a) getmint.app/sets** — "Mint", a TCG
+  tracker that aggregates CardMarket/TCGPlayer and publishes every set's total
+  value on one page, so a single fetch could cover all tracked sets. Attractively
+  small footprint, but: it is an app-style **SPA**, so "download one page" likely
+  yields an empty shell — the real data is a backing **JSON endpoint** to find
+  and use instead of scraping rendered HTML; its values are EUR/USD (need
+  conversion to the price currency); and because its numbers ultimately **derive
+  from Cardmarket**, the reuse/publishing question this section already raises may
+  travel with them, on top of Mint's own ToS (it 403s automated fetches today).
+  **(b) Sum a free singles API per set** — e.g. TCGdex (free, no key, carries
+  Cardmarket single-card prices) totalled across a set's cards: more requests but
+  an official API and no scraping. Prototype getmint's JSON endpoint first for the
+  one-request win; keep the TCGdex-sum as the robust fallback if Mint locks down
+  or its ToS doesn't clear.
 - **Candidate path — a Cardmarket scraper.** The most likely concrete route to
   solving the above: a scraper that fetches sealed-product prices from
   Cardmarket on a schedule and writes the same source-agnostic snapshot rows the
