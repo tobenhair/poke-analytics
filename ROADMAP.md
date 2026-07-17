@@ -378,6 +378,22 @@ the day a dip happens, and staleness stops being a failure mode.
   reuse/publishing question this section already raises may travel with them, on
   top of Mint's own ToS (it 403s automated fetches today). Good for a fast
   prototype; **TCGdex is the one to build on.**
+- **Optional secondary source — eBay Browse API (EU cross-check, active
+  listings).** A free, official *second* price signal for later — not part of the
+  core loop. eBay's **Browse API** (free developer account) covers the EU
+  marketplaces — eBay.de, .fr, .it, .es… selected via the
+  `X-EBAY-C-MARKETPLACE-ID` header — and at ~36 items its default rate limits are
+  ample. Two honest limits keep it *secondary*: it returns **active** listings
+  (Buy-It-Now asking prices), **not sold** — the same asking-not-sold shape as
+  Tradera's `SearchService`, just pan-EU rather than the maintainer's local
+  Swedish market; and eBay's **only** sold-data API, Marketplace Insights, is a
+  partner-gated Limited Release an individual can't realistically obtain (checked
+  2026). So its role is a **cross-check**, not a price of record: sanity-check a
+  thin Tradera week against German/EU asking prices, or flag when the two markets
+  diverge. Prices normalise to **EUR** like everything else. Worth building only
+  after the Tradera + TCGdex core proves out. (Third-party "eBay sold" APIs exist
+  but are paid scrapers, not eBay's own surface — same ToS/reliability questions
+  as any scrape, so they stay out of scope.)
 
 ## Parked — superseded Cardmarket routes
 
