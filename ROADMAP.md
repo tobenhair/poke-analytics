@@ -66,6 +66,13 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   **snapshot gap detection** (silently skipped months — it immediately caught a
   real 77-day gap) and a **same-set SV/Booster consistency check** that flags a
   product whose type/booster count disagrees with its price pattern.
+- **E2E coverage for the signed-in surface** — a second Playwright spec
+  (`tests/signed-in.spec.mjs`) drives the Supabase surface with a stubbed
+  in-memory SDK (`tests/fake-supabase-sdk.js`; no cloud credentials, fully
+  hermetic): the logged-out demo scope, auth-driven UI gating, the snapshot
+  pivot, portfolio/alert auto-save payloads, the admin Data Entry → cloud-save
+  loop, and the error beacon's cloud path. Proves the client's behaviour; the
+  RLS policies themselves stay server-side and schema-reviewed.
 
 ## Now — trustworthy numbers (stability & quality)
 
@@ -73,10 +80,6 @@ A tool that tells people what's fairly priced has to be *right*, visibly and
 verifiably. This theme extends the correctness story CI started to every number
 on the page and every failure mode around it.
 
-- **E2E coverage for the signed-in surface.** The Playwright smoke test covers
-  the static path; portfolio, alerts, and the Data Entry → cloud-save loop are
-  untested. Cover them against a seeded test Supabase project (or stubbed
-  client) so an RLS or pivot regression can't reach users.
 - **Backup & restore.** Formalise beyond the manual xlsx export: scheduled
   Supabase backups plus a periodic automated xlsx snapshot, and — the part that
   actually matters — a documented, rehearsed restore path.
