@@ -54,6 +54,18 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   fair-alert target, and the Scenario Explorer math (which also gained the
   product's true booster count instead of a back-calculation from rounded
   data). Rule going forward: **no derived number ships without a test.**
+- **Error monitoring** — runtime errors are reported to an insert-only Supabase
+  `client_errors` table (early-capture handlers + a deduped, session-capped
+  beacon; explicit reports at the cloud-load/save and demo catches). Anyone may
+  insert, only the admin reads, nothing is updatable via the API; a no-op in
+  static mode. No new vendor.
+- **Data-quality guards, extended** — the delta warning already covered set
+  values as well as prices (30 % inline nudge, 80 % confirm-block); added the
+  two missing guards as pure, unit-tested `metrics.js` functions surfaced in
+  Data Entry **and** as non-blocking warnings in the workbook validator:
+  **snapshot gap detection** (silently skipped months — it immediately caught a
+  real 77-day gap) and a **same-set SV/Booster consistency check** that flags a
+  product whose type/booster count disagrees with its price pattern.
 
 ## Now — trustworthy numbers (stability & quality)
 
@@ -61,10 +73,6 @@ A tool that tells people what's fairly priced has to be *right*, visibly and
 verifiably. This theme extends the correctness story CI started to every number
 on the page and every failure mode around it.
 
-- **Error monitoring.** Runtime errors are currently swallowed into a toast.
-  Report them — Sentry, or a lightweight beacon into a Supabase `client_errors`
-  table (no new vendor, RLS-scoped, queryable) if a full APM is overkill.
-  A silent failure in a scoring path is a wrong buy signal.
 - **E2E coverage for the signed-in surface.** The Playwright smoke test covers
   the static path; portfolio, alerts, and the Data Entry → cloud-save loop are
   untested. Cover them against a seeded test Supabase project (or stubbed
@@ -72,11 +80,6 @@ on the page and every failure mode around it.
 - **Backup & restore.** Formalise beyond the manual xlsx export: scheduled
   Supabase backups plus a periodic automated xlsx snapshot, and — the part that
   actually matters — a documented, rehearsed restore path.
-- **Data-quality guards, extended.** The delta warning catches price
-  fat-fingers; add the equivalents experience says come next: set values that
-  jump implausibly between snapshots, silently skipped months (snapshot gap
-  detection), and a product whose type/booster count disagrees with its price
-  pattern.
 - **Performance at catalogue scale.** Measure the board and charts at several
   hundred products before it happens organically; cap, paginate, or virtualise
   the table only if the measurements say so.

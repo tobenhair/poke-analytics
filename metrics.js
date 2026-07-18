@@ -337,6 +337,66 @@ export function meanSeries(seriesList) {
   return out;
 }
 
+// ── Data-quality guards (Data Entry + the workbook validator) ──
+// Best-effort plausibility checks on the hand-entered data. They warn, never
+// block: the maintainer decides. Mirrored as non-fatal warnings in
+// scripts/validate-workbook.mjs so CI surfaces them too.
+
+// A gap between consecutive snapshots longer than this reads as a silently
+// skipped month (the cadence is monthly; 45 gives a month plus slack).
+export const SNAPSHOT_GAP_DAYS = 45;
+
+// Gaps in the snapshot cadence: consecutive tracked dates further apart than
+// maxDays. dates: ISO YYYY-MM-DD strings (order-independent). Returns
+// [{ from, to, days }] oldest first — empty when the cadence held.
+export function snapshotGaps(dates, maxDays = SNAPSHOT_GAP_DAYS) {
+  const sorted = [...(dates || [])].filter(Boolean).sort();
+  const gaps = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const days = Math.round((new Date(sorted[i]) - new Date(sorted[i - 1])) / 86400000);
+    if (days > maxDays) gaps.push({ from: sorted[i - 1], to: sorted[i], days });
+  }
+  return gaps;
+}
+
+// A product whose SV/Booster is off by more than this factor vs its set
+// siblings likely has the wrong Type: products of one release share the same
+// singles market, so their SV/Booster should land in the same region — a
+// mistyped ETB-as-BOX shifts it by 4×.
+export const TYPE_OUTLIER_RATIO = 2.5;
+
+// Same-set SV/Booster consistency check. For every release with ≥2 scored
+// members, compare each member against the median of its *siblings*
+// (leave-one-out, so the suspect can't drag the baseline toward itself; in a
+// pair both sides get flagged — the guard can't tell which one is wrong).
+// Returns [{ name, type, svPerBooster, peerMedian, factor }] sorted most
+// extreme first — empty when every set is internally consistent.
+export function typeOutliers(products, ratio = TYPE_OUTLIER_RATIO) {
+  const median = xs => {
+    const s = [...xs].sort((a, b) => a - b);
+    const mid = s.length >> 1;
+    return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+  };
+  const scored = products.filter(p => p.svPerBooster != null && isFinite(p.svPerBooster));
+  const out = [];
+  for (const set of groupSets(scored)) {
+    if (set.members.length < 2) continue;
+    const members = set.members.map(n => scored.find(p => p.name === n));
+    for (const p of members) {
+      const peers = members.filter(m => m !== p).map(m => m.svPerBooster);
+      const med = median(peers);
+      if (!(med > 0)) continue;
+      const factor = p.svPerBooster / med;
+      if (factor >= ratio || factor <= 1 / ratio) {
+        out.push({ name: p.name, type: p.type, svPerBooster: p.svPerBooster,
+                   peerMedian: med, factor });
+      }
+    }
+  }
+  out.sort((a, b) => Math.max(b.factor, 1 / b.factor) - Math.max(a.factor, 1 / a.factor));
+  return out;
+}
+
 export function deriveProducts(newProducts, newHistoricalData) {
   const derivationErrors = [];
   const today = new Date();

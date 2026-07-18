@@ -168,6 +168,30 @@ Scope: **fixed** alerts only. **Fair-price** alerts (% below fair price) are
 evaluated in the browser — the fair price depends on the age-fit across all
 products, which isn't computed in the database — so they stay in-app.
 
+## Error monitoring (client_errors)
+
+Runtime errors on the page are reported into an insert-only `client_errors`
+table (created by `schema.sql`) instead of dying in a console warning or a
+toast — a silent failure in a scoring path is a wrong buy signal. Two stages in
+`index.html`: an early inline script buffers `window.onerror` /
+`unhandledrejection` events from the first script tick, and the main module
+drains the buffer once the Supabase client exists (plus explicit reports at
+the cloud-load/save and demo-load catches). The client dedupes messages and
+hard-caps at 10 reports per session; column length checks bound abuse.
+
+Access: **anyone may insert** (including logged-out demo visitors; a report may
+carry the reporter's own `user_id` or none), **only the admin may read**, and
+nothing can be updated or deleted through the API. Review errors as the admin
+in the SQL editor:
+
+```sql
+select created_at, message, context, user_id
+from public.client_errors order by created_at desc limit 50;
+```
+
+In static/xlsx mode (no `SUPABASE_CONFIG`) the beacon is a no-op — there is no
+backend to send to.
+
 ## Data model
 
 Derived metrics (age, price/booster, SV/booster, weighted score) are **not**
@@ -181,6 +205,7 @@ inputs live in the database:
 | `user_settings` | per-user preferences | read/write: own row | `age_threshold` |
 | `holdings` | per-user portfolio | read/write: own row | `product_id`, `quantity`, `cost_basis` |
 | `alerts` | per-user price alerts | read/write: own row | `product_id`, `target_price` |
+| `client_errors` | runtime error reports | insert: anyone · read: admin | `message`, `stack`, `context` |
 
 The admin is identified by user UUID in a `public.is_admin()` SQL function that
 the write policies call; it must match `SUPABASE_CONFIG.adminUserId` in the app.

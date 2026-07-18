@@ -58,6 +58,29 @@
     } catch (e) { /* localStorage blocked — stay in visitor mode */ }
   })();
 </script>
+<script>
+  // Error monitoring, stage 1: capture runtime errors from the very first
+  // script tick — before the main module (and the Supabase client it needs)
+  // exists. The module registers window.__onClientError and drains this buffer
+  // into the client_errors beacon (Supabase mode only; a no-op on the static
+  // path). A silent failure in a scoring path is a wrong buy signal, so
+  // errors must not vanish into the console.
+  (function () {
+    window.__clientErrors = [];
+    function record(message, stack) {
+      var entry = { message: String(message || 'unknown error'), stack: stack ? String(stack) : null };
+      if (window.__onClientError) window.__onClientError(entry);
+      else if (window.__clientErrors.length < 20) window.__clientErrors.push(entry);
+    }
+    window.addEventListener('error', function (e) {
+      record(e.message, e.error && e.error.stack);
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      var r = e.reason || {};
+      record(r.message || String(e.reason), r.stack);
+    });
+  })();
+</script>
 <style>
   :root {
     --bg: #0a0b0f;
@@ -753,6 +776,10 @@
   .entry-product-name { font-weight: 500; font-size: 0.82rem; white-space: nowrap; }
   .entry-last-price { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted); }
   .entry-delta { font-family: 'DM Mono', monospace; font-size: 0.62rem; color: var(--accent); margin-top: 4px; letter-spacing: 0.02em; }
+  /* Data-quality warnings strip (snapshot gaps, type outliers) — hidden when clean */
+  .entry-quality { display: none; padding: 12px 20px 0; }
+  .entry-quality.has-warnings { display: block; }
+  .entry-quality .q-line { font-family: 'DM Mono', monospace; font-size: 0.66rem; color: var(--accent); margin-bottom: 5px; letter-spacing: 0.02em; line-height: 1.5; }
 
   .add-product-panel { display: flex; flex-direction: column; gap: 18px; }
   .field-group { display: flex; flex-direction: column; gap: 7px; }
@@ -1842,6 +1869,7 @@
             </div>
           </div>
         </div>
+        <div class="entry-quality" id="entry-quality"></div>
         <div class="entry-table-wrap">
           <table class="entry-table">
             <thead>
@@ -1950,7 +1978,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, verdict, VERDICT, momentum, trendDirection, buySignal, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
+import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, verdict, VERDICT, momentum, trendDirection, buySignal, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -3893,7 +3921,26 @@ function applyEntryDeltaWarning(input) {
   }
 }
 
+// Data-quality warnings above the entry table: silently skipped months in the
+// snapshot cadence, and products whose SV/Booster is far off their set
+// siblings (a likely wrong Type). Advisory only — the math lives in metrics.js
+// (snapshotGaps/typeOutliers) and is mirrored in the workbook validator.
+function renderEntryQuality() {
+  const box = document.getElementById('entry-quality');
+  if (!box) return;
+  const lines = [];
+  snapshotGaps(histDates).forEach(g => {
+    lines.push(`⚠ ${g.days} days between snapshots ${g.from} → ${g.to} — a month may have been skipped`);
+  });
+  typeOutliers(products).forEach(o => {
+    lines.push(`⚠ ${o.name}: SV/Booster ${fmt(o.svPerBooster, 1)}× vs ${fmt(o.peerMedian, 1)}× for its set — check its Type (${o.type})`);
+  });
+  box.innerHTML = lines.map(l => `<div class="q-line">${l}</div>`).join('');
+  box.classList.toggle('has-warnings', lines.length > 0);
+}
+
 function renderEntryTable() {
+  renderEntryQuality();
   const tbody = document.getElementById('entry-tbody');
   tbody.innerHTML = '';
 
@@ -4615,6 +4662,39 @@ let sbUser     = null;   // current signed-in auth user, or null
 let sbProductIds = {};   // product name → DB uuid (for writing snapshots)
 let sbLoadedUserId = null; // user whose data is currently loaded (load guard)
 
+// ── Error monitoring, stage 2: the client_errors beacon ──
+// Reports runtime errors (captured by the early handlers near the top of the
+// file, plus explicit calls at swallowed-error sites) into the insert-only
+// client_errors table, so a failure in a scoring or load path is visible to
+// the admin instead of dying in a toast. Fire-and-forget and hard-capped:
+// reporting must never throw, loop, or flood.
+const ERR_REPORT_MAX = 10;   // per session
+let errReportedCount = 0;
+const errReportedSeen = new Set();
+
+function reportClientError(entry) {
+  try {
+    if (!sbClient) return; // static mode or pre-init: nowhere to send
+    const message = String(entry.message || 'unknown error').slice(0, 500);
+    if (errReportedSeen.has(message) || errReportedCount >= ERR_REPORT_MAX) return;
+    errReportedSeen.add(message);
+    errReportedCount++;
+    sbClient.from('client_errors').insert({
+      user_id: sbUser ? sbUser.id : null,
+      message,
+      stack: entry.stack ? String(entry.stack).slice(0, 2000) : null,
+      url: location.href.slice(0, 300),
+      user_agent: navigator.userAgent.slice(0, 300),
+      context: document.querySelector('.tab-btn.active')?.dataset.tab || null,
+    }).then(() => {}, () => {});
+  } catch (_) { /* reporting must never break the app */ }
+}
+
+function initErrorReporting() {
+  window.__onClientError = reportClientError;
+  (window.__clientErrors || []).splice(0).forEach(reportClientError);
+}
+
 function loadSupabaseSdk() {
   return new Promise((resolve, reject) => {
     if (window.supabase) return resolve(window.supabase);
@@ -4784,6 +4864,7 @@ async function loadDemo() {
     snapList    = snapRes.data || [];
   } catch (err) {
     console.warn('Demo load failed:', err.message || err);
+    reportClientError({ message: 'Demo load failed: ' + (err.message || err), stack: err.stack });
   }
 
   const histDatesLocal = [...new Set(snapList.map(s => s.snapshot_date))].sort();
@@ -4925,6 +5006,7 @@ async function saveToSupabase() {
                + (newOnes.length ? ', ' + newOnes.length + ' new product(s)' : ''), false);
   } catch (err) {
     console.error('Cloud save failed:', err);
+    reportClientError({ message: 'Cloud save failed: ' + (err.message || err), stack: err.stack });
     showStatus('✕ Cloud save failed: ' + (err.message || err), true);
   } finally {
     if (btn) btn.disabled = false;
@@ -5019,6 +5101,7 @@ function wireAuthControls() {
   try {
     const sdk = await loadSupabaseSdk();
     sbClient = sdk.createClient(SB_CFG.url, SB_CFG.anonKey);
+    initErrorReporting(); // drain early-captured errors, report new ones live
     wireAuthControls();
 
     // Single source of truth for auth state. Fires INITIAL_SESSION on startup
@@ -5033,6 +5116,7 @@ function wireAuthControls() {
         sbLoadedUserId = uid;
         loadFromSupabase().catch(err => {
           console.error('Cloud load failed:', err);
+          reportClientError({ message: 'Cloud load failed: ' + (err.message || err), stack: err.stack });
           showStatus('✕ Could not load cloud data: ' + (err.message || err), true);
         });
       } else if (!uid) {

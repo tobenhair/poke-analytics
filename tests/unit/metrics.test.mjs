@@ -29,6 +29,10 @@ import {
   peerResiduals,
   scenarioOutcome,
   SCENARIO_SIGNAL,
+  snapshotGaps,
+  SNAPSHOT_GAP_DAYS,
+  typeOutliers,
+  TYPE_OUTLIER_RATIO,
   verdict,
   VERDICT,
   setLabel,
@@ -570,4 +574,86 @@ test('fairAlertTarget is pct% below the fair price', () => {
 test('fairAlertTarget is null when either input is missing', () => {
   assert.equal(fairAlertTarget(null, 10), null);
   assert.equal(fairAlertTarget(100, null), null);
+});
+
+// ── snapshotGaps: silently skipped months in the cadence ─────────
+test('snapshotGaps flags consecutive dates further apart than the limit', () => {
+  const gaps = snapshotGaps(['2026-01-15', '2026-02-14', '2026-04-20'], 45);
+  assert.equal(gaps.length, 1);
+  assert.deepEqual(gaps[0], { from: '2026-02-14', to: '2026-04-20', days: 65 });
+});
+
+test('snapshotGaps is empty when the monthly cadence held', () => {
+  assert.deepEqual(snapshotGaps(['2026-01-18', '2026-02-23', '2026-03-20', '2026-04-20'], 45), []);
+});
+
+test('snapshotGaps sorts unordered input and ignores blanks', () => {
+  const gaps = snapshotGaps(['2026-04-20', null, '2026-01-15', '2026-02-14'], 45);
+  assert.equal(gaps.length, 1);
+  assert.equal(gaps[0].from, '2026-02-14');
+});
+
+test('snapshotGaps handles empty and single-date inputs', () => {
+  assert.deepEqual(snapshotGaps([], 45), []);
+  assert.deepEqual(snapshotGaps(['2026-01-01'], 45), []);
+  assert.deepEqual(snapshotGaps(null, 45), []);
+});
+
+test('SNAPSHOT_GAP_DAYS allows a monthly cadence with slack', () => {
+  assert.ok(SNAPSHOT_GAP_DAYS > 31 && SNAPSHOT_GAP_DAYS < 62);
+});
+
+// ── typeOutliers: same-set SV/Booster consistency ────────────────
+// Products of one release share the same singles market, so a member whose
+// SV/Booster is far off its siblings likely carries the wrong Type.
+const setOf = (release, ...members) =>
+  members.map(([name, type, svb]) => ({ name, type, release, svPerBooster: svb }));
+
+test('typeOutliers flags a member far from its set siblings', () => {
+  // An ETB mistyped as BOX reads 4× too low vs its two siblings.
+  const products = setOf('2025-01-17',
+    ['S ETB', 'ETB', 150], ['S Bundle', 'BUNDLE', 160], ['S Box', 'BOX', 38]);
+  const out = typeOutliers(products, 2.5);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].name, 'S Box');
+  assert.equal(out[0].peerMedian, 155);
+  assert.ok(out[0].factor < 1 / 2.5);
+});
+
+test('typeOutliers flags both sides of an inconsistent pair', () => {
+  // With two members it cannot tell which is wrong — flag the pair.
+  const out = typeOutliers(setOf('2025-01-17', ['A', 'ETB', 150], ['B', 'BOX', 37.5]), 2.5);
+  assert.deepEqual(out.map(o => o.name).sort(), ['A', 'B']);
+});
+
+test('typeOutliers stays quiet on a consistent set and across sets', () => {
+  // Within-set spread under the ratio; large *between*-set differences are fine.
+  const products = [
+    ...setOf('2025-01-17', ['P ETB', 'ETB', 132], ['P Bundle', 'BUNDLE', 185]),
+    ...setOf('2019-02-01', ['Old Box', 'BOX', 32]),   // single-member set: no check
+  ];
+  assert.deepEqual(typeOutliers(products, 2.5), []);
+});
+
+test('typeOutliers ignores unscored members and sorts most extreme first', () => {
+  const products = [
+    ...setOf('2025-01-17', ['A', 'ETB', 100], ['B', 'BOX', 10], ['C', 'BUNDLE', 105]),
+    ...setOf('2024-08-02', ['D', 'ETB', 100], ['E', 'BOX', 30], ['F', 'BUNDLE', 95]),
+    { name: 'G', type: 'BOX', release: '2024-08-02', svPerBooster: null },
+  ];
+  const out = typeOutliers(products, 2.5);
+  // B is 10× off its peers, E ~3.2× — B first.
+  assert.deepEqual(out.map(o => o.name), ['B', 'E']);
+});
+
+test('typeOutliers does not flag the live catalogue pattern', () => {
+  // Regression guard: the real multi-product sets (ETB vs Bundle in one
+  // release) sit well inside the ratio and must never be flagged.
+  const products = [
+    ...setOf('2025-01-17', ['Prismatic ETB', 'ETB', 132.3], ['Prismatic Bundle', 'BUNDLE', 185.2]),
+    ...setOf('2025-07-18', ['WF ETB', 'ETB', 168.5], ['WF Bundle', 'BUNDLE', 173.6],
+                           ['BB ETB', 'ETB', 162.6], ['BB Bundle', 'BUNDLE', 158.4]),
+    ...setOf('2026-01-30', ['AH ETB', 'ETB', 311.3], ['AH Bundle', 'BUNDLE', 337.2]),
+  ];
+  assert.deepEqual(typeOutliers(products, 2.5), []);
 });
