@@ -1950,7 +1950,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2, verdict, VERDICT, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
+import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, verdict, VERDICT, momentum, trendDirection, buySignal, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -2257,26 +2257,15 @@ function updateFairFitNote() {
   note.style.color = fairPriceTrusted() ? 'var(--accent4)' : 'var(--muted)';
 }
 
+// Board ▲/▼ arrow and 💰 flag — math in metrics.js (trendDirection/buySignal);
+// these wrappers resolve the product's history from the app state.
 function getTrend(name) {
   const h = historicalData[name];
-  if (!h) return 0;
-  const prices = h.price.filter(v => v != null);
-  if (prices.length < 2) return 0;
-  const last = prices[prices.length - 1];
-  const prev = prices[prices.length - 2];
-  return last > prev ? 1 : last < prev ? -1 : 0;
+  return h ? trendDirection(h.price) : 0;
 }
 
-// Returns true if price dropped >= 5% but set value held within 5%
 function isBuySignal(name) {
-  const h = historicalData[name];
-  if (!h) return false;
-  const prices = h.price.filter(v => v != null);
-  const svs = h.setVal.filter(v => v != null);
-  if (prices.length < 2 || svs.length < 2) return false;
-  const priceDrop = (prices[prices.length - 1] - prices[prices.length - 2]) / prices[prices.length - 2];
-  const svChange = (svs[svs.length - 1] - svs[svs.length - 2]) / svs[svs.length - 2];
-  return priceDrop <= -0.05 && svChange >= -0.05;
+  return buySignal(historicalData[name]);
 }
 
 // ============================================================
@@ -3449,8 +3438,7 @@ function alertTarget(name) {
   if (!a) return null;
   if (a.type === 'fair') {
     const p = products.find(pp => pp.name === name);
-    if (!p || p.fairPrice == null || a.pct == null) return null;
-    return p.fairPrice * (1 - a.pct / 100);
+    return p ? fairAlertTarget(p.fairPrice, a.pct) : null;
   }
   return a.target;
 }
@@ -3675,18 +3663,13 @@ function updateScenario() {
   document.getElementById('sv-display').textContent    = '€' + svVal.toLocaleString('de-DE');
   document.getElementById('price-display').textContent = '€' + priceVal.toLocaleString('de-DE');
 
-  // Formula matches the table exactly:
-  // pricePerBooster = price / boosters (fixed per product)
-  // svPerBooster    = setVal / pricePerBooster
-  // So: newSVB = svVal / (priceVal / boosters)
-  // boosters is fixed — back-calculate from current data: boosters = price / pricePerBooster
-  const boosters       = p.price / p.pricePerBooster;
-  const newPPB         = priceVal > 0 ? priceVal / boosters : 0;
-  const newSVB         = newPPB > 0 ? svVal / newPPB : 0;
-  const newScore       = newSVB * p.ageWeight;
-
-  const svbDelta   = newSVB - p.svPerBooster;
-  const scoreDelta = newScore - p.score;
+  // The what-if math lives in metrics.js (scenarioOutcome) — same formulas as
+  // deriveProducts, applied to the slider values.
+  const out = scenarioOutcome(p, svVal, priceVal);
+  const newSVB     = out.svPerBooster;
+  const newScore   = out.score;
+  const svbDelta   = out.svbDelta;
+  const scoreDelta = out.scoreDelta;
 
   const maxSVB   = 400;
   const maxScore = 300;
@@ -3711,22 +3694,20 @@ function updateScenario() {
     : '<span style="color:var(--muted)">no change</span>';
   document.getElementById('out-score-bar').style.width = Math.min(100, (newScore / maxScore) * 100) + '%';
 
-  // Signal
+  // Signal — the bucket comes from scenarioOutcome; only presentation here.
+  const SIGNAL_UI = {
+    'strong-buy': { text: '🟢 Strong Buy — excellent score at this price',    color: 'var(--accent4)', border: 'rgba(129,199,132,0.3)' },
+    'watch':      { text: '🟡 Watch — decent value, monitor for further drops', color: 'var(--accent)',  border: 'rgba(245,200,66,0.3)' },
+    'neutral':    { text: '🔵 Neutral — average value at this price point',   color: 'var(--accent3)', border: 'rgba(79,195,247,0.3)' },
+    'avoid':      { text: '🔴 Avoid — low value relative to cost',            color: 'var(--accent2)', border: 'rgba(232,71,63,0.3)' },
+  };
   const sig = document.getElementById('out-signal');
-  if (priceVal === 0) {
+  const ui = SIGNAL_UI[out.signal];
+  if (!ui) {
     sig.textContent = '—'; sig.style.color = 'var(--muted)'; sig.style.borderColor = 'var(--border)';
-  } else if (newScore >= 120) {
-    sig.textContent = '🟢 Strong Buy — excellent score at this price';
-    sig.style.color = 'var(--accent4)'; sig.style.borderColor = 'rgba(129,199,132,0.3)';
-  } else if (newScore >= 80) {
-    sig.textContent = '🟡 Watch — decent value, monitor for further drops';
-    sig.style.color = 'var(--accent)'; sig.style.borderColor = 'rgba(245,200,66,0.3)';
-  } else if (newScore >= 50) {
-    sig.textContent = '🔵 Neutral — average value at this price point';
-    sig.style.color = 'var(--accent3)'; sig.style.borderColor = 'rgba(79,195,247,0.3)';
   } else {
-    sig.textContent = '🔴 Avoid — low value relative to cost';
-    sig.style.color = 'var(--accent2)'; sig.style.borderColor = 'rgba(232,71,63,0.3)';
+    sig.textContent = ui.text;
+    sig.style.color = ui.color; sig.style.borderColor = ui.border;
   }
 }
 
@@ -4313,12 +4294,7 @@ function renderRelativeValue() {
     ? `age trend ${fit.b >= 0 ? '+' : ''}${fit.b.toFixed(1)}/yr · R² ${fit.r2.toFixed(2)}`
     : 'flat';
 
-  const rows = visibleProducts().map(p => {
-    // Floor the fitted expectation at 0 — a linear fit can extrapolate below
-    // zero for the oldest products, which would otherwise inflate their delta.
-    const expected = Math.max(0, fit ? fit.a + fit.b * p.age : p.svPerBooster);
-    return { name: p.name, type: p.type, age: p.age, svb: p.svPerBooster, expected, residual: p.svPerBooster - expected };
-  }).sort((a, b) => b.residual - a.residual);
+  const rows = peerResiduals(visibleProducts(), fit);
 
   tbody.innerHTML = '';
   rows.forEach(r => {
@@ -4340,28 +4316,10 @@ function renderRelativeValue() {
 // ============================================================
 // MOMENTUM & DRAWDOWN (from the tracked price / set-value history)
 // ============================================================
-function trackedSeries(arr) {
-  return (arr || []).filter(v => v != null);
-}
-function pctChange(from, to) {
-  if (from == null || to == null || from === 0) return null;
-  return (to - from) / from * 100;
-}
+// The math lives in metrics.js (momentum()); this wrapper just resolves the
+// product's history from the app state.
 function computeMomentum(name) {
-  const h = historicalData[name];
-  if (!h) return null;
-  const p = trackedSeries(h.price);
-  const sv = trackedSeries(h.setVal);
-  if (p.length < 2) return null;
-  const last = p[p.length - 1];
-  const peak = Math.max(...p);
-  return {
-    price: last,
-    last: pctChange(p[p.length - 2], last),
-    sinceFirst: pctChange(p[0], last),
-    svSinceFirst: sv.length >= 2 ? pctChange(sv[0], sv[sv.length - 1]) : null,
-    drawdown: peak > 0 ? (last - peak) / peak * 100 : null,
-  };
+  return momentum(historicalData[name]);
 }
 function renderMomentum() {
   const tbody = document.getElementById('momentum-tbody');

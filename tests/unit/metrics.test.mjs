@@ -19,7 +19,16 @@ import {
   linearFit,
   expectedSvPerBooster,
   fairPrice,
+  fairAlertTarget,
   FAIR_PRICE_MIN_R2,
+  momentum,
+  trendDirection,
+  buySignal,
+  BUY_SIGNAL_PRICE_DROP,
+  BUY_SIGNAL_SV_HOLD,
+  peerResiduals,
+  scenarioOutcome,
+  SCENARIO_SIGNAL,
   verdict,
   VERDICT,
   setLabel,
@@ -420,4 +429,145 @@ test('portfolioValueSeries returns [] when nothing is valuable', () => {
   assert.deepEqual(portfolioValueSeries({}, {}, 3), []);
   assert.deepEqual(portfolioValueSeries({ A: { quantity: 0 } }, { A: { price: [1] } }, 1), []);
   assert.deepEqual(portfolioValueSeries({ A: { quantity: 1 } }, { A: { price: [null] } }, 1), []);
+});
+
+// ── momentum: Δ last / since-first / SV trend / drawdown ─────────
+// Two of these (drawdown, svSinceFirst) are Board-verdict ingredients, so this
+// math being right is part of the verdict being right.
+test('momentum computes last, since-first, SV trend and drawdown', () => {
+  const m = momentum({ price: [100, 120, 90], setVal: [200, 210, 220] });
+  assert.equal(m.price, 90);
+  assert.equal(m.last, -25);                       // 120 → 90
+  assert.equal(m.sinceFirst, -10);                 // 100 → 90
+  assert.equal(m.svSinceFirst, 10);                // 200 → 220
+  assert.equal(m.drawdown, -25);                   // peak 120 → 90
+});
+
+test('momentum ignores null gaps — only tracked values count', () => {
+  const m = momentum({ price: [null, 100, null, 110], setVal: [null, 50, null, null] });
+  assert.equal(m.last, 10);                        // 100 → 110, nulls skipped
+  assert.equal(m.sinceFirst, 10);
+  assert.equal(m.svSinceFirst, null);              // only one tracked set value
+  assert.equal(m.drawdown, 0);                     // at the tracked peak
+});
+
+test('momentum is null without at least two tracked prices', () => {
+  assert.equal(momentum(null), null);
+  assert.equal(momentum({ price: [100], setVal: [1, 2] }), null);
+  assert.equal(momentum({ price: [null, null], setVal: [] }), null);
+});
+
+test('momentum drawdown is 0 at the peak and negative below it', () => {
+  assert.equal(momentum({ price: [80, 100], setVal: [] }).drawdown, 0);
+  assert.equal(momentum({ price: [100, 75], setVal: [] }).drawdown, -25);
+});
+
+// ── trendDirection: the board's ▲/▼ arrow ────────────────────────
+test('trendDirection reports the sign of the latest tracked move', () => {
+  assert.equal(trendDirection([100, 110]), 1);
+  assert.equal(trendDirection([110, 100]), -1);
+  assert.equal(trendDirection([100, 100]), 0);
+  assert.equal(trendDirection([100, 110, null]), 1); // trailing gap ignored
+});
+
+test('trendDirection is 0 with fewer than two tracked prices', () => {
+  assert.equal(trendDirection([]), 0);
+  assert.equal(trendDirection([100]), 0);
+  assert.equal(trendDirection([null, 100, null]), 0);
+});
+
+// ── buySignal: price dropped, set value held ─────────────────────
+test('buySignal fires when price drops ≥5% while set value holds', () => {
+  assert.equal(buySignal({ price: [100, 90], setVal: [500, 500] }), true);   // −10% / 0%
+  assert.equal(buySignal({ price: [100, 95], setVal: [500, 480] }), true);   // −5% / −4%
+});
+
+test('buySignal stays quiet on a small dip or an eroding set value', () => {
+  assert.equal(buySignal({ price: [100, 97], setVal: [500, 500] }), false);  // −3%: not a real drop
+  assert.equal(buySignal({ price: [100, 90], setVal: [500, 450] }), false);  // SV fell 10% too
+  assert.equal(buySignal({ price: [100, 110], setVal: [500, 500] }), false); // price rose
+});
+
+test('buySignal needs two tracked points on both series', () => {
+  assert.equal(buySignal(null), false);
+  assert.equal(buySignal({ price: [100, 90], setVal: [500] }), false);
+  assert.equal(buySignal({ price: [90], setVal: [500, 500] }), false);
+});
+
+test('BUY_SIGNAL thresholds are the documented −5% / −5%', () => {
+  assert.equal(BUY_SIGNAL_PRICE_DROP, -5);
+  assert.equal(BUY_SIGNAL_SV_HOLD, -5);
+});
+
+// ── peerResiduals: actual SV/Booster vs the age-fit expectation ──
+test('peerResiduals ranks by residual, best first', () => {
+  // Fit line: expected = 10 + 2·age
+  const fit = { a: 10, b: 2, r2: 1 };
+  const rows = peerResiduals([
+    { name: 'A', type: 'BOX', age: 5, svPerBooster: 15 },  // expected 20 → −5
+    { name: 'B', type: 'ETB', age: 1, svPerBooster: 20 },  // expected 12 → +8
+  ], fit);
+  assert.deepEqual(rows.map(r => r.name), ['B', 'A']);
+  assert.equal(rows[0].expected, 12);
+  assert.equal(rows[0].residual, 8);
+  assert.equal(rows[1].residual, -5);
+});
+
+test('peerResiduals floors a negative extrapolated expectation at 0', () => {
+  // Steeply falling fit: expected would be negative for an old product.
+  const fit = { a: 10, b: -3, r2: 1 };
+  const [row] = peerResiduals([{ name: 'Old', type: 'BOX', age: 6, svPerBooster: 4 }], fit);
+  assert.equal(row.expected, 0);
+  assert.equal(row.residual, 4);
+});
+
+test('peerResiduals without a fit defaults every expectation to the product itself', () => {
+  const rows = peerResiduals([{ name: 'A', type: 'BOX', age: 2, svPerBooster: 50 }], null);
+  assert.equal(rows[0].expected, 50);
+  assert.equal(rows[0].residual, 0);
+});
+
+// ── scenarioOutcome: the §09 what-if recomputation ───────────────
+test('scenarioOutcome applies the deriveProducts formulas to slider values', () => {
+  const p = { type: 'BOX', boosters: 36, ageWeight: 0.5, svPerBooster: 100, price: 360, setVal: 1000 };
+  // priceVal 720, svVal 1000: ppb = 20, svb = 50, score = 25
+  const out = scenarioOutcome(p, 1000, 720);
+  assert.equal(out.svPerBooster, 50);
+  assert.equal(out.score, 25);
+  assert.equal(out.svbDelta, -50);
+});
+
+test('scenarioOutcome falls back to the type constant when boosters is unset', () => {
+  // The hardcoded fallback products carry no `boosters` field.
+  const p = { type: 'ETB', ageWeight: 1, svPerBooster: 10, score: 10 };
+  const out = scenarioOutcome(p, 90, 9);          // ppb = 1, svb = 90
+  assert.equal(out.svPerBooster, 90);
+});
+
+test('scenarioOutcome buckets the score into the four signals', () => {
+  const p = { type: 'BOX', boosters: 36, ageWeight: 1, svPerBooster: 0, score: 0 };
+  const at = score => scenarioOutcome(p, score, 36).signal; // ppb=1 → svb=svVal=score
+  assert.equal(at(SCENARIO_SIGNAL.STRONG_BUY), 'strong-buy');
+  assert.equal(at(SCENARIO_SIGNAL.WATCH), 'watch');
+  assert.equal(at(SCENARIO_SIGNAL.NEUTRAL), 'neutral');
+  assert.equal(at(SCENARIO_SIGNAL.NEUTRAL - 1), 'avoid');
+});
+
+test('scenarioOutcome at price 0 has no signal and zero value density', () => {
+  const p = { type: 'BOX', boosters: 36, ageWeight: 1, svPerBooster: 100, score: 100 };
+  const out = scenarioOutcome(p, 1000, 0);
+  assert.equal(out.signal, null);
+  assert.equal(out.svPerBooster, 0);
+  assert.equal(out.score, 0);
+});
+
+// ── fairAlertTarget: the % below fair alert threshold ────────────
+test('fairAlertTarget is pct% below the fair price', () => {
+  assert.equal(fairAlertTarget(100, 10), 90);
+  assert.equal(fairAlertTarget(200, 0), 200);
+});
+
+test('fairAlertTarget is null when either input is missing', () => {
+  assert.equal(fairAlertTarget(null, 10), null);
+  assert.equal(fairAlertTarget(100, null), null);
 });
