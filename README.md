@@ -45,6 +45,11 @@ The page pulls Chart.js and SheetJS from a CDN, so an internet connection is req
 
 Add new products at any time from the Data Entry tab; the product name must match exactly between both sheets.
 
+The entry grid guards the numbers as you type: a large jump vs last month gets
+an inline warning (an implausible one asks for confirmation before saving), and
+a strip above the table flags data-quality issues — a skipped month between
+snapshots, or a product whose value pattern doesn't match its Type.
+
 ## Optional: cloud sync + login
 
 The default setup is a single static file with no accounts — the workbook is the
@@ -81,31 +86,43 @@ The in-app **File Format Guide** (the 📋 button on the **Analysis** tab) docum
 
 ```
 index.html               Self-contained dashboard (markup, styles, and logic)
+metrics.js               The analytical core as pure functions (shared by the
+                         page and the unit tests — one source of truth)
 pokemon_data.xlsx        Tracked data workbook
 scripts/validate-workbook.mjs  Checks the workbook matches the required format
+                         (plus advisory data-quality warnings)
+tests/unit/metrics.test.mjs    Unit tests for every derived number in metrics.js
 tests/smoke.spec.mjs     Playwright test: page loads and every tab renders
+tests/signed-in.spec.mjs Playwright test: the cloud/login surface, driven
+tests/fake-supabase-sdk.js     against an in-memory Supabase stand-in
 SUPABASE.md              Optional cloud-sync + login setup guide
 supabase/schema.sql      Database schema + Row-Level Security policies
-supabase/migrate-xlsx.mjs  One-time workbook → Supabase migration script
+supabase/migrate-xlsx.mjs      One-time workbook → Supabase migration script
+supabase/staleness-reminder.sql  Optional email when the data goes stale
+supabase/alert-emails.sql        Optional email when a price alert triggers
+supabase/error-digest.sql        Optional daily digest of client errors
 ```
 
 ## Checks (optional)
 
 The dashboard needs nothing installed to run. There is an optional CI harness
-that catches two easy-to-miss breakages — a malformed workbook (which makes the
-live page silently fall back to sample data) and a change that stops a tab
-rendering:
+that catches the easy-to-miss breakages — a wrong number in the scoring math, a
+malformed workbook (which makes the live page silently fall back to sample
+data), and a change that stops a tab or the login surface rendering:
 
 ```bash
 npm install          # one-time: installs the dev dependencies
+npm run test:unit    # unit tests for the scoring/metrics math (metrics.js)
 npm run validate     # validate pokemon_data.xlsx against the required format
-npm run test:e2e     # browser smoke test (installs a browser on first run)
-npm test             # both of the above
+npm run test:e2e     # browser tests: static smoke + signed-in surface
+npm test             # all of the above
 ```
 
 These run automatically on every push and pull request via GitHub Actions
 (`.github/workflows/ci.yml`). Run `npm run validate` after editing the workbook
-to catch format mistakes before you commit.
+to catch format mistakes before you commit — it also prints advisory
+data-quality warnings (a skipped month between snapshots, a product whose
+value pattern doesn't match its Type) that don't block but deserve a look.
 
 ## Tech
 

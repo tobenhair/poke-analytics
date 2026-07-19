@@ -51,6 +51,8 @@ Any signed-in user (not just the admin) can keep a private **Portfolio** and **P
 
 Logged-out visitors see a **pre-login demo** (`#demo-page`, a `<body>` child shown by `setAuthedUI(null)` instead of a hard login gate). `loadDemo()` queries products/snapshots as the anonymous role — RLS `"demo read …"` policies expose only the rows in the 3 newest release dates (via the `public.demo_product_ids()` SECURITY DEFINER function) — then derives metrics with the shared `deriveProducts()` and renders read-only cards grouped by set (`renderDemo()`/`demoSetName()`). A **Sign in** button opens `#auth-overlay` (now dismissible via `#auth-close`); the full catalogue still requires login.
 
+Runtime errors are reported to an insert-only **`client_errors`** table (error monitoring): an early inline script near the top of `index.html` buffers `window.onerror`/`unhandledrejection` events from the first script tick, and the module drains the buffer via `reportClientError()`/`initErrorReporting()` once `sbClient` exists — deduped, capped at 10/session, fire-and-forget, a no-op in static mode. Anyone may insert (RLS blocks spoofing another `user_id`), only the admin may read; an optional daily `pg_cron` + Resend digest (`supabase/error-digest.sql`) emails a grouped summary and stays silent when the table is clean.
+
 Only **raw** inputs are stored in the DB (name/type/release/url + per-snapshot price/set-value + age threshold); derived metrics are recomputed client-side. Metric derivation is shared by both the xlsx and Supabase paths via the **`deriveProducts(newProducts, newHistoricalData)`** helper (and `boostersFromType()`), so the two loaders can never drift. These pure functions live in the standalone ES module **`metrics.js`**, imported by `index.html` (its main `<script type="module">`) and by the unit tests — one source of truth, no copy. Schema + RLS live in `supabase/schema.sql`; setup is documented in `SUPABASE.md`.
 
 ## Metrics & scoring (the analytical core)
@@ -63,6 +65,8 @@ The pure math lives in **`metrics.js`** (imported by `index.html` and unit-teste
 - **Wtd. Score** = SV/Booster × Age Weight — the primary ranking metric.
 
 `recomputeScores(products, ageThreshold)` recomputes each product's `ageWeight` and `score` from the current `ageThreshold`, and **must run before the first render** in both the `INIT` block and `applyNewData()` — otherwise the initial view uses the scores baked into the source data (this was a real, fixed bug). `svPerBooster` is threshold-independent.
+
+`metrics.js` also carries the **data-quality guards** — `snapshotGaps()` (skipped months in the snapshot cadence) and `typeOutliers()` (same-set SV/Booster consistency; a product far off its release siblings likely has the wrong Type). They surface as an advisory strip above the Data Entry table (`renderEntryQuality()`, `#entry-quality`) and as non-blocking warnings in `scripts/validate-workbook.mjs` — advisory in both places, never blocking.
 
 ## UI architecture
 
