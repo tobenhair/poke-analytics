@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A single-page dashboard for tracking Pokémon TCG **sealed-product** (Booster Box / Elite Trainer Box / Booster Bundle) prices and deciding when to buy. The entire app is one self-contained `index.html` — markup, CSS, and JavaScript are all inline. There is **no build step, no framework, no bundler, and no test suite.**
+A single-page dashboard for tracking Pokémon TCG **sealed-product** (Booster Box / Elite Trainer Box / Booster Bundle) prices and deciding when to buy. The app is one self-contained `index.html` (markup, CSS, and JavaScript inline) plus `metrics.js`, the pure analytical core it imports. There is **no build step, no framework, and no bundler**; a Node-based dev-only test harness (unit + validator + Playwright) guards it in CI.
 
 Repo contents:
-- `index.html` — the whole application (~2,900 lines).
+- `index.html` — the whole application (~5,200 lines).
+- `metrics.js` — the scoring/derivation math as pure functions (unit-tested).
 - `pokemon_data.xlsx` — the tracked data workbook (auto-loaded at runtime).
 - `README.md` — user-facing overview and data-file format.
 
@@ -28,7 +29,7 @@ The app itself has no build/bundle step — it's still one static `index.html`. 
 - `npm run test:e2e` — two Playwright specs, no cloud credentials needed. `tests/smoke.spec.mjs` loads the real page over HTTP against the real workbook and asserts every tab renders without runtime errors (the automated backstop for bugs like a missed `recomputeScores()` before first render); it blanks `SUPABASE_CONFIG` at request time to force the static/xlsx path. `tests/signed-in.spec.mjs` covers the Supabase surface — the logged-out demo scope, auth-driven UI gating, the snapshot pivot, portfolio/alert auto-save payloads, the admin Data Entry → cloud-save loop, and the error beacon — by intercepting the SDK request and serving `tests/fake-supabase-sdk.js`, an in-memory stand-in that logs every write to `window.__sbWrites` for assertions (it proves the client's behaviour; the real RLS policies stay server-side in `supabase/schema.sql`). It serves Chart.js/SheetJS from `node_modules` (pinned to the CDN versions) so it is fully hermetic.
 - `npm test` runs all three. `.github/workflows/ci.yml` runs them on every push/PR.
 
-Beyond CI, still verify UI changes by hand: serve locally and exercise the three tabs in a browser (data auto-load, charts, Data Entry, export).
+Beyond CI, still verify UI changes by hand: serve locally and exercise the tabs in a browser (data auto-load, charts, Portfolio, Data Entry, export).
 
 ## Data model — two sources
 
@@ -95,6 +96,25 @@ checklist before committing:
   correctness and the recompute-before-render ordering invariant.
 - **`verify-app`** — before committing any change: how to actually verify in an
   app with no unit suite (serve over HTTP, `npm test`, exercise the tabs).
+
+## Documentation (required)
+
+The project has grown past what one file's comments can carry, so documentation
+is part of the definition of done: **a change ships with its documentation in
+the same commit/PR — and no document may keep claiming something the code no
+longer does.** (This is the docs counterpart of the metrics rule "no derived
+number ships without a test"; the `verify-app` pre-commit bar checks it.)
+
+Each document has one audience — update the ones your change touches:
+
+| Document | Audience | Update when… |
+|---|---|---|
+| `README.md` | users & visitors | user-visible behaviour, workflow, project layout, the checks |
+| `SUPABASE.md` | the maintainer operating the cloud setup | schema, RLS, email jobs, anything run in the Supabase dashboard |
+| `CLAUDE.md` (this file) | the next contributor / coding session | architecture, invariants, data model, notable new files or functions |
+| `ROADMAP.md` | product direction | an item ships (condense into **Done**) or the plan changes |
+| `.claude/skills/*` | the pre-commit guard checklists | an invariant, check, or fact in that skill's area changes |
+| Code comments | the implementer reading the code | constraints the code itself can't show |
 
 ## Editing invariants
 

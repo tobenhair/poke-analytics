@@ -103,7 +103,7 @@ on the page and every failure mode around it.
   (`boot` → `loadFromSupabase`/`tryAutoLoad` → `applyNewData` → the render
   functions), `metrics.js` as the shared math, and the tab/render structure — so
   a human or a new contributor can navigate the codebase without
-  reverse-engineering it from one ~2,900-line file. Kept in sync when the
+  reverse-engineering it from one ~5,200-line file. Kept in sync when the
   architecture moves.
 
 ## Then — design & usability at product level
