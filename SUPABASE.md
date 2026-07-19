@@ -192,6 +192,17 @@ from public.client_errors order by created_at desc limit 50;
 In static/xlsx mode (no `SUPABASE_CONFIG`) the beacon is a no-op — there is no
 backend to send to.
 
+### Optional: daily error-digest email
+
+`supabase/error-digest.sql` emails you a grouped summary (message × count,
+worst first) of any `client_errors` rows from the last day — and stays
+completely silent when there are none, so the email itself is the signal. Same
+stack and Vault key as the staleness job: enable `pg_cron`/`pg_net`, set
+`recipient`/`sender` at the top of the function, run the file. Runs **daily
+(07:30 UTC)**; test with `select public.send_error_digest();` (after inserting
+a fake row — the file's footer shows how) and remove with
+`select cron.unschedule('error-digest');`.
+
 ## Data model
 
 Derived metrics (age, price/booster, SV/booster, weighted score) are **not**

@@ -58,7 +58,10 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   `client_errors` table (early-capture handlers + a deduped, session-capped
   beacon; explicit reports at the cloud-load/save and demo catches). Anyone may
   insert, only the admin reads, nothing is updatable via the API; a no-op in
-  static mode. No new vendor.
+  static mode. No new vendor. Plus a **daily email digest**
+  (`supabase/error-digest.sql`, the proven `pg_cron` + Resend pattern) that
+  summarises new errors grouped by message — and sends nothing when the table
+  is clean, so the email itself is the alarm.
 - **Data-quality guards, extended** — the delta warning already covered set
   values as well as prices (30 % inline nudge, 80 % confirm-block); added the
   two missing guards as pure, unit-tested `metrics.js` functions surfaced in
