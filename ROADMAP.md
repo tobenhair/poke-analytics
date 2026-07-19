@@ -89,14 +89,30 @@ on the page and every failure mode around it.
 - **Performance at catalogue scale.** Measure the board and charts at several
   hundred products before it happens organically; cap, paginate, or virtualise
   the table only if the measurements say so.
-- **Cleanup & refactor pass.** Pay down accumulated cruft: remove stale and
-  obsolete comments and any dead code, reconcile the folder structure with what
-  the project actually is today (`scripts/`, `tests/`, `supabase/`,
-  `metrics.js`), and check that `CLAUDE.md`, the README, and the skills still
-  describe reality. `index.html` stays one inline file by design, but pure logic
-  keeps migrating to `metrics.js` — keep that boundary clean and the docs
-  honest. A hygiene pass, not a rewrite; the no-build, single-file deployment
-  model is deliberate and stays.
+- **Full code, comment & documentation audit.** A deliberate end-to-end pass
+  over everything the repo claims and contains, now that the project has grown
+  past what incremental care catches (the documentation rule in `CLAUDE.md`
+  exists going forward; this audit applies it *retroactively*). Three lenses,
+  one pass:
+  - **Code** — walk `index.html` and `metrics.js` top to bottom: dead code,
+    unused CSS rules and element IDs, leftovers from removed features (e.g.
+    upload-UI remnants), duplicated logic that should live once, and any pure
+    math still inline that belongs in `metrics.js`. Reconcile the folder
+    structure with what the project actually is today (`scripts/`, `tests/`,
+    `supabase/`). `index.html` stays one inline file by design — the no-build,
+    single-file deployment model is deliberate and stays.
+  - **Comments** — every comment either states a constraint the code can't
+    show or gets deleted: remove stale, obsolete, or now-wrong comments (the
+    lying comment is worse than none), and add the missing ones where an
+    invariant is currently tribal knowledge.
+  - **Documentation** — verify every claim in `README.md`, `SUPABASE.md`,
+    `CLAUDE.md`, this file, and `.claude/skills/*` against the actual code and
+    behaviour, the same way the "three tabs / no test suite" drift was caught:
+    read the doc, check the code, fix or delete. Confirm the four skills'
+    checklists still match how the app really breaks.
+  An audit-and-fix pass, not a rewrite: behaviour-preserving, `npm test` green
+  before and after, findings that are too big to fix inline become their own
+  roadmap items.
 - **Architecture overview diagram.** A single image committed to the repo
   (alongside `CLAUDE.md`) that maps the moving parts at a glance — the data
   sources (hardcoded fallback, `pokemon_data.xlsx`, Supabase), the load path
