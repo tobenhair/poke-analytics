@@ -7,6 +7,10 @@ for now** — though a viable automated path has now been identified (see
 "Automated ingestion", below) — so everything else is sequenced to make that
 hand-curated data as useful, trustworthy, and easy to act on as possible.
 
+This file says *what and why*; the per-item **implementation plans** (files,
+steps, decisions, verification, definition of done) live in
+[`IMPLEMENTATION.md`](IMPLEMENTATION.md).
+
 ## North star
 
 Answer one question faster than any other tool: **is this sealed product

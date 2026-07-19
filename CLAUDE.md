@@ -113,6 +113,7 @@ Each document has one audience — update the ones your change touches:
 | `SUPABASE.md` | the maintainer operating the cloud setup | schema, RLS, email jobs, anything run in the Supabase dashboard |
 | `CLAUDE.md` (this file) | the next contributor / coding session | architecture, invariants, data model, notable new files or functions |
 | `ROADMAP.md` | product direction | an item ships (condense into **Done**) or the plan changes |
+| `IMPLEMENTATION.md` | the contributor executing the backlog | an item's plan changes; delete an item's section when it ships |
 | `.claude/skills/*` | the pre-commit guard checklists | an invariant, check, or fact in that skill's area changes |
 | Code comments | the implementer reading the code | constraints the code itself can't show |
 
