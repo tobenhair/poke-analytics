@@ -58,6 +58,29 @@
     } catch (e) { /* localStorage blocked — stay in visitor mode */ }
   })();
 </script>
+<script>
+  // Error monitoring, stage 1: capture runtime errors from the very first
+  // script tick — before the main module (and the Supabase client it needs)
+  // exists. The module registers window.__onClientError and drains this buffer
+  // into the client_errors beacon (Supabase mode only; a no-op on the static
+  // path). A silent failure in a scoring path is a wrong buy signal, so
+  // errors must not vanish into the console.
+  (function () {
+    window.__clientErrors = [];
+    function record(message, stack) {
+      var entry = { message: String(message || 'unknown error'), stack: stack ? String(stack) : null };
+      if (window.__onClientError) window.__onClientError(entry);
+      else if (window.__clientErrors.length < 20) window.__clientErrors.push(entry);
+    }
+    window.addEventListener('error', function (e) {
+      record(e.message, e.error && e.error.stack);
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      var r = e.reason || {};
+      record(r.message || String(e.reason), r.stack);
+    });
+  })();
+</script>
 <style>
   :root {
     --bg: #0a0b0f;
@@ -753,6 +776,10 @@
   .entry-product-name { font-weight: 500; font-size: 0.82rem; white-space: nowrap; }
   .entry-last-price { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted); }
   .entry-delta { font-family: 'DM Mono', monospace; font-size: 0.62rem; color: var(--accent); margin-top: 4px; letter-spacing: 0.02em; }
+  /* Data-quality warnings strip (snapshot gaps, type outliers) — hidden when clean */
+  .entry-quality { display: none; padding: 12px 20px 0; }
+  .entry-quality.has-warnings { display: block; }
+  .entry-quality .q-line { font-family: 'DM Mono', monospace; font-size: 0.66rem; color: var(--accent); margin-bottom: 5px; letter-spacing: 0.02em; line-height: 1.5; }
 
   .add-product-panel { display: flex; flex-direction: column; gap: 18px; }
   .field-group { display: flex; flex-direction: column; gap: 7px; }
@@ -1842,6 +1869,7 @@
             </div>
           </div>
         </div>
+        <div class="entry-quality" id="entry-quality"></div>
         <div class="entry-table-wrap">
           <table class="entry-table">
             <thead>
@@ -1950,7 +1978,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, FAIR_PRICE_MIN_R2, verdict, VERDICT, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
+import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, verdict, VERDICT, momentum, trendDirection, buySignal, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -2257,26 +2285,15 @@ function updateFairFitNote() {
   note.style.color = fairPriceTrusted() ? 'var(--accent4)' : 'var(--muted)';
 }
 
+// Board ▲/▼ arrow and 💰 flag — math in metrics.js (trendDirection/buySignal);
+// these wrappers resolve the product's history from the app state.
 function getTrend(name) {
   const h = historicalData[name];
-  if (!h) return 0;
-  const prices = h.price.filter(v => v != null);
-  if (prices.length < 2) return 0;
-  const last = prices[prices.length - 1];
-  const prev = prices[prices.length - 2];
-  return last > prev ? 1 : last < prev ? -1 : 0;
+  return h ? trendDirection(h.price) : 0;
 }
 
-// Returns true if price dropped >= 5% but set value held within 5%
 function isBuySignal(name) {
-  const h = historicalData[name];
-  if (!h) return false;
-  const prices = h.price.filter(v => v != null);
-  const svs = h.setVal.filter(v => v != null);
-  if (prices.length < 2 || svs.length < 2) return false;
-  const priceDrop = (prices[prices.length - 1] - prices[prices.length - 2]) / prices[prices.length - 2];
-  const svChange = (svs[svs.length - 1] - svs[svs.length - 2]) / svs[svs.length - 2];
-  return priceDrop <= -0.05 && svChange >= -0.05;
+  return buySignal(historicalData[name]);
 }
 
 // ============================================================
@@ -3449,8 +3466,7 @@ function alertTarget(name) {
   if (!a) return null;
   if (a.type === 'fair') {
     const p = products.find(pp => pp.name === name);
-    if (!p || p.fairPrice == null || a.pct == null) return null;
-    return p.fairPrice * (1 - a.pct / 100);
+    return p ? fairAlertTarget(p.fairPrice, a.pct) : null;
   }
   return a.target;
 }
@@ -3675,18 +3691,13 @@ function updateScenario() {
   document.getElementById('sv-display').textContent    = '€' + svVal.toLocaleString('de-DE');
   document.getElementById('price-display').textContent = '€' + priceVal.toLocaleString('de-DE');
 
-  // Formula matches the table exactly:
-  // pricePerBooster = price / boosters (fixed per product)
-  // svPerBooster    = setVal / pricePerBooster
-  // So: newSVB = svVal / (priceVal / boosters)
-  // boosters is fixed — back-calculate from current data: boosters = price / pricePerBooster
-  const boosters       = p.price / p.pricePerBooster;
-  const newPPB         = priceVal > 0 ? priceVal / boosters : 0;
-  const newSVB         = newPPB > 0 ? svVal / newPPB : 0;
-  const newScore       = newSVB * p.ageWeight;
-
-  const svbDelta   = newSVB - p.svPerBooster;
-  const scoreDelta = newScore - p.score;
+  // The what-if math lives in metrics.js (scenarioOutcome) — same formulas as
+  // deriveProducts, applied to the slider values.
+  const out = scenarioOutcome(p, svVal, priceVal);
+  const newSVB     = out.svPerBooster;
+  const newScore   = out.score;
+  const svbDelta   = out.svbDelta;
+  const scoreDelta = out.scoreDelta;
 
   const maxSVB   = 400;
   const maxScore = 300;
@@ -3711,22 +3722,20 @@ function updateScenario() {
     : '<span style="color:var(--muted)">no change</span>';
   document.getElementById('out-score-bar').style.width = Math.min(100, (newScore / maxScore) * 100) + '%';
 
-  // Signal
+  // Signal — the bucket comes from scenarioOutcome; only presentation here.
+  const SIGNAL_UI = {
+    'strong-buy': { text: '🟢 Strong Buy — excellent score at this price',    color: 'var(--accent4)', border: 'rgba(129,199,132,0.3)' },
+    'watch':      { text: '🟡 Watch — decent value, monitor for further drops', color: 'var(--accent)',  border: 'rgba(245,200,66,0.3)' },
+    'neutral':    { text: '🔵 Neutral — average value at this price point',   color: 'var(--accent3)', border: 'rgba(79,195,247,0.3)' },
+    'avoid':      { text: '🔴 Avoid — low value relative to cost',            color: 'var(--accent2)', border: 'rgba(232,71,63,0.3)' },
+  };
   const sig = document.getElementById('out-signal');
-  if (priceVal === 0) {
+  const ui = SIGNAL_UI[out.signal];
+  if (!ui) {
     sig.textContent = '—'; sig.style.color = 'var(--muted)'; sig.style.borderColor = 'var(--border)';
-  } else if (newScore >= 120) {
-    sig.textContent = '🟢 Strong Buy — excellent score at this price';
-    sig.style.color = 'var(--accent4)'; sig.style.borderColor = 'rgba(129,199,132,0.3)';
-  } else if (newScore >= 80) {
-    sig.textContent = '🟡 Watch — decent value, monitor for further drops';
-    sig.style.color = 'var(--accent)'; sig.style.borderColor = 'rgba(245,200,66,0.3)';
-  } else if (newScore >= 50) {
-    sig.textContent = '🔵 Neutral — average value at this price point';
-    sig.style.color = 'var(--accent3)'; sig.style.borderColor = 'rgba(79,195,247,0.3)';
   } else {
-    sig.textContent = '🔴 Avoid — low value relative to cost';
-    sig.style.color = 'var(--accent2)'; sig.style.borderColor = 'rgba(232,71,63,0.3)';
+    sig.textContent = ui.text;
+    sig.style.color = ui.color; sig.style.borderColor = ui.border;
   }
 }
 
@@ -3912,7 +3921,26 @@ function applyEntryDeltaWarning(input) {
   }
 }
 
+// Data-quality warnings above the entry table: silently skipped months in the
+// snapshot cadence, and products whose SV/Booster is far off their set
+// siblings (a likely wrong Type). Advisory only — the math lives in metrics.js
+// (snapshotGaps/typeOutliers) and is mirrored in the workbook validator.
+function renderEntryQuality() {
+  const box = document.getElementById('entry-quality');
+  if (!box) return;
+  const lines = [];
+  snapshotGaps(histDates).forEach(g => {
+    lines.push(`⚠ ${g.days} days between snapshots ${g.from} → ${g.to} — a month may have been skipped`);
+  });
+  typeOutliers(products).forEach(o => {
+    lines.push(`⚠ ${o.name}: SV/Booster ${fmt(o.svPerBooster, 1)}× vs ${fmt(o.peerMedian, 1)}× for its set — check its Type (${o.type})`);
+  });
+  box.innerHTML = lines.map(l => `<div class="q-line">${l}</div>`).join('');
+  box.classList.toggle('has-warnings', lines.length > 0);
+}
+
 function renderEntryTable() {
+  renderEntryQuality();
   const tbody = document.getElementById('entry-tbody');
   tbody.innerHTML = '';
 
@@ -4313,12 +4341,7 @@ function renderRelativeValue() {
     ? `age trend ${fit.b >= 0 ? '+' : ''}${fit.b.toFixed(1)}/yr · R² ${fit.r2.toFixed(2)}`
     : 'flat';
 
-  const rows = visibleProducts().map(p => {
-    // Floor the fitted expectation at 0 — a linear fit can extrapolate below
-    // zero for the oldest products, which would otherwise inflate their delta.
-    const expected = Math.max(0, fit ? fit.a + fit.b * p.age : p.svPerBooster);
-    return { name: p.name, type: p.type, age: p.age, svb: p.svPerBooster, expected, residual: p.svPerBooster - expected };
-  }).sort((a, b) => b.residual - a.residual);
+  const rows = peerResiduals(visibleProducts(), fit);
 
   tbody.innerHTML = '';
   rows.forEach(r => {
@@ -4340,28 +4363,10 @@ function renderRelativeValue() {
 // ============================================================
 // MOMENTUM & DRAWDOWN (from the tracked price / set-value history)
 // ============================================================
-function trackedSeries(arr) {
-  return (arr || []).filter(v => v != null);
-}
-function pctChange(from, to) {
-  if (from == null || to == null || from === 0) return null;
-  return (to - from) / from * 100;
-}
+// The math lives in metrics.js (momentum()); this wrapper just resolves the
+// product's history from the app state.
 function computeMomentum(name) {
-  const h = historicalData[name];
-  if (!h) return null;
-  const p = trackedSeries(h.price);
-  const sv = trackedSeries(h.setVal);
-  if (p.length < 2) return null;
-  const last = p[p.length - 1];
-  const peak = Math.max(...p);
-  return {
-    price: last,
-    last: pctChange(p[p.length - 2], last),
-    sinceFirst: pctChange(p[0], last),
-    svSinceFirst: sv.length >= 2 ? pctChange(sv[0], sv[sv.length - 1]) : null,
-    drawdown: peak > 0 ? (last - peak) / peak * 100 : null,
-  };
+  return momentum(historicalData[name]);
 }
 function renderMomentum() {
   const tbody = document.getElementById('momentum-tbody');
@@ -4657,6 +4662,39 @@ let sbUser     = null;   // current signed-in auth user, or null
 let sbProductIds = {};   // product name → DB uuid (for writing snapshots)
 let sbLoadedUserId = null; // user whose data is currently loaded (load guard)
 
+// ── Error monitoring, stage 2: the client_errors beacon ──
+// Reports runtime errors (captured by the early handlers near the top of the
+// file, plus explicit calls at swallowed-error sites) into the insert-only
+// client_errors table, so a failure in a scoring or load path is visible to
+// the admin instead of dying in a toast. Fire-and-forget and hard-capped:
+// reporting must never throw, loop, or flood.
+const ERR_REPORT_MAX = 10;   // per session
+let errReportedCount = 0;
+const errReportedSeen = new Set();
+
+function reportClientError(entry) {
+  try {
+    if (!sbClient) return; // static mode or pre-init: nowhere to send
+    const message = String(entry.message || 'unknown error').slice(0, 500);
+    if (errReportedSeen.has(message) || errReportedCount >= ERR_REPORT_MAX) return;
+    errReportedSeen.add(message);
+    errReportedCount++;
+    sbClient.from('client_errors').insert({
+      user_id: sbUser ? sbUser.id : null,
+      message,
+      stack: entry.stack ? String(entry.stack).slice(0, 2000) : null,
+      url: location.href.slice(0, 300),
+      user_agent: navigator.userAgent.slice(0, 300),
+      context: document.querySelector('.tab-btn.active')?.dataset.tab || null,
+    }).then(() => {}, () => {});
+  } catch (_) { /* reporting must never break the app */ }
+}
+
+function initErrorReporting() {
+  window.__onClientError = reportClientError;
+  (window.__clientErrors || []).splice(0).forEach(reportClientError);
+}
+
 function loadSupabaseSdk() {
   return new Promise((resolve, reject) => {
     if (window.supabase) return resolve(window.supabase);
@@ -4826,6 +4864,7 @@ async function loadDemo() {
     snapList    = snapRes.data || [];
   } catch (err) {
     console.warn('Demo load failed:', err.message || err);
+    reportClientError({ message: 'Demo load failed: ' + (err.message || err), stack: err.stack });
   }
 
   const histDatesLocal = [...new Set(snapList.map(s => s.snapshot_date))].sort();
@@ -4967,6 +5006,7 @@ async function saveToSupabase() {
                + (newOnes.length ? ', ' + newOnes.length + ' new product(s)' : ''), false);
   } catch (err) {
     console.error('Cloud save failed:', err);
+    reportClientError({ message: 'Cloud save failed: ' + (err.message || err), stack: err.stack });
     showStatus('✕ Cloud save failed: ' + (err.message || err), true);
   } finally {
     if (btn) btn.disabled = false;
@@ -5061,6 +5101,7 @@ function wireAuthControls() {
   try {
     const sdk = await loadSupabaseSdk();
     sbClient = sdk.createClient(SB_CFG.url, SB_CFG.anonKey);
+    initErrorReporting(); // drain early-captured errors, report new ones live
     wireAuthControls();
 
     // Single source of truth for auth state. Fires INITIAL_SESSION on startup
@@ -5075,6 +5116,7 @@ function wireAuthControls() {
         sbLoadedUserId = uid;
         loadFromSupabase().catch(err => {
           console.error('Cloud load failed:', err);
+          reportClientError({ message: 'Cloud load failed: ' + (err.message || err), stack: err.stack });
           showStatus('✕ Could not load cloud data: ' + (err.message || err), true);
         });
       } else if (!uid) {

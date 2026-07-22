@@ -112,6 +112,15 @@ export function fairPrice(product, fit) {
   return { fair, expected, gapPct };
 }
 
+// The effective € buy-below threshold of a "% below fair price" alert:
+// `pct`% under the product's current fair price. Recomputes automatically as
+// the age fit moves — which is the whole point of a fair alert over a fixed
+// € target. Null when either input is missing (no fair price yet, no pct).
+export function fairAlertTarget(fair, pct) {
+  if (fair == null || pct == null) return null;
+  return fair * (1 - pct / 100);
+}
+
 // ── The Board verdict: one plain-language state per product ──
 // Synthesises the three signals a buyer cross-references by hand into a single
 // text-first verdict: the gap to fair price (primary), the drawdown vs the
@@ -162,6 +171,107 @@ export function verdict({ fairGap, drawdown, svTrend, fairTrusted }) {
   else if (tone === 'neutral' && nearLow) clause = 'near tracked low';
 
   return { label: clause ? `${label} · ${clause}` : label, tone, rank };
+}
+
+// ── History-derived signals (momentum, drawdown, trend, buy flag) ──
+// All computed from one product's tracked history object { price: [...],
+// setVal: [...] } — arrays aligned to the shared snapshot date axis, with
+// nulls for untracked months. Only the non-null ("tracked") values count.
+
+function tracked(arr) {
+  return (arr || []).filter(v => v != null);
+}
+
+// Signed % change from `from` to `to`, or null when it can't be computed
+// (missing endpoint, or a zero base that would divide to ±Infinity).
+function pctChange(from, to) {
+  if (from == null || to == null || from === 0) return null;
+  return (to - from) / from * 100;
+}
+
+// Momentum & drawdown for one product (§07, the drill-down KPIs, and — via
+// drawdown/svSinceFirst — two of the three Board-verdict ingredients):
+//   last         % price change since the previous tracked snapshot
+//   sinceFirst   % price change across the whole tracked history
+//   svSinceFirst % set-value change across the whole tracked history
+//   drawdown     % below the tracked peak price (0 at the peak, negative below)
+// Returns null with fewer than two tracked prices — no movement to measure.
+export function momentum(hist) {
+  if (!hist) return null;
+  const p  = tracked(hist.price);
+  const sv = tracked(hist.setVal);
+  if (p.length < 2) return null;
+  const last = p[p.length - 1];
+  const peak = Math.max(...p);
+  return {
+    price: last,
+    last: pctChange(p[p.length - 2], last),
+    sinceFirst: pctChange(p[0], last),
+    svSinceFirst: sv.length >= 2 ? pctChange(sv[0], sv[sv.length - 1]) : null,
+    drawdown: peak > 0 ? (last - peak) / peak * 100 : null,
+  };
+}
+
+// Direction of the latest price move (the board's ▲/▼ arrow):
+// 1 up, -1 down, 0 flat or fewer than two tracked prices.
+export function trendDirection(prices) {
+  const p = tracked(prices);
+  if (p.length < 2) return 0;
+  const last = p[p.length - 1], prev = p[p.length - 2];
+  return last > prev ? 1 : last < prev ? -1 : 0;
+}
+
+// The 💰 buy-opportunity flag: price dropped while the set value held — the
+// value is intact but the entry got cheaper. Thresholds in signed %:
+export const BUY_SIGNAL_PRICE_DROP = -5; // price fell at least this much since the previous snapshot
+export const BUY_SIGNAL_SV_HOLD    = -5; // …while set value stayed within this of its previous value
+export function buySignal(hist) {
+  if (!hist) return false;
+  const p  = tracked(hist.price);
+  const sv = tracked(hist.setVal);
+  if (p.length < 2 || sv.length < 2) return false;
+  const priceMove = pctChange(p[p.length - 2], p[p.length - 1]);
+  const svMove    = pctChange(sv[sv.length - 2], sv[sv.length - 1]);
+  return priceMove != null && svMove != null &&
+         priceMove <= BUY_SIGNAL_PRICE_DROP && svMove >= BUY_SIGNAL_SV_HOLD;
+}
+
+// ── Relative value: each product's SV/Booster vs the age-fit expectation ──
+// The §05 ranking: residual = actual − expected-for-age, sorted best first.
+// Without a fit every expectation defaults to the product's own value
+// (residual 0) — the view degrades to "no peer signal" rather than lying.
+export function peerResiduals(products, fit) {
+  return products.map(p => {
+    const expected = fit ? expectedSvPerBooster(fit, p.age) : p.svPerBooster;
+    return { name: p.name, type: p.type, age: p.age, svb: p.svPerBooster,
+             expected, residual: p.svPerBooster - expected };
+  }).sort((a, b) => b.residual - a.residual);
+}
+
+// ── Scenario Explorer: the what-if recomputation (§09) ──
+// Same formulas as deriveProducts, applied to hypothetical inputs:
+//   svPerBooster = svVal ÷ (priceVal ÷ boosters), score = svPerBooster × ageWeight.
+// Uses the product's true booster count (falling back to the type constant),
+// not a back-calculation from the rounded pricePerBooster. `signal` buckets the
+// hypothetical score; null when priceVal is 0 (nothing meaningful to say).
+export const SCENARIO_SIGNAL = { STRONG_BUY: 120, WATCH: 80, NEUTRAL: 50 };
+export function scenarioOutcome(product, svVal, priceVal) {
+  const boosters = product.boosters || boostersFromType(product.type);
+  const ppb = boosters && priceVal > 0 ? priceVal / boosters : 0;
+  const svPerBooster = ppb > 0 ? svVal / ppb : 0;
+  const score = svPerBooster * product.ageWeight;
+  const signal = !(priceVal > 0) ? null
+    : score >= SCENARIO_SIGNAL.STRONG_BUY ? 'strong-buy'
+    : score >= SCENARIO_SIGNAL.WATCH      ? 'watch'
+    : score >= SCENARIO_SIGNAL.NEUTRAL    ? 'neutral'
+    : 'avoid';
+  return {
+    svPerBooster,
+    score,
+    svbDelta: svPerBooster - product.svPerBooster,
+    scoreDelta: score - product.score,
+    signal,
+  };
 }
 
 // ── Set identity & roll-up helpers (the expanded comparison views) ──
@@ -224,6 +334,66 @@ export function meanSeries(seriesList) {
     }
     out.push(n ? parseFloat((sum / n).toFixed(2)) : null);
   }
+  return out;
+}
+
+// ── Data-quality guards (Data Entry + the workbook validator) ──
+// Best-effort plausibility checks on the hand-entered data. They warn, never
+// block: the maintainer decides. Mirrored as non-fatal warnings in
+// scripts/validate-workbook.mjs so CI surfaces them too.
+
+// A gap between consecutive snapshots longer than this reads as a silently
+// skipped month (the cadence is monthly; 45 gives a month plus slack).
+export const SNAPSHOT_GAP_DAYS = 45;
+
+// Gaps in the snapshot cadence: consecutive tracked dates further apart than
+// maxDays. dates: ISO YYYY-MM-DD strings (order-independent). Returns
+// [{ from, to, days }] oldest first — empty when the cadence held.
+export function snapshotGaps(dates, maxDays = SNAPSHOT_GAP_DAYS) {
+  const sorted = [...(dates || [])].filter(Boolean).sort();
+  const gaps = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const days = Math.round((new Date(sorted[i]) - new Date(sorted[i - 1])) / 86400000);
+    if (days > maxDays) gaps.push({ from: sorted[i - 1], to: sorted[i], days });
+  }
+  return gaps;
+}
+
+// A product whose SV/Booster is off by more than this factor vs its set
+// siblings likely has the wrong Type: products of one release share the same
+// singles market, so their SV/Booster should land in the same region — a
+// mistyped ETB-as-BOX shifts it by 4×.
+export const TYPE_OUTLIER_RATIO = 2.5;
+
+// Same-set SV/Booster consistency check. For every release with ≥2 scored
+// members, compare each member against the median of its *siblings*
+// (leave-one-out, so the suspect can't drag the baseline toward itself; in a
+// pair both sides get flagged — the guard can't tell which one is wrong).
+// Returns [{ name, type, svPerBooster, peerMedian, factor }] sorted most
+// extreme first — empty when every set is internally consistent.
+export function typeOutliers(products, ratio = TYPE_OUTLIER_RATIO) {
+  const median = xs => {
+    const s = [...xs].sort((a, b) => a - b);
+    const mid = s.length >> 1;
+    return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+  };
+  const scored = products.filter(p => p.svPerBooster != null && isFinite(p.svPerBooster));
+  const out = [];
+  for (const set of groupSets(scored)) {
+    if (set.members.length < 2) continue;
+    const members = set.members.map(n => scored.find(p => p.name === n));
+    for (const p of members) {
+      const peers = members.filter(m => m !== p).map(m => m.svPerBooster);
+      const med = median(peers);
+      if (!(med > 0)) continue;
+      const factor = p.svPerBooster / med;
+      if (factor >= ratio || factor <= 1 / ratio) {
+        out.push({ name: p.name, type: p.type, svPerBooster: p.svPerBooster,
+                   peerMedian: med, factor });
+      }
+    }
+  }
+  out.sort((a, b) => Math.max(b.factor, 1 / b.factor) - Math.max(a.factor, 1 / a.factor));
   return out;
 }
 

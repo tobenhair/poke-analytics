@@ -107,6 +107,25 @@ alter table public.alerts add constraint alerts_type_fields_chk check (
   (alert_type = 'fair'  and below_pct    is not null)
 );
 
+-- ── Client error reports (error monitoring beacon) ──
+-- Runtime errors reported by the page (window.onerror / unhandledrejection /
+-- explicit catches) so a silent failure in a scoring or load path is visible
+-- to the admin instead of dying in a toast. Write-only telemetry: anyone
+-- (including logged-out demo visitors) may INSERT, only the admin may read,
+-- nobody can update or delete via the API. The client hard-caps reports at 10
+-- per session and dedupes messages; the length checks bound abuse.
+create table if not exists public.client_errors (
+  id         bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  user_id    uuid references auth.users(id) on delete set null,
+  message    text not null check (char_length(message) <= 500),
+  stack      text check (char_length(stack) <= 2000),
+  url        text check (char_length(url) <= 300),
+  user_agent text check (char_length(user_agent) <= 300),
+  context    text check (char_length(context) <= 100)
+);
+create index if not exists client_errors_created_idx on public.client_errors (created_at desc);
+
 -- ============================================================
 -- Row-Level Security — the real security boundary
 -- ============================================================
@@ -115,6 +134,7 @@ alter table public.snapshots     enable row level security;
 alter table public.user_settings enable row level security;
 alter table public.holdings      enable row level security;
 alter table public.alerts        enable row level security;
+alter table public.client_errors enable row level security;
 
 -- Shared-dataset model:
 --   * Product data (products + snapshots) is READ by any signed-in user, but
@@ -178,6 +198,17 @@ create policy "own alerts" on public.alerts
   for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
+
+-- ── client_errors: anyone may report, only the admin may read ──
+-- No update/delete policies: rows are immutable via the API. A reporter may
+-- attach their own user_id or none — never someone else's.
+drop policy if exists "report errors" on public.client_errors;
+create policy "report errors" on public.client_errors
+  for insert to anon, authenticated
+  with check (user_id is null or user_id = auth.uid());
+drop policy if exists "admin reads errors" on public.client_errors;
+create policy "admin reads errors" on public.client_errors
+  for select to authenticated using (public.is_admin());
 
 -- ============================================================
 -- Public demo — anonymous (logged-out) read of the latest sets only

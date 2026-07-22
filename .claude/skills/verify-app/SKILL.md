@@ -1,13 +1,14 @@
 ---
 name: verify-app
-description: Use before committing any change to index.html or the data — this app has no unit suite, so "it looks right" isn't verification. Defines how to actually check a change in this specific app: serve over HTTP (never file://), run the CI checks locally, and exercise the real UI. Load after making a change and before you commit or push.
+description: Use before committing any change to index.html, metrics.js, or the data — "it looks right" isn't verification. Defines how to actually check a change in this specific app: serve over HTTP (never file://), run the CI checks locally (unit + validate + e2e), exercise the real UI, and confirm the docs are in sync per CLAUDE.md's documentation rule. Load after making a change and before you commit or push.
 ---
 
 # Verify the app — how QA works here
 
-There is **no unit test suite**, on purpose — the app is one framework-free
-`index.html`. That means verification is deliberate and mostly hands-on. Don't
-confuse "the code reads correctly" with "the app works." Actually run it.
+The app is one framework-free `index.html`; the pure math lives in
+`metrics.js` and **is** unit-tested, but everything else — rendering, wiring,
+data loading — is verified by actually running the page. Don't confuse "the
+code reads correctly" with "the app works." Actually run it.
 
 ## Non-negotiable: serve over HTTP
 
@@ -22,20 +23,24 @@ python3 -m http.server 8000   # then open http://localhost:8000
 If you're "testing" over `file://`, you're testing the fallback, not your
 change.
 
-## The two automated checks (run both)
+## The three automated checks (run all)
 
 ```bash
+npm run test:unit   # metrics.js: every derived number, as pure-function tests
 npm run validate    # workbook matches the parseXlsx()/deriveProducts() contract
-npm run test:e2e    # Playwright: page loads and every tab renders, no page errors
-npm test            # both
+                    # (+ advisory data-quality warnings — read them)
+npm run test:e2e    # Playwright: static smoke + the signed-in surface
+npm test            # all three
 ```
 
+- The unit suite guards the numbers themselves — `index.html` imports the same
+  `metrics.js`, so these assertions cover the live page, not a copy.
 - `validate` catches a malformed workbook before it silently degrades the live
   page. Run it after any data or contract change.
-- The smoke test is the automated backstop for "a tab stopped rendering" bugs
-  (e.g. a render function not wired into both `INIT` and `applyNewData()`, or a
-  missed `recomputeScores()`). It forces the static/xlsx path, so it needs no
-  cloud credentials.
+- The e2e specs are the backstop for "a tab stopped rendering" bugs (e.g. a
+  render function not wired into both `INIT` and `applyNewData()`, or a missed
+  `recomputeScores()`) and for the Supabase surface (gating, pivot, auto-save
+  payloads) via the fake SDK — no cloud credentials needed for either.
 
 These also run in CI (`.github/workflows/ci.yml`) on every push/PR — but run
 them locally *before* pushing.
@@ -46,8 +51,8 @@ Automated checks don't judge whether it looks or behaves right. In the browser:
 
 1. **Data actually loaded** — a known value from `pokemon_data.xlsx` appears
    (not the sample fallback). Check the browser console for errors.
-2. **All three tabs** — Welcome, Analysis, Data Entry: each renders, charts
-   draw, tables populate.
+2. **All the tabs** — Welcome, Analysis, and (signed in) Portfolio and Data
+   Entry: each renders, charts draw, tables populate.
 3. **The affected view specifically** — drive the exact flow you changed
    (sort, filter, slider, selector, export), not just page load.
 4. **Interactions** — age-threshold slider re-ranks; scenario sliders update;
@@ -65,6 +70,11 @@ Layer the specialised skill on top of this one:
 
 ## The bar before committing
 
-Green `npm test`, plus you loaded the served page and drove the actual flow you
-changed and watched it work. If you couldn't run it, say so explicitly rather
-than implying it was verified.
+1. Green `npm test`.
+2. You loaded the served page and drove the actual flow you changed and watched
+   it work. If you couldn't run it, say so explicitly rather than implying it
+   was verified.
+3. **Docs in sync** — the documentation rule in `CLAUDE.md` ("Documentation
+   (required)") is satisfied: every document whose area your change touches is
+   updated in the same commit, and no doc now claims something the code no
+   longer does.

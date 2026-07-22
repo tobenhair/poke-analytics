@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A single-page dashboard for tracking Pokémon TCG **sealed-product** (Booster Box / Elite Trainer Box / Booster Bundle) prices and deciding when to buy. The entire app is one self-contained `index.html` — markup, CSS, and JavaScript are all inline. There is **no build step, no framework, no bundler, and no test suite.**
+A single-page dashboard for tracking Pokémon TCG **sealed-product** (Booster Box / Elite Trainer Box / Booster Bundle) prices and deciding when to buy. The app is one self-contained `index.html` (markup, CSS, and JavaScript inline) plus `metrics.js`, the pure analytical core it imports. There is **no build step, no framework, and no bundler**; a Node-based dev-only test harness (unit + validator + Playwright) guards it in CI.
 
 Repo contents:
-- `index.html` — the whole application (~2,900 lines).
+- `index.html` — the whole application (~5,200 lines).
+- `metrics.js` — the scoring/derivation math as pure functions (unit-tested).
 - `pokemon_data.xlsx` — the tracked data workbook (auto-loaded at runtime).
 - `README.md` — user-facing overview and data-file format.
 
@@ -23,12 +24,12 @@ External libraries load from CDNs at runtime (no install step): **Chart.js 4.4.1
 
 The app itself has no build/bundle step — it's still one static `index.html`. There is, however, a lightweight CI harness (Node, dev-only) that guards against regressions:
 
-- `npm run test:unit` — `node --test` unit tests (`tests/unit/`) over the pure metrics module `metrics.js` (`boostersFromType`, `calcAgeWeight`, `recomputeScores`, `deriveProducts`). `index.html` imports the *same* file, so these assertions guard the live page's numbers, not a copy. No build step, no extra dependency.
+- `npm run test:unit` — `node --test` unit tests (`tests/unit/`) over the pure metrics module `metrics.js` (scoring/derivation, the age fit + fair price + verdict, momentum/drawdown, peer residuals, trend/buy signals, scenario math, set roll-ups, portfolio helpers). `index.html` imports the *same* file, so these assertions guard the live page's numbers, not a copy. No build step, no extra dependency. Rule: no derived number ships without a test here.
 - `npm run validate` — parses `pokemon_data.xlsx` and asserts the exact contract `parseXlsx()` + `deriveProducts()` enforce (sheet/column names, Types, dates, cross-references, usable latest price/set value). Catches the *silent* fallback-to-sample-data that a malformed workbook would otherwise cause. Keep `scripts/validate-workbook.mjs` in sync with `parseXlsx()`.
-- `npm run test:e2e` — a Playwright smoke test that loads the real page over HTTP against the real workbook and asserts every tab renders without runtime errors (the automated backstop for bugs like a missed `recomputeScores()` before first render). It blanks `SUPABASE_CONFIG` at request time to force the static/xlsx path, so it needs no cloud credentials.
+- `npm run test:e2e` — two Playwright specs, no cloud credentials needed. `tests/smoke.spec.mjs` loads the real page over HTTP against the real workbook and asserts every tab renders without runtime errors (the automated backstop for bugs like a missed `recomputeScores()` before first render); it blanks `SUPABASE_CONFIG` at request time to force the static/xlsx path. `tests/signed-in.spec.mjs` covers the Supabase surface — the logged-out demo scope, auth-driven UI gating, the snapshot pivot, portfolio/alert auto-save payloads, the admin Data Entry → cloud-save loop, and the error beacon — by intercepting the SDK request and serving `tests/fake-supabase-sdk.js`, an in-memory stand-in that logs every write to `window.__sbWrites` for assertions (it proves the client's behaviour; the real RLS policies stay server-side in `supabase/schema.sql`). It serves Chart.js/SheetJS from `node_modules` (pinned to the CDN versions) so it is fully hermetic.
 - `npm test` runs all three. `.github/workflows/ci.yml` runs them on every push/PR.
 
-Beyond CI, still verify UI changes by hand: serve locally and exercise the three tabs in a browser (data auto-load, charts, Data Entry, export).
+Beyond CI, still verify UI changes by hand: serve locally and exercise the tabs in a browser (data auto-load, charts, Portfolio, Data Entry, export).
 
 ## Data model — two sources
 
@@ -51,6 +52,8 @@ Any signed-in user (not just the admin) can keep a private **Portfolio** and **P
 
 Logged-out visitors see a **pre-login demo** (`#demo-page`, a `<body>` child shown by `setAuthedUI(null)` instead of a hard login gate). `loadDemo()` queries products/snapshots as the anonymous role — RLS `"demo read …"` policies expose only the rows in the 3 newest release dates (via the `public.demo_product_ids()` SECURITY DEFINER function) — then derives metrics with the shared `deriveProducts()` and renders read-only cards grouped by set (`renderDemo()`/`demoSetName()`). A **Sign in** button opens `#auth-overlay` (now dismissible via `#auth-close`); the full catalogue still requires login.
 
+Runtime errors are reported to an insert-only **`client_errors`** table (error monitoring): an early inline script near the top of `index.html` buffers `window.onerror`/`unhandledrejection` events from the first script tick, and the module drains the buffer via `reportClientError()`/`initErrorReporting()` once `sbClient` exists — deduped, capped at 10/session, fire-and-forget, a no-op in static mode. Anyone may insert (RLS blocks spoofing another `user_id`), only the admin may read; an optional daily `pg_cron` + Resend digest (`supabase/error-digest.sql`) emails a grouped summary and stays silent when the table is clean.
+
 Only **raw** inputs are stored in the DB (name/type/release/url + per-snapshot price/set-value + age threshold); derived metrics are recomputed client-side. Metric derivation is shared by both the xlsx and Supabase paths via the **`deriveProducts(newProducts, newHistoricalData)`** helper (and `boostersFromType()`), so the two loaders can never drift. These pure functions live in the standalone ES module **`metrics.js`**, imported by `index.html` (its main `<script type="module">`) and by the unit tests — one source of truth, no copy. Schema + RLS live in `supabase/schema.sql`; setup is documented in `SUPABASE.md`.
 
 ## Metrics & scoring (the analytical core)
@@ -63,6 +66,8 @@ The pure math lives in **`metrics.js`** (imported by `index.html` and unit-teste
 - **Wtd. Score** = SV/Booster × Age Weight — the primary ranking metric.
 
 `recomputeScores(products, ageThreshold)` recomputes each product's `ageWeight` and `score` from the current `ageThreshold`, and **must run before the first render** in both the `INIT` block and `applyNewData()` — otherwise the initial view uses the scores baked into the source data (this was a real, fixed bug). `svPerBooster` is threshold-independent.
+
+`metrics.js` also carries the **data-quality guards** — `snapshotGaps()` (skipped months in the snapshot cadence) and `typeOutliers()` (same-set SV/Booster consistency; a product far off its release siblings likely has the wrong Type). They surface as an advisory strip above the Data Entry table (`renderEntryQuality()`, `#entry-quality`) and as non-blocking warnings in `scripts/validate-workbook.mjs` — advisory in both places, never blocking.
 
 ## UI architecture
 
@@ -91,6 +96,26 @@ checklist before committing:
   correctness and the recompute-before-render ordering invariant.
 - **`verify-app`** — before committing any change: how to actually verify in an
   app with no unit suite (serve over HTTP, `npm test`, exercise the tabs).
+
+## Documentation (required)
+
+The project has grown past what one file's comments can carry, so documentation
+is part of the definition of done: **a change ships with its documentation in
+the same commit/PR — and no document may keep claiming something the code no
+longer does.** (This is the docs counterpart of the metrics rule "no derived
+number ships without a test"; the `verify-app` pre-commit bar checks it.)
+
+Each document has one audience — update the ones your change touches:
+
+| Document | Audience | Update when… |
+|---|---|---|
+| `README.md` | users & visitors | user-visible behaviour, workflow, project layout, the checks |
+| `SUPABASE.md` | the maintainer operating the cloud setup | schema, RLS, email jobs, anything run in the Supabase dashboard |
+| `CLAUDE.md` (this file) | the next contributor / coding session | architecture, invariants, data model, notable new files or functions |
+| `ROADMAP.md` | product direction | an item ships (condense into **Done**) or the plan changes |
+| `IMPLEMENTATION.md` | the contributor executing the backlog | an item's plan changes; delete an item's section when it ships |
+| `.claude/skills/*` | the pre-commit guard checklists | an invariant, check, or fact in that skill's area changes |
+| Code comments | the implementer reading the code | constraints the code itself can't show |
 
 ## Editing invariants
 

@@ -7,19 +7,22 @@ for now** — though a viable automated path has now been identified (see
 "Automated ingestion", below) — so everything else is sequenced to make that
 hand-curated data as useful, trustworthy, and easy to act on as possible.
 
+This file says *what and why*; the per-item **implementation plans** (files,
+steps, decisions, verification, definition of done) live in
+[`IMPLEMENTATION.md`](IMPLEMENTATION.md).
+
 ## North star
 
 Answer one question faster than any other tool: **is this sealed product
 fairly priced for the set value it contains — and is now a good time to buy?**
 
-The dashboard already computes everything needed to answer that (SV/Booster,
-the expected-for-age fit, drawdowns, trends), but today the answer is spread
-across nine sections the user has to synthesise in their head. The next phase
-turns that implicit answer into an explicit one: a **fair price in euros** per
-product, a plain-language verdict on the board, and alerts that fire on it.
-Every feature below is judged against that north star; anything that doesn't
-help someone find a fairly-priced product earns its place some other way or
-doesn't ship.
+That answer is now explicit on the page: a **fair price in euros** per product
+(the expected-for-age fit inverted, R²-gated), a plain-language verdict on the
+board, and alerts that fire on it. The current phase makes those numbers
+*trustworthy* — visibly and verifiably right, with every failure mode around
+them guarded. Every feature below is judged against that north star; anything
+that doesn't help someone find a fairly-priced product earns its place some
+other way or doesn't ship.
 
 ## Done
 
@@ -38,141 +41,89 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   monthly entry loop (pre-fill, keyboard flow, bulk paste, completeness state);
   signed-in **Portfolio** (private RLS-scoped holdings, unrealised P&L) and
   **Price Alerts** (buy-below targets, in-app flags); pre-login demo page.
+- **The fair-price verdict** — the whole phase shipped: **Fair Price (€)** per
+  product (the age-fit line inverted to euros, R²-gated confidence); the
+  plain-language **Board verdict** (sortable, text-first); the **product
+  drill-down** (one product, one screen, fair-price band overlaid); **fair-price
+  alerts** (*"≥10% below fair"*, recompute as the fit moves) plus server-side
+  **alert emails** for fixed € targets (`supabase/alert-emails.sql` — fair
+  alerts stay in-app since the fit is computed client-side); **board search &
+  verdict filters**; **multi-series set/product comparison** with set roll-ups;
+  the global **type filter** across all views; and the signed-in portfolio's
+  **concentration balancer**, **value-over-time chart**, and **display
+  currency** (€ canonical, FX display-only).
+- **Metrics extraction finished** — every derived number now lives in
+  `metrics.js` as a pure, unit-tested function: momentum/drawdown (the verdict's
+  ingredients), peer residuals, the board trend arrow and 💰 buy signal, the
+  fair-alert target, and the Scenario Explorer math (which also gained the
+  product's true booster count instead of a back-calculation from rounded
+  data). Rule going forward: **no derived number ships without a test.**
+- **Error monitoring** — runtime errors are reported to an insert-only Supabase
+  `client_errors` table (early-capture handlers + a deduped, session-capped
+  beacon; explicit reports at the cloud-load/save and demo catches). Anyone may
+  insert, only the admin reads, nothing is updatable via the API; a no-op in
+  static mode. No new vendor. Plus a **daily email digest**
+  (`supabase/error-digest.sql`, the proven `pg_cron` + Resend pattern) that
+  summarises new errors grouped by message — and sends nothing when the table
+  is clean, so the email itself is the alarm.
+- **Data-quality guards, extended** — the delta warning already covered set
+  values as well as prices (30 % inline nudge, 80 % confirm-block); added the
+  two missing guards as pure, unit-tested `metrics.js` functions surfaced in
+  Data Entry **and** as non-blocking warnings in the workbook validator:
+  **snapshot gap detection** (silently skipped months — it immediately caught a
+  real 77-day gap) and a **same-set SV/Booster consistency check** that flags a
+  product whose type/booster count disagrees with its price pattern.
+- **E2E coverage for the signed-in surface** — a second Playwright spec
+  (`tests/signed-in.spec.mjs`) drives the Supabase surface with a stubbed
+  in-memory SDK (`tests/fake-supabase-sdk.js`; no cloud credentials, fully
+  hermetic): the logged-out demo scope, auth-driven UI gating, the snapshot
+  pivot, portfolio/alert auto-save payloads, the admin Data Entry → cloud-save
+  loop, and the error beacon's cloud path. Proves the client's behaviour; the
+  RLS policies themselves stay server-side and schema-reviewed.
 
-## Now — the fair-price verdict
-
-The core product feature: make "is this a fair price?" a number and a sentence,
-not a judgment call. All derived math lands in `metrics.js` as pure, unit-tested
-functions first; UI follows the `design-review` skill — this phase adds *answers*,
-not visual noise.
-
-- **Fair Price (€) per product.** Invert the expected-for-age fit line that
-  sections 04/05 already compute: the fit predicts an expected SV/Booster for a
-  product's age, and since `svPerBooster = setVal × boosters ÷ price`, the
-  expected value implies a concrete fair price —
-  `fairPrice = setVal × boosters ÷ expectedSvPerBooster`. Show it next to the
-  live price as a signed gap: *"€89 now vs €112 fair → 21% under"*. The
-  existing R² badge is the honest confidence signal for how much to trust the
-  fit; surface it wherever the fair price appears, and grey the number out when
-  the fit is weak. This is the single highest-leverage feature in the backlog:
-  it converts the dashboard's central insight into the unit users actually
-  think in (euros), and everything below builds on it.
-- **A verdict on the Board.** One plain-language state per product on the All
-  Products table, synthesising the three signals a buyer cross-references by
-  hand today: gap to fair price (new), drawdown vs peak (section 07), and set
-  value trend (section 08). E.g. *"Under fair price · near tracked low"* /
-  *"Overpriced for its age"* / *"Fair — no edge"*. Text-first (a non-colour
-  cue by construction), built from existing pills/tokens, sortable — so
-  "sort by best deal" becomes the board's default story.
-- **Product drill-down.** Click any row to open a single-product view that
-  assembles what's already computed but currently scattered: price history
-  with a fair-price band overlaid, SV/Booster trend, momentum & drawdown KPIs,
-  the verdict and its ingredients, plus your own holding and alert if signed
-  in. One product, one screen, complete answer. This also becomes the natural
-  home for future per-product depth without adding top-level sections.
-- **Fair-price alerts.** Extend alerts beyond fixed € targets: *"alert me when
-  X falls ≥10% below its fair price"*. Reuses the existing `alerts`
-  infrastructure (RLS, auto-save, 🔔 board flag) with an alert-type column;
-  fair-price alerts recompute automatically as the fit moves, which is exactly
-  what a fixed target can't do.
-- **Alert email delivery.** An in-app 🔔 only works if you have the page open.
-  A Supabase `pg_cron` + Resend job (the pattern the staleness reminder already
-  proved) checks triggered alerts after each data update and emails the owner —
-  the feature that makes alerts, and therefore accounts, genuinely valuable.
-- **Board search & filters.** Name/set search, filter by type and by verdict
-  ("show me everything under fair price"). Cheap now, mandatory before the
-  catalogue reaches hundreds of products; also the groundwork for the scale
-  work in the next theme.
-- **Expanded set/product comparison (beyond two).** The Trend Over Time view
-  (section 08) and its ratio-compare dropdown currently pit one product against
-  a single second — enough to check A vs B, not enough to weigh a whole shortlist
-  at once. Let the comparison views hold several series: three-plus products, or
-  rolled up to compare *sets* head to head (SV/Booster and its trend per set), so
-  "which release is the best value right now?" is answerable on one chart instead
-  of by flipping pairs. Keeping the chart legible as series grow — a capped
-  palette, a legend that can toggle series — is the `design-review` constraint,
-  not an afterthought.
-- **Per-product-type filtering across the views.** Today the type control
-  (`activeType`) scopes only the board table. Promote BOX / ETB / BUNDLE to a
-  first-class filter that also applies to the charts and comparison views, so
-  "show me only ETBs" holds everywhere, not just on one table. A natural
-  companion to board search & filters above, and an increasing need as the
-  catalogue and the product-type mix grow.
-- **Portfolio balancer (concentration risk).** The signed-in Portfolio shows
-  what you hold and its P&L, but not the risk hiding in it: concentration. Add a
-  read on how the position is spread — share of portfolio value (and cost basis)
-  per set, era, and product type — that flags "X% of your holdings ride on one
-  set" so a single set's crash can't sink the whole position. Then make it
-  actionable by pairing it with the fair-price gap above: when the balancer says
-  you're over-exposed to one set, it points the next euro at *under-fair-price*
-  products in the sets you underweight — turning "don't put all your eggs in one
-  basket" from a proverb into a ranked, data-backed shortlist. Signed-in only,
-  reads the existing `holdings` map; no new raw data, all derived client-side.
-- **Portfolio value over time (change chart).** A chart of the signed-in user's
-  total holdings value across snapshots — cost basis vs latest tracked value —
-  so P&L reads as a trajectory, not just today's number. Reuses the pivoted
-  snapshot history the portfolio already loads; pairs naturally with the
-  balancer above (where the value sits) and the per-product P&L (how each
-  holding moved). Signed-in only, derived client-side, one more Chart.js
-  instance in the existing destroy-and-recreate pattern.
-- **User-configured portfolio currency.** Let a signed-in user pick the currency
-  their **portfolio** is shown in (€ stays the default and the canonical stored
-  unit). Persist the choice as a per-user `user_settings` field (private, RLS-
-  scoped, saved through the existing auto-save path) and convert the portfolio's
-  displayed values — holdings value, cost basis, unrealised P&L, the value-over-
-  time chart — at render time. Honest dependency: this needs an **FX rate**, the
-  first bit of non-Cardmarket external data the app would carry, so it comes with
-  its own questions — a rate source, a refresh cadence, and storing the rate used
-  with each snapshot so historical P&L stays reproducible rather than silently
-  re-based when rates move. Keep conversion **display-only** and confined to the
-  portfolio: the shared catalogue, set values, and all the SV/Booster maths stay
-  in € so the ranking metrics remain comparable across every user.
-
-## Next — trustworthy numbers (stability & quality)
+## Now — trustworthy numbers (stability & quality)
 
 A tool that tells people what's fairly priced has to be *right*, visibly and
 verifiably. This theme extends the correctness story CI started to every number
 on the page and every failure mode around it.
 
-- **Finish the metrics extraction.** The fit line, residuals (Δ vs peers),
-  momentum, drawdown, and the new fair-price math still live partly inline in
-  render functions. Move all of it into `metrics.js` as pure functions with
-  unit tests — the same one-source-of-truth treatment `deriveProducts` got.
-  Rule going forward: no derived number ships without a test.
-- **Error monitoring.** Runtime errors are currently swallowed into a toast.
-  Report them — Sentry, or a lightweight beacon into a Supabase `client_errors`
-  table (no new vendor, RLS-scoped, queryable) if a full APM is overkill.
-  A silent failure in a scoring path is a wrong buy signal.
-- **E2E coverage for the signed-in surface.** The Playwright smoke test covers
-  the static path; portfolio, alerts, and the Data Entry → cloud-save loop are
-  untested. Cover them against a seeded test Supabase project (or stubbed
-  client) so an RLS or pivot regression can't reach users.
 - **Backup & restore.** Formalise beyond the manual xlsx export: scheduled
   Supabase backups plus a periodic automated xlsx snapshot, and — the part that
   actually matters — a documented, rehearsed restore path.
-- **Data-quality guards, extended.** The delta warning catches price
-  fat-fingers; add the equivalents experience says come next: set values that
-  jump implausibly between snapshots, silently skipped months (snapshot gap
-  detection), and a product whose type/booster count disagrees with its price
-  pattern.
 - **Performance at catalogue scale.** Measure the board and charts at several
   hundred products before it happens organically; cap, paginate, or virtualise
   the table only if the measurements say so.
-- **Cleanup & refactor pass.** Pay down accumulated cruft: remove stale and
-  obsolete comments and any dead code, reconcile the folder structure with what
-  the project actually is today (`scripts/`, `tests/`, `supabase/`,
-  `metrics.js`), and check that `CLAUDE.md`, the README, and the skills still
-  describe reality. `index.html` stays one inline file by design, but pure logic
-  keeps migrating to `metrics.js` — keep that boundary clean and the docs
-  honest. A hygiene pass, not a rewrite; the no-build, single-file deployment
-  model is deliberate and stays.
+- **Full code, comment & documentation audit.** A deliberate end-to-end pass
+  over everything the repo claims and contains, now that the project has grown
+  past what incremental care catches (the documentation rule in `CLAUDE.md`
+  exists going forward; this audit applies it *retroactively*). Three lenses,
+  one pass:
+  - **Code** — walk `index.html` and `metrics.js` top to bottom: dead code,
+    unused CSS rules and element IDs, leftovers from removed features (e.g.
+    upload-UI remnants), duplicated logic that should live once, and any pure
+    math still inline that belongs in `metrics.js`. Reconcile the folder
+    structure with what the project actually is today (`scripts/`, `tests/`,
+    `supabase/`). `index.html` stays one inline file by design — the no-build,
+    single-file deployment model is deliberate and stays.
+  - **Comments** — every comment either states a constraint the code can't
+    show or gets deleted: remove stale, obsolete, or now-wrong comments (the
+    lying comment is worse than none), and add the missing ones where an
+    invariant is currently tribal knowledge.
+  - **Documentation** — verify every claim in `README.md`, `SUPABASE.md`,
+    `CLAUDE.md`, this file, and `.claude/skills/*` against the actual code and
+    behaviour, the same way the "three tabs / no test suite" drift was caught:
+    read the doc, check the code, fix or delete. Confirm the four skills'
+    checklists still match how the app really breaks.
+  An audit-and-fix pass, not a rewrite: behaviour-preserving, `npm test` green
+  before and after, findings that are too big to fix inline become their own
+  roadmap items.
 - **Architecture overview diagram.** A single image committed to the repo
   (alongside `CLAUDE.md`) that maps the moving parts at a glance — the data
   sources (hardcoded fallback, `pokemon_data.xlsx`, Supabase), the load path
   (`boot` → `loadFromSupabase`/`tryAutoLoad` → `applyNewData` → the render
   functions), `metrics.js` as the shared math, and the tab/render structure — so
   a human or a new contributor can navigate the codebase without
-  reverse-engineering it from one ~2,900-line file. Kept in sync when the
+  reverse-engineering it from one ~5,200-line file. Kept in sync when the
   architecture moves.
 
 ## Then — design & usability at product level
@@ -302,7 +253,7 @@ stay inside their free limits, both feed the existing source-agnostic snapshot
 rows via a GitHub Action or Supabase Edge Function (never coupled into the
 static page), and everything is stored canonically in **EUR**. Neither half is a
 blocker any more — each is buildable now. Sensible sequencing: the correctness
-guards under "Next" (data-quality guards, error monitoring) still come first, so
+guards under "Now" (data-quality guards, error monitoring) still come first, so
 automated numbers are trustworthy the day they land, and each half starts as a
 **spike** to validate coverage before the loop depends on it. When it ships the
 payoff compounds — fair prices recompute daily instead of monthly, alerts fire
