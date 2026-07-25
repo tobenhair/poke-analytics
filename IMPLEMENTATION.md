@@ -32,87 +32,6 @@ spike before detailed planning would be honest.
 
 ## NOW — trustworthy numbers
 
-### 1. Backup & restore
-
-**Goal.** The Supabase database is the live source of truth and its only
-backup today is a manual export button. Ship an automated weekly workbook
-snapshot plus a documented, *rehearsed* restore path.
-
-**Build:**
-
-1. `scripts/export-backup.mjs` — Node script that:
-   - Reads `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from env (service
-     role bypasses RLS; the key must only ever live in GitHub Actions
-     secrets, never in the repo or client).
-   - Fetches `products` and `snapshots` via the REST API (`@supabase/supabase-js`
-     as a devDependency, or plain `fetch` against `/rest/v1/` — plain fetch
-     avoids a new dependency and is enough for two tables).
-   - Writes a workbook with the **exact** contract `parseXlsx()` expects
-     (sheets `Summary`, `Historical Data`, optional `Links`; column names per
-     the Format Guide / README). Reuse the column logic in
-     `supabase/migrate-xlsx.mjs` — this script is its inverse.
-   - Self-checks: after writing, run the validator's logic against the output
-     (spawn `node scripts/validate-workbook.mjs <outfile>`); non-zero exit
-     fails the backup. A backup that can't be re-imported is not a backup.
-2. `.github/workflows/backup.yml` — weekly cron (e.g. Monday 06:00 UTC):
-   checkout → `npm ci` → run the script → upload the workbook as an artifact
-   (90-day retention) **and** commit it to `backups/pokemon_data-<date>.xlsx`
-   on `main`, pruning to the newest ~12 files so the repo doesn't grow
-   unboundedly. Secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
-3. `SUPABASE.md` — a **Restore** section with the exact sequence: create/clean
-   project → run `schema.sql` → run `supabase/migrate-xlsx.mjs` on the chosen
-   backup file → verify in-app (spot-check a known product) → re-run the
-   optional email jobs. **Rehearse it once against a scratch Supabase project
-   and correct the doc from what actually happened** — the rehearsal is part
-   of the item, not optional.
-
-**Decisions left open:** none blocking; artifact-only vs commit-to-repo can be
-cut to artifact-only if the maintainer prefers a lean repo (then retention is
-the only copy — say so in SUPABASE.md).
-
-**Verify:** run the script locally against the real project (read-only); run
-the validator on its output; trigger the workflow manually
-(`workflow_dispatch`) once; perform the restore rehearsal.
-
-**Done when:** a green scheduled run exists, a restore has been rehearsed and
-documented, and README's layout table lists the new script/workflow.
-
-*Size: S/M. Dependencies: none. Touches: new script, new workflow, SUPABASE.md, README, ROADMAP.*
-
-### 2. Performance at catalogue scale
-
-**Goal.** Know — with numbers, before it happens organically — how the board
-and charts behave at several hundred products. Measure first; optimise only
-what the measurements convict.
-
-**Build:**
-
-1. `scripts/gen-scale-fixture.mjs` — deterministic (seeded PRNG) generator
-   producing a contract-valid workbook: N products (default 400; realistic
-   BOX/ETB/BUNDLE mix across ~60 release dates) × M snapshots (default 24
-   monthly). Writes to a path given on argv. Validate with the validator.
-2. Measurement harness — the cheapest honest method: serve a temp directory
-   containing `index.html`, `metrics.js`, and the fixture renamed to
-   `pokemon_data.xlsx`; drive it with a short Playwright script (not a CI
-   spec) that loads the page and reads `performance.now()` timings injected
-   around `applyNewData()` and each render function via
-   `page.addInitScript`/`page.evaluate`. Capture: initial render, tab switch,
-   type-filter change, sort change, drill-down open, at N ∈ {36, 200, 400}.
-3. Record findings as a short table in the PR description and condense the
-   conclusion into ROADMAP (either "fine up to N=400, nothing to do" — a
-   perfectly good outcome — or new, specific items: e.g. "board innerHTML
-   rebuild is O(n) per keystroke of search; batch it").
-
-**Likely suspects if something is slow** (do NOT pre-fix them): per-row
-`innerHTML` in `updateTable()`, chart dataset rebuilds on every filter change,
-the comparison-picker chip list at hundreds of entries.
-
-**Verify:** measurements are reproducible run-to-run (±10%); no repo behaviour
-changes at all unless a fix item is spawned.
-
-**Done when:** the numbers exist, the conclusion is in ROADMAP, and any needed
-fixes are filed as their own items. *Size: S. Dependencies: none.*
-
 ### 3. Full code, comment & documentation audit
 
 **Goal.** One deliberate end-to-end pass over everything the repo contains and
@@ -345,3 +264,127 @@ sanity-checking thin Tradera weeks. Not part of the core loop.
 - **Launch checklist.** Uptime expectations, support contact, versioned
   changelog, and a public "how the numbers work" methodology page (the trust
   document — largely written already across README/ROADMAP; consolidate).
+
+### 2b. Board performance fixes — measured, dormant until ~200 products
+
+Spawned by the scale measurements (item 2, shipped). **Do not build these
+now:** at today's 36 products the board costs 8 ms and every fix here would be
+speculative complexity. They come due when coverage growth or automated
+ingestion pushes the catalogue past roughly 200 products — re-run
+`npm run scale:measure` to confirm before starting, and again after, using the
+same matrix so the before/after is comparable.
+
+Measured baseline (median ms, Chromium, 7 repeats, N = 36 → 200 → 400):
+board search **14.5 → 50 → 92** per keystroke · sort **15 → 51 → 91** ·
+type filter **47 → 137 → 239** · Data Entry grid **14 → 59 → 133** ·
+drill-down flat at ~9 (it scales with M instead: 9 → 45 at 365 snapshots).
+
+1. **Debounce the board search** (~150 ms trailing). `#board-search`'s `input`
+   handler calls `updateTable()` on every keystroke, and `updateTable()` is
+   O(N) — 92 ms per character at N = 400. Highest value for the least code.
+   Keep the *first* keystroke responsive if possible (leading + trailing) so
+   short queries still feel instant. Verify with the harness's "board search
+   keystroke" row, and by hand: type a long query at N = 400 and watch for lag.
+2. **Stop rebuilding the whole tbody.** Sort/filter/search each re-render every
+   row (50–70 ms at N = 400). Options in increasing order of intrusiveness:
+   reuse row elements and update their cells in place; or virtualise the
+   existing capped-height (`70vh`) `.table-wrap` scroll area. Preserve the
+   JS-referenced IDs/classes (`product-tbody`, `.verdict-line`, the row click
+   → `openDrill()` binding) — the smoke spec asserts several of them.
+3. **Split the type filter's re-render.** `applyTypeFilter()` synchronously
+   rebuilds the board *and* four charts (239 ms at N = 400; 329 ms at
+   400 × 365). Render the board first and let the charts update in a follow-up
+   frame (`requestAnimationFrame`) so the interaction feels immediate.
+
+**Verify:** `npm run scale:measure -- --matrix 36x24,200x24,400x24` before and
+after (the numbers are the point); `npm test` green; and by hand at N = 400
+using a generated fixture — sort, filter, search, drill-down all still correct,
+not just fast. *Size: S (1) / M (2) / S (3). Dependencies: a catalogue big
+enough to justify them.*
+
+### 1. Backup & restore — deferred (full plan retained)
+
+Moved here from **Now** in Jul 2026 by maintainer decision — not descoped, just
+not next. (Item numbers are stable labels so cross-references keep working;
+ROADMAP's ordering is the priority, not these numbers.) **Why deferred:** the
+rehearsal has to restore *into* something that isn't production, and spending
+the organisation's second free Supabase project on it isn't worth it right now.
+**Interim mitigation, in force until this ships:** the manual **⬇ Export
+updated .xlsx** button is the only backup of the live database — export after
+each monthly entry loop and keep the file off-repo.
+
+**Goal.** The Supabase database is the live source of truth and its only
+backup today is that manual export button. Ship an automated weekly workbook
+snapshot plus a documented, *rehearsed* restore path.
+
+**Build:**
+
+1. `scripts/export-backup.mjs` — Node script that:
+   - Reads `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from env (service
+     role bypasses RLS; the key must only ever live in GitHub Actions
+     secrets, never in the repo or client).
+   - Fetches `products` and `snapshots` via the REST API (`@supabase/supabase-js`
+     as a devDependency, or plain `fetch` against `/rest/v1/` — plain fetch
+     avoids a new dependency and is enough for two tables).
+   - Writes a workbook with the **exact** contract `parseXlsx()` expects
+     (sheets `Summary`, `Historical Data`, optional `Links`; column names per
+     the Format Guide / README). Reuse the column logic in
+     `supabase/migrate-xlsx.mjs` — this script is its inverse.
+   - Self-checks: after writing, run the validator's logic against the output
+     (spawn `node scripts/validate-workbook.mjs <outfile>`); non-zero exit
+     fails the backup. A backup that can't be re-imported is not a backup.
+2. `.github/workflows/backup.yml` — weekly cron (e.g. Monday 06:00 UTC):
+   checkout → `npm ci` → run the script → upload the workbook as an artifact
+   (90-day retention) **and** commit it to `backups/pokemon_data-<date>.xlsx`
+   on `main`, pruning to the newest ~12 files so the repo doesn't grow
+   unboundedly. Secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+3. `SUPABASE.md` — a **Restore** section with the exact sequence: create/clean
+   project → run `schema.sql` → run `supabase/migrate-xlsx.mjs` on the chosen
+   backup file → verify in-app (spot-check a known product) → re-run the
+   optional email jobs. **Rehearse it once and correct the doc from what
+   actually happened** — the rehearsal is part of the item, not optional.
+
+**Where to rehearse** (settled Jul 2026 — only this step needs a non-production
+destination; the export script and workflow read the live project read-only and
+need nothing new):
+
+- **A local stack — `supabase start` (recommended, free, Docker).** Real
+  Postgres + GoTrue auth + PostgREST, so `schema.sql` and
+  `supabase/migrate-xlsx.mjs` run unmodified — both want only a URL, an anon
+  key, and an email/password. Repeatable, so it can be re-run whenever the
+  schema changes rather than once.
+- **A second free Supabase project.** Highest fidelity, no Docker; the free
+  tier allows two active projects per organisation (verify against the current
+  org before assuming). Deliberately *not* spent on this yet — that is the
+  deferral reason above.
+- **Supabase branching.** Cleanest, but a paid-plan feature. Skip unless the
+  project is already on Pro.
+
+  A local stack cannot exercise: the three email jobs
+  (`staleness-reminder.sql`, `alert-emails.sql`, `error-digest.sql`) which need
+  `pg_cron` + `pg_net` + a Vault-stored Resend key and real outbound HTTP, and
+  the dashboard-driven steps (API keys, Auth settings). Say so in the restore
+  doc rather than skipping them silently.
+
+**Restore-order gotcha found while planning (do not lose this).** `is_admin()`
+hardcodes the admin UUID (`supabase/schema.sql:156`) and it must match
+`SUPABASE_CONFIG.adminUserId` in `index.html`. A restore into a fresh project
+mints a *different* `auth.users` UUID, so the sequence must be: create the
+admin account first → read its new UUID → patch both places → *then* run the
+rest of `schema.sql` and the migration. Skipping this yields a database nobody
+can write to. The current step 3 above does not encode this ordering — fix that
+when the item is picked up.
+
+**Decisions left open:** none blocking; artifact-only vs commit-to-repo can be
+cut to artifact-only if the maintainer prefers a lean repo (then retention is
+the only copy — say so in SUPABASE.md).
+
+**Verify:** run the script locally against the real project (read-only); run
+the validator on its output; trigger the workflow manually
+(`workflow_dispatch`) once; perform the restore rehearsal.
+
+**Done when:** a green scheduled run exists, a restore has been rehearsed and
+documented, and README's layout table lists the new script/workflow.
+
+*Size: S/M. Dependencies: none (a rehearsal destination is the only input).
+Touches: new script, new workflow, SUPABASE.md, README, ROADMAP.*
