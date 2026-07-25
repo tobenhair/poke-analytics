@@ -32,53 +32,6 @@ spike before detailed planning would be honest.
 
 ## NOW — trustworthy numbers
 
-### 1. Backup & restore
-
-**Goal.** The Supabase database is the live source of truth and its only
-backup today is a manual export button. Ship an automated weekly workbook
-snapshot plus a documented, *rehearsed* restore path.
-
-**Build:**
-
-1. `scripts/export-backup.mjs` — Node script that:
-   - Reads `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from env (service
-     role bypasses RLS; the key must only ever live in GitHub Actions
-     secrets, never in the repo or client).
-   - Fetches `products` and `snapshots` via the REST API (`@supabase/supabase-js`
-     as a devDependency, or plain `fetch` against `/rest/v1/` — plain fetch
-     avoids a new dependency and is enough for two tables).
-   - Writes a workbook with the **exact** contract `parseXlsx()` expects
-     (sheets `Summary`, `Historical Data`, optional `Links`; column names per
-     the Format Guide / README). Reuse the column logic in
-     `supabase/migrate-xlsx.mjs` — this script is its inverse.
-   - Self-checks: after writing, run the validator's logic against the output
-     (spawn `node scripts/validate-workbook.mjs <outfile>`); non-zero exit
-     fails the backup. A backup that can't be re-imported is not a backup.
-2. `.github/workflows/backup.yml` — weekly cron (e.g. Monday 06:00 UTC):
-   checkout → `npm ci` → run the script → upload the workbook as an artifact
-   (90-day retention) **and** commit it to `backups/pokemon_data-<date>.xlsx`
-   on `main`, pruning to the newest ~12 files so the repo doesn't grow
-   unboundedly. Secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
-3. `SUPABASE.md` — a **Restore** section with the exact sequence: create/clean
-   project → run `schema.sql` → run `supabase/migrate-xlsx.mjs` on the chosen
-   backup file → verify in-app (spot-check a known product) → re-run the
-   optional email jobs. **Rehearse it once against a scratch Supabase project
-   and correct the doc from what actually happened** — the rehearsal is part
-   of the item, not optional.
-
-**Decisions left open:** none blocking; artifact-only vs commit-to-repo can be
-cut to artifact-only if the maintainer prefers a lean repo (then retention is
-the only copy — say so in SUPABASE.md).
-
-**Verify:** run the script locally against the real project (read-only); run
-the validator on its output; trigger the workflow manually
-(`workflow_dispatch`) once; perform the restore rehearsal.
-
-**Done when:** a green scheduled run exists, a restore has been rehearsed and
-documented, and README's layout table lists the new script/workflow.
-
-*Size: S/M. Dependencies: none. Touches: new script, new workflow, SUPABASE.md, README, ROADMAP.*
-
 ### 2. Performance at catalogue scale
 
 **Goal.** Know — with numbers, before it happens organically — how the board
@@ -345,3 +298,90 @@ sanity-checking thin Tradera weeks. Not part of the core loop.
 - **Launch checklist.** Uptime expectations, support contact, versioned
   changelog, and a public "how the numbers work" methodology page (the trust
   document — largely written already across README/ROADMAP; consolidate).
+
+### 1. Backup & restore — deferred (full plan retained)
+
+Moved here from **Now** in Jul 2026 by maintainer decision — not descoped, just
+not next. (Item numbers are stable labels so cross-references keep working;
+ROADMAP's ordering is the priority, not these numbers.) **Why deferred:** the
+rehearsal has to restore *into* something that isn't production, and spending
+the organisation's second free Supabase project on it isn't worth it right now.
+**Interim mitigation, in force until this ships:** the manual **⬇ Export
+updated .xlsx** button is the only backup of the live database — export after
+each monthly entry loop and keep the file off-repo.
+
+**Goal.** The Supabase database is the live source of truth and its only
+backup today is that manual export button. Ship an automated weekly workbook
+snapshot plus a documented, *rehearsed* restore path.
+
+**Build:**
+
+1. `scripts/export-backup.mjs` — Node script that:
+   - Reads `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from env (service
+     role bypasses RLS; the key must only ever live in GitHub Actions
+     secrets, never in the repo or client).
+   - Fetches `products` and `snapshots` via the REST API (`@supabase/supabase-js`
+     as a devDependency, or plain `fetch` against `/rest/v1/` — plain fetch
+     avoids a new dependency and is enough for two tables).
+   - Writes a workbook with the **exact** contract `parseXlsx()` expects
+     (sheets `Summary`, `Historical Data`, optional `Links`; column names per
+     the Format Guide / README). Reuse the column logic in
+     `supabase/migrate-xlsx.mjs` — this script is its inverse.
+   - Self-checks: after writing, run the validator's logic against the output
+     (spawn `node scripts/validate-workbook.mjs <outfile>`); non-zero exit
+     fails the backup. A backup that can't be re-imported is not a backup.
+2. `.github/workflows/backup.yml` — weekly cron (e.g. Monday 06:00 UTC):
+   checkout → `npm ci` → run the script → upload the workbook as an artifact
+   (90-day retention) **and** commit it to `backups/pokemon_data-<date>.xlsx`
+   on `main`, pruning to the newest ~12 files so the repo doesn't grow
+   unboundedly. Secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+3. `SUPABASE.md` — a **Restore** section with the exact sequence: create/clean
+   project → run `schema.sql` → run `supabase/migrate-xlsx.mjs` on the chosen
+   backup file → verify in-app (spot-check a known product) → re-run the
+   optional email jobs. **Rehearse it once and correct the doc from what
+   actually happened** — the rehearsal is part of the item, not optional.
+
+**Where to rehearse** (settled Jul 2026 — only this step needs a non-production
+destination; the export script and workflow read the live project read-only and
+need nothing new):
+
+- **A local stack — `supabase start` (recommended, free, Docker).** Real
+  Postgres + GoTrue auth + PostgREST, so `schema.sql` and
+  `supabase/migrate-xlsx.mjs` run unmodified — both want only a URL, an anon
+  key, and an email/password. Repeatable, so it can be re-run whenever the
+  schema changes rather than once.
+- **A second free Supabase project.** Highest fidelity, no Docker; the free
+  tier allows two active projects per organisation (verify against the current
+  org before assuming). Deliberately *not* spent on this yet — that is the
+  deferral reason above.
+- **Supabase branching.** Cleanest, but a paid-plan feature. Skip unless the
+  project is already on Pro.
+
+  A local stack cannot exercise: the three email jobs
+  (`staleness-reminder.sql`, `alert-emails.sql`, `error-digest.sql`) which need
+  `pg_cron` + `pg_net` + a Vault-stored Resend key and real outbound HTTP, and
+  the dashboard-driven steps (API keys, Auth settings). Say so in the restore
+  doc rather than skipping them silently.
+
+**Restore-order gotcha found while planning (do not lose this).** `is_admin()`
+hardcodes the admin UUID (`supabase/schema.sql:156`) and it must match
+`SUPABASE_CONFIG.adminUserId` in `index.html`. A restore into a fresh project
+mints a *different* `auth.users` UUID, so the sequence must be: create the
+admin account first → read its new UUID → patch both places → *then* run the
+rest of `schema.sql` and the migration. Skipping this yields a database nobody
+can write to. The current step 3 above does not encode this ordering — fix that
+when the item is picked up.
+
+**Decisions left open:** none blocking; artifact-only vs commit-to-repo can be
+cut to artifact-only if the maintainer prefers a lean repo (then retention is
+the only copy — say so in SUPABASE.md).
+
+**Verify:** run the script locally against the real project (read-only); run
+the validator on its output; trigger the workflow manually
+(`workflow_dispatch`) once; perform the restore rehearsal.
+
+**Done when:** a green scheduled run exists, a restore has been rehearsed and
+documented, and README's layout table lists the new script/workflow.
+
+*Size: S/M. Dependencies: none (a rehearsal destination is the only input).
+Touches: new script, new workflow, SUPABASE.md, README, ROADMAP.*

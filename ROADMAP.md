@@ -87,9 +87,6 @@ A tool that tells people what's fairly priced has to be *right*, visibly and
 verifiably. This theme extends the correctness story CI started to every number
 on the page and every failure mode around it.
 
-- **Backup & restore.** Formalise beyond the manual xlsx export: scheduled
-  Supabase backups plus a periodic automated xlsx snapshot, and — the part that
-  actually matters — a documented, rehearsed restore path.
 - **Performance at catalogue scale.** Measure the board and charts at several
   hundred products before it happens organically; cap, paginate, or virtualise
   the table only if the measurements say so.
@@ -237,6 +234,18 @@ visitor on a phone as it does for the maintainer on a desktop.
 - **Coverage growth** — more sets and eras first (same model, more rows), then
   consider multi-currency/multi-region pricing and, much later, singles — each
   multiplies data-entry cost, so each waits on the ingestion question below.
+- **Backup & restore** — *deferred from "Now" by maintainer decision (Jul
+  2026)*. Formalise beyond the manual xlsx export: scheduled Supabase backups
+  plus a periodic automated xlsx snapshot, and — the part that actually matters
+  — a documented, **rehearsed** restore path. Deferred because the rehearsal
+  needs a throwaway destination to restore *into*, and spending the
+  organisation's second free Supabase project on it isn't worth it yet (a local
+  `supabase start` stack is the free alternative when this is picked up — see
+  `IMPLEMENTATION.md`). **Standing risk while it waits:** the live database's
+  only backup is the manual **⬇ Export updated .xlsx** button, so export after
+  each monthly entry loop and keep the file — that is the interim backup.
+  Revisit before launch, or sooner if the dataset grows past what hand
+  re-entry could recover.
 - **Launch checklist** — uptime expectations, support contact, versioned
   changelog, a public "how the numbers work" methodology page (the trust
   document for a tool that claims to know what's fairly priced).
