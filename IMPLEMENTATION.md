@@ -32,40 +32,6 @@ spike before detailed planning would be honest.
 
 ## NOW — trustworthy numbers
 
-### 2. Performance at catalogue scale
-
-**Goal.** Know — with numbers, before it happens organically — how the board
-and charts behave at several hundred products. Measure first; optimise only
-what the measurements convict.
-
-**Build:**
-
-1. `scripts/gen-scale-fixture.mjs` — deterministic (seeded PRNG) generator
-   producing a contract-valid workbook: N products (default 400; realistic
-   BOX/ETB/BUNDLE mix across ~60 release dates) × M snapshots (default 24
-   monthly). Writes to a path given on argv. Validate with the validator.
-2. Measurement harness — the cheapest honest method: serve a temp directory
-   containing `index.html`, `metrics.js`, and the fixture renamed to
-   `pokemon_data.xlsx`; drive it with a short Playwright script (not a CI
-   spec) that loads the page and reads `performance.now()` timings injected
-   around `applyNewData()` and each render function via
-   `page.addInitScript`/`page.evaluate`. Capture: initial render, tab switch,
-   type-filter change, sort change, drill-down open, at N ∈ {36, 200, 400}.
-3. Record findings as a short table in the PR description and condense the
-   conclusion into ROADMAP (either "fine up to N=400, nothing to do" — a
-   perfectly good outcome — or new, specific items: e.g. "board innerHTML
-   rebuild is O(n) per keystroke of search; batch it").
-
-**Likely suspects if something is slow** (do NOT pre-fix them): per-row
-`innerHTML` in `updateTable()`, chart dataset rebuilds on every filter change,
-the comparison-picker chip list at hundreds of entries.
-
-**Verify:** measurements are reproducible run-to-run (±10%); no repo behaviour
-changes at all unless a fix item is spawned.
-
-**Done when:** the numbers exist, the conclusion is in ROADMAP, and any needed
-fixes are filed as their own items. *Size: S. Dependencies: none.*
-
 ### 3. Full code, comment & documentation audit
 
 **Goal.** One deliberate end-to-end pass over everything the repo contains and
@@ -298,6 +264,43 @@ sanity-checking thin Tradera weeks. Not part of the core loop.
 - **Launch checklist.** Uptime expectations, support contact, versioned
   changelog, and a public "how the numbers work" methodology page (the trust
   document — largely written already across README/ROADMAP; consolidate).
+
+### 2b. Board performance fixes — measured, dormant until ~200 products
+
+Spawned by the scale measurements (item 2, shipped). **Do not build these
+now:** at today's 36 products the board costs 8 ms and every fix here would be
+speculative complexity. They come due when coverage growth or automated
+ingestion pushes the catalogue past roughly 200 products — re-run
+`npm run scale:measure` to confirm before starting, and again after, using the
+same matrix so the before/after is comparable.
+
+Measured baseline (median ms, Chromium, 7 repeats, N = 36 → 200 → 400):
+board search **14.5 → 50 → 92** per keystroke · sort **15 → 51 → 91** ·
+type filter **47 → 137 → 239** · Data Entry grid **14 → 59 → 133** ·
+drill-down flat at ~9 (it scales with M instead: 9 → 45 at 365 snapshots).
+
+1. **Debounce the board search** (~150 ms trailing). `#board-search`'s `input`
+   handler calls `updateTable()` on every keystroke, and `updateTable()` is
+   O(N) — 92 ms per character at N = 400. Highest value for the least code.
+   Keep the *first* keystroke responsive if possible (leading + trailing) so
+   short queries still feel instant. Verify with the harness's "board search
+   keystroke" row, and by hand: type a long query at N = 400 and watch for lag.
+2. **Stop rebuilding the whole tbody.** Sort/filter/search each re-render every
+   row (50–70 ms at N = 400). Options in increasing order of intrusiveness:
+   reuse row elements and update their cells in place; or virtualise the
+   existing capped-height (`70vh`) `.table-wrap` scroll area. Preserve the
+   JS-referenced IDs/classes (`product-tbody`, `.verdict-line`, the row click
+   → `openDrill()` binding) — the smoke spec asserts several of them.
+3. **Split the type filter's re-render.** `applyTypeFilter()` synchronously
+   rebuilds the board *and* four charts (239 ms at N = 400; 329 ms at
+   400 × 365). Render the board first and let the charts update in a follow-up
+   frame (`requestAnimationFrame`) so the interaction feels immediate.
+
+**Verify:** `npm run scale:measure -- --matrix 36x24,200x24,400x24` before and
+after (the numbers are the point); `npm test` green; and by hand at N = 400
+using a generated fixture — sort, filter, search, drill-down all still correct,
+not just fast. *Size: S (1) / M (2) / S (3). Dependencies: a catalogue big
+enough to justify them.*
 
 ### 1. Backup & restore — deferred (full plan retained)
 

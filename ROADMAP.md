@@ -73,6 +73,21 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   **snapshot gap detection** (silently skipped months — it immediately caught a
   real 77-day gap) and a **same-set SV/Booster consistency check** that flags a
   product whose type/booster count disagrees with its price pattern.
+- **Performance measured at catalogue scale** — the answer is **numbers, not a
+  fix**: two dev-only tools (`scripts/gen-scale-fixture.mjs`, a deterministic
+  fixture generator; `scripts/measure-scale.mjs`, a Playwright timing harness —
+  neither in `npm test`, since timings would flake as a gate) measured the real
+  page across **two** axes, N products × M snapshots. Verdict: **comfortable to
+  ~200 products, degraded by 400**, and the cost is almost entirely
+  `updateTable()`, which is O(N) and re-runs on every board interaction. The
+  headline numbers (median ms, Chromium, 7 repeats): board search **14.5 ms →
+  50 ms → 92 ms** *per keystroke* at N = 36 → 200 → 400; type filter **47 →
+  137 → 239 ms**; Data Entry grid **14 → 59 → 133 ms**. The M axis is benign on
+  its own (36 × 365 daily snapshots barely moves anything except the drill-down
+  chart, 9 → 45 ms) but compounds with N: at 400 × 365 the type filter reaches
+  **329 ms** and the 28 MB fallback workbook takes **4.2 s** to load. Nothing
+  was pre-fixed — the fixes are filed as their own items under **Later**, with
+  ~200 products as the trigger.
 - **E2E coverage for the signed-in surface** — a second Playwright spec
   (`tests/signed-in.spec.mjs`) drives the Supabase surface with a stubbed
   in-memory SDK (`tests/fake-supabase-sdk.js`; no cloud credentials, fully
@@ -87,9 +102,6 @@ A tool that tells people what's fairly priced has to be *right*, visibly and
 verifiably. This theme extends the correctness story CI started to every number
 on the page and every failure mode around it.
 
-- **Performance at catalogue scale.** Measure the board and charts at several
-  hundred products before it happens organically; cap, paginate, or virtualise
-  the table only if the measurements say so.
 - **Full code, comment & documentation audit.** A deliberate end-to-end pass
   over everything the repo claims and contains, now that the project has grown
   past what incremental care catches (the documentation rule in `CLAUDE.md`
@@ -231,9 +243,25 @@ visitor on a phone as it does for the maintainer on a desktop.
 - **Legal/compliance for launch** — privacy policy, GDPR basics, cookie consent
   (EU-operated, stores emails in Supabase). The "not financial advice"
   disclaimer already exists.
+- **Board performance fixes — measured, not speculative; trigger ≈ 200
+  products.** The scale measurements (see **Done**) convict one function:
+  `updateTable()` rebuilds every row on every interaction, so its O(N) cost
+  lands on the board's hot paths. At today's 36 products it is invisible (8 ms)
+  and **none of this is worth doing yet** — it becomes real if coverage growth
+  or automated ingestion multiplies the catalogue. In priority order:
+  - **Debounce the board search** (~150 ms). The worst of the three: the input
+    handler rebuilds the whole table *per keystroke* — 92 ms each at 400
+    products, so typing visibly lags. Cheapest fix, biggest felt win.
+  - **Stop rebuilding the table wholesale.** Sort, filter and search each
+    re-render every row (50–70 ms at 400). Update rows in place, or virtualise
+    the capped-height scroll area, if the debounce isn't enough.
+  - **Split the type filter's re-render.** It synchronously rebuilds the board
+    *and* four charts (239 ms at 400, 329 ms at 400 × 365) — the charts could
+    update off the critical path.
 - **Coverage growth** — more sets and eras first (same model, more rows), then
   consider multi-currency/multi-region pricing and, much later, singles — each
   multiplies data-entry cost, so each waits on the ingestion question below.
+  Past ~200 products the board performance fixes above come due with it.
 - **Backup & restore** — *deferred from "Now" by maintainer decision (Jul
   2026)*. Formalise beyond the manual xlsx export: scheduled Supabase backups
   plus a periodic automated xlsx snapshot, and — the part that actually matters
@@ -267,6 +295,13 @@ automated numbers are trustworthy the day they land, and each half starts as a
 **spike** to validate coverage before the loop depends on it. When it ships the
 payoff compounds — fair prices recompute daily instead of monthly, alerts fire
 the day a dip happens, and staleness stops being a failure mode.
+
+One measured consequence to design for (from the scale work under **Done**): a
+daily cadence makes the *snapshot* axis explode, and while the app absorbs long
+series well on its own, the **xlsx fallback does not** — 400 products × 365
+daily snapshots is a **28 MB** workbook taking **4.2 s** to load. Daily
+ingestion therefore wants either a windowed/downsampled fallback export or an
+acceptance that the workbook is a backup format, not a load path.
 
 - **Product prices — Tradera official API (SEK → EUR).** The most
   promising ingestion route found, and unlike the now-parked Cardmarket-direct

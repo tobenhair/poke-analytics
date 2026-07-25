@@ -8,7 +8,9 @@
     "validate": "node scripts/validate-workbook.mjs",
     "test:unit": "node --test tests/unit/*.test.mjs",
     "test:e2e": "playwright test",
-    "test": "npm run test:unit && npm run validate && npm run test:e2e"
+    "test": "npm run test:unit && npm run validate && npm run test:e2e",
+    "scale:fixture": "node scripts/gen-scale-fixture.mjs",
+    "scale:measure": "node scripts/measure-scale.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

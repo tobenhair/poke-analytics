@@ -91,6 +91,10 @@ metrics.js               The analytical core as pure functions (shared by the
 pokemon_data.xlsx        Tracked data workbook
 scripts/validate-workbook.mjs  Checks the workbook matches the required format
                          (plus advisory data-quality warnings)
+scripts/gen-scale-fixture.mjs  Generates a large, contract-valid workbook for
+                         performance measurement (deterministic, dev-only)
+scripts/measure-scale.mjs      Measures the board and charts at catalogue scale
+                         (dev-only tool, deliberately not part of `npm test`)
 tests/unit/metrics.test.mjs    Unit tests for every derived number in metrics.js
 tests/smoke.spec.mjs     Playwright test: page loads and every tab renders
 tests/signed-in.spec.mjs Playwright test: the cloud/login surface, driven
@@ -123,6 +127,28 @@ These run automatically on every push and pull request via GitHub Actions
 to catch format mistakes before you commit — it also prints advisory
 data-quality warnings (a skipped month between snapshots, a product whose
 value pattern doesn't match its Type) that don't block but deserve a look.
+
+### Measuring performance at scale (occasional, not CI)
+
+The catalogue is small today (36 products), so the page is fast. To know what
+happens as it grows — and it will, if price ingestion is ever automated — there
+is a measurement tool. It is **not** part of `npm test`: timings are
+machine-dependent and would flake as a gate.
+
+```bash
+# Generate a big but contract-valid workbook (deterministic for a given seed)
+npm run scale:fixture -- --products 400 --snapshots 24 --out /tmp/big.xlsx
+
+# Measure the real page against generated fixtures and print a report
+npm run scale:measure                          # the default matrix
+npm run scale:measure -- --matrix 36x24,400x24 --repeats 7
+```
+
+A cell is written `NxM` — N products × M snapshots per product. Both axes
+matter and they stress different code: N grows the board and the charts, M
+grows each product's price history (what a daily ingestion cadence would
+produce). The latest results and what they concluded are in
+[`ROADMAP.md`](ROADMAP.md).
 
 ## Tech
 
