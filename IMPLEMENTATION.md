@@ -32,40 +32,33 @@ spike before detailed planning would be honest.
 
 ## NOW — trustworthy numbers
 
-### 3. Full code, comment & documentation audit
+### 3b. Audit follow-ups (small, independent)
 
-**Goal.** One deliberate end-to-end pass over everything the repo contains and
-claims, applying the documentation rule retroactively. Behaviour-preserving.
+Spawned by the audit (item 3, shipped). All three are cosmetic or
+infrastructural — none changes a number or a behaviour.
 
-**Method — three lenses, one commit per lens** so each is reviewable:
+1. **Automate the dead-code check.** `scripts/check-dead-code.mjs`, wired into
+   `npm test`: flag CSS classes, element IDs and functions declared in
+   `index.html` and referenced nowhere. Start from the throwaway analyser's
+   approach (count occurrences across markup, `<style>` and `<script>` regions,
+   subtracting declarations) but fix its one real weakness: **names built at
+   runtime**. `type-${p.type}` and `'tab-' + btn.dataset.tab` mean
+   `.type-BOX`/`.type-ETB`/`.type-BUNDLE` and `#tab-*` look unused to a textual
+   scan while being load-bearing — CLAUDE.md's "preserve these" list is exactly
+   that set. Ship an explicit allowlist for constructed names, report only
+   (never auto-delete), and treat a false positive as a bug in the checker.
+2. **Retire the `.upload-status` / `#upload-status` name.** Legacy from the
+   removed upload UI; it is now the generic status pill (Analysis via
+   `#upload-status`, Portfolio via `#portfolio-status`, both styled by the same
+   class). Rename in one commit across the CSS rules, markup, and the JS string
+   literals in `showStatus()`/`portfolioStatus()`. The e2e specs don't assert
+   on it today, so grep before and after rather than trusting the suite.
+3. **Collapse the two status helpers into one** taking the element ID. Do it
+   with (2) — same lines.
 
-1. **Code.** Walk `index.html` top-to-bottom (it's ~5,200 lines; budget real
-   time) and `metrics.js`. Hunt specifically for: dead functions/variables
-   (grep each suspicious name for call sites), unused CSS rules (grep each
-   class/ID against the markup and JS string templates — remember the JS
-   builds DOM from strings, so a plain-markup grep is not enough), leftovers
-   from removed features (the upload/drag-drop UI was removed; `parseXlsx`/
-   `exportXlsx` stay — they serve the fallback and export), duplicated logic,
-   and any derived-number math still inline (should be none; verify).
-   Reconcile folder structure and `package.json` scripts with reality.
-2. **Comments.** Every comment either states a constraint the code can't show
-   or gets deleted. Kill anything describing *what the next line does*,
-   anything stale ("no unit suite"-class lies), anything referring to code
-   that moved. Add missing constraint comments where the audit itself needed
-   tribal knowledge to understand something.
-3. **Documentation.** For each of `README.md`, `SUPABASE.md`, `CLAUDE.md`,
-   `ROADMAP.md`, the four skills, and the in-app Format Guide modal: read
-   every factual claim, check it against the code, fix or delete. (Precedent:
-   this process caught "three tabs", "no test suite", and a stale line count.)
-
-**Rules:** `npm test` green before and after every commit; zero behaviour
-change (if a "cleanup" changes behaviour it's a bug fix — separate PR);
-findings too big to fix inline become new ROADMAP items rather than scope
-creep.
-
-**Done when:** all three lenses done, diff reviewed against the
-behaviour-preserving rule, ROADMAP updated. *Size: M — mostly reading.
-Dependencies: best after items 1–2 land (audit sweeps their docs too).*
+*Size: S each. Dependencies: none. Verify: `npm test`, plus a served-page check
+that both status lines still appear (save something in Data Entry; add a
+holding in Portfolio).*
 
 ### 4. Architecture overview diagram
 

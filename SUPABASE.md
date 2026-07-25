@@ -213,10 +213,15 @@ inputs live in the database:
 |-------|---------|--------|-------------|
 | `products` | one row per tracked product | read: all signed-in · write: admin | `name`, `type`, `release`, `cardmarket_url` |
 | `snapshots` | one row per product per date | read: all signed-in · write: admin | `product_id`, `snapshot_date`, `price`, `set_value` |
-| `user_settings` | per-user preferences | read/write: own row | `age_threshold` |
+| `user_settings` | per-user preferences | read/write: own row | `age_threshold`, `currency` |
 | `holdings` | per-user portfolio | read/write: own row | `product_id`, `quantity`, `cost_basis` |
-| `alerts` | per-user price alerts | read/write: own row | `product_id`, `target_price` |
+| `alerts` | per-user price alerts | read/write: own row | `product_id`, `alert_type` (`fixed`/`fair`), `target_price` (fixed), `below_pct` (fair) |
 | `client_errors` | runtime error reports | insert: anyone · read: admin | `message`, `stack`, `context` |
 
 The admin is identified by user UUID in a `public.is_admin()` SQL function that
 the write policies call; it must match `SUPABASE_CONFIG.adminUserId` in the app.
+`npm run test:unit` asserts those two agree — change one and the suite fails,
+rather than the mismatch surfacing later as an admin who cannot save.
+
+Note `currency` is display-only: **€ is the canonical stored unit** for every
+price and set value, and the Portfolio tab converts at render time.

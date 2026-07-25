@@ -18,23 +18,18 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { routeLocalLibs } from './local-cdn.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fakeSdk = readFileSync(join(here, 'fake-supabase-sdk.js'), 'utf8');
-const chartJs = readFileSync(join(here, '../node_modules/chart.js/dist/chart.umd.js'), 'utf8');
-const xlsxJs = readFileSync(join(here, '../node_modules/xlsx/dist/xlsx.full.min.js'), 'utf8');
-
-const js = (body) => ({ contentType: 'application/javascript', body });
 
 // Serve the fake SDK + local library copies, collect page errors, and load.
 async function boot(page) {
   const pageErrors = [];
   page.on('pageerror', (err) => pageErrors.push(err.message));
   page.on('dialog', (d) => d.accept());
-  await page.route('**/@supabase/supabase-js@*/**', (r) => r.fulfill(js(fakeSdk)));
-  await page.route('**cdnjs.cloudflare.com/**Chart.js**', (r) => r.fulfill(js(chartJs)));
-  await page.route('**cdnjs.cloudflare.com/**xlsx**', (r) => r.fulfill(js(xlsxJs)));
-  await page.route('**fonts.googleapis.com/**', (r) => r.fulfill({ contentType: 'text/css', body: '' }));
+  await page.route('**/@supabase/supabase-js@*/**', (r) => r.fulfill({ contentType: 'application/javascript', body: fakeSdk }));
+  await routeLocalLibs(page);
   await page.goto('/');
   return pageErrors;
 }

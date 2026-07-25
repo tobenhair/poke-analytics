@@ -96,36 +96,49 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   loop, and the error beacon's cloud path. Proves the client's behaviour; the
   RLS policies themselves stay server-side and schema-reviewed.
 
+- **Full code, comment & documentation audit** — the retroactive pass, done.
+  Behaviour-preserving; `npm test` green before and after. What it removed:
+  **14 dead things** that had accumulated invisibly — 7 unused CSS rules
+  (`.nav-shell`, `.main-grid`, `.right-col`, `.bottom-row`, `.highlight-row`,
+  `.tag-opt`, plus two empty rules and their media-query variants — mostly
+  leftovers from the multi-column layout that became today's single stacked
+  column), 7 element IDs referenced by nothing, two never-called validation
+  helpers, and a filter still excluding `#xlsx-file-input`, an element deleted
+  with the upload UI. What it corrected: comments describing a "file-upload
+  bar" that no longer exists, and a schema comment naming the *wrong file*
+  (`staleness-reminder.sql`) as the alert-email job. What it fixed in the docs:
+  README still said "**the three tabs**" and omitted Portfolio entirely —
+  the very drift this file elsewhere claims was already caught — plus a
+  `CLAUDE.md` line calling this "an app with **no unit suite**" while the same
+  file mandates that no derived number ships without one; `SUPABASE.md`'s data
+  model was missing `user_settings.currency` and both of the `alerts` table's
+  type columns. What it *didn't* find, which is the more useful half: **no
+  functional bugs** — no duplicate element IDs, no `getElementById` pointing at
+  markup that doesn't exist, no render function unreachable or wired
+  asymmetrically between `INIT` and `applyNewData()` (the invariant that caused
+  a real bug before). The pure math is all in `metrics.js` already; the inline
+  arithmetic left in `index.html` is presentational. Two cleanups too
+  churn-heavy to fold in are filed as **fixes** below.
+- **Hermetic browser tests + a guard for cross-file facts** — `tests/smoke.spec.mjs`
+  fetched Chart.js and SheetJS from cdnjs while its sibling served them locally,
+  so it failed in any network-restricted environment — and failed *confusingly*,
+  as a click timeout, because the page's missing-library guard is an overlay
+  that eats pointer events. Both specs now share `tests/local-cdn.mjs`, which
+  also asserts the `node_modules` versions match the CDN tags. Separately, the
+  admin UUID lives in both `supabase/schema.sql` and `index.html` with nothing
+  relating them; `tests/unit/repo-invariants.test.mjs` now fails loudly on
+  drift, in either direction, instead of it surfacing as an admin who silently
+  cannot save.
+
 ## Now — trustworthy numbers (stability & quality)
 
 A tool that tells people what's fairly priced has to be *right*, visibly and
 verifiably. This theme extends the correctness story CI started to every number
 on the page and every failure mode around it.
 
-- **Full code, comment & documentation audit.** A deliberate end-to-end pass
-  over everything the repo claims and contains, now that the project has grown
-  past what incremental care catches (the documentation rule in `CLAUDE.md`
-  exists going forward; this audit applies it *retroactively*). Three lenses,
-  one pass:
-  - **Code** — walk `index.html` and `metrics.js` top to bottom: dead code,
-    unused CSS rules and element IDs, leftovers from removed features (e.g.
-    upload-UI remnants), duplicated logic that should live once, and any pure
-    math still inline that belongs in `metrics.js`. Reconcile the folder
-    structure with what the project actually is today (`scripts/`, `tests/`,
-    `supabase/`). `index.html` stays one inline file by design — the no-build,
-    single-file deployment model is deliberate and stays.
-  - **Comments** — every comment either states a constraint the code can't
-    show or gets deleted: remove stale, obsolete, or now-wrong comments (the
-    lying comment is worse than none), and add the missing ones where an
-    invariant is currently tribal knowledge.
-  - **Documentation** — verify every claim in `README.md`, `SUPABASE.md`,
-    `CLAUDE.md`, this file, and `.claude/skills/*` against the actual code and
-    behaviour, the same way the "three tabs / no test suite" drift was caught:
-    read the doc, check the code, fix or delete. Confirm the four skills'
-    checklists still match how the app really breaks.
-  An audit-and-fix pass, not a rewrite: behaviour-preserving, `npm test` green
-  before and after, findings that are too big to fix inline become their own
-  roadmap items.
+Items are tagged **Bug** (something is wrong today), **Fix** (something is
+right but poorly built) or **Feature** (something new).
+
 - **Architecture overview diagram.** A single image committed to the repo
   (alongside `CLAUDE.md`) that maps the moving parts at a glance — the data
   sources (hardcoded fallback, `pokemon_data.xlsx`, Supabase), the load path
@@ -134,6 +147,28 @@ on the page and every failure mode around it.
   a human or a new contributor can navigate the codebase without
   reverse-engineering it from one ~5,200-line file. Kept in sync when the
   architecture moves.
+- **Fix — automate the dead-code check.** The audit found 14 unused CSS rules,
+  element IDs and functions that had accumulated with nobody noticing, and it
+  found them with a throwaway script. Make it permanent: a small checker
+  (`scripts/check-dead-code.mjs`, wired into `npm test`) that flags CSS classes,
+  element IDs and functions declared in `index.html` but referenced nowhere.
+  The one hard requirement is handling **dynamically built names** — the
+  throwaway version false-positived on `.type-BOX`/`.type-ETB`/`.type-BUNDLE`
+  and `#tab-portfolio`, which are assembled at runtime (`type-${p.type}`,
+  `'tab-' + btn.dataset.tab`) — so it needs an explicit allowlist for
+  constructed names, and must fail *closed* (report, never auto-delete). Without
+  that it is worse than nothing: a checker that cries wolf gets muted, and a
+  checker that silently deletes a live class breaks rendering.
+- **Fix — retire the `.upload-status` / `#upload-status` name.** The drag-drop
+  upload UI is gone; the class and element ID survive as the generic inline
+  status pill, used by both the Analysis tab and (via the same class)
+  `#portfolio-status`. The name now misleads every reader. Mechanical but
+  cross-cutting — CSS rules, the markup, and JS string literals must move
+  together, which is exactly why it wasn't folded into the audit.
+- **Fix — one status helper, not two.** `showStatus()` and `portfolioStatus()`
+  are near-identical five-liners differing only in target element; fold them
+  into one helper taking the element ID. Trivial, and worth doing at the same
+  time as the rename above since they touch the same lines.
 
 ## Then — design & usability at product level
 
@@ -461,7 +496,11 @@ worth keeping: it is *why* the pivot to Tradera/TCGdex was the right call.
 
 Defects to fix, separate from the forward-looking themes above. Newest first.
 
-_None open._ (Fixed: the Format Guide modal opening far down the page instead of
+_None open._ The Jul 2026 code/comment/documentation audit looked specifically
+for defects — duplicate element IDs, dangling `getElementById` targets, render
+functions unreachable or wired into only one of `INIT`/`applyNewData()` — and
+found none. Everything it turned up was dead weight or documentation drift,
+filed above as **fixes**. (Fixed earlier: the Format Guide modal opening far down the page instead of
 centred — `#guide-modal` was `position: fixed` inside the transformed
 `#tab-analysis`, so it anchored to that ancestor rather than the viewport; moved
 to be a direct child of `<body>` alongside `#auth-overlay` / `#account-overlay`.)

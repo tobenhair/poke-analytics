@@ -6,11 +6,13 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 
 ## What it does
 
+- **Answers "is this fairly priced?"** — a **fair price in euros** per product (the expected-value-for-age fit inverted, gated on the fit's R²) and a plain-language verdict on the board.
 - **Ranks every product** by an age-weighted value score so newer and older releases can be compared fairly.
 - **Surfaces buy signals** (💰) when a product's price drops while its set value holds steady — a possible mispricing.
-- **Charts price history, set-value-per-booster trends, and age-vs-value** across all tracked products.
+- **Charts price history, set-value-per-booster trends, and age-vs-value** across all tracked products, comparing either products or whole sets.
 - **Scenario explorer** — drag sliders for set value and price to see how the score would move.
 - **Monthly data entry** — punch in the latest prices, add new releases, attach Cardmarket links, and export an updated `.xlsx` ready to commit back to the repo.
+- **With cloud sync enabled** (optional, see below): a private **portfolio** with unrealised P&L, concentration balancing and a value-over-time chart, plus **price alerts** on a fixed € target or on the fair price.
 
 ## Getting started
 
@@ -28,13 +30,16 @@ Then open <http://localhost:8000>. The bundled `pokemon_data.xlsx` loads automat
 
 The page pulls Chart.js and SheetJS from a CDN, so an internet connection is required on first load.
 
-## The three tabs
+## The four tabs
 
-| Tab | Purpose |
-| --- | --- |
-| 👋 **Welcome** | Overview, glossary, and how the workflow fits together. |
-| 📊 **Analysis** | The decision view — ranked table, KPIs, price/value charts, buy signals, and the scenario explorer. |
-| ✏️ **Data Entry** | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs, and export the updated workbook. |
+Two are always visible; two appear only with cloud sync enabled and signed in.
+
+| Tab | Shown | Purpose |
+| --- | --- | --- |
+| 👋 **Welcome** | always | Overview, glossary, and how the workflow fits together. |
+| 📊 **Analysis** | always | The decision view — ranked board with fair price and verdict, KPIs, price/value charts, buy signals, and the scenario explorer. |
+| 💼 **Portfolio** | signed in | Your private holdings and price alerts — unrealised P&L, concentration balancer, value over time. |
+| ✏️ **Data Entry** | admin only | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs, and export the updated workbook. |
 
 ## Monthly workflow
 
@@ -96,9 +101,12 @@ scripts/gen-scale-fixture.mjs  Generates a large, contract-valid workbook for
 scripts/measure-scale.mjs      Measures the board and charts at catalogue scale
                          (dev-only tool, deliberately not part of `npm test`)
 tests/unit/metrics.test.mjs    Unit tests for every derived number in metrics.js
+tests/unit/repo-invariants.test.mjs  Checks facts that must agree across files
 tests/smoke.spec.mjs     Playwright test: page loads and every tab renders
 tests/signed-in.spec.mjs Playwright test: the cloud/login surface, driven
 tests/fake-supabase-sdk.js     against an in-memory Supabase stand-in
+tests/local-cdn.mjs      Serves Chart.js/SheetJS from node_modules so the
+                         browser tests run offline (and pins their versions)
 SUPABASE.md              Optional cloud-sync + login setup guide
 supabase/schema.sql      Database schema + Row-Level Security policies
 supabase/migrate-xlsx.mjs      One-time workbook → Supabase migration script
@@ -116,7 +124,7 @@ data), and a change that stops a tab or the login surface rendering:
 
 ```bash
 npm install          # one-time: installs the dev dependencies
-npm run test:unit    # unit tests for the scoring/metrics math (metrics.js)
+npm run test:unit    # the scoring/metrics math (metrics.js) + cross-file invariants
 npm run validate     # validate pokemon_data.xlsx against the required format
 npm run test:e2e     # browser tests: static smoke + signed-in surface
 npm test             # all of the above

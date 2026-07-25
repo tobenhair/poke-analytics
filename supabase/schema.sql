@@ -74,7 +74,8 @@ create index if not exists holdings_user_idx on public.holdings (user_id);
 --             the product's fair price. Fair price is computed in-browser (it
 --             depends on the age-fit across all products), so fair alerts are
 --             evaluated client-side only — the 🔔 board flag and this tab. The
---             server-side email job (staleness-reminder.sql) covers FIXED alerts.
+--             server-side email job (alert-emails.sql) covers FIXED alerts only,
+--             for the same reason.
 -- Nothing about the "triggered" state is stored — it's derived client-side.
 create table if not exists public.alerts (
   id           uuid primary key default gen_random_uuid(),
