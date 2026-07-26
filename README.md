@@ -105,6 +105,8 @@ tests/unit/repo-invariants.test.mjs  Checks facts that must agree across files
 tests/smoke.spec.mjs     Playwright test: page loads and every tab renders
 tests/signed-in.spec.mjs Playwright test: the cloud/login surface, driven
 tests/fake-supabase-sdk.js     against an in-memory Supabase stand-in
+tests/fx-currency.spec.mjs     Playwright test: the Portfolio currency picker
+                         and its fallback when live FX rates are unavailable
 tests/local-cdn.mjs      Serves Chart.js/SheetJS from node_modules so the
                          browser tests run offline (and pins their versions)
 SUPABASE.md              Optional cloud-sync + login setup guide

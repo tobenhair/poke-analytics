@@ -496,7 +496,24 @@ worth keeping: it is *why* the pivot to Tradera/TCGdex was the right call.
 
 Defects to fix, separate from the forward-looking themes above. Newest first.
 
-_None open._ The Jul 2026 code/comment/documentation audit looked specifically
+_None open._ **Fixed (Jul 2026): the Portfolio currency picker offered only €.**
+The picker itself was correct — it lists € plus every currency it holds a live
+rate for — so "€ only" always meant the FX fetch had failed. A bare `catch {}`
+swallowed the reason, leaving no console message and nothing in the UI, so a
+failed network call looked indistinguishable from a feature that was never
+built. Two changes: the request now tries Frankfurter's **current** host first
+(`api.frankfurter.dev/v1/latest?base=…&symbols=…`) and keeps the legacy host as
+a fallback — the committed URL used the legacy host with its legacy
+`from`/`to` parameter spelling, which on the current API means a *date range*
+— and a failure is now **visible** (a note beside the picker, a `console.warn`,
+and a `client_errors` beacon) instead of silent. `tests/fx-currency.spec.mjs`
+covers all three outcomes. Note the root cause of the original failure could
+not be reproduced from the dev sandbox (its network policy blocks the FX host),
+so the endpoint change is the best-supported hypothesis rather than a confirmed
+diagnosis; the added visibility is what makes the *next* occurrence
+self-diagnosing.
+
+The Jul 2026 code/comment/documentation audit looked specifically
 for defects — duplicate element IDs, dangling `getElementById` targets, render
 functions unreachable or wired into only one of `INIT`/`applyNewData()` — and
 found none. Everything it turned up was dead weight or documentation drift,
