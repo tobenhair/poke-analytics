@@ -588,20 +588,19 @@
   .val-poor { color: var(--accent2); }
 
   /* ── Status pill ──
-     Named .upload-status for historical reasons: it styled the drag-and-drop
-     upload bar, which has been removed. It is now the generic inline status
-     line, used by #upload-status (Analysis) and #portfolio-status (Portfolio).
-     Renaming it is filed as its own roadmap item — it is referenced from JS
-     strings, so the rename has to move all of them at once. */
-  .upload-status {
+     The generic inline save/load status line. Written by setStatus(); used by
+     #analysis-status (Analysis tab) and #portfolio-status (Portfolio tab).
+     The .ok/.err modifiers are set from JS, so they are referenced as string
+     literals there — grep before renaming. */
+  .status-pill {
     font-family: 'DM Mono', monospace;
     font-size: 0.72rem;
     padding: 5px 12px;
     border-radius: 999px;
     white-space: nowrap;
   }
-  .upload-status.ok  { color: var(--accent4); background: rgba(127,212,147,0.1); border: 1px solid rgba(127,212,147,0.2); }
-  .upload-status.err { color: var(--accent2); background: rgba(239,106,96,0.1);   border: 1px solid rgba(239,106,96,0.2); }
+  .status-pill.ok  { color: var(--accent4); background: rgba(127,212,147,0.1); border: 1px solid rgba(127,212,147,0.2); }
+  .status-pill.err { color: var(--accent2); background: rgba(239,106,96,0.1);   border: 1px solid rgba(239,106,96,0.2); }
   .guide-btn {
     padding: 9px 16px;
     border-radius: 999px;
@@ -1396,7 +1395,7 @@
 
   <!-- Data status line — cloud load / save messages, plus the format guide -->
   <div class="fade-in" style="display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-bottom:20px; min-height:1px; animation-delay:0.02s;">
-    <span id="upload-status" class="upload-status" style="display:none"></span>
+    <span id="analysis-status" class="status-pill" style="display:none"></span>
     <button class="guide-btn admin-only" id="guide-btn">📋 Format Guide</button>
   </div>
 
@@ -1719,7 +1718,7 @@
   <!-- ═══════════════════ PORTFOLIO TAB (signed-in only) ═══════════════════ -->
   <div class="tab-pane" id="tab-portfolio">
 
-    <span id="portfolio-status" class="upload-status" style="display:none"></span>
+    <span id="portfolio-status" class="status-pill" style="display:none"></span>
 
     <!-- ── Section: portfolio ── -->
     <div class="section-eyebrow">01 — Your Portfolio</div>
@@ -2976,12 +2975,14 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   document.getElementById('kpi-total').textContent = products.length;
 }
 
-// Inline status line for the Analysis tab (save/load feedback). The element is
-// still called #upload-status from when this reported .xlsx upload results.
-function showStatus(msg, isError) {
-  const el = document.getElementById('upload-status');
+// Inline save/load status line. Each tab owns its own element (the Analysis
+// tab's pill isn't in the Portfolio pane and vice versa), so the caller names
+// the target: 'analysis-status' or 'portfolio-status'.
+function setStatus(elId, msg, isError) {
+  const el = document.getElementById(elId);
+  if (!el) return;   // the Portfolio pill only exists when signed in
   el.textContent = msg;
-  el.className = 'upload-status ' + (isError ? 'err' : 'ok');
+  el.className = 'status-pill ' + (isError ? 'err' : 'ok');
   el.style.display = 'inline-block';
 }
 
@@ -3038,16 +3039,6 @@ async function fetchFxRates() {
 // Which holding the editor is currently editing (null = add / buy-more mode).
 let portfolioEditName = null;
 
-// Brief save-status line for the Portfolio tab — it has its own element because
-// the Analysis tab's #upload-status isn't in this pane.
-function portfolioStatus(msg, isError) {
-  const el = document.getElementById('portfolio-status');
-  if (!el) return;
-  el.textContent = msg;
-  el.className = 'upload-status ' + (isError ? 'err' : 'ok');
-  el.style.display = 'inline-block';
-}
-
 function portfolioRows() {
   return Object.entries(holdings).map(([name, h]) => {
     const p    = products.find(pp => pp.name === name);
@@ -3102,7 +3093,7 @@ async function persistCurrency() {
   if (!sbUser) return;
   const { error } = await sbClient.from('user_settings')
     .upsert({ user_id: sbUser.id, currency: portfolioCurrency }, { onConflict: 'user_id' });
-  if (error) portfolioStatus('Currency not saved: ' + error.message, true);
+  if (error) setStatus('portfolio-status', 'Currency not saved: ' + error.message, true);
 }
 
 function renderPortfolio() {
@@ -3405,7 +3396,7 @@ async function persistHolding(name) {
   const { error } = await sbClient.from('holdings')
     .upsert({ user_id: sbUser.id, product_id: id, quantity: h.quantity, cost_basis: h.costBasis },
             { onConflict: 'user_id,product_id' });
-  portfolioStatus(error ? '✕ Save failed: ' + error.message : '✓ Saved', !!error);
+  setStatus('portfolio-status', error ? '✕ Save failed: ' + error.message : '✓ Saved', !!error);
 }
 async function deleteHoldingRow(name) {
   if (!sbUser) return;
@@ -3413,7 +3404,7 @@ async function deleteHoldingRow(name) {
   if (!id) return;
   const { error } = await sbClient.from('holdings').delete()
     .eq('user_id', sbUser.id).eq('product_id', id);
-  portfolioStatus(error ? '✕ Remove failed: ' + error.message : '✓ Removed', !!error);
+  setStatus('portfolio-status', error ? '✕ Remove failed: ' + error.message : '✓ Removed', !!error);
 }
 
 document.getElementById('portfolio-add-btn').addEventListener('click', commitHolding);
@@ -3581,7 +3572,7 @@ async function persistAlert(name) {
               target_price: a.type === 'fixed' ? a.target : null,
               below_pct:    a.type === 'fair'  ? a.pct    : null },
             { onConflict: 'user_id,product_id' });
-  portfolioStatus(error ? '✕ Save failed: ' + error.message : '✓ Saved', !!error);
+  setStatus('portfolio-status', error ? '✕ Save failed: ' + error.message : '✓ Saved', !!error);
 }
 async function deleteAlertRow(name) {
   if (!sbUser) return;
@@ -3589,7 +3580,7 @@ async function deleteAlertRow(name) {
   if (id == null) return;
   const { error } = await sbClient.from('alerts').delete()
     .eq('user_id', sbUser.id).eq('product_id', id);
-  portfolioStatus(error ? '✕ Remove failed: ' + error.message : '✓ Removed', !!error);
+  setStatus('portfolio-status', error ? '✕ Remove failed: ' + error.message : '✓ Removed', !!error);
 }
 
 document.getElementById('alert-add-btn').addEventListener('click', addOrUpdateAlert);
@@ -4110,7 +4101,7 @@ function prefillFromLast() {
     if (d.setVal == null && last.setVal != null) d.setVal = last.setVal;
   });
   renderEntryTable();
-  showStatus('⤵ Pre-filled empty cells with last month’s values — edit what changed', false);
+  setStatus('analysis-status', '⤵ Pre-filled empty cells with last month’s values — edit what changed', false);
 }
 
 // Focus the first entry input (top-to-bottom, price then set value) whose
@@ -4167,7 +4158,7 @@ function bulkPasteColumn(e, input, tbody) {
     n++;
   });
   renderEntryTable();
-  showStatus(`Pasted ${n} value(s) into the ${field === 'price' ? 'New Price' : 'New Set Value'} column`, false);
+  setStatus('analysis-status', `Pasted ${n} value(s) into the ${field === 'price' ? 'New Price' : 'New Set Value'} column`, false);
 }
 
 // ── Add new product ──────────────────────────────────────────
@@ -4615,7 +4606,7 @@ async function tryAutoLoad() {
     const buf = await res.arrayBuffer();
     const result = parseXlsx(buf);
     applyNewData(result);
-    showStatus('✓ Auto-loaded pokemon_data.xlsx from repo — ' + result.newProducts.length + ' products', false);
+    setStatus('analysis-status', '✓ Auto-loaded pokemon_data.xlsx from repo — ' + result.newProducts.length + ' products', false);
   } catch (err) {
     // Parse error — log to console but don't disrupt the UI
     console.warn('Auto-load failed:', err.message);
@@ -4816,11 +4807,11 @@ async function loadFromSupabase() {
 
   if (!usable.length) {
     // Empty (new) account: leave the sample data on screen and prompt the user.
-    showStatus('☁ Signed in — no cloud data yet. Add products in Data Entry, then “Save to cloud”.', false);
+    setStatus('analysis-status', '☁ Signed in — no cloud data yet. Add products in Data Entry, then “Save to cloud”.', false);
     return;
   }
   applyNewData({ newProducts: usable, newHistoricalData, newHistDates, newLinks });
-  showStatus('☁ Loaded ' + usable.length + ' products from your cloud account', false);
+  setStatus('analysis-status', '☁ Loaded ' + usable.length + ' products from your cloud account', false);
 }
 
 // ── Pre-login demo ──
@@ -4923,14 +4914,14 @@ function renderDemo(groups) {
 // Write the current Data Entry state (new products, entered snapshot values,
 // Cardmarket links, age threshold) to Supabase, then reload from the cloud.
 async function saveToSupabase() {
-  if (!sbUser) { showStatus('Sign in to save to the cloud', true); return; }
+  if (!sbUser) { setStatus('analysis-status', 'Sign in to save to the cloud', true); return; }
   if (!confirmSuspiciousEntries('Save to cloud')) return;
   if (!confirmIfIncomplete('Save to cloud')) return;
   const btn = document.getElementById('save-cloud-btn');
   const snapLabel = document.getElementById('snapshot-label').value.trim() || todayLabel();
   try {
     if (btn) btn.disabled = true;
-    showStatus('⏳ Saving to cloud…', false);
+    setStatus('analysis-status', '⏳ Saving to cloud…', false);
 
     // 1. Insert brand-new (pending) products, capturing their DB ids.
     const newOnes = pendingProducts.filter(p => !products.find(ep => ep.name === p.name));
@@ -4978,12 +4969,12 @@ async function saveToSupabase() {
     pendingProducts = [];
     await loadFromSupabase();
     renderEntryTable();
-    showStatus('✓ Saved to cloud — ' + rows.length + ' value(s) for “' + snapLabel + '”'
+    setStatus('analysis-status', '✓ Saved to cloud — ' + rows.length + ' value(s) for “' + snapLabel + '”'
                + (newOnes.length ? ', ' + newOnes.length + ' new product(s)' : ''), false);
   } catch (err) {
     console.error('Cloud save failed:', err);
     reportClientError({ message: 'Cloud save failed: ' + (err.message || err), stack: err.stack });
-    showStatus('✕ Cloud save failed: ' + (err.message || err), true);
+    setStatus('analysis-status', '✕ Cloud save failed: ' + (err.message || err), true);
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -5093,7 +5084,7 @@ function wireAuthControls() {
         loadFromSupabase().catch(err => {
           console.error('Cloud load failed:', err);
           reportClientError({ message: 'Cloud load failed: ' + (err.message || err), stack: err.stack });
-          showStatus('✕ Could not load cloud data: ' + (err.message || err), true);
+          setStatus('analysis-status', '✕ Could not load cloud data: ' + (err.message || err), true);
         });
       } else if (!uid) {
         // Logged out (initial load or sign-out) → show the pre-login demo.
@@ -5105,7 +5096,7 @@ function wireAuthControls() {
     // SDK/network failure — fall back to the static data so the app still works.
     console.error('Supabase init failed, falling back to static data:', err);
     showAuthOverlay(false);
-    showStatus('⚠ Cloud sync unavailable — showing local data. ' + (err.message || ''), true);
+    setStatus('analysis-status', '⚠ Cloud sync unavailable — showing local data. ' + (err.message || ''), true);
     tryAutoLoad();
   }
 })();

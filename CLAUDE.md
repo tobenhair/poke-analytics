@@ -11,6 +11,7 @@ Repo contents:
 - `metrics.js` — the scoring/derivation math as pure functions (unit-tested).
 - `pokemon_data.xlsx` — the tracked data workbook (auto-loaded at runtime).
 - `README.md` — user-facing overview and data-file format.
+- `docs/architecture.svg` — **start here.** One picture of the moving parts: the three data sources, the load path (`boot()` → `loadFromSupabase()`/`tryAutoLoad()` → `applyNewData()` → `recomputeScores()` → the render functions), `metrics.js` as the shared pure core, the four tabs, and the Supabase side jobs. `docs/architecture.mmd` is the editable Mermaid source it is rendered from — edit that, re-render, commit both.
 
 ## Running / developing
 
@@ -27,7 +28,8 @@ The app itself has no build/bundle step — it's still one static `index.html`. 
 - `npm run test:unit` — `node --test` unit tests (`tests/unit/`). `metrics.test.mjs` covers the pure metrics module `metrics.js` (scoring/derivation, the age fit + fair price + verdict, momentum/drawdown, peer residuals, trend/buy signals, scenario math, set roll-ups, portfolio helpers); `index.html` imports the *same* file, so these assertions guard the live page's numbers, not a copy. `repo-invariants.test.mjs` covers the other kind of failure — two files that must agree with nothing relating them: the admin UUID in `supabase/schema.sql`'s `is_admin()` vs `SUPABASE_CONFIG.adminUserId`, and the all-blank-or-all-filled rule for that config. No build step, no extra dependency. Rule: no derived number ships without a test here.
 - `npm run validate` — parses `pokemon_data.xlsx` and asserts the exact contract `parseXlsx()` + `deriveProducts()` enforce (sheet/column names, Types, dates, cross-references, usable latest price/set value). Catches the *silent* fallback-to-sample-data that a malformed workbook would otherwise cause. Keep `scripts/validate-workbook.mjs` in sync with `parseXlsx()`.
 - `npm run test:e2e` — two Playwright specs, no cloud credentials needed. `tests/smoke.spec.mjs` loads the real page over HTTP against the real workbook and asserts every tab renders without runtime errors (the automated backstop for bugs like a missed `recomputeScores()` before first render); it blanks `SUPABASE_CONFIG` at request time to force the static/xlsx path. `tests/signed-in.spec.mjs` covers the Supabase surface — the logged-out demo scope, auth-driven UI gating, the snapshot pivot, portfolio/alert auto-save payloads, the admin Data Entry → cloud-save loop, and the error beacon — by intercepting the SDK request and serving `tests/fake-supabase-sdk.js`, an in-memory stand-in that logs every write to `window.__sbWrites` for assertions (it proves the client's behaviour; the real RLS policies stay server-side in `supabase/schema.sql`). Both specs are fully hermetic: `tests/local-cdn.mjs` routes Chart.js/SheetJS to the `node_modules` copies and stubs Google Fonts, and it asserts the installed versions match the CDN tags in `index.html` — so a version bump on one side fails loudly instead of testing a library the page doesn't ship. (`scripts/measure-scale.mjs` uses the same helper.) Without it a blocked CDN surfaces as an unrelated-looking click timeout: the page's missing-library guard is an overlay that swallows pointer events.
-- `npm test` runs all three. `.github/workflows/ci.yml` runs them on every push/PR.
+- `npm run check:dead-code` — `scripts/check-dead-code.mjs` reports CSS classes, element IDs and functions declared in `index.html` and referenced nowhere. In one 5,200-line file dead weight is invisible; the Jul 2026 audit found 14 such items by hand, and this keeps the count at zero. **Its one blind spot is deliberate and documented in the file**: names assembled at runtime (`type-${p.type}` → `.type-BOX`, `'tab-' + btn.dataset.tab` → `#tab-portfolio`) look unreferenced to any textual scan, so they live in an explicit `CONSTRUCTED` allowlist with a note saying where each is built. The tool only ever *reports* — deleting is a human decision, and a false positive is a bug in the checker, not a licence to delete.
+- `npm test` runs all four. `.github/workflows/ci.yml` runs them on every push/PR.
 
 Two further scripts are **tools, not checks** — deliberately outside `npm test`, since timings are machine-dependent and would flake as a gate:
 
@@ -122,6 +124,7 @@ Each document has one audience — update the ones your change touches:
 | `ROADMAP.md` | product direction | an item ships (condense into **Done**) or the plan changes |
 | `IMPLEMENTATION.md` | the contributor executing the backlog | an item's plan changes; delete an item's section when it ships |
 | `.claude/skills/*` | the pre-commit guard checklists | an invariant, check, or fact in that skill's area changes |
+| `docs/architecture.mmd` | anyone orienting in the codebase | the load path, a data source, or the module/tab structure changes — edit the `.mmd`, re-render the `.svg`, commit both |
 | Code comments | the implementer reading the code | constraints the code itself can't show |
 
 ## Editing invariants

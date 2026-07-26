@@ -129,6 +129,22 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   relating them; `tests/unit/repo-invariants.test.mjs` now fails loudly on
   drift, in either direction, instead of it surfacing as an admin who silently
   cannot save.
+- **The audit's three follow-up fixes, plus the architecture diagram** — the
+  last of the "Now" theme. **Dead code can no longer accumulate silently:**
+  `scripts/check-dead-code.mjs` (`npm run check:dead-code`, in `npm test` and
+  its own CI job) reports unused CSS classes, element IDs, functions and empty
+  rules. Its blind spot is handled head-on rather than ignored — names built at
+  runtime (`type-${p.type}`, `'tab-' + btn.dataset.tab`) are invisible to a
+  textual scan and would be reported as dead, so they sit in an explicit
+  `CONSTRUCTED` allowlist that records *where each is built*; the tool only
+  reports, never edits. It was verified against planted dead code, not just
+  observed to pass. **The legacy `.upload-status` name is gone** — the class is
+  `.status-pill`, the Analysis element is `#analysis-status`, and the two
+  near-identical helpers collapsed into one `setStatus(elId, msg, isError)`
+  across 18 call sites. **And `docs/architecture.svg`** maps the whole system on
+  one page — sources, load path, `metrics.js`, the four tabs, the side jobs —
+  rendered from `docs/architecture.mmd`, which is now a row in the
+  documentation table so it is kept in sync.
 
 ## Now — trustworthy numbers (stability & quality)
 
@@ -139,36 +155,9 @@ on the page and every failure mode around it.
 Items are tagged **Bug** (something is wrong today), **Fix** (something is
 right but poorly built) or **Feature** (something new).
 
-- **Architecture overview diagram.** A single image committed to the repo
-  (alongside `CLAUDE.md`) that maps the moving parts at a glance — the data
-  sources (hardcoded fallback, `pokemon_data.xlsx`, Supabase), the load path
-  (`boot` → `loadFromSupabase`/`tryAutoLoad` → `applyNewData` → the render
-  functions), `metrics.js` as the shared math, and the tab/render structure — so
-  a human or a new contributor can navigate the codebase without
-  reverse-engineering it from one ~5,200-line file. Kept in sync when the
-  architecture moves.
-- **Fix — automate the dead-code check.** The audit found 14 unused CSS rules,
-  element IDs and functions that had accumulated with nobody noticing, and it
-  found them with a throwaway script. Make it permanent: a small checker
-  (`scripts/check-dead-code.mjs`, wired into `npm test`) that flags CSS classes,
-  element IDs and functions declared in `index.html` but referenced nowhere.
-  The one hard requirement is handling **dynamically built names** — the
-  throwaway version false-positived on `.type-BOX`/`.type-ETB`/`.type-BUNDLE`
-  and `#tab-portfolio`, which are assembled at runtime (`type-${p.type}`,
-  `'tab-' + btn.dataset.tab`) — so it needs an explicit allowlist for
-  constructed names, and must fail *closed* (report, never auto-delete). Without
-  that it is worse than nothing: a checker that cries wolf gets muted, and a
-  checker that silently deletes a live class breaks rendering.
-- **Fix — retire the `.upload-status` / `#upload-status` name.** The drag-drop
-  upload UI is gone; the class and element ID survive as the generic inline
-  status pill, used by both the Analysis tab and (via the same class)
-  `#portfolio-status`. The name now misleads every reader. Mechanical but
-  cross-cutting — CSS rules, the markup, and JS string literals must move
-  together, which is exactly why it wasn't folded into the audit.
-- **Fix — one status helper, not two.** `showStatus()` and `portfolioStatus()`
-  are near-identical five-liners differing only in target element; fold them
-  into one helper taking the element ID. Trivial, and worth doing at the same
-  time as the rename above since they touch the same lines.
+_Nothing open in this theme — the remaining work is under **Then** and
+**Later**. The **Backup & restore** item that used to live here is deferred by
+maintainer decision; see **Later**._
 
 ## Then — design & usability at product level
 

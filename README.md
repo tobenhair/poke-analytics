@@ -4,6 +4,8 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 
 > Investment Decision Dashboard · Prices in EUR
 
+**New here, or working on the code?** [`docs/architecture.svg`](docs/architecture.svg) maps the whole thing on one page — data sources, load path, the shared metrics core, and the tabs.
+
 ## What it does
 
 - **Answers "is this fairly priced?"** — a **fair price in euros** per product (the expected-value-for-age fit inverted, gated on the fit's R²) and a plain-language verdict on the board.
@@ -94,8 +96,11 @@ index.html               Self-contained dashboard (markup, styles, and logic)
 metrics.js               The analytical core as pure functions (shared by the
                          page and the unit tests — one source of truth)
 pokemon_data.xlsx        Tracked data workbook
+docs/architecture.svg    One-picture overview of how the app fits together
+docs/architecture.mmd    …and the Mermaid source it is rendered from
 scripts/validate-workbook.mjs  Checks the workbook matches the required format
                          (plus advisory data-quality warnings)
+scripts/check-dead-code.mjs    Flags unused CSS rules, element IDs and functions
 scripts/gen-scale-fixture.mjs  Generates a large, contract-valid workbook for
                          performance measurement (deterministic, dev-only)
 scripts/measure-scale.mjs      Measures the board and charts at catalogue scale
@@ -124,10 +129,11 @@ data), and a change that stops a tab or the login surface rendering:
 
 ```bash
 npm install          # one-time: installs the dev dependencies
-npm run test:unit    # the scoring/metrics math (metrics.js) + cross-file invariants
-npm run validate     # validate pokemon_data.xlsx against the required format
-npm run test:e2e     # browser tests: static smoke + signed-in surface
-npm test             # all of the above
+npm run test:unit       # the scoring/metrics math (metrics.js) + cross-file invariants
+npm run validate        # validate pokemon_data.xlsx against the required format
+npm run check:dead-code # unused CSS rules, element IDs and functions in index.html
+npm run test:e2e        # browser tests: static smoke + signed-in surface
+npm test                # all of the above
 ```
 
 These run automatically on every push and pull request via GitHub Actions

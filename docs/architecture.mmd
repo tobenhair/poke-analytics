@@ -1,0 +1,68 @@
+flowchart TB
+%% Sealed TCG Analytics — architecture overview.
+%% This .mmd is the editable truth; docs/architecture.svg is rendered from it:
+%%   npx -y @mermaid-js/mermaid-cli -i docs/architecture.mmd -o docs/architecture.svg -b transparent
+%% Three gotchas if you edit:
+%%   1. the `flowchart` declaration must be the FIRST line — a leading comment
+%%      block fails to parse;
+%%   2. a bare `%%` line renders as a stray node, so always put text after it;
+%%   3. every edge points the way DATA flows. Adding a write-back edge (e.g.
+%%      Data Entry → the database) creates a cycle and dagre resolves it by
+%%      hoisting the render block above the load path, which makes the whole
+%%      diagram read backwards. Write paths are stated as node text instead.
+%% Keep in sync when the load path or module structure changes (see CLAUDE.md).
+
+  classDef src fill:#16202b,stroke:#5cc7f2,color:#dce6f0
+  classDef core fill:#17251a,stroke:#7fd493,color:#dce6f0
+  classDef view fill:#241f12,stroke:#f4c651,color:#dce6f0
+  classDef job fill:#241717,stroke:#ef6a60,color:#dce6f0
+  classDef note fill:#11161c,stroke:#39434f,color:#8d9aa8
+
+  boot["<b>boot()</b> — cloud mode iff SUPABASE_CONFIG has both url and anonKey"]:::core
+
+  subgraph sources["Data sources"]
+    direction LR
+    xlsx["<b>pokemon_data.xlsx</b><br/>the tracked data"]:::src
+    db[("<b>Supabase</b> — raw inputs only<br/>products · snapshots · user_settings<br/>holdings · alerts · client_errors")]:::src
+    fb["Hardcoded fallback<br/>products / historicalData / histDates<br/>used only if the workbook fails"]:::src
+  end
+
+  boot -->|"static mode"| auto["tryAutoLoad()"]:::core
+  boot -->|"cloud mode"| authst{"onAuthStateChange"}:::core
+  boot -.->|"SDK or network failure"| auto
+
+  auto --> xlsx
+  authst -->|"signed in"| cloud["loadFromSupabase()<br/>pivots snapshot rows back into<br/>aligned price[] / setVal[]"]:::core
+  authst -->|"logged out"| demo["loadDemo() → renderDemo()<br/>3 newest releases only, via anon RLS"]:::core
+
+  xlsx --> parse["parseXlsx()<br/>validates the sheet + column contract"]:::core
+  db --> cloud
+  db --> demo
+  db -.- jobs
+
+  parse --> apply
+  cloud --> apply
+  fb -.->|"parseXlsx() throws → silent fallback,<br/>the worst failure mode"| apply
+
+  apply["<b>applyNewData()</b> — the one entry point for new data"]:::core
+  apply --> recomp["recomputeScores() + recomputeFit()<br/><b>must run before the first render</b>"]:::core
+  recomp --> views
+
+  metrics["<b>metrics.js</b> — the pure core<br/>boostersFromType · deriveProducts · calcAgeWeight<br/>fair price · verdict · momentum · peer residuals<br/>scenario math · set roll-ups · portfolio helpers"]:::core
+  metrics -->|"imported by"| apply
+  metrics -->|"imported by"| tests["tests/unit/<br/>one source of truth, not a copy"]:::note
+
+  subgraph views["Render functions — each wired into BOTH INIT and applyNewData()"]
+    direction LR
+    vAnalysis["📊 <b>Analysis</b> 01–09<br/>updateKPIs · updateTable · updateTopPicks<br/>renderSVBChart · renderScatterChart<br/>renderRelativeValue · renderMomentum<br/>cmpHist / cmpSvb · initScenario"]:::view
+    vPortfolio["💼 <b>Portfolio</b> 01–03 · signed in<br/>renderPortfolio · renderAlerts<br/>renderPortfolioValueChart · renderBalancer"]:::view
+    vEntry["✏️ <b>Data Entry</b> · admin only<br/>renderEntryTable · renderEntryQuality<br/><i>writes back: ☁ Save to cloud → Supabase<br/>(UI gating only — the real boundary is<br/>RLS is_admin()) · ⬇ Export → .xlsx</i>"]:::view
+    vWelcome["👋 <b>Welcome</b><br/>static explainer"]:::view
+  end
+
+  subgraph jobs["Supabase side jobs — pg_cron + Resend, all optional"]
+    direction LR
+    jStale["staleness-reminder.sql"]:::job
+    jAlert["alert-emails.sql<br/>fixed € targets only — fair alerts<br/>need the client-side fit"]:::job
+    jDigest["error-digest.sql"]:::job
+  end
