@@ -162,6 +162,26 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   sooner". The design items under **Then** are now in the order it recommended,
   which is not the order they were written in — mobile first (it stopped being
   polish), set logos last (no finding touched it).
+- **Expert UX & accessibility review** — a second, deeper pass
+  ([`docs/ux-expert-review.md`](docs/ux-expert-review.md)) applying the standard
+  instruments: **WCAG 2.2 A/AA** conformance (axe-core plus manual probes for
+  keyboard traversal, focus trap, reflow at 320 px, 200 % text resize and
+  reduced motion), **Nielsen's ten heuristics**, and a **cognitive walkthrough**
+  of the primary task. The finding that reorders the plan: **the app is not
+  operable without a mouse** — board rows carry a click handler but no
+  `tabindex`, so the drill-down, the best answer surface in the product, cannot be
+  opened from the keyboard; the modal is not a dialog and never receives focus;
+  72/72 Data Entry inputs are named by `placeholder` alone. Four Level-A
+  failures, so **accessibility moved to the front** of the design theme, ahead of
+  the mobile work the first pass had promoted. It also **corrected two of that
+  pass's claims** — the phone sideways-scroll is `.tab-bar` (437 px at a 390 px
+  viewport), not `.entry-table` (which has a working `overflow-x` wrapper); and
+  the 44 px tap-target figure was AAA (2.5.5), where AA (2.5.8) is 24 px and only
+  5 controls fail it. Verified *good*, from arithmetic rather than sampling: every
+  colour token passes AA at every background, `prefers-reduced-motion` is
+  honoured, and text resizes to 200 % without breaking. One trap recorded for
+  whoever wires up an a11y gate: axe run before the reveal animations settle
+  reports **27 contrast failures that do not exist**.
 
 ## Now — trustworthy numbers (stability & quality)
 
@@ -182,11 +202,28 @@ The aesthetic is deliberate and stays (dark, minimalist, `design-review`-
 enforced). This theme is about the page working as hard for a first-time
 visitor on a phone as it does for the maintainer on a desktop.
 
-The order below is the one the **UX assessment** recommended, which is *not* the
-order these were originally written in — see
-[`docs/ux-assessment.md`](docs/ux-assessment.md) for the findings and the
-reasoning. Two defects it surfaced are filed under **Known bugs** and come first.
+The order below is the one the **expert UX & accessibility review** recommended
+([`docs/ux-expert-review.md`](docs/ux-expert-review.md), which supersedes the
+earlier journey pass in [`docs/ux-assessment.md`](docs/ux-assessment.md) and
+corrects two of its findings). **Accessibility now comes first**: four of its
+findings are Level-A conformance failures — the app is not operable without a
+mouse — which outranks the mobile density work the first pass had promoted.
+The defects both passes surfaced are under **Known bugs** and come before all of
+it.
 
+- **Accessibility — now first in this theme.** The expert review found **four
+  Level-A failures**, so this is conformance work, not polish: board rows are not
+  keyboard-focusable (the drill-down cannot be opened without a mouse);
+  `#drill-modal` is a bare `div` with no `role="dialog"`, no accessible name, and
+  focus neither enters nor is trapped; **72/72** Data Entry inputs are named by
+  `placeholder` alone; and 5 controls have no accessible name at all. Plus at AA:
+  focus is invisible on **11 of the first 18** tab stops, the Analysis tab
+  contains **zero headings** (13 section eyebrows are `div`s) so there is no
+  document outline to navigate, and 5 controls fall under the 24 px target
+  minimum. Keyboard navigation for tabs, tables and the drill-down;
+  ARIA roles on the tab system; visible focus states; non-colour cues wherever
+  green/red still carries meaning alone (the text verdict resolves the worst
+  of it, then audit the rest).
 - **Mobile optimisation.** Verify and fix the real phone experience
   end-to-end: the 70vh table scroll, chart legibility, tap targets, the Data
   Entry grid, and the vertical density of nine full-width sections stacked with
@@ -202,11 +239,31 @@ reasoning. Two defects it surfaced are filed under **Known bugs** and come first
   prose every visit. The text stays in the DOM for first-timers and screen
   readers; it just starts collapsed on small screens. Important for mobile
   specifically, useful everywhere.
+- **Fix — how "Fair Price" presents its own confidence.** The board header renders
+  a bare *"R² 0.39"*. R² is a term most buyers don't know, **0.39 is a weak fit**,
+  and the whole product rests on the number it qualifies — while both explanations
+  sit where a phone user cannot reach them (a `title` tooltip, and a ~200-word
+  paragraph). Show confidence qualitatively on the board, keep the statistic for
+  the drill-down, and put the method somewhere reachable without hover. Presenting
+  a weak fit as a bare statistic reads as more authoritative than it is, which is
+  a credibility risk for a tool whose pitch is trustworthiness.
+- **Fix — edit the board's explainer paragraph.** ~200 words of accurate, dense
+  prose sitting directly above the most important table, and the single largest
+  contributor to the measured 16.4 % prose share on phone. Collapsing it (above)
+  hides the scroll cost; this is the separate job of *shortening* it.
+- **Fix — resolve the section-numbering collision.** Analysis numbers its sections
+  01–09 and Portfolio independently numbers its own 01–03, so "section 05" is
+  ambiguous app-wide — and the board's own explainer text refers to "section 05"
+  by number. Prefix or renumber.
 - **Overview-first restructure.** With the verdict shipped, the top of the
   Analysis tab can *answer the question* — best deals now, each with its fair
   price gap — and the nine numbered sections become the supporting evidence a
   curious user drills into (progressive disclosure), rather than a wall to
   scroll. Less on screen, more answered.
+- **First-class loading, empty, and error states.** Every async surface
+  (boot, cloud load, demo, save) gets a designed state instead of a blank
+  panel or a toast — including the currently-invisible "workbook failed,
+  showing sample data" fallback, which must never masquerade as real data.
 - **Onboarding & the demo as a pitch.** The section descriptions explain each
   chart; nothing yet explains the *method* — or, on the logged-out demo, even
   what the tool *is*. Lead the demo page with a plain statement of the tool's
@@ -233,14 +290,6 @@ reasoning. Two defects it surfaced are filed under **Known bugs** and come first
   (`#change-pw-btn`) — the gap is only for the locked-out. Small: a "Forgot
   password?" link on the overlay, `sbClient.auth.resetPasswordForEmail()`, and a
   recovery-token branch that opens `#account-overlay`.
-- **Accessibility.** Keyboard navigation for tabs, tables and the drill-down;
-  ARIA roles on the tab system; visible focus states; non-colour cues wherever
-  green/red still carries meaning alone (the text verdict resolves the worst
-  of it, then audit the rest).
-- **First-class loading, empty, and error states.** Every async surface
-  (boot, cloud load, demo, save) gets a designed state instead of a blank
-  panel or a toast — including the currently-invisible "workbook failed,
-  showing sample data" fallback, which must never masquerade as real data.
 - **Set logos (drill-down first).** Give each set a visual anchor: the
   expansion logo, at least on the product drill-down view where there's room to
   frame a single product, and later a small mark on board rows and set
@@ -504,12 +553,26 @@ worth keeping: it is *why* the pivot to Tradera/TCGdex was the right call.
 
 Defects to fix, separate from the forward-looking themes above. Newest first.
 
-**Bug — on a phone, the Data Entry tab scrolls the whole page sideways.**
-`.entry-table` lays out **890 px wide in a 390 px viewport** with no
-`overflow-x: auto` wrapper, so the body scrolls horizontally (49 elements past
-the right edge). Breaks the rule `design-review` states outright, on the
-maintainer's core monthly task. Found by the UX assessment; fix ahead of the
-design items. *Fix: wrap the table the way `.table-wrap` already does elsewhere.*
+**Bug — on a phone, the tab bar overflows the viewport when signed in.**
+`.tab-bar` is a non-wrapping `display: flex` row measuring **437 px at a 390 px
+viewport**, so the body scrolls sideways on *every* tab for signed-in admins (the
+only state with four tabs; three fit). Fix with `flex-wrap` or a scrollable tab
+strip.
+*Corrects an earlier mis-diagnosis:* the July journey pass blamed `.entry-table`
+for this and reported it as having no `overflow-x` wrapper. It has one
+(`.entry-table-wrap`) and it works — the table was never the cause. See
+[`docs/ux-expert-review.md`](docs/ux-expert-review.md) → Correction 1.
+
+**Bug — reflow fails at 320 px (WCAG 1.4.10 AA).** Analysis and Data Entry both
+force two-dimensional scrolling at the 320 px conformance threshold
+(`scrollWidth` 342 vs 320). Passes at 390 px.
+
+**Bug — the app cannot be operated without a mouse (WCAG 2.1.1, Level A).**
+Board rows have `cursor: pointer` and a click handler but no `tabindex`, `role`
+or key handler, so the **drill-down — the best answer surface in the app —
+cannot be opened from the keyboard at all**. Three `.table-wrap` scroll regions
+are likewise keyboard-unreachable. Grouped with the accessibility item, which
+this review promotes to the front of the design theme.
 
 **Bug — on a phone, the status line is unreadable and unreachable.**
 `#analysis-status` is a `white-space: nowrap` pill in a
