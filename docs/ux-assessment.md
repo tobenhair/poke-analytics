@@ -1,5 +1,13 @@
 # UX assessment — July 2026
 
+> **Superseded by [`ux-expert-review.md`](ux-expert-review.md)** (WCAG 2.2 +
+> heuristic evaluation + cognitive walkthrough), which **corrects two findings
+> below**: the phone sideways-scroll is caused by `.tab-bar`, not `.entry-table`
+> (which has a working `overflow-x` wrapper), and the 44 px tap-target figure is
+> the AAA criterion (2.5.5) — AA (2.5.8) is 24 px, which only 5 controls fail.
+> The density and journey measurements here remain valid; where the two documents
+> disagree, the expert review wins.
+
 The structured end-to-end pass called for by `ROADMAP.md` → *Then — design &
 usability*. **No code changes**: the output is this prioritised findings list,
 plus a recommended reordering of the items that follow it.

@@ -43,9 +43,61 @@ assessment.
 
 ## THEN — design & usability
 
-Ordered as the **UX assessment** recommended (`docs/ux-assessment.md`), not as
-originally written. Section numbers are kept as stable cross-reference labels —
-reading order is the priority, not the numbering.
+Ordered as the **expert UX & accessibility review** recommended
+(`docs/ux-expert-review.md`, which supersedes and corrects `docs/ux-assessment.md`).
+Accessibility leads because four of its findings are Level-A conformance failures.
+Section numbers are stable cross-reference labels — reading order is the priority,
+not the numbering.
+
+### 10. Accessibility — first in this theme
+
+Scope is now specified by measurement, not intuition — see
+`docs/ux-expert-review.md` findings F1–F5, F9, F12, F14. Four are Level A, so
+treat this as conformance work. Suggested commit order (each independently
+shippable, hardest-first is wrong here — do the Level-A blockers first):
+
+1. **Board rows keyboard-operable (F1, WCAG 2.1.1).** `tabindex="0"`,
+   `role="button"`, Enter/Space → `openDrill()`. Also give the three
+   `.table-wrap` scroll regions `tabindex="0"` so they can be scrolled by
+   keyboard (`scrollable-region-focusable`).
+2. **Make the drill-down a real dialog (F2, WCAG 2.4.3/4.1.2).** `role="dialog"`,
+   `aria-modal="true"`, `aria-labelledby` the product name; move focus in on
+   open, trap it while open, return it to the invoking row on close. Verified
+   broken today: 6/6 Tab presses after opening landed on background controls.
+3. **Name the Data Entry inputs (F3, WCAG 3.3.2/4.1.2).** All **72** are
+   `placeholder`-only. The row already knows the product and field
+   (`data-product`, `data-field`) — build an `aria-label` from them
+   (`"Team Up Booster Box — new price"`). Placeholder is not a name and vanishes
+   on typing.
+4. **Name the 5 unnamed selects (F4, WCAG 4.1.2)** — sort, verdict filter, the
+   two comparison pickers, and one on Data Entry.
+5. **One `:focus-visible` rule across the token set (F5, WCAG 2.4.7).** 11 of the
+   first 18 tab stops have no indicator; some controls do have one, so this is
+   consistency work.
+6. **Give the Analysis tab a heading outline (F9, WCAG 1.3.1/2.4.6).** The 13
+   `.section-eyebrow` divs and `.panel-title` divs should be real headings, and
+   the page needs a `<main>` landmark (axe `region`: 40 on Analysis, 265 on Data
+   Entry). This is what lets a screen-reader user jump between the nine sections
+   at all.
+7. **Text alternatives for 💰/🔔 (F14)** — visually-hidden text, not just
+   `title`.
+
+- Tab system: `role="tablist"/"tab"/"tabpanel"`, `aria-selected`,
+  arrow-key navigation between tabs (F12).
+- Board rows (they open the drill-down): `tabindex="0"` + Enter/Space
+  activation, visible `:focus-visible` outline using `--accent`.
+- Modals: focus trap + focus return on close (drill-down, Format Guide,
+  account overlay); Esc already works.
+- Non-colour cues: audit every place green/red alone carries meaning; the
+  text verdict resolved the board — check momentum arrows, P&L, deltas.
+- Add `@axe-core/playwright` as a devDependency and one spec asserting no
+  serious/critical violations on each tab — turns a11y into a regression
+  test instead of a one-off pass. **Wait for the reveal animations to settle
+  before sweeping** (≥2 s after a tab switch, or run with
+  `reducedMotion: 'reduce'`): axe sampled 300 ms after a tab click reports **27
+  colour-contrast failures that do not exist**, because the entrance animation
+  has muted text mid-opacity at 4.30:1 instead of its resting 5.80:1. A gate that
+  cries wolf gets disabled. *Size: M.*
 
 ### 8. Mobile optimisation
 
@@ -80,6 +132,17 @@ numbering, `design-review` throughout, smoke test must keep passing
 unchanged. Plan the DOM moves on paper first; this is a large diff of mostly
 markup. *Size: M/L. Justified by `docs/ux-assessment.md` findings 3, 4, 6.*
 
+### 11. First-class loading, empty, and error states
+
+Inventory every async surface: `boot()`, `loadFromSupabase()`, `loadDemo()`,
+cloud save, FX fetch, and — the critical one — the **workbook-failed →
+sample-data fallback, which today masquerades as real data**. Give each a
+designed state from existing tokens (skeleton/`.portfolio-empty`-style
+panels, not spinners everywhere). The fallback specifically must show a
+persistent, visible banner ("showing sample data — real data failed to
+load") and the smoke test should assert it appears when the workbook 404s.
+*Size: M.*
+
 ### 12 + 13. Onboarding, the demo as a pitch, and the Welcome tab (one PR)
 
 These two roadmap bullets are one piece of work: today the pitch lives in two
@@ -92,31 +155,6 @@ Welcome tab to a signed-in landing that links to the same explanations
 `localStorage`-gated, dismissible, three steps (set value vs price, why age
 matters, what the verdict means). Mostly copywriting; `design-review`
 applies to every word. *Size: M. Justified by `docs/ux-assessment.md` finding 7 — the demo currently shows no fair price or verdict at all.*
-
-### 10. Accessibility
-
-- Tab system: `role="tablist"/"tab"/"tabpanel"`, `aria-selected`,
-  arrow-key navigation between tabs.
-- Board rows (they open the drill-down): `tabindex="0"` + Enter/Space
-  activation, visible `:focus-visible` outline using `--accent`.
-- Modals: focus trap + focus return on close (drill-down, Format Guide,
-  account overlay); Esc already works.
-- Non-colour cues: audit every place green/red alone carries meaning; the
-  text verdict resolved the board — check momentum arrows, P&L, deltas.
-- Add `@axe-core/playwright` as a devDependency and one spec asserting no
-  serious/critical violations on each tab — turns a11y into a regression
-  test instead of a one-off pass. *Size: M.*
-
-### 11. First-class loading, empty, and error states
-
-Inventory every async surface: `boot()`, `loadFromSupabase()`, `loadDemo()`,
-cloud save, FX fetch, and — the critical one — the **workbook-failed →
-sample-data fallback, which today masquerades as real data**. Give each a
-designed state from existing tokens (skeleton/`.portfolio-empty`-style
-panels, not spinners everywhere). The fallback specifically must show a
-persistent, visible banner ("showing sample data — real data failed to
-load") and the smoke test should assert it appears when the workbook 404s.
-*Size: M.*
 
 ### 9. Set logos (drill-down first)
 
