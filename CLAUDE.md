@@ -124,6 +124,7 @@ Each document has one audience — update the ones your change touches:
 | `ROADMAP.md` | product direction | an item ships (condense into **Done**) or the plan changes |
 | `IMPLEMENTATION.md` | the contributor executing the backlog | an item's plan changes; delete an item's section when it ships |
 | `.claude/skills/*` | the pre-commit guard checklists | an invariant, check, or fact in that skill's area changes |
+| `docs/visual-design-review.md` | whoever touches styling | the visual system drifts or is reconciled — audits the build against `design-review`'s declared tokens/fonts/components. A dated snapshot: supersede, don't patch |
 | `docs/ux-expert-review.md` | whoever picks up an accessibility/design item | the authoritative UX document — WCAG 2.2 conformance, heuristics, cognitive walkthrough. Supersedes and corrects `ux-assessment.md`. A dated snapshot: supersede it, don't patch it |
 | `docs/ux-assessment.md` | historical | the earlier journey/density pass; kept for its density measurements, but where the two disagree the expert review wins |
 | `docs/architecture.mmd` | anyone orienting in the codebase | the load path, a data source, or the module/tab structure changes — edit the `.mmd`, re-render the `.svg`, commit both |

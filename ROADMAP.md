@@ -182,6 +182,21 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   honoured, and text resizes to 200 % without breaking. One trap recorded for
   whoever wires up an a11y gate: axe run before the reveal animations settle
   reports **27 contrast failures that do not exist**.
+- **Visual design & consistency review** — the third July pass
+  ([`docs/visual-design-review.md`](docs/visual-design-review.md)), covering what
+  the other two excluded by name. Because the repo *documents* its own design
+  system, this audits compliance rather than taste: the built product against
+  `design-review`'s declared tokens, three fonts, components and colour meanings.
+  The designed system holds up well — restrained palette, semantics that are
+  rigorous in every data view, a genuinely good display/mono pairing. The build
+  has drifted from it in one traceable way: **240 inline `style` attributes**
+  (setting `color` 96×, `font-size` 75×, `font-family` 52×) and **a second,
+  near-duplicate colour palette hard-coded in the chart JavaScript**, so a BOX
+  badge and its own chart series are two different blues on the same screen.
+  Also measured: **29 distinct font sizes** with no scale, **55 of 68** stylesheet
+  colour literals off-token, a `--radius` token that is only the third most-used
+  radius, and a fourth font family (Arial) on native form controls. Seven Fix
+  items and one Feature decision filed; none is a redesign.
 
 ## Now — trustworthy numbers (stability & quality)
 
@@ -239,6 +254,36 @@ it.
   prose every visit. The text stays in the DOM for first-timers and screen
   readers; it just starts collapsed on small screens. Important for mobile
   specifically, useful everywhere.
+- **Fix — unify the chart palette with the design tokens.** The charts and
+  scoring helpers hard-code their own colours in JS — `#4fc3f7`, `#81c784`,
+  `#f5c842`, `#e8473f` — which are *near-duplicates* of `--accent3`, `--accent4`,
+  `--accent`, `--accent2`. They appear side by side on one screen (a BOX badge is
+  `#5cc7f2`; the same product's chart series is `#4fc3f7`), close enough to read
+  as a rendering bug. Four string literals; the highest value-per-effort fix in
+  the visual review.
+- **Fix — name a type scale.** **29 distinct font sizes** render across three
+  tabs, mostly fractional (12.48, 13.28, 11.52 px …) because `rem` values were
+  chosen individually rather than from a scale, and **75 are set inline**. Pick
+  the ~7 doing real work, name them, map the rest onto the nearest step —
+  visually near-invisible, permanently cheaper. See
+  [`docs/visual-design-review.md`](docs/visual-design-review.md) V2.
+- **Fix — `font: inherit` on native form controls.** Inputs, selects and buttons
+  don't inherit `font-family`, so five controls render in **Arial** — a fourth
+  font family in a three-font system. One CSS rule.
+- **Fix — make the radius tokens describe reality.** `--radius: 18px` is only the
+  *third* most-used radius (20 uses) behind `999px` (242) and `8px` (75), across
+  9 distinct values. Split into pill/base/large and retire the strays.
+- **Fix — bring the Welcome tab onto the app's own section pattern**, and stop
+  using accent colours as decoration there. Welcome uses no `.section-eyebrow`
+  while Analysis and Portfolio use it throughout, and its card titles are blue
+  and green as arbitrary category tints — teaching a first-time visitor, on the
+  first screen, that the colours are decorative, when everywhere else green
+  genuinely means good.
+- **Feature — decide on emoji vs an SVG icon set.** 👋📊✏️💰🔔 carry navigation
+  and state, but they render differently on every platform, cannot take a colour
+  (so they can't participate in active/inactive state), and sit alongside one
+  real custom logo mark — two icon languages on a page. A decision to make before
+  launch, not a defect: emoji are friendly and free to keep.
 - **Fix — how "Fair Price" presents its own confidence.** The board header renders
   a bare *"R² 0.39"*. R² is a term most buyers don't know, **0.39 is a weak fit**,
   and the whole product rests on the number it qualifies — while both explanations
