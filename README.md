@@ -97,6 +97,7 @@ metrics.js               The analytical core as pure functions (shared by the
                          page and the unit tests — one source of truth)
 pokemon_data.xlsx        Tracked data workbook
 docs/ux-expert-review.md WCAG 2.2 + heuristic review — the authoritative UX doc
+docs/visual-design-review.md   Visual system audit: build vs documented tokens
 docs/ux-assessment.md    Earlier journey/density pass (superseded, kept for data)
 docs/architecture.svg    One-picture overview of how the app fits together
 docs/architecture.mmd    …and the Mermaid source it is rendered from
