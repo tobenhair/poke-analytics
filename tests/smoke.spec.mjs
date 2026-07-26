@@ -11,9 +11,13 @@
 // config at request time to force the plain static/xlsx path (SB_ENABLED =
 // false → tryAutoLoad() → applyNewData() → every render function). That path
 // is exactly where the rendering-regression risk lives.
+//
+// Chart.js and SheetJS come from node_modules for the same reason (see
+// tests/local-cdn.mjs): the spec must not depend on cdnjs being reachable.
 // ============================================================
 
 import { test, expect } from '@playwright/test';
+import { routeLocalLibs } from './local-cdn.mjs';
 
 // Rewrite the inline Supabase config to empty strings so the app boots in
 // static mode. Resilient to future edits of the URL / key values.
@@ -37,6 +41,7 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   const pageErrors = [];
   page.on('pageerror', (err) => pageErrors.push(err.message));
 
+  await routeLocalLibs(page);
   await forceStaticMode(page);
 
   // ?admin=1 reveals the Data Entry tab so we can smoke it too.

@@ -40,12 +40,13 @@
   };
 </script>
 <script>
-  // Admin gate (client-side, cosmetic): reveal the Data Entry tab and the
-  // file-upload bar only when ?admin=1 is present, remembered per-device in
-  // localStorage. Visitors just see the auto-loaded data. This is a static
-  // site, so this declutters the visitor UI — it is NOT a security boundary
-  // (in-browser edits are local-only until the .xlsx is committed to the
-  // repo). Use ?admin=0 to switch back to the visitor view.
+  // Admin gate (client-side, cosmetic): reveal the Data Entry tab only when
+  // ?admin=1 is present, remembered per-device in localStorage. Visitors just
+  // see the auto-loaded data. This is a static site, so this declutters the
+  // visitor UI — it is NOT a security boundary (in-browser edits are local-only
+  // until the .xlsx is committed to the repo). Use ?admin=0 to switch back to
+  // the visitor view. In Supabase mode the real boundary is the RLS policy in
+  // supabase/schema.sql, not this gate.
   (function () {
     try {
       var params = new URLSearchParams(location.search);
@@ -196,7 +197,6 @@
   }
   /* center the sticky pill within the wrapper */
   .tab-bar { align-self: center; }
-  .nav-shell { display: flex; justify-content: center; position: sticky; top: 14px; z-index: 50; }
   .tab-btn {
     padding: 9px 22px;
     border: none;
@@ -363,13 +363,6 @@
   .kpi-value { font-family: 'Bebas Neue', sans-serif; font-size: 2.3rem; line-height: 1; letter-spacing: 0.02em; color: var(--kpi-color, var(--accent)); }
   .kpi-sub { font-size: 0.7rem; color: var(--muted); margin-top: 8px; font-family: 'DM Mono', monospace; }
 
-  /* ── Layout grids ── */
-  .main-grid {
-    display: grid;
-    grid-template-columns: 1fr 360px;
-    gap: 24px;
-    margin-bottom: 24px;
-  }
 
   /* ── Stacked, single-column analysis sections ── */
   #tab-analysis > .panel { margin-bottom: 44px; }
@@ -536,10 +529,7 @@
   .trend-down { color: var(--accent2); }
   .trend-neutral { color: var(--muted); }
 
-  /* ── Right column ── */
-  .right-col { display: flex; flex-direction: column; gap: 24px; }
 
-  .top-picks { }
   .pick-item {
     padding: 16px 24px;
     border-bottom: 1px solid var(--hairline);
@@ -569,7 +559,6 @@
   .chart-panel { padding: 24px 26px; }
   canvas { max-height: 220px; }
 
-  .trend-panel { }
   .trend-select {
     background: var(--bg3); border: 1px solid var(--hairline); color: var(--text);
     font-family: 'DM Mono', monospace; font-size: 0.72rem;
@@ -579,12 +568,6 @@
   }
   .trend-select:focus { border-color: var(--accent); }
 
-  .bottom-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    margin-bottom: 24px;
-  }
 
   footer {
     text-align: center;
@@ -599,14 +582,17 @@
 
   .buy-flag { font-style: normal; cursor: help; }
 
-  tbody tr.highlight-row td { background: rgba(244,198,81,0.05); }
-  tbody tr.highlight-row .product-name { color: var(--accent); }
 
   .val-excellent { color: var(--accent4); }
   .val-good { color: var(--accent); }
   .val-poor { color: var(--accent2); }
 
-  /* ── Upload zone ── */
+  /* ── Status pill ──
+     Named .upload-status for historical reasons: it styled the drag-and-drop
+     upload bar, which has been removed. It is now the generic inline status
+     line, used by #upload-status (Analysis) and #portfolio-status (Portfolio).
+     Renaming it is filed as its own roadmap item — it is referenced from JS
+     strings, so the rename has to move all of them at once. */
   .upload-status {
     font-family: 'DM Mono', monospace;
     font-size: 0.72rem;
@@ -707,7 +693,6 @@
   .col-table td:first-child { font-family: 'DM Mono', monospace; color: var(--accent); font-size: 0.73rem; }
   .col-table td:last-child  { color: var(--muted); font-size: 0.72rem; }
   .tag-req  { display:inline-block; padding:2px 8px; border-radius:999px; font-size:0.6rem; font-family:'DM Mono',monospace; background:rgba(239,106,96,0.12); color:var(--accent2); border:1px solid rgba(239,106,96,0.2); }
-  .tag-opt  { display:inline-block; padding:2px 8px; border-radius:999px; font-size:0.6rem; font-family:'DM Mono',monospace; background:rgba(92,199,242,0.1); color:var(--accent3); border:1px solid rgba(92,199,242,0.2); }
   .modal-note {
     background: var(--bg3);
     border: 1px solid var(--hairline);
@@ -942,8 +927,6 @@
 
   /* ── Responsive ── */
   @media (max-width: 1100px) {
-    .main-grid { grid-template-columns: 1fr; }
-    .right-col { display: grid; grid-template-columns: 1fr 1fr; }
     .kpi-row { grid-template-columns: repeat(2, 1fr); }
   }
   @media (max-width: 900px) {
@@ -955,12 +938,10 @@
   }
   @media (max-width: 680px) {
     .wrapper { padding: 28px 16px 48px; }
-    .right-col { grid-template-columns: 1fr; }
     .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 32px; }
     .kpi { padding: 18px 18px; }
     .kpi-value { font-size: 2rem; }
     h1 { font-size: 1.7rem; }
-    .bottom-row { grid-template-columns: 1fr; }
     header { flex-wrap: wrap; gap: 14px; }
     .header-meta { text-align: left; }
     .tab-btn { padding: 8px 15px; font-size: 0.72rem; }
@@ -989,7 +970,7 @@
     .rv { opacity: 1 !important; transform: none !important; }
   }
 
-  /* ── Admin-only UI (data entry + file upload) ──
+  /* ── Admin-only UI (Data Entry, cloud save) ──
      Hidden by default so regular visitors never see it; revealed only when
      <html> carries .is-admin (set by the ?admin gate in <head>). The safe
      default is "hidden", so the admin UI never flashes for visitors. */
@@ -1178,7 +1159,7 @@
       <div class="drill-chart"><canvas id="drill-svb-chart"></canvas></div>
     </div>
 
-    <div class="modal-section" id="drill-ingredients-sec">
+    <div class="modal-section">
       <h3>How the verdict is built</h3>
       <div id="drill-ingredients" class="drill-ingredients"></div>
     </div>
@@ -1706,7 +1687,7 @@
             <span id="out-svb" style="font-family:'Bebas Neue',sans-serif; font-size:2.2rem; color:var(--accent3);">—</span>
             <span id="out-svb-delta" style="font-family:'DM Mono',monospace; font-size:0.8rem;"></span>
           </div>
-          <div id="out-svb-bar-wrap" style="margin-top:10px; height:4px; background:var(--border); border-radius:2px;">
+          <div style="margin-top:10px; height:4px; background:var(--border); border-radius:2px;">
             <div id="out-svb-bar" style="height:100%; border-radius:2px; background:var(--accent3); transition: width 0.3s ease; width:0%;"></div>
           </div>
         </div>
@@ -1719,7 +1700,7 @@
             <span id="out-score" style="font-family:'Bebas Neue',sans-serif; font-size:2.2rem; color:var(--accent);">—</span>
             <span id="out-score-delta" style="font-family:'DM Mono',monospace; font-size:0.8rem;"></span>
           </div>
-          <div id="out-score-bar-wrap" style="margin-top:10px; height:4px; background:var(--border); border-radius:2px;">
+          <div style="margin-top:10px; height:4px; background:var(--border); border-radius:2px;">
             <div id="out-score-bar" style="height:100%; border-radius:2px; background:var(--accent); transition: width 0.3s ease; width:0%;"></div>
           </div>
         </div>
@@ -1743,7 +1724,7 @@
     <!-- ── Section: portfolio ── -->
     <div class="section-eyebrow">01 — Your Portfolio</div>
     <p class="section-desc"><strong>What:</strong> what you own and what it's worth now. <strong>How to read:</strong> <em>Add / buy more</em> tops up a holding and blends the cost basis to a weighted average; use <em>✎</em> on a row to correct the exact quantity or cost. <em>Unrealised P&amp;L</em> compares your cost basis to each product's latest tracked price. Private to your account, saved automatically.</p>
-    <div class="panel" id="portfolio-panel">
+    <div class="panel">
       <div class="panel-header">
         <div class="panel-title">Portfolio</div>
         <div class="cmp-controls">
@@ -1786,7 +1767,7 @@
     <!-- ── Section: portfolio value over time ── -->
     <div class="section-eyebrow">02 — Value Over Time</div>
     <p class="section-desc"><strong>What:</strong> what your <em>current</em> holdings would have been worth across every tracked snapshot — the <em>portfolio value</em> line against your flat <em>cost basis</em>, so unrealised P&amp;L reads as a trajectory rather than just today's number. <strong>How to read:</strong> the gap between the lines is your gain (value above cost) or loss (below); a rising value line means the basket you hold has appreciated. Values your current quantities back across history — purchase dates aren't tracked.</p>
-    <div class="panel" id="portfolio-value-panel">
+    <div class="panel">
       <div class="chart-panel" id="portfolio-value-chart-wrap" style="padding: 20px 24px;">
         <canvas id="portfolio-value-chart" style="max-height: 280px;"></canvas>
       </div>
@@ -1796,14 +1777,14 @@
     <!-- ── Section: concentration & rebalance (portfolio balancer) ── -->
     <div class="section-eyebrow">03 — Concentration &amp; Rebalance</div>
     <p class="section-desc"><strong>What:</strong> how your holdings are spread across <em>sets</em>, <em>release years</em> and <em>product types</em> — and, when you're over-exposed, which <em>under-fair-price</em> products in areas you underweight would diversify you. <strong>How to read:</strong> a bar near full means a large share of your value rides on one bucket (red = over-exposed); the shortlist points the next euro at good-value buys that spread the risk. Derived live from your holdings — nothing saved.</p>
-    <div class="panel" id="balancer-panel">
+    <div class="panel">
       <div id="balancer-body"></div>
     </div>
 
     <!-- ── Section: price alerts ── -->
     <div class="section-eyebrow">04 — Price Alerts</div>
     <p class="section-desc"><strong>What:</strong> buy targets for the products you're watching — a fixed <em>€</em> price, or a <em>% below fair price</em> that recomputes automatically as the age fit moves. <strong>How to read:</strong> when a product's latest tracked price falls to or below the target it's flagged here and with a 🔔 on the Analysis board. Private to your account, saved automatically.</p>
-    <div class="panel" id="alerts-panel">
+    <div class="panel">
       <div class="panel-header">
         <div class="panel-title">Price Alerts</div>
         <div class="panel-badge" id="alerts-badge">no alerts</div>
@@ -2764,13 +2745,6 @@ function isValidDate(str) {
   return !isNaN(d.getTime());
 }
 
-function isPositiveNum(v) {
-  return typeof v === 'number' && isFinite(v) && v > 0;
-}
-
-function isNonNegNum(v) {
-  return typeof v === 'number' && isFinite(v) && v >= 0;
-}
 
 // Booster count derived from Type — no user input needed (BOX 36, ETB 9, BUNDLE 6)
 // boostersFromType() and deriveProducts() now live in metrics.js (imported
@@ -3002,6 +2976,8 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   document.getElementById('kpi-total').textContent = products.length;
 }
 
+// Inline status line for the Analysis tab (save/load feedback). The element is
+// still called #upload-status from when this reported .xlsx upload results.
 function showStatus(msg, isError) {
   const el = document.getElementById('upload-status');
   el.textContent = msg;
@@ -5167,8 +5143,10 @@ function wireAuthControls() {
       return grid ? Array.prototype.slice.call(grid.children)
                   : Array.prototype.slice.call(pane.children);
     }
+    // Modals are excluded because they are positioned children of the pane, not
+    // part of its scroll flow — animating them would fight their own open/close.
     return Array.prototype.slice.call(pane.children).filter(function (el) {
-      return el.id !== 'xlsx-file-input' && !el.classList.contains('modal-overlay');
+      return !el.classList.contains('modal-overlay');
     });
   }
 

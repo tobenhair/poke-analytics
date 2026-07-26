@@ -27,6 +27,7 @@ change.
 
 ```bash
 npm run test:unit   # metrics.js: every derived number, as pure-function tests
+                    # + cross-file invariants (repo-invariants.test.mjs)
 npm run validate    # workbook matches the parseXlsx()/deriveProducts() contract
                     # (+ advisory data-quality warnings — read them)
 npm run test:e2e    # Playwright: static smoke + the signed-in surface
@@ -34,7 +35,17 @@ npm test            # all three
 ```
 
 - The unit suite guards the numbers themselves — `index.html` imports the same
-  `metrics.js`, so these assertions cover the live page, not a copy.
+  `metrics.js`, so these assertions cover the live page, not a copy. It also
+  guards facts stated in two files at once (the admin UUID in `schema.sql` vs
+  `SUPABASE_CONFIG`), where drift is otherwise silent.
+- Both e2e specs are hermetic (`tests/local-cdn.mjs` serves Chart.js/SheetJS
+  from `node_modules`), so they pass offline. If they fail on a *network*
+  error, that is a real regression in the routing helper, not a flake.
+- If Playwright reports **"Executable doesn't exist at …chromium_headless_shell-<n>"**,
+  the environment ships a different Chromium build than the installed
+  `@playwright/test` expects. Don't run `playwright install` in a sandbox that
+  pre-installs browsers — use the config's escape hatch:
+  `PW_EXECUTABLE_PATH=/opt/pw-browsers/chromium npm test` (adjust the path).
 - `validate` catches a malformed workbook before it silently degrades the live
   page. Run it after any data or contract change.
 - The e2e specs are the backstop for "a tab stopped rendering" bugs (e.g. a

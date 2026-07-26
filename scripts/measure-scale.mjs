@@ -68,8 +68,9 @@ const TIMED = [
   'openDrill', 'renderEntryTable',
 ];
 
-const chartJs = readFileSync(join(root, 'node_modules/chart.js/dist/chart.umd.js'), 'utf8');
-const xlsxJs  = readFileSync(join(root, 'node_modules/xlsx/dist/xlsx.full.min.js'), 'utf8');
+// Same local-library routing the e2e specs use — keeps CDN latency (and CDN
+// outages) out of the measurements.
+const { routeLocalLibs } = await import(join(root, 'tests/local-cdn.mjs'));
 
 // ── Patch index.html: static mode + timing wrappers ──
 function patchIndex(html) {
@@ -149,10 +150,7 @@ async function measureCell(browser, workdir, cell) {
   const page = await browser.newPage();
   const pageErrors = [];
   page.on('pageerror', (e) => pageErrors.push(e.message));
-  await page.route('**cdnjs.cloudflare.com/**Chart.js**', (r) => r.fulfill({ contentType: 'text/javascript', body: chartJs }));
-  await page.route('**cdnjs.cloudflare.com/**xlsx**', (r) => r.fulfill({ contentType: 'text/javascript', body: xlsxJs }));
-  await page.route('**fonts.googleapis.com/**', (r) => r.fulfill({ contentType: 'text/css', body: '' }));
-  await page.route('**fonts.gstatic.com/**', (r) => r.abort());
+  await routeLocalLibs(page);
 
   try {
     // ── Cold load: navigation → the board actually has rows ──
