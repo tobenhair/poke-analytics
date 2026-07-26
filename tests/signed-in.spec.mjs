@@ -118,7 +118,7 @@ test('the admin sees Data Entry and cloud-save writes the entered snapshot', asy
   await page.locator('#snapshot-label').fill('2026-07-18');
   await page.locator('.entry-input[data-product="Beta Booster Box"][data-field="price"]').fill('175');
   await page.locator('#save-cloud-btn').click();
-  await expect(page.locator('#upload-status')).toContainText('Saved to cloud');
+  await expect(page.locator('#analysis-status')).toContainText('Saved to cloud');
 
   // The exact rows the server would receive: the snapshot upsert keyed
   // product_id+snapshot_date, and the age-threshold settings upsert.

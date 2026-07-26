@@ -32,62 +32,11 @@ spike before detailed planning would be honest.
 
 ## NOW — trustworthy numbers
 
-### 3b. Audit follow-ups (small, independent)
-
-Spawned by the audit (item 3, shipped). All three are cosmetic or
-infrastructural — none changes a number or a behaviour.
-
-1. **Automate the dead-code check.** `scripts/check-dead-code.mjs`, wired into
-   `npm test`: flag CSS classes, element IDs and functions declared in
-   `index.html` and referenced nowhere. Start from the throwaway analyser's
-   approach (count occurrences across markup, `<style>` and `<script>` regions,
-   subtracting declarations) but fix its one real weakness: **names built at
-   runtime**. `type-${p.type}` and `'tab-' + btn.dataset.tab` mean
-   `.type-BOX`/`.type-ETB`/`.type-BUNDLE` and `#tab-*` look unused to a textual
-   scan while being load-bearing — CLAUDE.md's "preserve these" list is exactly
-   that set. Ship an explicit allowlist for constructed names, report only
-   (never auto-delete), and treat a false positive as a bug in the checker.
-2. **Retire the `.upload-status` / `#upload-status` name.** Legacy from the
-   removed upload UI; it is now the generic status pill (Analysis via
-   `#upload-status`, Portfolio via `#portfolio-status`, both styled by the same
-   class). Rename in one commit across the CSS rules, markup, and the JS string
-   literals in `showStatus()`/`portfolioStatus()`. The e2e specs don't assert
-   on it today, so grep before and after rather than trusting the suite.
-3. **Collapse the two status helpers into one** taking the element ID. Do it
-   with (2) — same lines.
-
-*Size: S each. Dependencies: none. Verify: `npm test`, plus a served-page check
-that both status lines still appear (save something in Data Entry; add a
-holding in Portfolio).*
-
-### 4. Architecture overview diagram
-
-**Goal.** One committed image mapping the moving parts, so a new contributor
-doesn't reverse-engineer the architecture from a 5,200-line file.
-
-**Build:** `docs/architecture.mmd` (Mermaid source, the editable truth) +
-`docs/architecture.svg` rendered from it (`npx -y @mermaid-js/mermaid-cli`;
-render locally, commit both — no build step is added). Content, one screen:
-
-- The three data sources: hardcoded fallback / `pokemon_data.xlsx` /
-  Supabase (with the demo + auth split).
-- The load path: `boot()` → `loadFromSupabase()` | `tryAutoLoad()` →
-  `parseXlsx()` → `applyNewData()` → `recomputeScores()` → render functions.
-- `metrics.js` as the shared pure core, feeding both the page and
-  `tests/unit/`.
-- The four tabs and which render functions own them; the Supabase side jobs
-  (staleness, alert emails, error digest) as satellites.
-
-Link it near the top of `CLAUDE.md` and from README's layout section. Add a
-"kept in sync" line to the documentation-rule table (`docs/architecture.mmd`
-row: update when the load path or module structure changes).
-
-**Done when:** the diagram matches `boot()` as actually written (verify by
-reading, not memory) and both files render on GitHub. *Size: S.
-Dependencies: none — but doing it after item 3 means diagramming the cleaned
-truth.*
-
----
+_Empty — every item in this theme has shipped._ Two plans that were once here
+are kept further down rather than deleted: **2b. Board performance fixes**
+(measured, deliberately dormant until ~200 products) and **1. Backup & restore**
+(deferred by maintainer decision). The next actionable work is **5. UX
+assessment**, immediately below.
 
 ## THEN — design & usability (sequence subject to the UX assessment)
 
