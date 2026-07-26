@@ -146,6 +146,23 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   rendered from `docs/architecture.mmd`, which is now a row in the
   documentation table so it is kept in sync.
 
+- **UX assessment** — the structured end-to-end pass, done and committed as
+  [`docs/ux-assessment.md`](docs/ux-assessment.md): five journeys (logged-out
+  demo, first sign-in, the monthly Data Entry loop, a phone price check, a
+  first-time visitor answering the north-star question) at desktop and phone
+  widths, with the friction *measured* rather than eyeballed. Headline numbers:
+  the Analysis tab is **9.9 screenfuls on a phone** and the first product row sits
+  **2,376 px down** (1,697 px on desktop); the nine `.section-desc` explainers
+  occupy **16.4 % of the phone page**; **21–25 interactive elements per view** are
+  under the 44 px tap floor; everyone — including a user who has just signed in —
+  lands on Welcome rather than on an answer. It also found two outright **defects**
+  (now under *Known bugs*) and one missing feature (**password reset**), and it
+  recorded what already works: the drill-down fits the viewport exactly at both
+  sizes with no inner scroll, so several findings reduce to "get people there
+  sooner". The design items under **Then** are now in the order it recommended,
+  which is not the order they were written in — mobile first (it stopped being
+  polish), set logos last (no finding touched it).
+
 ## Now — trustworthy numbers (stability & quality)
 
 A tool that tells people what's fairly priced has to be *right*, visibly and
@@ -165,22 +182,17 @@ The aesthetic is deliberate and stays (dark, minimalist, `design-review`-
 enforced). This theme is about the page working as hard for a first-time
 visitor on a phone as it does for the maintainer on a desktop.
 
-- **UX assessment.** Before the individual fixes below, a structured pass over
-  the whole experience end-to-end: walk the real journeys — a logged-out
-  visitor landing on the demo, a first-time sign-in, the maintainer's monthly
-  Data Entry loop, someone checking a price on a phone — and catalogue where
-  each one stalls, confuses, or asks too much. The nine-section Analysis scroll,
-  the tab model, and the Data Entry grid are the obvious suspects, but the point
-  is to find the friction we've stopped seeing rather than assume it. Output is
-  a prioritised list of concrete issues that feeds the bullets below (and may
-  reorder them), not a redesign — the aesthetic stays; this is about whether the
-  page *works*, judged against the north star: how fast can someone actually get
-  to "is this fairly priced, and should I buy?"
-- **Overview-first restructure.** With the verdict shipped, the top of the
-  Analysis tab can *answer the question* — best deals now, each with its fair
-  price gap — and the nine numbered sections become the supporting evidence a
-  curious user drills into (progressive disclosure), rather than a wall to
-  scroll. Less on screen, more answered.
+The order below is the one the **UX assessment** recommended, which is *not* the
+order these were originally written in — see
+[`docs/ux-assessment.md`](docs/ux-assessment.md) for the findings and the
+reasoning. Two defects it surfaced are filed under **Known bugs** and come first.
+
+- **Mobile optimisation.** Verify and fix the real phone experience
+  end-to-end: the 70vh table scroll, chart legibility, tap targets, the Data
+  Entry grid, and the vertical density of nine full-width sections stacked with
+  their descriptions (the collapsible-descriptions toggle above is the first
+  lever). A price-checking tool gets used in shops, standing up — the phone
+  layout has to answer "is this fairly priced?" without a desktop.
 - **Collapsible section descriptions.** Every Analysis section carries a
   `.section-desc` explainer — invaluable on first read, pure scroll once you
   know the page, and on mobile the nine of them dominate the viewport before a
@@ -190,27 +202,11 @@ visitor on a phone as it does for the maintainer on a desktop.
   prose every visit. The text stays in the DOM for first-timers and screen
   readers; it just starts collapsed on small screens. Important for mobile
   specifically, useful everywhere.
-- **Mobile optimisation.** Verify and fix the real phone experience
-  end-to-end: the 70vh table scroll, chart legibility, tap targets, the Data
-  Entry grid, and the vertical density of nine full-width sections stacked with
-  their descriptions (the collapsible-descriptions toggle above is the first
-  lever). A price-checking tool gets used in shops, standing up — the phone
-  layout has to answer "is this fairly priced?" without a desktop.
-- **Set logos (drill-down first).** Give each set a visual anchor: the
-  expansion logo, at least on the product drill-down view where there's room to
-  frame a single product, and later a small mark on board rows and set
-  groupings. An identity and scannability aid only — it stays subordinate to the
-  numbers and honours the minimalist dark aesthetic (`design-review`). Needs a
-  licensing-clean asset source, a consistent sizing/placement rule, and a
-  graceful fallback when a set has no logo (never a broken image).
-- **Accessibility.** Keyboard navigation for tabs, tables and the drill-down;
-  ARIA roles on the tab system; visible focus states; non-colour cues wherever
-  green/red still carries meaning alone (the text verdict resolves the worst
-  of it, then audit the rest).
-- **First-class loading, empty, and error states.** Every async surface
-  (boot, cloud load, demo, save) gets a designed state instead of a blank
-  panel or a toast — including the currently-invisible "workbook failed,
-  showing sample data" fallback, which must never masquerade as real data.
+- **Overview-first restructure.** With the verdict shipped, the top of the
+  Analysis tab can *answer the question* — best deals now, each with its fair
+  price gap — and the nine numbered sections become the supporting evidence a
+  curious user drills into (progressive disclosure), rather than a wall to
+  scroll. Less on screen, more answered.
 - **Onboarding & the demo as a pitch.** The section descriptions explain each
   chart; nothing yet explains the *method* — or, on the logged-out demo, even
   what the tool *is*. Lead the demo page with a plain statement of the tool's
@@ -229,6 +225,29 @@ visitor on a phone as it does for the maintainer on a desktop.
   explanation instead of maintaining two. The goal either way is a single
   authoritative "what this is and how to read it" surface — not today's split
   where the pitch lives in one place for visitors and another for members.
+- **Password reset (new — from the UX assessment).** The sign-in overlay offers
+  only *Sign in* and *Create an account*; `resetPasswordForEmail` appears nowhere
+  in the app. A user who forgets their password has no route back, and since
+  holdings and alerts are RLS-scoped to their account they lose their own
+  portfolio with it. Easy to miss because signed-in users *can* change a password
+  (`#change-pw-btn`) — the gap is only for the locked-out. Small: a "Forgot
+  password?" link on the overlay, `sbClient.auth.resetPasswordForEmail()`, and a
+  recovery-token branch that opens `#account-overlay`.
+- **Accessibility.** Keyboard navigation for tabs, tables and the drill-down;
+  ARIA roles on the tab system; visible focus states; non-colour cues wherever
+  green/red still carries meaning alone (the text verdict resolves the worst
+  of it, then audit the rest).
+- **First-class loading, empty, and error states.** Every async surface
+  (boot, cloud load, demo, save) gets a designed state instead of a blank
+  panel or a toast — including the currently-invisible "workbook failed,
+  showing sample data" fallback, which must never masquerade as real data.
+- **Set logos (drill-down first).** Give each set a visual anchor: the
+  expansion logo, at least on the product drill-down view where there's room to
+  frame a single product, and later a small mark on board rows and set
+  groupings. An identity and scannability aid only — it stays subordinate to the
+  numbers and honours the minimalist dark aesthetic (`design-review`). Needs a
+  licensing-clean asset source, a consistent sizing/placement rule, and a
+  graceful fallback when a set has no logo (never a broken image).
 
 ## Later — reach & launch readiness
 
@@ -485,7 +504,22 @@ worth keeping: it is *why* the pivot to Tradera/TCGdex was the right call.
 
 Defects to fix, separate from the forward-looking themes above. Newest first.
 
-_None open._ **Fixed (Jul 2026): the Portfolio currency picker offered only €.**
+**Bug — on a phone, the Data Entry tab scrolls the whole page sideways.**
+`.entry-table` lays out **890 px wide in a 390 px viewport** with no
+`overflow-x: auto` wrapper, so the body scrolls horizontally (49 elements past
+the right edge). Breaks the rule `design-review` states outright, on the
+maintainer's core monthly task. Found by the UX assessment; fix ahead of the
+design items. *Fix: wrap the table the way `.table-wrap` already does elsewhere.*
+
+**Bug — on a phone, the status line is unreadable and unreachable.**
+`#analysis-status` is a `white-space: nowrap` pill in a
+`justify-content: flex-end` row; on a 390 px viewport it overflows **left**,
+off-screen, and negative overflow creates no scroll area, so it cannot be
+reached. Not cosmetic: `setStatus()` is the only channel for cloud feedback, so
+on a phone the admin sees neither "✓ Saved to cloud" nor **"✕ Cloud save
+failed"** — a silent-failure path in the one flow that writes data.
+
+_Previously fixed:_ **the Portfolio currency picker offered only €.**
 The picker itself was correct — it lists € plus every currency it holds a live
 rate for — so "€ only" always meant the FX fetch had failed. A bare `catch {}`
 swallowed the reason, leaving no console message and nothing in the UI, so a

@@ -124,6 +124,7 @@ Each document has one audience — update the ones your change touches:
 | `ROADMAP.md` | product direction | an item ships (condense into **Done**) or the plan changes |
 | `IMPLEMENTATION.md` | the contributor executing the backlog | an item's plan changes; delete an item's section when it ships |
 | `.claude/skills/*` | the pre-commit guard checklists | an invariant, check, or fact in that skill's area changes |
+| `docs/ux-assessment.md` | whoever picks up a design/usability item | a journey's friction changes, or the assessment is re-run after a fix (it is a dated snapshot, not a living doc — supersede it, don't patch it) |
 | `docs/architecture.mmd` | anyone orienting in the codebase | the load path, a data source, or the module/tab structure changes — edit the `.mmd`, re-render the `.svg`, commit both |
 | Code comments | the implementer reading the code | constraints the code itself can't show |
 
