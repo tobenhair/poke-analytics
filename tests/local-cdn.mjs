@@ -45,14 +45,25 @@ for (const [label, pattern] of [
 
 const js = (body) => ({ contentType: 'application/javascript', body });
 
+// Fixed EUR→x rates for the Portfolio currency picker. The page fetches live
+// rates on boot; left unstubbed, every spec would make a real call to
+// Frankfurter — slow, offline-hostile, and non-deterministic (the picker's
+// contents would depend on whether the network answered). Real values, frozen.
+export const FX_RATES = { amount: 1, base: 'EUR', date: '2026-07-24', rates: { USD: 1.09, GBP: 0.84, SEK: 11.30 } };
+
 /**
- * Route a page's CDN requests to local copies. Call before page.goto().
- * Fonts are stubbed empty rather than served — they affect nothing under test,
- * and blocking them keeps the run offline-clean.
+ * Route a page's external requests to local copies/stubs. Call before
+ * page.goto(). Fonts are stubbed empty rather than served — they affect
+ * nothing under test, and blocking them keeps the run offline-clean.
+ *
+ * A spec that wants different FX behaviour can register its own
+ * `**frankfurter**` route afterwards: Playwright gives precedence to the most
+ * recently registered matching handler.
  */
 export async function routeLocalLibs(page) {
   await page.route('**cdnjs.cloudflare.com/**Chart.js**', (r) => r.fulfill(js(chartJs)));
   await page.route('**cdnjs.cloudflare.com/**xlsx**', (r) => r.fulfill(js(xlsxJs)));
   await page.route('**fonts.googleapis.com/**', (r) => r.fulfill({ contentType: 'text/css', body: '' }));
   await page.route('**fonts.gstatic.com/**', (r) => r.abort());
+  await page.route('**frankfurter**', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(FX_RATES) }));
 }
