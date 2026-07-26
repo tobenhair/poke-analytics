@@ -96,6 +96,7 @@ index.html               Self-contained dashboard (markup, styles, and logic)
 metrics.js               The analytical core as pure functions (shared by the
                          page and the unit tests — one source of truth)
 pokemon_data.xlsx        Tracked data workbook
+docs/ux-assessment.md    Dated UX findings + the order they set for design work
 docs/architecture.svg    One-picture overview of how the app fits together
 docs/architecture.mmd    …and the Mermaid source it is rendered from
 scripts/validate-workbook.mjs  Checks the workbook matches the required format

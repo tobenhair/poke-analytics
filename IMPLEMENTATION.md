@@ -7,9 +7,9 @@ means. It is written for a contributor who was not part of the planning —
 each section should be enough to start from.
 
 Depth is proportional to proximity: the **Now** items are specified to
-hand-off level; **Then** items are solid plans that may be reordered by the UX
-assessment; **Later** items are directional briefs that need a decision or a
-spike before detailed planning would be honest.
+hand-off level; **Then** items are solid plans, ordered by the UX assessment's
+findings (`docs/ux-assessment.md`); **Later** items are directional briefs that
+need a decision or a spike before detailed planning would be honest.
 
 ## Cross-cutting conventions (apply to every item)
 
@@ -35,31 +35,29 @@ spike before detailed planning would be honest.
 _Empty — every item in this theme has shipped._ Two plans that were once here
 are kept further down rather than deleted: **2b. Board performance fixes**
 (measured, deliberately dormant until ~200 products) and **1. Backup & restore**
-(deferred by maintainer decision). The next actionable work is **5. UX
-assessment**, immediately below.
+(deferred by maintainer decision). The **UX assessment** has now run
+(`docs/ux-assessment.md`); the two defects it found are in ROADMAP's *Known
+bugs* and should be fixed before the design items. The next planned work is
+**Mobile optimisation**, immediately below — promoted to first *by* the
+assessment.
 
-## THEN — design & usability (sequence subject to the UX assessment)
+## THEN — design & usability
 
-### 5. UX assessment (do first — it may reorder everything below)
+Ordered as the **UX assessment** recommended (`docs/ux-assessment.md`), not as
+originally written. Section numbers are kept as stable cross-reference labels —
+reading order is the priority, not the numbering.
 
-Walk the real journeys end-to-end, cataloguing where each stalls: logged-out
-visitor on the demo → sign-up → first sign-in; the maintainer's monthly Data
-Entry loop; a price check on a phone (DevTools device mode minimum, a real
-phone ideally); a first-time visitor trying to answer "is this fairly
-priced?" unaided. Output is a **prioritised findings list** (severity ×
-frequency), committed as `docs/ux-assessment.md`, plus a reordering PR for
-the items below. No code changes in this item. *Size: S/M.*
+### 8. Mobile optimisation
 
-### 6. Overview-first restructure
-
-With the verdict shipped, the Analysis tab can lead with the answer: a
-compact "best deals now" block (verdict-sorted, fair-price gap, drill-down
-links — the data already exists in `updateTopPicks`/`verdict`) above the
-nine numbered sections, which become progressive disclosure. Constraints:
-preserve section IDs/canvases (editing invariants), keep `.section-eyebrow`
-numbering, `design-review` throughout, smoke test must keep passing
-unchanged. Plan the DOM moves on paper first; this is a large diff of mostly
-markup. *Size: M/L. Depends on: 5.*
+Fix the audited phone experience: the 70vh `.table-wrap` scroll interplay
+with page scroll, tap targets ≥ 44px (tab buttons, sort selects, chips),
+chart legibility (Chart.js `maintainAspectRatio`/font sizes at narrow
+widths), the Data Entry grid's horizontal overflow (measured: the table is
+890px wide in a 390px viewport with no `overflow-x` wrapper), the clipped
+status pill, the board's Fair Price column starting off-screen, and the
+stacked-section density (item 7 is the first lever). Add one Playwright viewport test
+(`devices['Pixel 7']` or similar) asserting no horizontal body scroll and
+that the board renders. *Size: M. Read `docs/ux-assessment.md` findings 1, 2, 6, 8, 9 first — 1 and 2 are filed as bugs and should already be fixed. Pairs with: 7.*
 
 ### 7. Collapsible section descriptions
 
@@ -71,26 +69,29 @@ desktop. Text stays in the DOM (`hidden` attribute or class, not removal) for
 screen readers and first-timers. Set `aria-expanded` on the toggle. *Size: S.
 Pairs with: 8.*
 
-### 8. Mobile optimisation
+### 6. Overview-first restructure
 
-Fix the audited phone experience: the 70vh `.table-wrap` scroll interplay
-with page scroll, tap targets ≥ 44px (tab buttons, sort selects, chips),
-chart legibility (Chart.js `maintainAspectRatio`/font sizes at narrow
-widths), the Data Entry grid's horizontal overflow, and the stacked-section
-density (item 7 is the first lever). Add one Playwright viewport test
-(`devices['Pixel 7']` or similar) asserting no horizontal body scroll and
-that the board renders. *Size: M. Depends on: 5 (for the priority list), 7.*
+With the verdict shipped, the Analysis tab can lead with the answer: a
+compact "best deals now" block (verdict-sorted, fair-price gap, drill-down
+links — the data already exists in `updateTopPicks`/`verdict`) above the
+nine numbered sections, which become progressive disclosure. Constraints:
+preserve section IDs/canvases (editing invariants), keep `.section-eyebrow`
+numbering, `design-review` throughout, smoke test must keep passing
+unchanged. Plan the DOM moves on paper first; this is a large diff of mostly
+markup. *Size: M/L. Justified by `docs/ux-assessment.md` findings 3, 4, 6.*
 
-### 9. Set logos (drill-down first)
+### 12 + 13. Onboarding, the demo as a pitch, and the Welcome tab (one PR)
 
-Decision to make first: asset source. **TCGdex serves set logo assets** (the
-same API already planned for ingestion — one vendor, licensing terms to
-confirm in the spike). Store the logo URL per set at load time (sets are
-derived from release dates via `groupSets()` — a name→logo map fetched
-lazily), render in the drill-down header only (board rows later, if at all),
-with a text-only fallback when missing — never a broken image. Subordinate to
-the numbers per `design-review`. *Size: S/M. Depends on: TCGdex spike (item
-14b) confirming the asset source, else parked.*
+These two roadmap bullets are one piece of work: today the pitch lives in two
+places (Welcome tab for the signed-in, demo page for visitors) and both
+under-explain the method. Recommended resolution: make the demo page the
+single "what this is / how to read it" surface — lead with the tool's purpose
+in one screen, then the fair-price story, then demo cards — and slim the
+Welcome tab to a signed-in landing that links to the same explanations
+(glossary modal shared by both). First-visit walkthrough:
+`localStorage`-gated, dismissible, three steps (set value vs price, why age
+matters, what the verdict means). Mostly copywriting; `design-review`
+applies to every word. *Size: M. Justified by `docs/ux-assessment.md` finding 7 — the demo currently shows no fair price or verdict at all.*
 
 ### 10. Accessibility
 
@@ -117,20 +118,16 @@ persistent, visible banner ("showing sample data — real data failed to
 load") and the smoke test should assert it appears when the workbook 404s.
 *Size: M.*
 
-### 12 + 13. Onboarding, the demo as a pitch, and the Welcome tab (one PR)
+### 9. Set logos (drill-down first)
 
-These two roadmap bullets are one piece of work: today the pitch lives in two
-places (Welcome tab for the signed-in, demo page for visitors) and both
-under-explain the method. Recommended resolution: make the demo page the
-single "what this is / how to read it" surface — lead with the tool's purpose
-in one screen, then the fair-price story, then demo cards — and slim the
-Welcome tab to a signed-in landing that links to the same explanations
-(glossary modal shared by both). First-visit walkthrough:
-`localStorage`-gated, dismissible, three steps (set value vs price, why age
-matters, what the verdict means). Mostly copywriting; `design-review`
-applies to every word. *Size: M. Depends on: 5.*
-
----
+Decision to make first: asset source. **TCGdex serves set logo assets** (the
+same API already planned for ingestion — one vendor, licensing terms to
+confirm in the spike). Store the logo URL per set at load time (sets are
+derived from release dates via `groupSets()` — a name→logo map fetched
+lazily), render in the drill-down header only (board rows later, if at all),
+with a text-only fallback when missing — never a broken image. Subordinate to
+the numbers per `design-review`. *Size: S/M. Depends on: TCGdex spike (item
+14b) confirming the asset source, else parked.*
 
 ## AUTOMATED INGESTION — spike first, then pipeline
 
