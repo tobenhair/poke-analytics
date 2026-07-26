@@ -1729,6 +1729,9 @@
         <div class="cmp-controls">
           <label class="cmp-empty" for="portfolio-currency" style="margin:0;">Shown in</label>
           <select class="trend-select" id="portfolio-currency" style="max-width:130px;"></select>
+          <!-- Explains a €-only picker instead of leaving it a mystery. Shown
+               by populateCurrencySelect() only when the FX fetch failed. -->
+          <span class="cmp-empty" id="fx-note" style="display:none;"></span>
         </div>
       </div>
 
@@ -3022,18 +3025,53 @@ function money(vEur) {
   return `${meta.symbol}${n}${meta.suffix}`;
 }
 
-// Fetch EUR→{USD,GBP,SEK} once (frankfurter.app, ECB data, no key). Best-effort:
-// on any failure fxRates stays €-only and the currency picker offers just €.
+// Where the rates come from (Frankfurter — ECB data, free, no API key), tried
+// in order until one answers with a usable `rates` object.
+//
+// Two hosts on purpose. Frankfurter's current documented host is
+// api.frankfurter.dev, whose v1 endpoint names its parameters `base`/`symbols`.
+// api.frankfurter.app is the older host, and there the same call spells them
+// `from`/`to` — on the *new* API `from`/`to` mean a date range instead, so the
+// URLs are not interchangeable and each host needs its own. Keeping the legacy
+// host as a fallback costs one extra request only when the first one fails.
+// Both shapes reply `{ ..., rates: { USD: 1.09, … } }`, so parsing is shared.
+const FX_ENDPOINTS = [
+  (cs) => `https://api.frankfurter.dev/v1/latest?base=EUR&symbols=${cs}`,
+  (cs) => `https://api.frankfurter.app/latest?from=EUR&to=${cs}`,
+];
+
+// Why the last attempt failed, for the UI hint and the error beacon; null when
+// rates loaded (or before the fetch has run).
+let fxError = null;
+
+// Fetch EUR→{USD,GBP,SEK} once. Best-effort: on failure fxRates stays €-only
+// and the picker offers just €. That degradation is fine; doing it *silently*
+// was not — a €-only picker looked like a missing feature rather than a failed
+// network call, with nothing in the console and nothing in the UI to say so.
 async function fetchFxRates() {
   const wanted = Object.keys(CURRENCY_META).filter(c => c !== 'EUR');
-  try {
-    const res = await fetch(`https://api.frankfurter.app/latest?from=EUR&to=${wanted.join(',')}`);
-    if (!res.ok) throw new Error('FX HTTP ' + res.status);
-    const data = await res.json();
-    if (data && data.rates) fxRates = { EUR: 1, ...data.rates };
-  } catch {
-    fxRates = { EUR: 1 };  // graceful: € only
+  const failures = [];
+
+  for (const buildUrl of FX_ENDPOINTS) {
+    const url = buildUrl(wanted.join(','));
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!data || !data.rates || !Object.keys(data.rates).length) throw new Error('no rates in response');
+      fxRates = { EUR: 1, ...data.rates };
+      fxError = null;
+      return;
+    } catch (err) {
+      failures.push(`${new URL(url).host}: ${err.message || err}`);
+    }
   }
+
+  // Every endpoint failed — keep the app working in € and make it explain why.
+  fxRates = { EUR: 1 };
+  fxError = failures.join(' · ');
+  console.warn('FX rates unavailable, showing € only —', fxError);
+  reportClientError({ message: 'FX rates unavailable: ' + fxError });
 }
 
 // Which holding the editor is currently editing (null = add / buy-more mode).
@@ -3085,6 +3123,16 @@ function populateCurrencySelect() {
     sel.appendChild(opt);
   });
   sel.value = portfolioCurrency;
+
+  // Say why the picker is €-only, rather than letting a failed network call
+  // look like a feature that was never built.
+  const note = document.getElementById('fx-note');
+  if (note) {
+    const degraded = fxError && avail.length === 1;
+    note.textContent = degraded ? 'live rates unavailable — € only' : '';
+    note.title = degraded ? fxError : '';
+    note.style.display = degraded ? '' : 'none';
+  }
 }
 
 // Persist the chosen currency to the user's own settings row (best-effort;
