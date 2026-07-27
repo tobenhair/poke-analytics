@@ -1,5 +1,18 @@
 # Expert UX & accessibility review — July 2026
 
+> **Status (Jul 2026, after the conformance pass).** This is a dated snapshot
+> and its findings are left as written. What has since **shipped**: F1–F5, F6,
+> F7, F9, F12, F14 and F17, plus the three defects this review contributed to
+> *Known bugs*. The headline below — "not operable without a mouse" — no longer
+> describes the build: board rows open the drill-down from a real button, the
+> modals are dialogs that trap and return focus, every input is named, and the
+> tab bar is an ARIA tablist. `tests/a11y.spec.mjs` is the gate that keeps it
+> that way. Still open: **F8** (5 controls under the 24 px AA target minimum),
+> **F10**, **F11**, **F13**, **F15**, **F16** — all tracked in `ROADMAP.md`.
+> Note for whoever runs axe next: the trap this document records is worse than
+> it says — `reducedMotion: 'reduce'` alone does **not** avoid it; wait on
+> `document.getAnimations()` as the spec does.
+
 A second, deeper pass over the same product. The [July journey
 assessment](ux-assessment.md) walked the flows and measured density; this one
 applies the standard evaluation instruments a usability specialist would bring —

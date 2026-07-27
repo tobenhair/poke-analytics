@@ -23,22 +23,23 @@ python3 -m http.server 8000   # then open http://localhost:8000
 If you're "testing" over `file://`, you're testing the fallback, not your
 change.
 
-## The three automated checks (run all)
+## The four automated checks (run all)
 
 ```bash
 npm run test:unit   # metrics.js: every derived number, as pure-function tests
                     # + cross-file invariants (repo-invariants.test.mjs)
 npm run validate    # workbook matches the parseXlsx()/deriveProducts() contract
                     # (+ advisory data-quality warnings — read them)
-npm run test:e2e    # Playwright: static smoke + the signed-in surface
-npm test            # all three
+npm run check:dead-code  # unused CSS classes, element IDs, functions
+npm run test:e2e    # Playwright: static smoke, signed-in surface, accessibility
+npm test            # all four
 ```
 
 - The unit suite guards the numbers themselves — `index.html` imports the same
   `metrics.js`, so these assertions cover the live page, not a copy. It also
   guards facts stated in two files at once (the admin UUID in `schema.sql` vs
   `SUPABASE_CONFIG`), where drift is otherwise silent.
-- Both e2e specs are hermetic (`tests/local-cdn.mjs` serves Chart.js/SheetJS
+- Every e2e spec is hermetic (`tests/local-cdn.mjs` serves Chart.js/SheetJS
   from `node_modules`), so they pass offline. If they fail on a *network*
   error, that is a real regression in the routing helper, not a flake.
 - If Playwright reports **"Executable doesn't exist at …chromium_headless_shell-<n>"**,
@@ -52,6 +53,13 @@ npm test            # all three
   render function not wired into both `INIT` and `applyNewData()`, or a missed
   `recomputeScores()`) and for the Supabase surface (gating, pivot, auto-save
   payloads) via the fake SDK — no cloud credentials needed for either.
+- `tests/a11y.spec.mjs` is the conformance gate: axe (serious/critical only) on
+  every tab, plus keyboard operation of the board drill-down, the dialog focus
+  trap, the tab list, the focus ring on every tab stop, and 320px reflow. **If
+  you add UI, expect this one to catch an unlabelled input or a `<div>` you
+  should have made a `<button>`.** If it reports colour-contrast failures that
+  you cannot reproduce by eye, read the comment at the top of the file before
+  believing them — sampling mid-animation invents them.
 
 These also run in CI (`.github/workflows/ci.yml`) on every push/PR — but run
 them locally *before* pushing.

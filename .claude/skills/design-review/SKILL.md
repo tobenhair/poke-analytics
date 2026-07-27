@@ -43,6 +43,21 @@ blue = neutral/secondary. Don't introduce new hues.
   `.tab-bar`/`.tab-btn`, `.modal-overlay`/`.modal`, `.pill`.
 - Motion: reveal-on-scroll (`.rv` → `.rv-in`) is a progressive enhancement —
   don't hide content without it, and respect `prefers-reduced-motion`.
+- Accessibility is part of the system, not a later pass (the app is at WCAG 2.2
+  AA and `tests/a11y.spec.mjs` fails if it slips):
+  - Anything clickable is a real `<button>` or `<a>` — never a `<div>`/`<tr>`
+    with a click handler. That was a Level-A failure here twice (board rows,
+    type pills).
+  - Every input/select needs a visible label or an `aria-label`; an icon-only
+    button needs one too. `title` is not a label.
+  - Section headings use `.section-eyebrow` on an `<h2>` and `.panel-title` on
+    an `<h3>` — keep the class *and* the heading element.
+  - Don't set `outline: none` and don't use `transition: all` on a control —
+    both defeat the one global `:focus-visible` ring.
+  - A new overlay opens through `openOverlay()`/`closeOverlay()` and carries
+    `role="dialog"` + `aria-modal` + an accessible name.
+  - Meaning must not ride on colour or an emoji alone — pair it with text (the
+    board's verdict line is the pattern) or a `.sr-only` alternative.
 
 ## Question the aesthetics (run this checklist before committing UI)
 

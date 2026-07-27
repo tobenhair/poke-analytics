@@ -16,6 +16,16 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 - **Monthly data entry** — punch in the latest prices, add new releases, attach Cardmarket links, and export an updated `.xlsx` ready to commit back to the repo.
 - **With cloud sync enabled** (optional, see below): a private **portfolio** with unrealised P&L, concentration balancing and a value-over-time chart, plus **price alerts** on a fixed € target or on the fair price.
 
+### Keyboard and screen-reader use
+
+The whole dashboard is operable without a mouse. `Tab` reaches every control
+with a visible focus ring; the tab bar behaves as a standard tab list (`←`/`→`
+to move between tabs, `Home`/`End` for the first/last); any product on the
+board opens its drill-down with `Enter` from the product name; and every dialog
+traps focus while open, closes with `Esc`, and hands focus back to whatever
+opened it. Sections are real headings, so a screen reader can jump between
+them. `tests/a11y.spec.mjs` keeps all of that from regressing.
+
 ## Getting started
 
 Because the dashboard auto-loads `pokemon_data.xlsx` with a `fetch()`, it needs to be served over HTTP — opening `index.html` directly from disk (`file://`) will block that request. Serve the folder with any static server:
@@ -115,6 +125,9 @@ tests/signed-in.spec.mjs Playwright test: the cloud/login surface, driven
 tests/fake-supabase-sdk.js     against an in-memory Supabase stand-in
 tests/fx-currency.spec.mjs     Playwright test: the Portfolio currency picker
                          and its fallback when live FX rates are unavailable
+tests/a11y.spec.mjs      Playwright + axe test: no serious/critical WCAG
+                         violations per tab, plus the keyboard journeys axe
+                         can't see (drill-down, focus trap, tab bar, 320px)
 tests/local-cdn.mjs      Serves Chart.js/SheetJS from node_modules so the
                          browser tests run offline (and pins their versions)
 SUPABASE.md              Optional cloud-sync + login setup guide
@@ -130,14 +143,15 @@ supabase/error-digest.sql        Optional daily digest of client errors
 The dashboard needs nothing installed to run. There is an optional CI harness
 that catches the easy-to-miss breakages — a wrong number in the scoring math, a
 malformed workbook (which makes the live page silently fall back to sample
-data), and a change that stops a tab or the login surface rendering:
+data), a change that stops a tab or the login surface rendering, and a
+regression in keyboard operation or WCAG conformance:
 
 ```bash
 npm install          # one-time: installs the dev dependencies
 npm run test:unit       # the scoring/metrics math (metrics.js) + cross-file invariants
 npm run validate        # validate pokemon_data.xlsx against the required format
 npm run check:dead-code # unused CSS rules, element IDs and functions in index.html
-npm run test:e2e        # browser tests: static smoke + signed-in surface
+npm run test:e2e        # browser tests: static smoke, signed-in surface, accessibility
 npm test                # all of the above
 ```
 

@@ -139,6 +139,42 @@
 
   .wrapper { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 40px 28px 64px; }
 
+  /* ── Focus indicator (WCAG 2.4.7) ──
+     One rule for everything focusable. Several controls set `outline: none`
+     and signal focus with a border tint instead — invisible on a <select>,
+     absent entirely on buttons and pills — so this restores a consistent
+     indicator. Written as a type+pseudo-class list (specificity 0,1,1) so it
+     beats those `outline: none` class rules; :where() would lose to them.
+     :focus-visible keeps the ring off mouse clicks. */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  /* Rows and scroll regions sit flush against panel edges — inset the ring so
+     it isn't clipped by the container's overflow. */
+  .table-wrap:focus-visible, .entry-table-wrap:focus-visible { outline-offset: -2px; }
+  /* The dialog container takes focus on open (so its name is announced) but is
+     not itself operable — a ring around the whole panel would read as an
+     enormous focused control. Every control *inside* it keeps one. */
+  .modal:focus, .modal:focus-visible { outline: none; }
+
+  /* Visually hidden, still announced — text alternatives for the emoji that
+     carry state (💰 buy signal, 🔔 alert) and for icon-only controls. */
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
   /* ── Header / hero ── */
   header {
     display: flex;
@@ -181,6 +217,12 @@
   /* ── Sticky segmented nav ── */
   .tab-bar {
     display: flex;
+    /* Wrap rather than overflow: four tabs (signed-in admin) measure ~437px,
+       wider than a 390px phone, and a non-wrapping row scrolled the whole
+       body sideways on every tab. Never wraps at desktop widths. */
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 100%;
     gap: 4px;
     margin: 28px auto 44px;
     padding: 5px;
@@ -242,6 +284,17 @@
     align-items: center;
   }
   .filter-label { font-size: 0.66rem; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.16em; margin-right: 2px; }
+  /* Age-threshold group in the filter bar. Its left margin/padding/rule are the
+     8px that pushed the Analysis tab past a 320px viewport (WCAG 1.4.10), so
+     they drop away once the filter bar is wrapping anyway. */
+  .age-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: 8px;
+    padding-left: 16px;
+    border-left: 1px solid var(--border);
+  }
   .pill-group { display: flex; gap: 6px; flex-wrap: wrap; }
   .pill {
     padding: 7px 16px;
@@ -252,7 +305,10 @@
     font-size: 0.76rem;
     font-family: 'DM Mono', monospace;
     cursor: pointer;
-    transition: all 0.25s var(--ease);
+    /* Named properties, not `all`: `transition: all` also animates the
+       focus ring, fading it in over 250ms — an indicator that is not
+       there when focus arrives (WCAG 2.4.7). */
+    transition: color 0.25s var(--ease), background 0.25s var(--ease), border-color 0.25s var(--ease);
     letter-spacing: 0.03em;
   }
   .pill:hover { border-color: rgba(244,198,81,0.4); color: var(--text); }
@@ -367,7 +423,12 @@
   /* ── Stacked, single-column analysis sections ── */
   #tab-analysis > .panel { margin-bottom: 44px; }
   #tab-analysis > .panel:last-of-type { margin-bottom: 0; }
+  /* Real <h2> since Jul 2026 — the Analysis tab had no heading outline at all,
+     so a screen-reader user could not jump between its nine sections. The
+     class carries the whole look; these two lines just undo the UA defaults
+     an <h2> brings with it. */
   .section-eyebrow {
+    font-weight: 400;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -419,7 +480,9 @@
     gap: 12px 16px;
     flex-wrap: wrap;
   }
+  /* Real <h3>, nested under the section's <h2> — see .section-eyebrow. */
   .panel-title {
+    margin: 0;
     font-family: 'Bebas Neue', sans-serif;
     font-size: 1.15rem;
     letter-spacing: 0.08em;
@@ -443,6 +506,10 @@
      sticky header below can stay pinned while scrolling a long table. */
   .table-wrap { overflow: auto; max-height: 70vh; }
   table { width: 100%; border-collapse: collapse; }
+  /* Secondary hint inside a column header ("💰 = buy signal"). It used to set
+     opacity:0.6 inline, which dropped var(--muted) below the 4.5:1 minimum —
+     the token itself passes at every background, so it just inherits now. */
+  .th-hint { font-weight: 300; font-size: 0.6rem; }
   thead th {
     padding: 14px 18px;
     text-align: left;
@@ -482,6 +549,28 @@
     white-space: nowrap;
   }
   .product-name { font-weight: 500; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+  /* The board's keyboard affordance for opening the drill-down. A real button
+     for semantics, styled back down to the plain row text it replaced — the
+     row's own hover/cursor already signals it is clickable.
+     .pn-head is what makes the truncation behave: the cell's own
+     text-overflow can't ellipsis *part* of an inline-block, so a long name
+     next to a 💰/🔔 flag vanished entirely, leaving just "💰 …". A nowrap flex
+     line with min-width:0 lets the button shrink and clip its own text
+     instead, exactly as the bare text did before. */
+  .pn-head { display: flex; align-items: baseline; gap: 4px; min-width: 0; }
+  .row-open {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .type-badge {
     font-family: 'DM Mono', monospace;
     font-size: 0.6rem;
@@ -597,7 +686,13 @@
     font-size: 0.72rem;
     padding: 5px 12px;
     border-radius: 999px;
-    white-space: nowrap;
+    /* Must wrap, not overflow. As a nowrap pill in a flex-end row it ran off
+       the *left* edge on a phone, and negative overflow creates no scroll
+       area — so "✕ Cloud save failed" was unreachable on the one flow that
+       writes data. Long error strings can exceed the row at any width. */
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-align: right;
   }
   .status-pill.ok  { color: var(--accent4); background: rgba(127,212,147,0.1); border: 1px solid rgba(127,212,147,0.2); }
   .status-pill.err { color: var(--accent2); background: rgba(239,106,96,0.1);   border: 1px solid rgba(239,106,96,0.2); }
@@ -611,7 +706,8 @@
     font-size: 0.74rem;
     cursor: pointer;
     letter-spacing: 0.04em;
-    transition: all 0.25s var(--ease);
+    /* Named properties, not `all` — see .pill. */
+    transition: color 0.25s var(--ease), border-color 0.25s var(--ease);
     white-space: nowrap;
   }
   .guide-btn:hover { border-color: var(--accent3); color: var(--accent3); }
@@ -805,7 +901,8 @@
     font-weight: 500;
     cursor: pointer;
     letter-spacing: 0.04em;
-    transition: all 0.25s var(--ease);
+    /* Named properties, not `all` — see .pill. */
+    transition: filter 0.25s var(--ease), transform 0.25s var(--ease);
     width: 100%;
   }
   .add-btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
@@ -819,7 +916,8 @@
     font-size: 0.78rem;
     cursor: pointer;
     letter-spacing: 0.04em;
-    transition: all 0.25s var(--ease);
+    /* Named properties, not `all` — see .pill. */
+    transition: color 0.25s var(--ease), background 0.25s var(--ease);
     width: 100%;
     margin-top: 4px;
   }
@@ -944,11 +1042,14 @@
     header { flex-wrap: wrap; gap: 14px; }
     .header-meta { text-align: left; }
     .tab-btn { padding: 8px 15px; font-size: 0.72rem; }
+    /* Once the bar wraps to two rows a full pill radius reads as a mistake. */
+    .tab-bar { border-radius: 22px; }
     /* Tighten section chrome so charts/tables keep usable width */
     #tab-analysis > .panel { margin-bottom: 34px; }
     .panel-header { padding: 18px 18px 14px; }
     .chart-panel { padding: 16px 12px; }
     .filters { gap: 10px; margin-bottom: 24px; }
+    .age-control { margin-left: 0; padding-left: 0; border-left: 0; }
     .sort-select { margin-left: 0; width: 100%; }
     /* Let the tables scroll horizontally on their own without trapping page scroll */
     .table-wrap { -webkit-overflow-scrolling: touch; }
@@ -1030,15 +1131,15 @@
      of which tab is active. Shown only when cloud sync is configured and no
      user is signed in; never displayed in plain static mode. -->
 <div class="modal-overlay" id="auth-overlay">
-  <div class="modal" style="max-width:400px;">
-    <button class="modal-close" id="auth-close" type="button">✕</button>
+  <div class="modal" style="max-width:400px;" role="dialog" aria-modal="true" aria-labelledby="auth-heading" tabindex="-1">
+    <button class="modal-close" id="auth-close" type="button" aria-label="Close sign-in">✕</button>
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
       <svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="true" style="width:32px;height:32px;">
         <rect x="16" y="34" width="7" height="16" rx="2" fill="#5cc7f2"/>
         <rect x="28" y="24" width="7" height="26" rx="2" fill="#f4c651"/>
         <rect x="40" y="16" width="7" height="34" rx="2" fill="#7fd493"/>
       </svg>
-      <h2 style="margin:0;">Sign in</h2>
+      <h2 style="margin:0;" id="auth-heading">Sign in</h2>
     </div>
     <p class="modal-intro">Sign in to see the full catalogue and (for the admin) edit data.</p>
     <div class="auth-field">
@@ -1066,9 +1167,9 @@
      Opened from the header (signed-in only). Updates the current user's
      password via supabase.auth.updateUser. Direct child of <body>. -->
 <div class="modal-overlay" id="account-overlay">
-  <div class="modal" style="max-width:400px;">
-    <button class="modal-close" id="account-close" type="button">✕</button>
-    <h2 style="margin:0 0 6px;">Change password</h2>
+  <div class="modal" style="max-width:400px;" role="dialog" aria-modal="true" aria-labelledby="account-heading" tabindex="-1">
+    <button class="modal-close" id="account-close" type="button" aria-label="Close change-password">✕</button>
+    <h2 style="margin:0 0 6px;" id="account-heading">Change password</h2>
     <p class="modal-intro">Set a new password for your account. You'll stay signed in.</p>
     <div class="auth-field">
       <div class="field-label">New password</div>
@@ -1089,9 +1190,9 @@
      transformed ancestor makes position:fixed anchor to that ancestor instead
      of the viewport, which pushed this overlay far down the page. -->
 <div class="modal-overlay" id="guide-modal">
-  <div class="modal">
-    <button class="modal-close" id="guide-close">✕</button>
-    <h2>📋 File Format Guide</h2>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="guide-heading" tabindex="-1">
+    <button class="modal-close" id="guide-close" type="button" aria-label="Close the format guide">✕</button>
+    <h2 id="guide-heading"><span aria-hidden="true">📋</span> File Format Guide</h2>
     <p class="modal-intro">Your .xlsx file must contain exactly two sheets named <b>Summary</b> and <b>Historical Data</b>. Column names must match exactly (case-sensitive).</p>
 
     <div class="modal-section">
@@ -1142,8 +1243,8 @@
      clicking any row on the Board. Direct child of <body> so it shows over
      any tab. -->
 <div class="modal-overlay" id="drill-modal">
-  <div class="modal" style="max-width:820px;">
-    <button class="modal-close" id="drill-close" type="button">✕</button>
+  <div class="modal" style="max-width:820px;" role="dialog" aria-modal="true" aria-labelledby="drill-title" tabindex="-1">
+    <button class="modal-close" id="drill-close" type="button" aria-label="Close product details">✕</button>
     <h2 id="drill-title">Product</h2>
     <div id="drill-verdict" class="drill-verdict"></div>
     <div id="drill-stats" class="drill-stats"></div>
@@ -1224,16 +1325,28 @@
   </header>
 
 
-  <!-- Tab bar -->
-  <div class="tab-bar">
-    <button class="tab-btn active" data-tab="welcome">👋 Welcome</button>
-    <button class="tab-btn" data-tab="analysis">📊 Analysis</button>
-    <button class="tab-btn sb-only" data-tab="portfolio">💼 Portfolio</button>
-    <button class="tab-btn admin-only" data-tab="entry">✏️ Data Entry</button>
+  <!-- Tab bar — a real ARIA tablist. The emoji are decorative (each button
+       carries its own text label), so they are hidden from assistive tech.
+       Note two Welcome CTA buttons also use .tab-btn for styling but live
+       outside .tab-bar and carry no data-tab; the tab wiring is scoped
+       accordingly. -->
+  <div class="tab-bar" role="tablist" aria-label="Dashboard sections">
+    <button class="tab-btn active" data-tab="welcome" id="tabbtn-welcome" type="button"
+      role="tab" aria-selected="true" aria-controls="tab-welcome"><span aria-hidden="true">👋</span> Welcome</button>
+    <button class="tab-btn" data-tab="analysis" id="tabbtn-analysis" type="button"
+      role="tab" aria-selected="false" aria-controls="tab-analysis" tabindex="-1"><span aria-hidden="true">📊</span> Analysis</button>
+    <button class="tab-btn sb-only" data-tab="portfolio" id="tabbtn-portfolio" type="button"
+      role="tab" aria-selected="false" aria-controls="tab-portfolio" tabindex="-1"><span aria-hidden="true">💼</span> Portfolio</button>
+    <button class="tab-btn admin-only" data-tab="entry" id="tabbtn-entry" type="button"
+      role="tab" aria-selected="false" aria-controls="tab-entry" tabindex="-1"><span aria-hidden="true">✏️</span> Data Entry</button>
   </div>
 
+  <!-- All four tab panes live inside one <main> landmark, so assistive tech
+       can skip the header/tablist straight to the content. -->
+  <main>
+
   <!-- ═══════════════════ WELCOME TAB ═══════════════════ -->
-  <div class="tab-pane active" id="tab-welcome">
+  <div class="tab-pane active" id="tab-welcome" role="tabpanel" aria-labelledby="tabbtn-welcome" tabindex="0">
 
     <div style="max-width: 920px; margin: 0 auto;">
 
@@ -1298,7 +1411,7 @@
       <!-- How it works section (describes the admin update workflow) -->
       <div class="panel admin-only" style="margin-bottom: 24px;">
         <div class="panel-header">
-          <div class="panel-title">How it works</div>
+          <h3 class="panel-title">How it works</h3>
         </div>
         <div style="padding: 20px 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;">
 
@@ -1338,7 +1451,7 @@
       <!-- Key concepts -->
       <div class="panel" style="margin-bottom: 24px;">
         <div class="panel-header">
-          <div class="panel-title">Key concepts</div>
+          <h3 class="panel-title">Key concepts</h3>
           <div class="panel-badge">Glossary</div>
         </div>
         <div style="padding: 18px 24px;">
@@ -1391,11 +1504,11 @@
   </div><!-- /tab-welcome -->
 
   <!-- ═══════════════════ ANALYSIS TAB ═══════════════════ -->
-  <div class="tab-pane" id="tab-analysis">
+  <div class="tab-pane" id="tab-analysis" role="tabpanel" aria-labelledby="tabbtn-analysis" tabindex="0">
 
   <!-- Data status line — cloud load / save messages, plus the format guide -->
-  <div class="fade-in" style="display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-bottom:20px; min-height:1px; animation-delay:0.02s;">
-    <span id="analysis-status" class="status-pill" style="display:none"></span>
+  <div class="fade-in" style="display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:10px; margin-bottom:20px; min-height:1px; animation-delay:0.02s;">
+    <span id="analysis-status" class="status-pill" role="status" style="display:none"></span>
     <button class="guide-btn admin-only" id="guide-btn">📋 Format Guide</button>
   </div>
 
@@ -1425,11 +1538,11 @@
   </div>
 
   <!-- ── Section: top picks (full width) — the shortlist leads ── -->
-  <div class="section-eyebrow">01 — This Month's Standouts</div>
+  <h2 class="section-eyebrow">01 — This Month's Standouts</h2>
   <p class="section-desc"><strong>What:</strong> the top-ranked products right now by <em>Weighted Score</em> (SV/Booster × age weight). <strong>How to read:</strong> these are the best value-for-money buys this month — a higher score means more set value per euro, with brand-new releases discounted so they don't dominate unfairly.</p>
   <div class="panel top-picks">
     <div class="panel-header">
-      <div class="panel-title">🏆 Top Picks This Month</div>
+      <h3 class="panel-title">🏆 Top Picks This Month</h3>
       <div class="panel-badge">By Score</div>
     </div>
     <div id="top-picks-list"></div>
@@ -1438,17 +1551,21 @@
   <!-- Filters -->
   <div class="filters fade-in" style="animation-delay:0.1s">
     <span class="filter-label">Type</span>
-    <div class="pill-group" id="type-filters">
-      <div class="pill active" data-type="ALL">All</div>
-      <div class="pill" data-type="BOX">Booster Box</div>
-      <div class="pill" data-type="ETB">Elite Trainer</div>
-      <div class="pill" data-type="BUNDLE">Bundle</div>
+    <!-- Real buttons, not divs: these carry a click handler, so as <div>s they
+         were unreachable by keyboard (same 2.1.1 failure as the board rows).
+         The comparison views' mode pills already use .pill on a <button>. -->
+    <div class="pill-group" id="type-filters" role="group" aria-label="Filter by product type">
+      <button class="pill active" type="button" data-type="ALL" aria-pressed="true">All</button>
+      <button class="pill" type="button" data-type="BOX" aria-pressed="false">Booster Box</button>
+      <button class="pill" type="button" data-type="ETB" aria-pressed="false">Elite Trainer</button>
+      <button class="pill" type="button" data-type="BUNDLE" aria-pressed="false">Bundle</button>
     </div>
 
     <!-- Age weight threshold control -->
-    <div style="display:flex; align-items:center; gap:10px; margin-left:8px; padding-left:16px; border-left:1px solid var(--border);">
+    <div class="age-control">
       <span class="filter-label" style="white-space:nowrap;">Age Threshold</span>
       <input type="range" id="age-threshold-slider" min="0.5" max="3" step="0.5" value="1"
+        aria-label="Age threshold in years"
         style="width:100px; accent-color:var(--accent); cursor:pointer;">
       <span style="font-family:'DM Mono',monospace; font-size:0.78rem; color:var(--accent); min-width:40px;">
         <span id="age-threshold-display">1.0</span>yr
@@ -1466,7 +1583,7 @@
       <option value="bad">Verdict: Overpriced</option>
     </select>
 
-    <select class="sort-select" id="sort-select">
+    <select class="sort-select" id="sort-select" aria-label="Sort the board">
       <option value="score">Sort: Age-Weighted Score ↓</option>
       <option value="fair-gap">Sort: Best Deal (vs Fair Price) ↑</option>
       <option value="set-value-booster">Sort: Set Value / Booster ↓</option>
@@ -1478,18 +1595,18 @@
   </div>
 
   <!-- ── Section: product table (full width) ── -->
-  <div class="section-eyebrow">02 — The Board</div>
+  <h2 class="section-eyebrow">02 — The Board</h2>
   <p class="section-desc"><strong>What:</strong> every tracked product in one sortable table. <strong>KPIs:</strong> <em>€/Booster</em> (price ÷ packs inside), <em>SV/Booster</em> (Set Value ÷ the price of <em>one</em> booster — i.e. how many times a single booster's cost the whole set is worth, shown as a <em>×</em> multiple; higher = better value, <strong>not</strong> a per-pack price), <em>Age</em>, and <em>Wtd. Score</em> (the headline ranking). <em>Fair Price</em> is what the live price <em>would</em> be at the SV/Booster expected for the product's age (section 05): a live price <span class="up">under</span> fair is cheap for its age, <span class="down">over</span> is expensive — the R² by the column header says how much to trust the fit. A 💰 marks a possible buy signal — price fell while set value held. Under each product name is a plain-language <em>verdict</em> — the one-line synthesis of its gap to fair price, its drawdown from peak, and its set-value trend (e.g. <span class="up">Under fair price · near tracked low</span> / <span class="down">Overpriced for age</span> / Fair — no edge). <strong>How to read:</strong> filter with the Type pills and reorder with the Sort menu above — <em>Best Deal</em> ranks by verdict, best first — or click any column header to sort.</p>
   <div class="panel">
     <div class="panel-header">
-      <div class="panel-title">All Products</div>
+      <h3 class="panel-title">All Products</h3>
       <div class="panel-badge" id="count-badge">31 products</div>
     </div>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Product <span style="font-weight:300;opacity:0.6;font-size:0.6rem">💰 = buy signal</span></th>
+            <th>Product <span class="th-hint">💰 = buy signal</span></th>
             <th>Type</th>
             <th style="text-align:right">Price (€)</th>
             <th style="text-align:right" title="What the live price would be if the product traded at the SV/Booster expected for its age (section 05). Under it = cheap for its age; over = expensive. Reliability shown as R² — greyed when the age fit is weak.">Fair Price (€) <span id="fair-fit-note" class="fair-fit-note"></span></th>
@@ -1506,11 +1623,11 @@
   </div>
 
   <!-- ── Section: set value / booster (full width) ── -->
-  <div class="section-eyebrow">03 — Value Per Booster</div>
+  <h2 class="section-eyebrow">03 — Value Per Booster</h2>
   <p class="section-desc"><strong>What:</strong> the ten products with the highest <em>SV/Booster</em> — Set Value ÷ the price of one booster. <strong>How to read:</strong> a taller bar means the set is worth more times what a single pack costs (e.g. 185× = the set is worth ~185 boosters' price), independent of product type — the fairest way to compare a Booster Box against an ETB or Bundle. It's a value-for-money ratio, not a euro amount.</p>
   <div class="panel">
     <div class="panel-header">
-      <div class="panel-title">Set Value / Booster</div>
+      <h3 class="panel-title">Set Value / Booster</h3>
       <div class="panel-badge">Top 10</div>
     </div>
     <div class="chart-panel">
@@ -1519,11 +1636,11 @@
   </div>
 
   <!-- ── Section: age vs value scatter (full width) ── -->
-  <div class="section-eyebrow">04 — Age vs Value</div>
+  <h2 class="section-eyebrow">04 — Age vs Value</h2>
   <p class="section-desc"><strong>What:</strong> every product plotted by <em>age</em> (horizontal) against <em>SV/Booster</em> (vertical — Set Value as a multiple of one booster's cost, higher = better value). The dashed line is the expected value for a given age. <strong>How to read:</strong> points <span class="up">above</span> the line are better value than typical for their age; points <span class="down">below</span> are worse — the higher above the line, the better the bargain.</p>
   <div class="panel">
     <div class="panel-header">
-      <div class="panel-title">Age vs Set Value / Booster</div>
+      <h3 class="panel-title">Age vs Set Value / Booster</h3>
       <div class="panel-badge">All products</div>
     </div>
     <div class="chart-panel">
@@ -1532,14 +1649,18 @@
   </div>
 
   <!-- ── Section: relative value vs the age curve (full width) ── -->
-  <div class="section-eyebrow">05 — Relative Value</div>
+  <h2 class="section-eyebrow">05 — Relative Value</h2>
   <p class="section-desc"><strong>What:</strong> products ranked by how far their SV/Booster sits above or below the expected-for-age line from section 04. <strong>KPI:</strong> <em>Δ vs peers</em> — the gap to that expectation (<span class="up">▲ better</span> · <span class="down">▼ worse</span>); the badge shows the fit quality (R²). <strong>How to read:</strong> the top of the list is the best value relative to same-age peers.</p>
   <div class="panel">
     <div class="panel-header">
-      <div class="panel-title">Relative Value — vs Peers of the Same Age</div>
+      <h3 class="panel-title">Relative Value — vs Peers of the Same Age</h3>
       <div class="panel-badge" id="relval-fit-badge">—</div>
     </div>
-    <div class="table-wrap">
+    <!-- tabindex: a capped-height scroll region with no focusable content
+         inside cannot be scrolled by keyboard otherwise (axe
+         scrollable-region-focusable). The board's own wrap is exempt — its
+         rows carry the .row-open buttons. -->
+    <div class="table-wrap" tabindex="0">
       <table>
         <thead>
           <tr>
@@ -1557,17 +1678,17 @@
   </div>
 
   <!-- ── Section: price history (full width) ── -->
-  <div class="section-eyebrow">06 — Price History</div>
+  <h2 class="section-eyebrow">06 — Price History</h2>
   <p class="section-desc"><strong>What:</strong> tracked <em>price over time</em> — add several products, or switch to <em>Sets</em> to compare whole releases (a set's line is the average price per booster of its products). <strong>How to read:</strong> a falling line means it's getting cheaper; with a single product the set value is overlaid too, so you can pair a price dip with a steady set value to spot a buying window. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
-      <div class="panel-title">Price History</div>
+      <h3 class="panel-title">Price History</h3>
       <div class="cmp-controls">
-        <div class="pill-group" id="hist-mode">
-          <button class="pill active" data-mode="product">Products</button>
-          <button class="pill" data-mode="set">Sets</button>
+        <div class="pill-group" id="hist-mode" role="group" aria-label="Compare by product or by set">
+          <button class="pill active" type="button" data-mode="product" aria-pressed="true">Products</button>
+          <button class="pill" type="button" data-mode="set" aria-pressed="false">Sets</button>
         </div>
-        <select class="trend-select" id="hist-add" style="max-width:220px"></select>
+        <select class="trend-select" id="hist-add" style="max-width:220px" aria-label="Add a series to the price history chart"></select>
       </div>
     </div>
     <div class="cmp-chips" id="hist-chips"></div>
@@ -1577,14 +1698,14 @@
   </div>
 
   <!-- ── Section: momentum & drawdown (full width) ── -->
-  <div class="section-eyebrow">07 — Momentum &amp; Drawdown</div>
+  <h2 class="section-eyebrow">07 — Momentum &amp; Drawdown</h2>
   <p class="section-desc"><strong>What:</strong> recent price action per product. <strong>KPIs:</strong> <em>Δ last</em> (change since the previous snapshot), <em>since 1st</em> (change across all tracked history), and <em>vs Peak / Drawdown</em> (how far below its highest tracked price it is now). <strong>How to read:</strong> a deep drawdown (<span class="down">▼</span>) while set value holds steady can flag a buying opportunity. Sorted by deepest dip.</p>
   <div class="panel">
     <div class="panel-header">
-      <div class="panel-title">Momentum &amp; Drawdown</div>
+      <h3 class="panel-title">Momentum &amp; Drawdown</h3>
       <div class="panel-badge">By deepest dip</div>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" tabindex="0">
       <table>
         <thead>
           <tr>
@@ -1603,17 +1724,17 @@
   </div>
 
   <!-- ── Section: SV/Booster trend over time (full width) ── -->
-  <div class="section-eyebrow">08 — Trend Over Time</div>
+  <h2 class="section-eyebrow">08 — Trend Over Time</h2>
   <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> — add several products to compare, or switch to <em>Sets</em> to weigh whole releases head to head (a set's line is the average SV/Booster of its products). <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means the set is worth more relative to a booster's cost (better value); because it's a multiple of booster cost, BOX, ETB and BUNDLE are directly comparable. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
-      <div class="panel-title">Set Value / Booster — Trend Over Time</div>
+      <h3 class="panel-title">Set Value / Booster — Trend Over Time</h3>
       <div class="cmp-controls">
-        <div class="pill-group" id="svb-mode">
-          <button class="pill active" data-mode="product">Products</button>
-          <button class="pill" data-mode="set">Sets</button>
+        <div class="pill-group" id="svb-mode" role="group" aria-label="Compare by product or by set">
+          <button class="pill active" type="button" data-mode="product" aria-pressed="true">Products</button>
+          <button class="pill" type="button" data-mode="set" aria-pressed="false">Sets</button>
         </div>
-        <select class="trend-select" id="svb-add" style="max-width:220px"></select>
+        <select class="trend-select" id="svb-add" style="max-width:220px" aria-label="Add a series to the SV/Booster trend chart"></select>
       </div>
     </div>
     <div class="cmp-chips" id="svb-chips"></div>
@@ -1624,12 +1745,12 @@
 
 
   <!-- ── Section: scenario explorer (full width) ── -->
-  <div class="section-eyebrow">09 — What If</div>
+  <h2 class="section-eyebrow">09 — What If</h2>
   <p class="section-desc"><strong>What:</strong> a sandbox — drag the <em>Set Value</em> and <em>Price</em> sliders for the chosen product. <strong>How to read:</strong> watch how its <em>SV/Booster</em> and <em>Weighted Score</em> respond in real time, e.g. to answer "what price would make this a top pick?". Nothing here changes your saved data.</p>
   <div class="panel">
     <div class="panel-header">
-      <div class="panel-title">Scenario Explorer</div>
-      <select class="trend-select" id="scenario-product-select" style="max-width:220px"></select>
+      <h3 class="panel-title">Scenario Explorer</h3>
+      <select class="trend-select" id="scenario-product-select" style="max-width:220px" aria-label="Product to model in the scenario explorer"></select>
     </div>
     <div class="scenario-body" style="padding: 28px; display: grid; grid-template-columns: 1fr; gap: 36px;">
 
@@ -1642,7 +1763,7 @@
             <span style="font-family:'DM Mono',monospace; font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Set Value (€)</span>
             <span id="sv-display" style="font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:var(--accent3);">—</span>
           </div>
-          <input type="range" id="sv-slider" min="0" max="10000" step="10"
+          <input type="range" id="sv-slider" min="0" max="10000" step="10" aria-label="Scenario set value in euros"
             style="width:100%; accent-color:var(--accent3); cursor:pointer;">
           <div style="display:flex; justify-content:space-between; margin-top:5px;">
             <span id="sv-min-label" style="font-family:'DM Mono',monospace; font-size:0.62rem; color:var(--muted);">€0</span>
@@ -1657,7 +1778,7 @@
             <span style="font-family:'DM Mono',monospace; font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Product Price (€)</span>
             <span id="price-display" style="font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:var(--accent);">—</span>
           </div>
-          <input type="range" id="price-slider" min="0" max="5000" step="5"
+          <input type="range" id="price-slider" min="0" max="5000" step="5" aria-label="Scenario product price in euros"
             style="width:100%; accent-color:var(--accent); cursor:pointer;">
           <div style="display:flex; justify-content:space-between; margin-top:5px;">
             <span id="price-min-label" style="font-family:'DM Mono',monospace; font-size:0.62rem; color:var(--muted);">€0</span>
@@ -1716,19 +1837,19 @@
   </div><!-- /tab-analysis -->
 
   <!-- ═══════════════════ PORTFOLIO TAB (signed-in only) ═══════════════════ -->
-  <div class="tab-pane" id="tab-portfolio">
+  <div class="tab-pane" id="tab-portfolio" role="tabpanel" aria-labelledby="tabbtn-portfolio" tabindex="0">
 
-    <span id="portfolio-status" class="status-pill" style="display:none"></span>
+    <span id="portfolio-status" class="status-pill" role="status" style="display:none"></span>
 
     <!-- ── Section: portfolio ── -->
-    <div class="section-eyebrow">01 — Your Portfolio</div>
+    <h2 class="section-eyebrow">01 — Your Portfolio</h2>
     <p class="section-desc"><strong>What:</strong> what you own and what it's worth now. <strong>How to read:</strong> <em>Add / buy more</em> tops up a holding and blends the cost basis to a weighted average; use <em>✎</em> on a row to correct the exact quantity or cost. <em>Unrealised P&amp;L</em> compares your cost basis to each product's latest tracked price. Private to your account, saved automatically.</p>
     <div class="panel">
       <div class="panel-header">
-        <div class="panel-title">Portfolio</div>
+        <h3 class="panel-title">Portfolio</h3>
         <div class="cmp-controls">
           <label class="cmp-empty" for="portfolio-currency" style="margin:0;">Shown in</label>
-          <select class="trend-select" id="portfolio-currency" style="max-width:130px;"></select>
+          <select class="trend-select" id="portfolio-currency" style="max-width:130px;" aria-label="Display currency"></select>
           <!-- Explains a €-only picker instead of leaving it a mystery. Shown
                by populateCurrencySelect() only when the FX fetch failed. -->
           <span class="cmp-empty" id="fx-note" style="display:none;"></span>
@@ -1738,9 +1859,9 @@
       <div class="portfolio-summary" id="portfolio-summary"></div>
 
       <div class="portfolio-editor">
-        <select class="field-select" id="portfolio-product-select"></select>
-        <input class="field-input" id="portfolio-qty" type="number" min="0" step="1" placeholder="Qty">
-        <input class="field-input" id="portfolio-cost" type="number" min="0" step="0.01" placeholder="€ / unit">
+        <select class="field-select" id="portfolio-product-select" aria-label="Product to add to your portfolio"></select>
+        <input class="field-input" id="portfolio-qty" type="number" min="0" step="1" placeholder="Qty" aria-label="Quantity held">
+        <input class="field-input" id="portfolio-cost" type="number" min="0" step="0.01" placeholder="€ / unit" aria-label="Cost basis per unit">
         <button class="add-btn" id="portfolio-add-btn" style="width:auto;">+ Add / buy more</button>
         <button class="portfolio-cancel-btn" id="portfolio-cancel-btn" style="display:none;">Cancel</button>
       </div>
@@ -1767,7 +1888,7 @@
     </div>
 
     <!-- ── Section: portfolio value over time ── -->
-    <div class="section-eyebrow">02 — Value Over Time</div>
+    <h2 class="section-eyebrow">02 — Value Over Time</h2>
     <p class="section-desc"><strong>What:</strong> what your <em>current</em> holdings would have been worth across every tracked snapshot — the <em>portfolio value</em> line against your flat <em>cost basis</em>, so unrealised P&amp;L reads as a trajectory rather than just today's number. <strong>How to read:</strong> the gap between the lines is your gain (value above cost) or loss (below); a rising value line means the basket you hold has appreciated. Values your current quantities back across history — purchase dates aren't tracked.</p>
     <div class="panel">
       <div class="chart-panel" id="portfolio-value-chart-wrap" style="padding: 20px 24px;">
@@ -1777,27 +1898,27 @@
     </div>
 
     <!-- ── Section: concentration & rebalance (portfolio balancer) ── -->
-    <div class="section-eyebrow">03 — Concentration &amp; Rebalance</div>
+    <h2 class="section-eyebrow">03 — Concentration &amp; Rebalance</h2>
     <p class="section-desc"><strong>What:</strong> how your holdings are spread across <em>sets</em>, <em>release years</em> and <em>product types</em> — and, when you're over-exposed, which <em>under-fair-price</em> products in areas you underweight would diversify you. <strong>How to read:</strong> a bar near full means a large share of your value rides on one bucket (red = over-exposed); the shortlist points the next euro at good-value buys that spread the risk. Derived live from your holdings — nothing saved.</p>
     <div class="panel">
       <div id="balancer-body"></div>
     </div>
 
     <!-- ── Section: price alerts ── -->
-    <div class="section-eyebrow">04 — Price Alerts</div>
+    <h2 class="section-eyebrow">04 — Price Alerts</h2>
     <p class="section-desc"><strong>What:</strong> buy targets for the products you're watching — a fixed <em>€</em> price, or a <em>% below fair price</em> that recomputes automatically as the age fit moves. <strong>How to read:</strong> when a product's latest tracked price falls to or below the target it's flagged here and with a 🔔 on the Analysis board. Private to your account, saved automatically.</p>
     <div class="panel">
       <div class="panel-header">
-        <div class="panel-title">Price Alerts</div>
+        <h3 class="panel-title">Price Alerts</h3>
         <div class="panel-badge" id="alerts-badge">no alerts</div>
       </div>
       <div class="portfolio-editor">
-        <select class="field-select" id="alert-product-select"></select>
-        <select class="field-select" id="alert-type" style="max-width:180px;">
+        <select class="field-select" id="alert-product-select" aria-label="Product to set a price alert on"></select>
+        <select class="field-select" id="alert-type" style="max-width:180px;" aria-label="Alert type">
           <option value="fixed">Buy below €</option>
           <option value="fair">% below fair price</option>
         </select>
-        <input class="field-input" id="alert-target" type="number" min="0" step="0.01" placeholder="Buy below € / unit">
+        <input class="field-input" id="alert-target" type="number" min="0" step="0.01" placeholder="Buy below € / unit" aria-label="Alert target">
         <button class="add-btn" id="alert-add-btn" style="width:auto;">+ Add / update</button>
       </div>
       <div id="alert-editor-error" class="portfolio-error"></div>
@@ -1821,7 +1942,7 @@
   </div><!-- /tab-portfolio -->
 
   <!-- ═══════════════════ DATA ENTRY TAB ═══════════════════ -->
-  <div class="tab-pane" id="tab-entry">
+  <div class="tab-pane" id="tab-entry" role="tabpanel" aria-labelledby="tabbtn-entry" tabindex="0">
 
     <div class="entry-grid">
 
@@ -1829,7 +1950,7 @@
       <div class="panel">
         <div class="panel-header">
           <div>
-            <div class="panel-title">Monthly Price Update</div>
+            <h3 class="panel-title">Monthly Price Update</h3>
             <div style="font-size:0.7rem; color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px;">
               Enter the latest Price and Set Value for each product
             </div>
@@ -1838,7 +1959,7 @@
             </div>
             <div style="font-size:0.7rem; color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px;">
               📊 Set value reference:
-              <a href="https://www.getmint.app/sets/" target="_blank" rel="noopener noreferrer" style="color:var(--accent3); text-decoration:none;">getmint.app/sets<span style="font-size:0.6rem;"> ↗</span></a>
+              <a href="https://www.getmint.app/sets/" target="_blank" rel="noopener noreferrer" style="color:var(--accent3);">getmint.app/sets<span style="font-size:0.6rem;"> ↗</span></a>
             </div>
           </div>
           <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
@@ -1886,7 +2007,7 @@
         <!-- Snapshot label -->
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">Snapshot Label</div>
+            <h3 class="panel-title">Snapshot Label</h3>
           </div>
           <div style="padding:18px 20px; display:flex; flex-direction:column; gap:10px;">
             <div class="field-label">Label shown on chart axes (e.g. "2026-05-04")</div>
@@ -1900,7 +2021,7 @@
         <!-- Add new product -->
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">Add New Product</div>
+            <h3 class="panel-title">Add New Product</h3>
             <div class="panel-badge">Summary</div>
           </div>
           <div style="padding:18px 20px;">
@@ -1911,7 +2032,7 @@
               </div>
               <div class="field-group">
                 <div class="field-label">Type</div>
-                <select class="field-select" id="new-product-type">
+                <select class="field-select" id="new-product-type" aria-label="Product type">
                   <option value="BOX">BOX — Booster Box (36 packs)</option>
                   <option value="ETB">ETB — Elite Trainer Box (9 packs)</option>
                   <option value="BUNDLE">BUNDLE — Booster Bundle (6 packs)</option>
@@ -1919,7 +2040,7 @@
               </div>
               <div class="field-group">
                 <div class="field-label">Release Date</div>
-                <input class="field-input" id="new-product-release" type="date">
+                <input class="field-input" id="new-product-release" type="date" aria-label="Release date">
               </div>
               <div class="field-group">
                 <div class="field-label">Initial Price (€)</div>
@@ -1943,6 +2064,8 @@
     </div>
 
   </div><!-- /tab-entry -->
+
+  </main>
 
   <footer>
     <p style="margin:0 0 10px;">Data sourced from Cardmarket, Tradera &amp; PriceCharting · Updated manually · Always do your own research</p>
@@ -2205,7 +2328,7 @@ function updateTable() {
     const trend = getTrend(p.name);
     tr.innerHTML = `
       <td class="product-name" title="${p.name}">
-        ${isBuySignal(p.name) ? '<span class="buy-flag" title="Price dropped ≥5% but set value held steady — potential buy opportunity">💰 </span>' : ''}${alertFlag(p.name)}${p.name}
+        <span class="pn-head">${isBuySignal(p.name) ? '<span class="buy-flag" role="img" aria-label="Buy signal" title="Price dropped ≥5% but set value held steady — potential buy opportunity">💰 </span>' : ''}${alertFlag(p.name)}<button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></span>
         ${verdictLine(p)}
       </td>
       <td><span class="type-badge type-${p.type}">${p.type}</span></td>
@@ -2219,11 +2342,20 @@ function updateTable() {
         <div class="score-bar-wrap">
           <div class="score-bar-bg"><div class="score-bar-fill" style="width:${scoreW}%;background:${color}"></div></div>
           <div class="score-val" style="color:${color}">${fmt(p.score, 1)}</div>
-          <span class="${trend > 0 ? 'trend-up' : trend < 0 ? 'trend-down' : 'trend-neutral'}">${trend > 0 ? '▲' : trend < 0 ? '▼' : '—'}</span>
+          <span class="${trend > 0 ? 'trend-up' : trend < 0 ? 'trend-down' : 'trend-neutral'}" aria-hidden="true">${trend > 0 ? '▲' : trend < 0 ? '▼' : '—'}</span><span class="sr-only">${trend > 0 ? 'trending up' : trend < 0 ? 'trending down' : 'flat'}</span>
         </div>
       </td>
     `;
+    // The whole row stays clickable for the mouse, but the keyboard/screen-
+    // reader affordance is a real button around the product name: giving the
+    // <tr> itself role="button" would strip the table's row semantics, and a
+    // bare tabindex would announce no action. stopPropagation keeps the two
+    // paths from both firing (which would rebuild the drill charts twice).
     tr.addEventListener('click', () => openDrill(p.name));
+    tr.querySelector('.row-open').addEventListener('click', e => {
+      e.stopPropagation();
+      openDrill(p.name);
+    });
     tbody.appendChild(tr);
   });
 }
@@ -2490,7 +2622,10 @@ function createCompareView(cfg) {
       btn.addEventListener('click', () => {
         if (mode === btn.dataset.mode) return;
         mode = btn.dataset.mode;
-        mg.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+        mg.querySelectorAll('.pill').forEach(b => {
+          b.classList.toggle('active', b === btn);
+          b.setAttribute('aria-pressed', String(b === btn));
+        });
         sel = [];
         refresh();
       });
@@ -2684,8 +2819,12 @@ const cmpSvb = createCompareView({
 // pills, and they re-render every analytical view — not just the board table.
 document.querySelectorAll('#type-filters .pill').forEach(pill => {
   pill.addEventListener('click', () => {
-    document.querySelectorAll('#type-filters .pill').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('#type-filters .pill').forEach(p => {
+      p.classList.remove('active');
+      p.setAttribute('aria-pressed', 'false');
+    });
     pill.classList.add('active');
+    pill.setAttribute('aria-pressed', 'true');
     activeType = pill.dataset.type;
     applyTypeFilter();
   });
@@ -2984,9 +3123,12 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
 function setStatus(elId, msg, isError) {
   const el = document.getElementById(elId);
   if (!el) return;   // the Portfolio pill only exists when signed in
-  el.textContent = msg;
+  // Reveal before writing: the pill carries role="status", and a display:none
+  // element isn't in the accessibility tree, so a live region that is still
+  // hidden when its text lands announces nothing.
   el.className = 'status-pill ' + (isError ? 'err' : 'ok');
   el.style.display = 'inline-block';
+  el.textContent = msg;
 }
 
 // ============================================================
@@ -3512,7 +3654,7 @@ function alertFlag(name) {
   const color = s.newlyCrossed ? 'var(--accent)' : 'var(--muted)';
   const kind = s.type === 'fair' ? ` (≥${s.pct}% below fair)` : '';
   const title = `Alert: €${Math.round(s.price)} ≤ target €${Math.round(s.target)}${kind}${s.newlyCrossed ? ' (just crossed)' : ''}`;
-  return `<span class="buy-flag" style="color:${color}" title="${title}">🔔 </span>`;
+  return `<span class="buy-flag" role="img" aria-label="${title}" style="color:${color}" title="${title}">🔔 </span>`;
 }
 
 function populateAlertSelect() {
@@ -3641,16 +3783,81 @@ document.getElementById('alert-type').addEventListener('change', e => {
 });
 
 
+// ============================================================
+// MODAL DIALOGS — focus management (WCAG 2.4.3, 4.1.2)
+// ============================================================
+// Every .modal-overlay is a real dialog (role/aria-modal/accessible name in the
+// markup). This adds the behaviour those attributes promise: opening moves
+// focus inside, Tab is trapped while it is open, Escape dismisses the topmost
+// one, and closing returns focus to whatever opened it. Without the trap a
+// keyboard user tabs invisibly through the page *behind* the overlay — measured
+// as 6/6 Tab presses landing on background controls.
+const FOCUSABLE_SEL = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+let modalReturnFocus = null;
+
+// offsetParent is null for anything display:none — skips the .sb-only /
+// .admin-only controls that are present but hidden.
+const focusablesIn = el => [...el.querySelectorAll(FOCUSABLE_SEL)].filter(n => n.offsetParent !== null);
+
+// focusSelector: where to put focus on open. Default is the dialog container
+// itself (tabindex="-1"), so a screen reader announces the dialog and its
+// heading rather than "Close, button"; the form overlays name their first
+// field instead, which is what a person came to type in.
+function openOverlay(id, focusSelector) {
+  const overlay = document.getElementById(id);
+  if (!overlay || overlay.classList.contains('open')) return;
+  modalReturnFocus = document.activeElement;
+  overlay.classList.add('open');
+  const dialog = overlay.querySelector('.modal') || overlay;
+  const target = focusSelector && overlay.querySelector(focusSelector);
+  (target || dialog).focus();
+}
+
+function closeOverlay(id) {
+  const overlay = document.getElementById(id);
+  if (!overlay || !overlay.classList.contains('open')) return;
+  overlay.classList.remove('open');
+  const back = modalReturnFocus;
+  modalReturnFocus = null;
+  // Only return focus if the invoking element is still on the page and visible
+  // (a board row can be re-rendered away while the drill-down is open).
+  if (back && document.contains(back) && back.offsetParent !== null) back.focus();
+}
+
+// Overlays that need more than a class removed on close.
+const OVERLAY_CLOSERS = { 'drill-modal': () => closeDrill() };
+const topOverlay = () => [...document.querySelectorAll('.modal-overlay.open')].pop() || null;
+
+function dismissTopOverlay() {
+  const top = topOverlay();
+  if (!top) return false;
+  (OVERLAY_CLOSERS[top.id] || (() => closeOverlay(top.id)))();
+  return true;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { dismissTopOverlay(); return; }
+  if (e.key !== 'Tab') return;
+  const open = topOverlay();
+  if (!open) return;
+  const items = focusablesIn(open);
+  if (!items.length) { e.preventDefault(); return; }
+  const first = items[0], last = items[items.length - 1];
+  const outside = !open.contains(document.activeElement);
+  if (e.shiftKey && (document.activeElement === first || outside)) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && (document.activeElement === last || outside)) { e.preventDefault(); first.focus(); }
+});
+
+// Backdrop click closes, for every overlay.
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === e.currentTarget) dismissTopOverlay();
+  });
+});
+
 // Format guide modal
-document.getElementById('guide-btn').addEventListener('click', () => {
-  document.getElementById('guide-modal').classList.add('open');
-});
-document.getElementById('guide-close').addEventListener('click', () => {
-  document.getElementById('guide-modal').classList.remove('open');
-});
-document.getElementById('guide-modal').addEventListener('click', e => {
-  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
-});
+document.getElementById('guide-btn').addEventListener('click', () => openOverlay('guide-modal'));
+document.getElementById('guide-close').addEventListener('click', () => closeOverlay('guide-modal'));
 
 
 // ============================================================
@@ -3756,24 +3963,49 @@ function updateScenario() {
 
 
 // ── Product drill-down close wiring ──
+// Backdrop click and Escape are handled centrally by the modal-dialog block
+// above (which also restores focus to the board row that opened this).
 document.getElementById('drill-close').addEventListener('click', closeDrill);
-document.getElementById('drill-modal').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeDrill();
-});
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.getElementById('drill-modal').classList.contains('open')) closeDrill();
-});
 
 // ============================================================
 // TAB SWITCHING
 // ============================================================
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-    if (btn.dataset.tab === 'entry') initEntryTab();
+// The tab bar is an ARIA tablist: selection is mirrored into aria-selected and
+// a roving tabindex (only the selected tab is a tab stop; ←/→ move between
+// them), which is what lets a keyboard user reach the panes at all.
+// Scoped to `.tab-bar .tab-btn` deliberately — two CTA buttons on the Welcome
+// tab reuse .tab-btn for styling, carry no data-tab, and just forward a click
+// to the real tab; treating them as tabs would blank the whole tab state.
+const tabButtons = [...document.querySelectorAll('.tab-bar .tab-btn')];
+
+function activateTab(btn, focusIt) {
+  if (!btn || !btn.dataset.tab) return;
+  tabButtons.forEach(b => {
+    const on = b === btn;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', String(on));
+    b.tabIndex = on ? 0 : -1;
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  if (focusIt) btn.focus();
+  if (btn.dataset.tab === 'entry') initEntryTab();
+}
+
+tabButtons.forEach(btn => {
+  btn.addEventListener('click', () => activateTab(btn, false));
+  btn.addEventListener('keydown', e => {
+    const keys = { ArrowRight: 1, ArrowLeft: -1 };
+    if (!(e.key in keys) && e.key !== 'Home' && e.key !== 'End') return;
+    // Hidden tabs (.sb-only / .admin-only) must be skipped, not landed on.
+    const shown = tabButtons.filter(b => b.offsetParent !== null);
+    if (!shown.length) return;
+    e.preventDefault();
+    const i = shown.indexOf(btn);
+    const next = e.key === 'Home' ? shown[0]
+      : e.key === 'End' ? shown[shown.length - 1]
+      : shown[(i + keys[e.key] + shown.length) % shown.length];
+    activateTab(next, true);
   });
 });
 
@@ -3979,13 +4211,13 @@ function renderEntryTable() {
                 title="Open link in new tab&#10;${url}"
                 class="url-link-btn"
                 style="color:var(--accent3); font-size:1rem; text-decoration:none; line-height:1; cursor:pointer;">🔗</a>
-              <button class="url-edit-btn" data-product="${p.name}"
-                title="Edit link"
+              <button class="url-edit-btn" type="button" data-product="${p.name}"
+                title="Edit link" aria-label="Edit the Cardmarket link for ${p.name}"
                 style="background:none; border:none; color:var(--muted); font-size:0.75rem;
                        cursor:pointer; line-height:1; padding:2px; border-radius:4px; transition:color 0.15s;">✎</button>
             </div>`
-          : `<button class="url-edit-btn" data-product="${p.name}"
-              title="Add Cardmarket link"
+          : `<button class="url-edit-btn" type="button" data-product="${p.name}"
+              title="Add Cardmarket link" aria-label="Add a Cardmarket link for ${p.name}"
               style="background:none; border:none; color:var(--muted); font-size:0.75rem;
                      cursor:pointer; font-family:'DM Mono',monospace; padding:2px 4px;
                      border-radius:4px; transition:color 0.15s;">+ link</button>`}
@@ -3997,6 +4229,7 @@ function renderEntryTable() {
       <td>
         <input class="entry-input ${saved.price != null ? 'filled' : ''}"
           type="number" min="0" step="0.01" placeholder="price"
+          aria-label="${p.name} — new price"
           data-product="${p.name}" data-field="price"
           value="${saved.price != null ? saved.price : ''}">
         <div class="entry-delta"></div>
@@ -4004,13 +4237,14 @@ function renderEntryTable() {
       <td>
         <input class="entry-input ${saved.setVal != null ? 'filled' : ''}"
           type="number" min="0" step="0.01" placeholder="set value"
+          aria-label="${p.name} — new set value"
           data-product="${p.name}" data-field="setVal"
           value="${saved.setVal != null ? saved.setVal : ''}">
         <div class="entry-delta"></div>
       </td>
       <td>
         ${pendingProducts.find(pp => pp.name === p.name)
-          ? `<button class="remove-row-btn" data-product="${p.name}" title="Remove new product">✕</button>`
+          ? `<button class="remove-row-btn" type="button" data-product="${p.name}" title="Remove new product" aria-label="Remove the new product ${p.name}">✕</button>`
           : ''}
       </td>
     `;
@@ -4078,7 +4312,7 @@ function openUrlEditor(productName) {
   const current = productUrls[productName] || '';
   cell.innerHTML = `
     <div style="display:flex; align-items:center; gap:4px; min-width:220px;">
-      <input class="entry-input url-inline-input" type="url"
+      <input class="entry-input url-inline-input" type="url" aria-label="Cardmarket URL"
         value="${current}"
         placeholder="https://www.cardmarket.com/..."
         style="font-size:0.72rem; padding:4px 6px; min-width:0; flex:1;">
@@ -4428,11 +4662,11 @@ function openDrill(name) {
   const p = products.find(pp => pp.name === name);
   if (!p) return;
   drillProduct = name;
-  renderDrill();
-  document.getElementById('drill-modal').classList.add('open');
+  renderDrill();               // fills #drill-title, the dialog's accessible name
+  openOverlay('drill-modal');  // …then show it and move focus in
 }
 function closeDrill() {
-  document.getElementById('drill-modal').classList.remove('open');
+  closeOverlay('drill-modal');
   if (drillPriceChart) { drillPriceChart.destroy(); drillPriceChart = null; }
   if (drillSvbChart)   { drillSvbChart.destroy();   drillSvbChart = null; }
   drillProduct = null;
@@ -4723,7 +4957,9 @@ function loadSupabaseSdk() {
 }
 
 function showAuthOverlay(show) {
-  document.getElementById('auth-overlay').classList.toggle('open', show);
+  // Routed through the shared modal helpers so the overlay traps focus and
+  // returns it to whatever opened it (the demo page's Sign in button).
+  if (show) openOverlay('auth-overlay', '#auth-email'); else closeOverlay('auth-overlay');
 }
 function showDemo(show) {
   document.getElementById('demo-page').classList.toggle('open', show);
@@ -4939,7 +5175,7 @@ function renderDemo(groups) {
       </tr>`;
     }).join('');
     return `
-      <div class="section-eyebrow">${String(i + 1).padStart(2, '0')} — ${demoSetName(g.products)}</div>
+      <h2 class="section-eyebrow">${String(i + 1).padStart(2, '0')} — ${demoSetName(g.products)}</h2>
       <p class="section-desc">Released ${dateLabel} · ${n} product${n > 1 ? 's' : ''} tracked in this set.</p>
       <div class="panel" style="margin-bottom:40px;">
         <div class="table-wrap" style="max-height:none;">
@@ -5036,13 +5272,9 @@ function wireAuthControls() {
   // Open the sign-in overlay from the demo page; close it back to the demo.
   document.getElementById('demo-signin-btn').addEventListener('click', () => {
     showAuthError('');
-    showAuthOverlay(true);
-    document.getElementById('auth-email').focus();
+    showAuthOverlay(true);   // moves focus to the first field itself
   });
   document.getElementById('auth-close').addEventListener('click', () => showAuthOverlay(false));
-  document.getElementById('auth-overlay').addEventListener('click', e => {
-    if (e.target === e.currentTarget) showAuthOverlay(false);
-  });
 
   document.getElementById('auth-signin-btn').addEventListener('click', async () => {
     showAuthError('');
@@ -5070,19 +5302,16 @@ function wireAuthControls() {
   document.getElementById('save-cloud-btn').addEventListener('click', saveToSupabase);
 
   // ── Change password (signed-in only) ──
-  const accountOverlay = document.getElementById('account-overlay');
   const openAccount = () => {
     document.getElementById('account-password').value = '';
     document.getElementById('account-password2').value = '';
     accountMsg('');
-    accountOverlay.classList.add('open');
-    document.getElementById('account-password').focus();
+    openOverlay('account-overlay', '#account-password');   // focuses the first field, traps Tab
   };
-  const closeAccount = () => accountOverlay.classList.remove('open');
+  const closeAccount = () => closeOverlay('account-overlay');
 
   document.getElementById('change-pw-btn').addEventListener('click', openAccount);
   document.getElementById('account-close').addEventListener('click', closeAccount);
-  accountOverlay.addEventListener('click', e => { if (e.target === e.currentTarget) closeAccount(); });
 
   const submitNewPassword = async () => {
     const pw  = document.getElementById('account-password').value;
