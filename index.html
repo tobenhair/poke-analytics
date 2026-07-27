@@ -97,8 +97,47 @@
     --text: #f0f1f5;
     --muted: #8b8fa3;
     --card: #10131b;
+    /* The two ends of the gold gradient (wordmark, active tab, primary button)
+       and the near-black that sits *on* a gold or green surface. Typed as
+       literals in five places before this. */
+    --accent-hi: #fbe7a6;
+    --accent-lo: #e0a838;
+    --on-accent: #14100a;
+    --on-accent4: #0c1410;
+    /* Chart chrome: axis ticks/titles sit a step below --muted so the data
+       reads first. Declared rather than inlined in the chart configs, which is
+       where a second palette grew last time. */
+    --chart-axis: #6b6f85;
+    /* The medal metaphor justifies silver and bronze; declaring them keeps
+       them from reading as stray literals. */
+    --medal-silver: #b9bdca;
+    --medal-bronze: #cd7f32;
     --elev: 0 1px 0 rgba(255,255,255,0.03) inset, 0 20px 50px -28px rgba(0,0,0,0.9);
+    /* Radii, named for what the build actually uses: pills dominate (233 uses),
+       then the 18px panel/card corner, then 8px on inputs and small surfaces.
+       --radius kept as the panel corner it has always been so existing uses
+       don't shift; the other two were previously typed as literals. */
     --radius: 18px;
+    --radius-pill: 999px;
+    --radius-sm: 8px;
+    /* ── Type scale ──
+       36 distinct font sizes rendered before this, most of them fractional
+       (12.16, 13.12, 11.84 px …) because rem values were picked one at a time
+       rather than from a scale — a difference of 0.16px carries no meaning but
+       has to be maintained forever. These 11 steps are the sizes actually
+       doing work; everything else maps to its nearest one, which is why the
+       page looks the same. Use a token, never a new literal. */
+    --text-2xs: 0.62rem;
+    --text-xs: 0.66rem;
+    --text-sm: 0.72rem;
+    --text-md: 0.78rem;
+    --text-lg: 0.83rem;
+    --text-xl: 0.9rem;
+    --display-xs: 1.05rem;
+    --display-sm: 1.2rem;
+    --display-md: 1.5rem;
+    --display-lg: 1.7rem;
+    --display-xl: 2.1rem;
     --ease: cubic-bezier(0.22, 0.68, 0.14, 1);
   }
 
@@ -112,7 +151,7 @@
     font-family: 'DM Sans', sans-serif;
     min-height: 100vh;
     overflow-x: hidden;
-    font-size: 15px;
+    font-size: var(--text-xl);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
   }
@@ -134,10 +173,16 @@
   /* Refined scrollbars */
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; border: 3px solid var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-pill); border: 3px solid var(--bg); }
   ::-webkit-scrollbar-thumb:hover { background: #2c303c; }
 
   .wrapper { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 40px 28px 64px; }
+
+  /* Native form controls do not inherit font-family, so anything without an
+     explicit one renders in Arial — a fourth family in a three-font system.
+     Class rules that set their own font still win on specificity; this only
+     catches the ones that were never told. */
+  input, select, textarea, button { font: inherit; }
 
   /* ── Focus indicator (WCAG 2.4.7) ──
      One rule for everything focusable. Several controls set `outline: none`
@@ -202,19 +247,19 @@
   }
   h1 {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 2.1rem;
+    font-size: var(--display-xl);
     letter-spacing: 0.06em;
     line-height: 1;
     font-weight: 400;
-    background: linear-gradient(120deg, #fbe7a6 0%, var(--accent) 45%, #e0a838 100%);
+    background: linear-gradient(120deg, var(--accent-hi) 0%, var(--accent) 45%, var(--accent-lo) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  .subtitle { font-size: 0.7rem; color: var(--muted); font-family: 'DM Mono', monospace; letter-spacing: 0.22em; text-transform: uppercase; margin-top: 4px; }
+  .subtitle { font-size: var(--text-sm); color: var(--muted); font-family: 'DM Mono', monospace; letter-spacing: 0.22em; text-transform: uppercase; margin-top: 4px; }
 
   .header-meta { text-align: right; flex-shrink: 0; }
-  .last-update { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted); letter-spacing: 0.04em; }
+  .last-update { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted); letter-spacing: 0.04em; }
   .last-update span { color: var(--accent); }
   .last-update.stale #last-update-date { color: var(--accent2); }
   .last-update .stale-note { color: var(--accent2); margin-left: 6px; }
@@ -231,7 +276,7 @@
     gap: 4px;
     margin: 28px auto 44px;
     padding: 5px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: rgba(16,19,27,0.72);
     border: 1px solid var(--hairline);
     backdrop-filter: blur(14px);
@@ -247,11 +292,11 @@
   .tab-btn {
     padding: 9px 22px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: transparent;
     color: var(--muted);
     font-family: 'DM Mono', monospace;
-    font-size: 0.76rem;
+    font-size: var(--text-md);
     letter-spacing: 0.06em;
     cursor: pointer;
     transition: color 0.3s var(--ease), background 0.3s var(--ease);
@@ -259,8 +304,8 @@
   }
   .tab-btn:hover { color: var(--text); }
   .tab-btn.active {
-    color: #14100a;
-    background: linear-gradient(120deg, #fbe7a6, var(--accent));
+    color: var(--on-accent);
+    background: linear-gradient(120deg, var(--accent-hi), var(--accent));
     font-weight: 500;
     box-shadow: 0 6px 18px -8px rgba(244,198,81,0.6);
   }
@@ -297,7 +342,7 @@
     flex-wrap: wrap;
     align-items: center;
   }
-  .filter-label { font-size: 0.66rem; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.16em; margin-right: 2px; }
+  .filter-label { font-size: var(--text-xs); color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.16em; margin-right: 2px; }
   /* Age-threshold group in the filter bar. Its left margin/padding/rule are the
      8px that pushed the Analysis tab past a 320px viewport (WCAG 1.4.10), so
      they drop away once the filter bar is wrapping anyway. */
@@ -312,11 +357,11 @@
   .pill-group { display: flex; gap: 6px; flex-wrap: wrap; }
   .pill {
     padding: 7px 16px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     border: 1px solid var(--hairline);
     background: transparent;
     color: var(--muted);
-    font-size: 0.76rem;
+    font-size: var(--text-md);
     font-family: 'DM Mono', monospace;
     cursor: pointer;
     /* Named properties, not `all`: `transition: all` also animates the
@@ -335,9 +380,9 @@
   .cmp-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 2px; }
   .cmp-chip {
     display: inline-flex; align-items: center; gap: 7px;
-    padding: 5px 7px 5px 10px; border-radius: 999px;
+    padding: 5px 7px 5px 10px; border-radius: var(--radius-pill);
     border: 1px solid var(--hairline); background: var(--bg3);
-    font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--text);
     letter-spacing: 0.02em;
   }
   .cmp-chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -346,47 +391,47 @@
      inside it without changing the chip's size. */
   .cmp-chip button {
     border: none; background: transparent; color: var(--muted);
-    cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0;
+    cursor: pointer; font-size: var(--text-xl); line-height: 1; padding: 0;
     width: 24px; height: 24px;
     display: inline-flex; align-items: center; justify-content: center;
     transition: color 0.2s var(--ease);
   }
   .cmp-chip button:hover { color: var(--accent2); }
-  .cmp-empty { color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.72rem; letter-spacing: 0.02em; }
+  .cmp-empty { color: var(--muted); font-family: 'DM Mono', monospace; font-size: var(--text-sm); letter-spacing: 0.02em; }
 
   /* Portfolio balancer — concentration bars + rebalance shortlist. Built from
      tokens: blue = neutral share, red = over-exposed (a risk), green = a deal. */
-  .balancer-flag { padding: 16px 24px; font-size: 0.84rem; color: var(--text); border-bottom: 1px solid var(--hairline); }
+  .balancer-flag { padding: 16px 24px; font-size: var(--text-lg); color: var(--text); border-bottom: 1px solid var(--hairline); }
   .balancer-flag.ok { color: var(--muted); }
   .balancer-flag strong { color: var(--accent2); }
   .balancer-flag.ok strong { color: var(--text); }
   .balancer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 26px; padding: 22px 24px; }
-  .conc-group h4, .balancer-suggest h4 { font-family: 'DM Mono', monospace; font-size: 0.68rem; font-weight: 500; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+  .conc-group h4, .balancer-suggest h4 { font-family: 'DM Mono', monospace; font-size: var(--text-xs); font-weight: 500; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
   .conc-row { margin-bottom: 11px; }
   .conc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 5px; }
-  .conc-name { font-size: 0.8rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .conc-pct { font-family: 'DM Mono', monospace; font-size: 0.76rem; color: var(--muted); flex-shrink: 0; }
-  .conc-bar { height: 6px; border-radius: 999px; background: var(--bg3); overflow: hidden; }
-  .conc-fill { height: 100%; border-radius: 999px; background: var(--accent3); transition: width 0.4s var(--ease); }
+  .conc-name { font-size: var(--text-md); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .conc-pct { font-family: 'DM Mono', monospace; font-size: var(--text-md); color: var(--muted); flex-shrink: 0; }
+  .conc-bar { height: 6px; border-radius: var(--radius-pill); background: var(--bg3); overflow: hidden; }
+  .conc-fill { height: 100%; border-radius: var(--radius-pill); background: var(--accent3); transition: width 0.4s var(--ease); }
   .conc-row.over .conc-fill { background: var(--accent2); }
   .conc-row.over .conc-pct { color: var(--accent2); }
   .balancer-suggest { border-top: 1px solid var(--hairline); padding: 20px 24px 24px; }
-  .suggest-item { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--hairline); font-size: 0.82rem; }
+  .suggest-item { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--hairline); font-size: var(--text-lg); }
   .suggest-item:last-child { border-bottom: none; }
   .suggest-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .suggest-set { color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.7rem; white-space: nowrap; }
-  .suggest-gap { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 0.76rem; color: var(--accent4); flex-shrink: 0; }
-  .balancer-note, .balancer-empty { color: var(--muted); font-size: 0.82rem; line-height: 1.6; }
+  .suggest-set { color: var(--muted); font-family: 'DM Mono', monospace; font-size: var(--text-sm); white-space: nowrap; }
+  .suggest-gap { margin-left: auto; font-family: 'DM Mono', monospace; font-size: var(--text-md); color: var(--accent4); flex-shrink: 0; }
+  .balancer-note, .balancer-empty { color: var(--muted); font-size: var(--text-lg); line-height: 1.6; }
   .balancer-empty { padding: 26px 24px; }
 
   .sort-select {
     padding: 8px 16px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     border: 1px solid var(--hairline);
     background: var(--bg3);
     color: var(--text);
     font-family: 'DM Mono', monospace;
-    font-size: 0.76rem;
+    font-size: var(--text-md);
     cursor: pointer;
     outline: none;
     margin-left: auto;
@@ -395,12 +440,12 @@
   .sort-select:focus { border-color: var(--accent); }
   .board-search {
     padding: 8px 16px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     border: 1px solid var(--hairline);
     background: var(--bg3);
     color: var(--text);
     font-family: 'DM Mono', monospace;
-    font-size: 0.76rem;
+    font-size: var(--text-md);
     outline: none;
     width: 180px;
     transition: border-color 0.2s var(--ease);
@@ -434,9 +479,9 @@
     opacity: 0.85;
     border-radius: 0 0 2px 2px;
   }
-  .kpi-label { font-size: 0.64rem; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.16em; margin-bottom: 12px; }
-  .kpi-value { font-family: 'Bebas Neue', sans-serif; font-size: 2.3rem; line-height: 1; letter-spacing: 0.02em; color: var(--kpi-color, var(--accent)); }
-  .kpi-sub { font-size: 0.7rem; color: var(--muted); margin-top: 8px; font-family: 'DM Mono', monospace; }
+  .kpi-label { font-size: var(--text-xs); color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.16em; margin-bottom: 12px; }
+  .kpi-value { font-family: 'Bebas Neue', sans-serif; font-size: var(--display-xl); line-height: 1; letter-spacing: 0.02em; color: var(--kpi-color, var(--accent)); }
+  .kpi-sub { font-size: var(--text-sm); color: var(--muted); margin-top: 8px; font-family: 'DM Mono', monospace; }
 
 
   /* ── Stacked, single-column analysis sections ── */
@@ -452,7 +497,7 @@
     align-items: center;
     gap: 12px;
     font-family: 'DM Mono', monospace;
-    font-size: 0.62rem;
+    font-size: var(--text-2xs);
     letter-spacing: 0.24em;
     text-transform: uppercase;
     color: var(--muted);
@@ -472,14 +517,14 @@
     max-width: 68ch;
     margin: -6px 0 20px 2px;
     color: var(--muted);
-    font-size: 0.83rem;
+    font-size: var(--text-lg);
     line-height: 1.65;
   }
   .section-desc strong { color: var(--text); font-weight: 500; }
   .section-desc em { font-style: normal; color: var(--text); opacity: 0.9; }
   .section-desc .up { color: var(--accent4); }
   .section-desc .down { color: var(--accent2); }
-  .kpi-intro { max-width: 68ch; margin: -14px 0 22px 2px; color: var(--muted); font-size: 0.83rem; line-height: 1.65; }
+  .kpi-intro { max-width: 68ch; margin: -14px 0 22px 2px; color: var(--muted); font-size: var(--text-lg); line-height: 1.65; }
 
   /* ── Collapsible explainers ──
      The 14 .section-desc / .kpi-intro blocks measure 1,478px on a phone —
@@ -499,7 +544,7 @@
     border: 0;
     color: var(--muted);
     font-family: 'DM Mono', monospace;
-    font-size: 0.66rem;
+    font-size: var(--text-xs);
     letter-spacing: 0.08em;
     cursor: pointer;
     transition: color 0.2s var(--ease);
@@ -527,7 +572,7 @@
        focus arrives. Hover keeps the fade; focus is instant. */
     .desc-toggle.inline:focus { opacity: 1; transition: none; }
   }
-  .desc-toggle .mark { font-size: 0.8rem; line-height: 1; }
+  .desc-toggle .mark { font-size: var(--text-md); line-height: 1; }
   /* When the text is showing, it owns the gap to the section below it. */
   .section-desc.has-toggle, .kpi-intro.has-toggle { margin-bottom: 4px; }
   .kpi-intro strong { color: var(--text); font-weight: 500; }
@@ -553,16 +598,16 @@
   .panel-title {
     margin: 0;
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.15rem;
+    font-size: var(--display-sm);
     letter-spacing: 0.08em;
     font-weight: 400;
     color: var(--text);
   }
   .panel-badge {
     font-family: 'DM Mono', monospace;
-    font-size: 0.62rem;
+    font-size: var(--text-2xs);
     padding: 4px 10px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: transparent;
     color: var(--muted);
     border: 1px solid var(--hairline);
@@ -583,7 +628,7 @@
     margin: 0;
     padding: 12px 18px 0;
     font-family: 'DM Mono', monospace;
-    font-size: 0.66rem;
+    font-size: var(--text-xs);
     letter-spacing: 0.06em;
     color: var(--muted);
   }
@@ -591,12 +636,12 @@
   /* Secondary hint inside a column header ("💰 = buy signal"). It used to set
      opacity:0.6 inline, which dropped var(--muted) below the 4.5:1 minimum —
      the token itself passes at every background, so it just inherits now. */
-  .th-hint { font-weight: 300; font-size: 0.6rem; }
+  .th-hint { font-weight: 300; font-size: var(--text-2xs); }
   thead th {
     padding: 14px 18px;
     text-align: left;
     font-family: 'DM Mono', monospace;
-    font-size: 0.62rem;
+    font-size: var(--text-2xs);
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--muted);
@@ -627,7 +672,7 @@
   tbody tr:hover { background: rgba(244,198,81,0.035); }
   tbody td {
     padding: 14px 18px;
-    font-size: 0.83rem;
+    font-size: var(--text-lg);
     white-space: nowrap;
   }
   .product-name { font-weight: 500; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
@@ -662,27 +707,27 @@
   }
   .type-badge {
     font-family: 'DM Mono', monospace;
-    font-size: 0.6rem;
+    font-size: var(--text-2xs);
     padding: 3px 9px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     letter-spacing: 0.08em;
   }
   .type-BOX { background: rgba(92,199,242,0.12); color: var(--accent3); border: 1px solid rgba(92,199,242,0.22); }
   .type-ETB { background: rgba(127,212,147,0.12); color: var(--accent4); border: 1px solid rgba(127,212,147,0.22); }
   .type-BUNDLE { background: rgba(244,198,81,0.1); color: var(--accent); border: 1px solid rgba(244,198,81,0.22); }
 
-  .num { font-family: 'DM Mono', monospace; font-size: 0.78rem; text-align: right; }
+  .num { font-family: 'DM Mono', monospace; font-size: var(--text-md); text-align: right; }
   /* Fair-price gap: a small second line under the fair price in the board cell */
-  .fair-gap { display: block; font-size: 0.64rem; letter-spacing: 0.02em; margin-top: 2px; white-space: nowrap; }
+  .fair-gap { display: block; font-size: var(--text-xs); letter-spacing: 0.02em; margin-top: 2px; white-space: nowrap; }
   /* R² confidence note in the Fair Price column header */
-  .fair-fit-note { font-family: 'DM Mono', monospace; font-weight: 400; font-size: 0.6rem; opacity: 0.85; letter-spacing: 0.04em; }
+  .fair-fit-note { font-family: 'DM Mono', monospace; font-weight: 400; font-size: var(--text-2xs); opacity: 0.85; letter-spacing: 0.04em; }
   /* Verdict: the row's plain-language headline, under the product name */
-  .verdict-line { display: block; font-family: 'DM Mono', monospace; font-size: 0.64rem; letter-spacing: 0.02em; margin-top: 3px; white-space: nowrap; }
+  .verdict-line { display: block; font-family: 'DM Mono', monospace; font-size: var(--text-xs); letter-spacing: 0.02em; margin-top: 3px; white-space: nowrap; }
   /* Board rows open a product drill-down on click */
   #product-tbody tr { cursor: pointer; }
   /* ── Product drill-down modal ── */
   .drill-verdict {
-    font-family: 'DM Mono', monospace; font-size: 0.82rem; letter-spacing: 0.02em;
+    font-family: 'DM Mono', monospace; font-size: var(--text-lg); letter-spacing: 0.02em;
     padding: 10px 14px; border-radius: 10px; border: 1px solid var(--hairline);
     border-left-width: 2px; background: var(--bg3); margin-bottom: 22px;
   }
@@ -691,17 +736,17 @@
     gap: 12px; margin-bottom: 30px;
   }
   .drill-stat { background: var(--bg3); border: 1px solid var(--hairline); border-radius: 12px; padding: 12px 14px; }
-  .drill-stat .k { font-family: 'DM Mono', monospace; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 8px; }
-  .drill-stat .v { font-family: 'DM Mono', monospace; font-size: 1.05rem; color: var(--text); }
-  .drill-stat .s { font-family: 'DM Mono', monospace; font-size: 0.64rem; color: var(--muted); margin-top: 4px; }
+  .drill-stat .k { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 8px; }
+  .drill-stat .v { font-family: 'DM Mono', monospace; font-size: var(--display-xs); color: var(--text); }
+  .drill-stat .s { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted); margin-top: 4px; }
   .drill-chart { position: relative; height: 240px; }
   .drill-ingredients { display: flex; flex-direction: column; gap: 8px; }
-  .drill-ingredient { display: flex; justify-content: space-between; gap: 14px; font-family: 'DM Mono', monospace; font-size: 0.74rem; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .drill-ingredient { display: flex; justify-content: space-between; gap: 14px; font-family: 'DM Mono', monospace; font-size: var(--text-sm); padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
   .drill-ingredient .lbl { color: var(--muted); }
   .score-bar-wrap { display: flex; align-items: center; gap: 10px; }
-  .score-bar-bg { flex: 1; height: 3px; background: rgba(255,255,255,0.08); border-radius: 999px; min-width: 56px; overflow: hidden; }
-  .score-bar-fill { height: 100%; border-radius: 999px; transition: width 0.6s var(--ease); }
-  .score-val { font-family: 'DM Mono', monospace; font-size: 0.72rem; min-width: 36px; text-align: right; }
+  .score-bar-bg { flex: 1; height: 3px; background: rgba(255,255,255,0.08); border-radius: var(--radius-pill); min-width: 56px; overflow: hidden; }
+  .score-bar-fill { height: 100%; border-radius: var(--radius-pill); transition: width 0.6s var(--ease); }
+  .score-val { font-family: 'DM Mono', monospace; font-size: var(--text-sm); min-width: 36px; text-align: right; }
 
   .trend-up { color: var(--accent4); }
   .trend-down { color: var(--accent2); }
@@ -720,18 +765,18 @@
   .pick-item:hover { background: rgba(244,198,81,0.03); padding-left: 28px; }
   .pick-rank {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.5rem;
+    font-size: var(--display-md);
     color: var(--muted);
     min-width: 26px;
     line-height: 1;
   }
   .pick-rank.gold { color: var(--accent); }
-  .pick-rank.silver { color: #b9bdca; }
-  .pick-rank.bronze { color: #cd7f32; }
+  .pick-rank.silver { color: var(--medal-silver); }
+  .pick-rank.bronze { color: var(--medal-bronze); }
   .pick-info { flex: 1; min-width: 0; }
-  .pick-name { font-size: 0.84rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .pick-meta { font-size: 0.68rem; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 3px; }
-  .pick-score { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; color: var(--accent); }
+  .pick-name { font-size: var(--text-lg); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pick-meta { font-size: var(--text-xs); color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 3px; }
+  .pick-score { font-family: 'Bebas Neue', sans-serif; font-size: var(--display-md); color: var(--accent); }
 
   /* ── Charts ── */
   .chart-panel { padding: 24px 26px; }
@@ -747,8 +792,8 @@
 
   .trend-select {
     background: var(--bg3); border: 1px solid var(--hairline); color: var(--text);
-    font-family: 'DM Mono', monospace; font-size: 0.72rem;
-    padding: 6px 12px; border-radius: 999px; outline: none; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: var(--text-sm);
+    padding: 6px 12px; border-radius: var(--radius-pill); outline: none; cursor: pointer;
     max-width: 180px; overflow: hidden; text-overflow: ellipsis;
     transition: border-color 0.2s var(--ease);
   }
@@ -760,7 +805,7 @@
     padding: 40px 20px 8px;
     color: var(--muted);
     font-family: 'DM Mono', monospace;
-    font-size: 0.66rem;
+    font-size: var(--text-xs);
     border-top: 1px solid var(--hairline);
     letter-spacing: 0.08em;
     margin-top: 24px;
@@ -780,9 +825,9 @@
      literals there — grep before renaming. */
   .status-pill {
     font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
+    font-size: var(--text-sm);
     padding: 5px 12px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     /* Must wrap, not overflow. As a nowrap pill in a flex-end row it ran off
        the *left* edge on a phone, and negative overflow creates no scroll
        area — so "✕ Cloud save failed" was unreachable on the one flow that
@@ -795,12 +840,12 @@
   .status-pill.err { color: var(--accent2); background: rgba(239,106,96,0.1);   border: 1px solid rgba(239,106,96,0.2); }
   .guide-btn {
     padding: 9px 16px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     border: 1px solid var(--hairline);
     background: transparent;
     color: var(--muted);
     font-family: 'DM Mono', monospace;
-    font-size: 0.74rem;
+    font-size: var(--text-sm);
     cursor: pointer;
     letter-spacing: 0.04em;
     /* Named properties, not `all` — see .pill. */
@@ -845,24 +890,24 @@
     width: 28px; height: 28px;
     display: flex; align-items: center; justify-content: center;
     background: none; border: none;
-    color: var(--muted); font-size: 1.2rem;
+    color: var(--muted); font-size: var(--display-sm);
     cursor: pointer; line-height: 1;
     transition: color 0.2s var(--ease);
   }
   .modal-close:hover { color: var(--text); }
   .modal h2 {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.7rem;
+    font-size: var(--display-lg);
     letter-spacing: 0.06em;
     font-weight: 400;
     color: var(--accent);
     margin-bottom: 8px;
   }
-  .modal-intro { font-size: 0.82rem; color: var(--muted); margin-bottom: 26px; font-family: 'DM Mono', monospace; line-height: 1.6; }
+  .modal-intro { font-size: var(--text-lg); color: var(--muted); margin-bottom: 26px; font-family: 'DM Mono', monospace; line-height: 1.6; }
   .modal-section { margin-bottom: 30px; }
   .modal-section h3 {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.05rem;
+    font-size: var(--display-xs);
     letter-spacing: 0.08em;
     font-weight: 400;
     color: var(--accent3);
@@ -874,7 +919,7 @@
   .col-table th {
     text-align: left;
     font-family: 'DM Mono', monospace;
-    font-size: 0.6rem;
+    font-size: var(--text-2xs);
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--muted);
@@ -883,14 +928,14 @@
     background: transparent;
   }
   .col-table td {
-    font-size: 0.78rem;
+    font-size: var(--text-md);
     padding: 10px 12px;
     border-bottom: 1px solid rgba(255,255,255,0.04);
     vertical-align: top;
   }
-  .col-table td:first-child { font-family: 'DM Mono', monospace; color: var(--accent); font-size: 0.73rem; }
-  .col-table td:last-child  { color: var(--muted); font-size: 0.72rem; }
-  .tag-req  { display:inline-block; padding:2px 8px; border-radius:999px; font-size:0.6rem; font-family:'DM Mono',monospace; background:rgba(239,106,96,0.12); color:var(--accent2); border:1px solid rgba(239,106,96,0.2); }
+  .col-table td:first-child { font-family: 'DM Mono', monospace; color: var(--accent); font-size: var(--text-sm); }
+  .col-table td:last-child  { color: var(--muted); font-size: var(--text-sm); }
+  .tag-req  { display:inline-block; padding:2px 8px; border-radius: var(--radius-pill); font-size: var(--text-2xs); font-family:'DM Mono',monospace; background:rgba(239,106,96,0.12); color:var(--accent2); border:1px solid rgba(239,106,96,0.2); }
   .modal-note {
     background: var(--bg3);
     border: 1px solid var(--hairline);
@@ -898,7 +943,7 @@
     border-radius: 10px;
     padding: 16px 18px;
     font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
+    font-size: var(--text-sm);
     color: var(--muted);
     line-height: 1.7;
   }
@@ -928,7 +973,7 @@
     padding: 14px 14px;
     text-align: left;
     font-family: 'DM Mono', monospace;
-    font-size: 0.62rem;
+    font-size: var(--text-2xs);
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--muted);
@@ -938,15 +983,15 @@
   }
   .entry-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.035); }
   .entry-table tbody tr:hover { background: rgba(244,198,81,0.025); }
-  .entry-table tbody td { padding: 10px 14px; font-size: 0.82rem; vertical-align: middle; }
+  .entry-table tbody td { padding: 10px 14px; font-size: var(--text-lg); vertical-align: middle; }
   .entry-input {
     width: 100%;
     background: var(--bg3);
     border: 1px solid var(--hairline);
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     color: var(--text);
     font-family: 'DM Mono', monospace;
-    font-size: 0.8rem;
+    font-size: var(--text-md);
     padding: 7px 10px;
     outline: none;
     transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
@@ -956,24 +1001,24 @@
   .entry-input.filled { border-color: rgba(127,212,147,0.45); background: rgba(127,212,147,0.06); }
   .entry-input.warn   { border-color: rgba(244,198,81,0.55); background: rgba(244,198,81,0.07); }
   .entry-input.error  { border-color: rgba(239,106,96,0.5);  background: rgba(239,106,96,0.06); }
-  .entry-product-name { font-weight: 500; font-size: 0.82rem; white-space: nowrap; }
-  .entry-last-price { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted); }
-  .entry-delta { font-family: 'DM Mono', monospace; font-size: 0.62rem; color: var(--accent); margin-top: 4px; letter-spacing: 0.02em; }
+  .entry-product-name { font-weight: 500; font-size: var(--text-lg); white-space: nowrap; }
+  .entry-last-price { font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--muted); }
+  .entry-delta { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--accent); margin-top: 4px; letter-spacing: 0.02em; }
   /* Data-quality warnings strip (snapshot gaps, type outliers) — hidden when clean */
   .entry-quality { display: none; padding: 12px 20px 0; }
   .entry-quality.has-warnings { display: block; }
-  .entry-quality .q-line { font-family: 'DM Mono', monospace; font-size: 0.66rem; color: var(--accent); margin-bottom: 5px; letter-spacing: 0.02em; line-height: 1.5; }
+  .entry-quality .q-line { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--accent); margin-bottom: 5px; letter-spacing: 0.02em; line-height: 1.5; }
 
   .add-product-panel { display: flex; flex-direction: column; gap: 18px; }
   .field-group { display: flex; flex-direction: column; gap: 7px; }
-  .field-label { font-family: 'DM Mono', monospace; font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; }
+  .field-label { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; }
   .field-input {
     background: var(--bg3);
     border: 1px solid var(--hairline);
     border-radius: 10px;
     color: var(--text);
     font-family: 'DM Sans', sans-serif;
-    font-size: 0.82rem;
+    font-size: var(--text-lg);
     padding: 10px 14px;
     outline: none;
     transition: border-color 0.2s var(--ease);
@@ -986,7 +1031,7 @@
     border-radius: 10px;
     color: var(--text);
     font-family: 'DM Mono', monospace;
-    font-size: 0.8rem;
+    font-size: var(--text-md);
     padding: 10px 14px;
     outline: none;
     cursor: pointer;
@@ -995,12 +1040,12 @@
   .field-select:focus { border-color: var(--accent); }
   .add-btn {
     padding: 12px 18px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     border: 1px solid var(--accent);
-    background: linear-gradient(120deg, #fbe7a6, var(--accent));
-    color: #14100a;
+    background: linear-gradient(120deg, var(--accent-hi), var(--accent));
+    color: var(--on-accent);
     font-family: 'DM Mono', monospace;
-    font-size: 0.78rem;
+    font-size: var(--text-md);
     font-weight: 500;
     cursor: pointer;
     letter-spacing: 0.04em;
@@ -1011,12 +1056,12 @@
   .add-btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
   .export-btn {
     padding: 11px 18px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     border: 1px solid rgba(127,212,147,0.5);
     background: transparent;
     color: var(--accent4);
     font-family: 'DM Mono', monospace;
-    font-size: 0.78rem;
+    font-size: var(--text-md);
     cursor: pointer;
     letter-spacing: 0.04em;
     /* Named properties, not `all` — see .pill. */
@@ -1024,20 +1069,20 @@
     width: 100%;
     margin-top: 4px;
   }
-  .export-btn:hover { background: var(--accent4); color: #0c1410; }
+  .export-btn:hover { background: var(--accent4); color: var(--on-accent4); }
   .entry-date-display {
     font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
+    font-size: var(--text-sm);
     color: var(--accent);
     padding: 7px 14px;
     background: var(--accent-soft);
     border: 1px solid rgba(244,198,81,0.22);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     text-align: center;
   }
   .entry-progress {
     font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
+    font-size: var(--text-sm);
     color: var(--muted);
     text-align: center;
     margin-top: 4px;
@@ -1047,11 +1092,11 @@
   .entry-tools { display: flex; gap: 6px; margin-top: 2px; }
   .entry-tool-btn {
     font-family: 'DM Mono', monospace;
-    font-size: 0.64rem;
+    font-size: var(--text-xs);
     color: var(--muted);
     background: transparent;
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     padding: 4px 10px;
     cursor: pointer;
     letter-spacing: 0.03em;
@@ -1065,7 +1110,7 @@
     border: none;
     color: var(--muted);
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: var(--text-xl);
     padding: 2px 6px;
     border-radius: 6px;
     transition: color 0.2s var(--ease);
@@ -1082,11 +1127,11 @@
     background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px;
   }
   .portfolio-tile .lbl {
-    font-family: 'DM Mono', monospace; font-size: 0.62rem; color: var(--muted);
+    font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--muted);
     text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px;
   }
-  .portfolio-tile .val { font-family: 'Bebas Neue', sans-serif; font-size: 1.9rem; color: var(--text); line-height: 1; }
-  .portfolio-tile .sub { font-family: 'DM Mono', monospace; font-size: 0.72rem; margin-top: 6px; }
+  .portfolio-tile .val { font-family: 'Bebas Neue', sans-serif; font-size: var(--display-lg); color: var(--text); line-height: 1; }
+  .portfolio-tile .sub { font-family: 'DM Mono', monospace; font-size: var(--text-sm); margin-top: 6px; }
   .portfolio-editor {
     display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
     padding: 16px 24px; border-bottom: 1px solid var(--border);
@@ -1094,31 +1139,31 @@
   .portfolio-editor .field-select { max-width: 260px; }
   .portfolio-editor .field-input { max-width: 140px; }
   .portfolio-cancel-btn {
-    padding: 10px 16px; border-radius: 999px;
+    padding: 10px 16px; border-radius: var(--radius-pill);
     border: 1px solid var(--border); background: transparent; color: var(--muted);
-    font-family: 'DM Mono', monospace; font-size: 0.72rem; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: var(--text-sm); cursor: pointer;
     letter-spacing: 0.04em; transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
   }
   .portfolio-cancel-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.16); }
   .portfolio-edit-btn {
     background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: 0.85rem; padding: 2px 6px; border-radius: 6px; line-height: 1;
+    font-size: var(--text-lg); padding: 2px 6px; border-radius: 6px; line-height: 1;
     transition: color 0.2s var(--ease);
   }
   .portfolio-edit-btn:hover { color: var(--accent3); }
   .portfolio-error {
-    font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--accent2);
+    font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--accent2);
     padding: 10px 24px 0; display: none;
   }
   .portfolio-remove-btn {
     background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: 0.9rem; padding: 2px 6px; border-radius: 6px; line-height: 1;
+    font-size: var(--text-xl); padding: 2px 6px; border-radius: 6px; line-height: 1;
     transition: color 0.2s var(--ease);
   }
   .portfolio-remove-btn:hover { color: var(--accent2); }
   .portfolio-empty {
     padding: 26px 24px; color: var(--muted); font-family: 'DM Mono', monospace;
-    font-size: 0.78rem; text-align: center;
+    font-size: var(--text-md); text-align: center;
   }
 
   /* ── Welcome hover affordance ── */
@@ -1171,11 +1216,11 @@
     .scroll-hint { display: block; }
     .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 32px; }
     .kpi { padding: 18px 18px; }
-    .kpi-value { font-size: 2rem; }
-    h1 { font-size: 1.7rem; }
+    .kpi-value { font-size: var(--display-xl); }
+    h1 { font-size: var(--display-lg); }
     header { flex-wrap: wrap; gap: 14px; }
     .header-meta { text-align: left; }
-    .tab-btn { padding: 8px 15px; font-size: 0.72rem; }
+    .tab-btn { padding: 8px 15px; font-size: var(--text-sm); }
     /* Once the bar wraps to two rows a full pill radius reads as a mistake. */
     .tab-bar { border-radius: 22px; }
     /* Tighten section chrome so charts/tables keep usable width */
@@ -1192,9 +1237,9 @@
   }
   @media (max-width: 460px) {
     .kpi-row { grid-template-columns: 1fr; }
-    .tab-btn { padding: 8px 12px; font-size: 0.68rem; letter-spacing: 0.03em; }
-    .panel-title { font-size: 1.05rem; }
-    .section-desc, .kpi-intro { font-size: 0.8rem; }
+    .tab-btn { padding: 8px 12px; font-size: var(--text-xs); letter-spacing: 0.03em; }
+    .panel-title { font-size: var(--display-xs); }
+    .section-desc, .kpi-intro { font-size: var(--text-md); }
   }
 
   .fade-in { animation: fadeIn 0.6s var(--ease) both; }
@@ -1220,9 +1265,9 @@
   html:not(.sb-authed) .sb-only { display: none !important; }
   .auth-field { margin-bottom: 12px; }
   .auth-btn {
-    width: 100%; padding: 10px 16px; border-radius: 8px; cursor: pointer;
-    font-family: 'DM Mono', monospace; font-size: 0.8rem; letter-spacing: 0.03em;
-    border: 1px solid var(--border); background: var(--accent); color: #05070c;
+    width: 100%; padding: 10px 16px; border-radius: var(--radius-sm); cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: var(--text-md); letter-spacing: 0.03em;
+    border: 1px solid var(--border); background: var(--accent); color: var(--on-accent);
     transition: filter 0.15s, border-color 0.15s;
   }
   .auth-btn:hover { filter: brightness(1.08); }
@@ -1230,7 +1275,7 @@
   .auth-btn.secondary:hover { border-color: var(--accent); color: var(--text); }
   .auth-signout {
     background: transparent; border: 1px solid var(--border); border-radius: 6px;
-    color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    color: var(--muted); font-family: 'DM Mono', monospace; font-size: var(--text-xs);
     padding: 4px 10px; cursor: pointer; transition: border-color 0.15s, color 0.15s;
   }
   .auth-signout:hover { border-color: var(--accent2); color: var(--text); }
@@ -1252,9 +1297,9 @@
   .demo-inner { max-width: 1200px; margin: 0 auto; padding: 40px 28px 64px; }
   .demo-foot {
     text-align: center; margin-top: 8px;
-    font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted);
+    font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted);
   }
-  .demo-empty { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 40px 0; }
+  .demo-empty { text-align: center; color: var(--muted); font-size: var(--text-lg); padding: 40px 0; }
   @media (max-width: 640px) { .demo-inner { padding: 28px 16px 48px; } }
 
 </style>
@@ -1287,12 +1332,12 @@
     </div>
     <div id="auth-error" style="display:none; background:rgba(232,71,63,0.08); border:1px solid rgba(232,71,63,0.2);
          border-left:3px solid var(--accent2); border-radius:6px; padding:10px 14px; margin-bottom:12px;
-         font-family:'DM Mono',monospace; font-size:0.72rem; color:#e8a0a0; line-height:1.5;"></div>
+         font-family:'DM Mono',monospace; font-size: var(--text-sm); color:#e8a0a0; line-height:1.5;"></div>
     <div style="display:flex; flex-direction:column; gap:10px;">
       <button class="auth-btn" id="auth-signin-btn" type="button">Sign in</button>
       <button class="auth-btn secondary" id="auth-signup-btn" type="button">Create an account</button>
     </div>
-    <p style="font-family:'DM Mono',monospace; font-size:0.62rem; color:var(--muted); margin-top:14px; line-height:1.5;">
+    <p style="font-family:'DM Mono',monospace; font-size: var(--text-2xs); color:var(--muted); margin-top:14px; line-height:1.5;">
       Your data is private to your account. New sign-ups may require email confirmation depending on the project's settings.
     </p>
   </div>
@@ -1315,7 +1360,7 @@
       <input class="field-input" id="account-password2" type="password" autocomplete="new-password" placeholder="repeat new password">
     </div>
     <div id="account-msg" style="display:none; border-radius:6px; padding:10px 14px; margin-bottom:12px;
-         font-family:'DM Mono',monospace; font-size:0.72rem; line-height:1.5;"></div>
+         font-family:'DM Mono',monospace; font-size: var(--text-sm); line-height:1.5;"></div>
     <button class="auth-btn" id="account-save-btn" type="button">Update password</button>
   </div>
 </div>
@@ -1332,7 +1377,7 @@
 
     <div class="modal-section">
       <h3>Sheet 1 — Summary</h3>
-      <p style="font-size:0.75rem; color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product. Each row becomes an entry in the main table.</p>
+      <p style="font-size: var(--text-md); color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product. Each row becomes an entry in the main table.</p>
       <table class="col-table">
         <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
         <tbody>
@@ -1352,7 +1397,7 @@
 
     <div class="modal-section">
       <h3>Sheet 2 — Historical Data</h3>
-      <p style="font-size:0.75rem; color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product per snapshot. Add a new row each month when you update prices.</p>
+      <p style="font-size: var(--text-md); color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product per snapshot. Add a new row each month when you update prices.</p>
       <table class="col-table">
         <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
         <tbody>
@@ -1452,7 +1497,7 @@
       <div class="last-update" id="last-update-wrap">Last updated: <span id="last-update-date">—</span><span class="stale-note" id="last-update-stale"></span></div>
       <div class="last-update" style="margin-top:4px">Prices in <span>EUR</span></div>
       <div class="sb-only" style="margin-top:8px; display:flex; align-items:center; gap:8px; justify-content:flex-end;">
-        <span id="auth-user-email" style="font-family:'DM Mono',monospace; font-size:0.68rem; color:var(--muted);"></span>
+        <span id="auth-user-email" style="font-family:'DM Mono',monospace; font-size: var(--text-xs); color:var(--muted);"></span>
         <button class="auth-signout" id="change-pw-btn" type="button">Change password</button>
         <button class="auth-signout" id="auth-signout-btn" type="button">Sign out</button>
       </div>
@@ -1488,12 +1533,12 @@
       <!-- Hero -->
       <div style="text-align:center; padding: 24px 0 36px;">
         <div style="display:inline-flex; align-items:center; gap:14px; margin-bottom:18px;">
-          <div style="font-size: 2.4rem;">🎴</div>
-          <h2 style="font-family:'Bebas Neue',sans-serif; font-size:2rem; letter-spacing:0.08em; background: linear-gradient(135deg, var(--accent) 0%, #f5a623 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">
+          <div style="font-size: var(--display-xl);">🎴</div>
+          <h2 style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-xl); letter-spacing:0.08em; background: linear-gradient(135deg, var(--accent) 0%, #f5a623 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">
             Track. Analyse. Decide.
           </h2>
         </div>
-        <p style="font-size: 1rem; color: var(--text); line-height: 1.6; max-width: 640px; margin: 0 auto;">
+        <p style="font-size: var(--display-xs); color: var(--text); line-height: 1.6; max-width: 640px; margin: 0 auto;">
           A personal investment dashboard for sealed Pokémon TCG products.
           Track prices and set values over time, surface buying signals, and explore scenarios — all from a single Excel file you control.
         </p>
@@ -1506,13 +1551,13 @@
         <div class="panel" style="cursor:pointer;" onclick="document.querySelector('[data-tab=&quot;analysis&quot;]').click()">
           <div style="padding: 22px 24px;">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom: 12px;">
-              <div style="font-size: 1.4rem;">📊</div>
-              <div style="font-family:'Bebas Neue',sans-serif; font-size:1.2rem; letter-spacing:0.08em; color: var(--accent3);">Analysis</div>
+              <div style="font-size: var(--display-md);">📊</div>
+              <div style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-sm); letter-spacing:0.08em; color: var(--accent3);">Analysis</div>
             </div>
-            <p style="font-size: 0.85rem; color: var(--text); line-height: 1.55; margin-bottom: 14px;">
+            <p style="font-size: var(--text-lg); color: var(--text); line-height: 1.55; margin-bottom: 14px;">
               The decision-making view. See all your tracked products ranked by weighted score, compare set value against booster cost, watch price history per product, and explore scenarios.
             </p>
-            <ul style="font-size: 0.78rem; color: var(--muted); line-height: 1.7; padding-left: 18px;">
+            <ul style="font-size: var(--text-md); color: var(--muted); line-height: 1.7; padding-left: 18px;">
               <li>KPIs at a glance — top score, best value, newest release</li>
               <li>Filter by Booster Box / ETB / Bundle and sort by any metric</li>
               <li>Buy-signal flags 💰 when price drops but set value holds</li>
@@ -1526,13 +1571,13 @@
         <div class="panel admin-only" style="cursor:pointer;" onclick="document.querySelector('[data-tab=&quot;entry&quot;]').click()">
           <div style="padding: 22px 24px;">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom: 12px;">
-              <div style="font-size: 1.4rem;">✏️</div>
-              <div style="font-family:'Bebas Neue',sans-serif; font-size:1.2rem; letter-spacing:0.08em; color: var(--accent4);">Data Entry</div>
+              <div style="font-size: var(--display-md);">✏️</div>
+              <div style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-sm); letter-spacing:0.08em; color: var(--accent4);">Data Entry</div>
             </div>
-            <p style="font-size: 0.85rem; color: var(--text); line-height: 1.55; margin-bottom: 14px;">
+            <p style="font-size: var(--text-lg); color: var(--text); line-height: 1.55; margin-bottom: 14px;">
               The monthly update view. Enter the latest Price and Set Value for each product, add new releases, attach Cardmarket links, then export the updated file.
             </p>
-            <ul style="font-size: 0.78rem; color: var(--muted); line-height: 1.7; padding-left: 18px;">
+            <ul style="font-size: var(--text-md); color: var(--muted); line-height: 1.7; padding-left: 18px;">
               <li>One row per product — last known values shown for reference</li>
               <li>Today's date pre-filled as the snapshot label</li>
               <li>Add new products with name, type, release date, initial price</li>
@@ -1552,30 +1597,30 @@
 
           <div>
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color: var(--accent); line-height:1;">1</span>
-              <span style="font-family:'DM Mono',monospace; font-size:0.7rem; color: var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Load</span>
+              <span style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-lg); color: var(--accent); line-height:1;">1</span>
+              <span style="font-family:'DM Mono',monospace; font-size: var(--text-sm); color: var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Load</span>
             </div>
-            <p style="font-size: 0.78rem; color: var(--text); line-height:1.55;">
-              Your tracked products and price history load from the cloud when you sign in. (If cloud sync is ever unavailable, the dashboard falls back to the committed <code style="font-family:'DM Mono',monospace; color: var(--accent); font-size:0.72rem;">pokemon_data.xlsx</code>.)
+            <p style="font-size: var(--text-md); color: var(--text); line-height:1.55;">
+              Your tracked products and price history load from the cloud when you sign in. (If cloud sync is ever unavailable, the dashboard falls back to the committed <code style="font-family:'DM Mono',monospace; color: var(--accent); font-size: var(--text-sm);">pokemon_data.xlsx</code>.)
             </p>
           </div>
 
           <div>
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color: var(--accent); line-height:1;">2</span>
-              <span style="font-family:'DM Mono',monospace; font-size:0.7rem; color: var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Update</span>
+              <span style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-lg); color: var(--accent); line-height:1;">2</span>
+              <span style="font-family:'DM Mono',monospace; font-size: var(--text-sm); color: var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Update</span>
             </div>
-            <p style="font-size: 0.78rem; color: var(--text); line-height:1.55;">
+            <p style="font-size: var(--text-md); color: var(--text); line-height:1.55;">
               Once a month, fetch latest prices from Cardmarket and enter them in the Data Entry tab. New products can be added at any time.
             </p>
           </div>
 
           <div>
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color: var(--accent); line-height:1;">3</span>
-              <span style="font-family:'DM Mono',monospace; font-size:0.7rem; color: var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Decide</span>
+              <span style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-lg); color: var(--accent); line-height:1;">3</span>
+              <span style="font-family:'DM Mono',monospace; font-size: var(--text-sm); color: var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Decide</span>
             </div>
-            <p style="font-size: 0.78rem; color: var(--text); line-height:1.55;">
+            <p style="font-size: var(--text-md); color: var(--text); line-height:1.55;">
               Use the Analysis tab to spot buy signals, compare options, and check the weighted score before pulling the trigger.
             </p>
           </div>
@@ -1593,28 +1638,28 @@
           <table style="width:100%; border-collapse:collapse;">
             <tbody>
               <tr style="border-bottom: 1px solid rgba(42,45,62,0.5);">
-                <td style="padding: 10px 0; width: 28%; font-family:'DM Mono',monospace; color: var(--accent); font-size: 0.78rem; vertical-align: top;">Set Value</td>
-                <td style="padding: 10px 0; font-size: 0.8rem; color: var(--text); line-height:1.55;">The total market value of all cards in a complete set.</td>
+                <td style="padding: 10px 0; width: 28%; font-family:'DM Mono',monospace; color: var(--accent); font-size: var(--text-md); vertical-align: top;">Set Value</td>
+                <td style="padding: 10px 0; font-size: var(--text-md); color: var(--text); line-height:1.55;">The total market value of all cards in a complete set.</td>
               </tr>
               <tr style="border-bottom: 1px solid rgba(42,45,62,0.5);">
-                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: 0.78rem; vertical-align: top;">Price / Booster</td>
-                <td style="padding: 10px 0; font-size: 0.8rem; color: var(--text); line-height:1.55;">The product price ÷ number of boosters inside (BOX = 36, ETB = 9, BUNDLE = 6).</td>
+                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: var(--text-md); vertical-align: top;">Price / Booster</td>
+                <td style="padding: 10px 0; font-size: var(--text-md); color: var(--text); line-height:1.55;">The product price ÷ number of boosters inside (BOX = 36, ETB = 9, BUNDLE = 6).</td>
               </tr>
               <tr style="border-bottom: 1px solid rgba(42,45,62,0.5);">
-                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: 0.78rem; vertical-align: top;">SV / Booster</td>
-                <td style="padding: 10px 0; font-size: 0.8rem; color: var(--text); line-height:1.55;">Set Value ÷ Price/Booster — how many times the price of a <em>single booster</em> the whole set is worth (a value-for-money <em>×</em> multiple, <strong>not</strong> a euro amount). The core comparability metric — works equally well across BOX, ETB, and BUNDLE products.</td>
+                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: var(--text-md); vertical-align: top;">SV / Booster</td>
+                <td style="padding: 10px 0; font-size: var(--text-md); color: var(--text); line-height:1.55;">Set Value ÷ Price/Booster — how many times the price of a <em>single booster</em> the whole set is worth (a value-for-money <em>×</em> multiple, <strong>not</strong> a euro amount). The core comparability metric — works equally well across BOX, ETB, and BUNDLE products.</td>
               </tr>
               <tr style="border-bottom: 1px solid rgba(42,45,62,0.5);">
-                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: 0.78rem; vertical-align: top;">Age Weight</td>
-                <td style="padding: 10px 0; font-size: 0.8rem; color: var(--text); line-height:1.55;">A penalty applied to newer products to reflect that they haven't had time to appreciate. Adjustable via the Age Threshold slider.</td>
+                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: var(--text-md); vertical-align: top;">Age Weight</td>
+                <td style="padding: 10px 0; font-size: var(--text-md); color: var(--text); line-height:1.55;">A penalty applied to newer products to reflect that they haven't had time to appreciate. Adjustable via the Age Threshold slider.</td>
               </tr>
               <tr style="border-bottom: 1px solid rgba(42,45,62,0.5);">
-                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: 0.78rem; vertical-align: top;">Wtd. Score</td>
-                <td style="padding: 10px 0; font-size: 0.8rem; color: var(--text); line-height:1.55;">SV / Booster × Age Weight. The primary ranking metric used by the dashboard.</td>
+                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: var(--text-md); vertical-align: top;">Wtd. Score</td>
+                <td style="padding: 10px 0; font-size: var(--text-md); color: var(--text); line-height:1.55;">SV / Booster × Age Weight. The primary ranking metric used by the dashboard.</td>
               </tr>
               <tr>
-                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: 0.78rem; vertical-align: top;">💰 Buy Signal</td>
-                <td style="padding: 10px 0; font-size: 0.8rem; color: var(--text); line-height:1.55;">Flagged when a product's price has dropped at least 5% in the last snapshot, while its set value held within ±5% — a possible mispricing.</td>
+                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: var(--text-md); vertical-align: top;">💰 Buy Signal</td>
+                <td style="padding: 10px 0; font-size: var(--text-md); color: var(--text); line-height:1.55;">Flagged when a product's price has dropped at least 5% in the last snapshot, while its set value held within ±5% — a possible mispricing.</td>
               </tr>
             </tbody>
           </table>
@@ -1630,7 +1675,7 @@
       </div>
 
       <!-- Disclaimer -->
-      <div style="text-align: center; font-family:'DM Mono',monospace; font-size:0.7rem; color: var(--muted); padding: 16px;">
+      <div style="text-align: center; font-family:'DM Mono',monospace; font-size: var(--text-sm); color: var(--muted); padding: 16px;">
         Built for personal use. Always do your own research. Past performance does not guarantee future results.
       </div>
 
@@ -1703,10 +1748,10 @@
       <input type="range" id="age-threshold-slider" min="0.5" max="3" step="0.5" value="1"
         aria-label="Age threshold in years"
         style="width:100px; accent-color:var(--accent); cursor:pointer;">
-      <span style="font-family:'DM Mono',monospace; font-size:0.78rem; color:var(--accent); min-width:40px;">
+      <span style="font-family:'DM Mono',monospace; font-size: var(--text-md); color:var(--accent); min-width:40px;">
         <span id="age-threshold-display">1.0</span>yr
       </span>
-      <span style="font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted); cursor:help;"
+      <span style="font-family:'DM Mono',monospace; font-size: var(--text-xs); color:var(--muted); cursor:help;"
         title="Years required before a product reaches full weight (no age penalty). Lower = more lenient on new products. Defaults to 1yr; adjustable from 0.5 to 3yr.">ⓘ</span>
     </div>
 
@@ -1899,37 +1944,37 @@
         <!-- Set Value slider -->
         <div>
           <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;">
-            <span style="font-family:'DM Mono',monospace; font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Set Value (€)</span>
-            <span id="sv-display" style="font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:var(--accent3);">—</span>
+            <span style="font-family:'DM Mono',monospace; font-size: var(--text-sm); color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Set Value (€)</span>
+            <span id="sv-display" style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-md); color:var(--accent3);">—</span>
           </div>
           <input type="range" id="sv-slider" min="0" max="10000" step="10" aria-label="Scenario set value in euros"
             style="width:100%; accent-color:var(--accent3); cursor:pointer;">
           <div style="display:flex; justify-content:space-between; margin-top:5px;">
-            <span id="sv-min-label" style="font-family:'DM Mono',monospace; font-size:0.62rem; color:var(--muted);">€0</span>
-            <span id="sv-base-label" style="font-family:'DM Mono',monospace; font-size:0.62rem; color:var(--muted);">base</span>
-            <span id="sv-max-label" style="font-family:'DM Mono',monospace; font-size:0.62rem; color:var(--muted);">€0</span>
+            <span id="sv-min-label" style="font-family:'DM Mono',monospace; font-size: var(--text-2xs); color:var(--muted);">€0</span>
+            <span id="sv-base-label" style="font-family:'DM Mono',monospace; font-size: var(--text-2xs); color:var(--muted);">base</span>
+            <span id="sv-max-label" style="font-family:'DM Mono',monospace; font-size: var(--text-2xs); color:var(--muted);">€0</span>
           </div>
         </div>
 
         <!-- Product Price slider -->
         <div>
           <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;">
-            <span style="font-family:'DM Mono',monospace; font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Product Price (€)</span>
-            <span id="price-display" style="font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:var(--accent);">—</span>
+            <span style="font-family:'DM Mono',monospace; font-size: var(--text-sm); color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Product Price (€)</span>
+            <span id="price-display" style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-md); color:var(--accent);">—</span>
           </div>
           <input type="range" id="price-slider" min="0" max="5000" step="5" aria-label="Scenario product price in euros"
             style="width:100%; accent-color:var(--accent); cursor:pointer;">
           <div style="display:flex; justify-content:space-between; margin-top:5px;">
-            <span id="price-min-label" style="font-family:'DM Mono',monospace; font-size:0.62rem; color:var(--muted);">€0</span>
-            <span id="price-base-label" style="font-family:'DM Mono',monospace; font-size:0.62rem; color:var(--muted);">base</span>
-            <span id="price-max-label" style="font-family:'DM Mono',monospace; font-size:0.62rem; color:var(--muted);">€0</span>
+            <span id="price-min-label" style="font-family:'DM Mono',monospace; font-size: var(--text-2xs); color:var(--muted);">€0</span>
+            <span id="price-base-label" style="font-family:'DM Mono',monospace; font-size: var(--text-2xs); color:var(--muted);">base</span>
+            <span id="price-max-label" style="font-family:'DM Mono',monospace; font-size: var(--text-2xs); color:var(--muted);">€0</span>
           </div>
         </div>
 
         <button id="scenario-reset" style="
           align-self:flex-start; padding: 7px 18px; border-radius: 8px;
           border: 1px solid var(--border); background: var(--bg3);
-          color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.75rem;
+          color: var(--muted); font-family: 'DM Mono', monospace; font-size: var(--text-md);
           cursor: pointer; letter-spacing: 0.05em; transition: all 0.2s;">
           ↺ Reset to current values
         </button>
@@ -1941,10 +1986,10 @@
         <!-- SV / Booster -->
         <div style="background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:18px 22px; position:relative; overflow:hidden;">
           <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent3);border-radius:2px 2px 0 0;"></div>
-          <div style="font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:8px;">SV / Booster</div>
+          <div style="font-family:'DM Mono',monospace; font-size: var(--text-xs); color:var(--muted); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:8px;">SV / Booster</div>
           <div style="display:flex; align-items:baseline; gap:14px;">
-            <span id="out-svb" style="font-family:'Bebas Neue',sans-serif; font-size:2.2rem; color:var(--accent3);">—</span>
-            <span id="out-svb-delta" style="font-family:'DM Mono',monospace; font-size:0.8rem;"></span>
+            <span id="out-svb" style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-xl); color:var(--accent3);">—</span>
+            <span id="out-svb-delta" style="font-family:'DM Mono',monospace; font-size: var(--text-md);"></span>
           </div>
           <div style="margin-top:10px; height:4px; background:var(--border); border-radius:2px;">
             <div id="out-svb-bar" style="height:100%; border-radius:2px; background:var(--accent3); transition: width 0.3s ease; width:0%;"></div>
@@ -1954,10 +1999,10 @@
         <!-- Weighted Score -->
         <div style="background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:18px 22px; position:relative; overflow:hidden;">
           <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);border-radius:2px 2px 0 0;"></div>
-          <div style="font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:8px;">Weighted Score</div>
+          <div style="font-family:'DM Mono',monospace; font-size: var(--text-xs); color:var(--muted); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:8px;">Weighted Score</div>
           <div style="display:flex; align-items:baseline; gap:14px;">
-            <span id="out-score" style="font-family:'Bebas Neue',sans-serif; font-size:2.2rem; color:var(--accent);">—</span>
-            <span id="out-score-delta" style="font-family:'DM Mono',monospace; font-size:0.8rem;"></span>
+            <span id="out-score" style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-xl); color:var(--accent);">—</span>
+            <span id="out-score-delta" style="font-family:'DM Mono',monospace; font-size: var(--text-md);"></span>
           </div>
           <div style="margin-top:10px; height:4px; background:var(--border); border-radius:2px;">
             <div id="out-score-bar" style="height:100%; border-radius:2px; background:var(--accent); transition: width 0.3s ease; width:0%;"></div>
@@ -1965,7 +2010,7 @@
         </div>
 
         <!-- Signal -->
-        <div id="out-signal" style="background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:14px 22px; font-family:'DM Mono',monospace; font-size:0.8rem; text-align:center; letter-spacing:0.05em;">
+        <div id="out-signal" style="background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:14px 22px; font-family:'DM Mono',monospace; font-size: var(--text-md); text-align:center; letter-spacing:0.05em;">
           —
         </div>
       </div>
@@ -2090,15 +2135,15 @@
         <div class="panel-header">
           <div>
             <h3 class="panel-title">Monthly Price Update</h3>
-            <div style="font-size:0.7rem; color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px;">
+            <div style="font-size: var(--text-sm); color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px;">
               Enter the latest Price and Set Value for each product
             </div>
-            <div style="font-size:0.66rem; color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px; opacity:0.85;">
+            <div style="font-size: var(--text-xs); color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px; opacity:0.85;">
               ↵ Enter jumps down the column · paste a copied column to fill it at once
             </div>
-            <div style="font-size:0.7rem; color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px;">
+            <div style="font-size: var(--text-sm); color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px;">
               📊 Set value reference:
-              <a href="https://www.getmint.app/sets/" target="_blank" rel="noopener noreferrer" style="color:var(--accent3);">getmint.app/sets<span style="font-size:0.6rem;"> ↗</span></a>
+              <a href="https://www.getmint.app/sets/" target="_blank" rel="noopener noreferrer" style="color:var(--accent3);">getmint.app/sets<span style="font-size: var(--text-2xs);"> ↗</span></a>
             </div>
           </div>
           <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
@@ -2131,7 +2176,7 @@
           </table>
         </div>
         <div style="padding: 14px 20px; border-top: 1px solid var(--border); display:flex; gap:10px; justify-content:flex-end;">
-          <button class="export-btn sb-only admin-only" id="save-cloud-btn" style="width:auto; padding: 8px 20px; background:var(--accent3); color:#05070c;">
+          <button class="export-btn sb-only admin-only" id="save-cloud-btn" style="width:auto; padding: 8px 20px; background:var(--accent3); color:var(--on-accent);">
             ☁ Save to cloud
           </button>
           <button class="export-btn" id="export-xlsx-btn" style="width:auto; padding: 8px 20px;">
@@ -2151,7 +2196,7 @@
           <div style="padding:18px 20px; display:flex; flex-direction:column; gap:10px;">
             <div class="field-label">Label shown on chart axes (e.g. "2026-05-04")</div>
             <input class="field-input" id="snapshot-label" type="text" placeholder="e.g. 2026-05-04">
-            <div style="font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted);">
+            <div style="font-family:'DM Mono',monospace; font-size: var(--text-xs); color:var(--muted);">
               Auto-filled with today's date — edit if needed
             </div>
           </div>
@@ -2190,10 +2235,10 @@
                 <input class="field-input" id="new-product-sv" type="number" min="0" step="0.01" placeholder="e.g. 850">
               </div>
               <div class="field-group">
-                <div class="field-label">Cardmarket URL <span style="color:var(--muted); font-size:0.6rem;">(optional)</span></div>
+                <div class="field-label">Cardmarket URL <span style="color:var(--muted); font-size: var(--text-2xs);">(optional)</span></div>
                 <input class="field-input" id="new-product-url" type="url" placeholder="https://www.cardmarket.com/...">
               </div>
-              <div id="add-product-error" style="font-family:'DM Mono',monospace; font-size:0.72rem; color:var(--accent2); display:none;"></div>
+              <div id="add-product-error" style="font-family:'DM Mono',monospace; font-size: var(--text-sm); color:var(--accent2); display:none;"></div>
               <button class="add-btn" id="add-product-btn">+ Add Product</button>
             </div>
           </div>
@@ -2320,11 +2365,38 @@ function fmt(v, dec=0) {
   return v.toLocaleString('de-DE', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
+// ============================================================
+// PALETTE — read from the CSS tokens, never re-typed
+// ============================================================
+// Chart.js needs concrete colour strings, which is how a *second* palette grew
+// here: #4fc3f7 / #81c784 / #f5c842 / #e8473f, near-duplicates of --accent3 /
+// --accent4 / --accent / --accent2. They sat side by side on one screen — a BOX
+// badge at #5cc7f2 above its own chart series at #4fc3f7 — close enough to read
+// as a rendering bug. Resolving the tokens at runtime means there is one
+// palette, defined once in :root, and a token edit reaches the charts too.
+const CSS_VARS = getComputedStyle(document.documentElement);
+const token = name => CSS_VARS.getPropertyValue(name).trim();
+const COLOR = {
+  gold:  token('--accent'),    // primary / BUNDLE / emphasis
+  red:   token('--accent2'),   // negative
+  blue:  token('--accent3'),   // neutral / BOX
+  green: token('--accent4'),   // positive / ETB
+  muted: token('--muted'),     // axis labels that name data (product, currency)
+  axis:  token('--chart-axis'),// grid/tick chrome, a step below muted
+};
+// Chart fills want the same hue at low alpha. #rrggbb → rgba(), so the fill can
+// never drift from the line it belongs to.
+const alpha = (hex, a) => {
+  const h = hex.replace('#', '');
+  const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+};
+
 function scoreColor(score) {
-  if (score >= 120) return '#81c784';
-  if (score >= 80) return '#f5c842';
-  if (score >= 50) return '#4fc3f7';
-  return '#e8473f';
+  if (score >= 120) return COLOR.green;
+  if (score >= 80) return COLOR.gold;
+  if (score >= 50) return COLOR.blue;
+  return COLOR.red;
 }
 
 function getFiltered() {
@@ -2581,7 +2653,7 @@ function renderSVBChart() {
   const data = [...visibleProducts()].sort((a, b) => b.svPerBooster - a.svPerBooster).slice(0, 10);
   const labels = data.map(p => p.name.replace(' Booster Box', '').replace(' Booster Bundle', '').replace(' Elite Trainer Box', '').replace(' ETB', ''));
   const values = data.map(p => p.svPerBooster);
-  const colors = data.map(p => p.type === 'BOX' ? '#4fc3f7' : p.type === 'ETB' ? '#81c784' : '#f5c842');
+  const colors = data.map(p => p.type === 'BOX' ? COLOR.blue : p.type === 'ETB' ? COLOR.green : COLOR.gold);
 
   if (svbChart) svbChart.destroy();
   svbChart = new Chart(document.getElementById('svb-chart'), {
@@ -2601,8 +2673,8 @@ function renderSVBChart() {
         callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(1)}× booster cost` }
       }},
       scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } },
-        y: { grid: { display: false }, ticks: { color: '#aaa', font: { family: 'DM Sans', size: 10 } } }
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } },
+        y: { grid: { display: false }, ticks: { color: COLOR.muted, font: { family: 'DM Sans', size: 10 } } }
       }
     }
   });
@@ -2627,7 +2699,11 @@ function renderSVBChart() {
 // colours (a comparison line's colour is an identity, not a good/bad value cue,
 // so it doesn't carry the gold/green/red meaning fixed elsewhere). Selection is
 // capped at the palette length so the chart never grows illegible.
-const COMPARE_PALETTE = ['#5cc7f2', '#f4c651', '#7fd493', '#b39ddb', '#e8975a', '#e5789f'];
+// Six distinguishable series. The first three are the tokens themselves; the
+// last three exist because the token set has no fourth, fifth or sixth hue —
+// they are declared here, once, rather than re-typed per chart.
+const COMPARE_EXTRA = ['#b39ddb', '#e8975a', '#e5789f'];
+const COMPARE_PALETTE = [COLOR.blue, COLOR.gold, COLOR.green, ...COMPARE_EXTRA];
 const COMPARE_CAP = COMPARE_PALETTE.length;
 
 function createCompareView(cfg) {
@@ -2719,7 +2795,7 @@ function createCompareView(cfg) {
     }
 
     const scales = Object.assign(
-      { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } } },
+      { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } } },
       mode === 'set' ? cfg.setScale() : cfg.productScale(hasExtra),
       extraScales
     );
@@ -2732,7 +2808,7 @@ function createCompareView(cfg) {
         responsive: true,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
+          legend: { labels: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
           tooltip: { callbacks: Object.assign(
             { label: ctx => cfg.tooltip(ctx, mode) },
             cfg.afterBody ? { afterBody: cfg.afterBody } : {}
@@ -2801,15 +2877,15 @@ const cmpHist = createCompareView({
   productScale: hasExtra => ({
     y: {
       type: 'linear', position: 'left', grid: { color: 'rgba(255,255,255,0.05)' },
-      ticks: { color: '#8b8fa3', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
-      title: { display: true, text: hasExtra ? 'Product Price' : 'Price (€)', color: '#8b8fa3', font: { family: 'DM Mono', size: 9 } }
+      ticks: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
+      title: { display: true, text: hasExtra ? 'Product Price' : 'Price (€)', color: COLOR.muted, font: { family: 'DM Mono', size: 9 } }
     }
   }),
   setScale: () => ({
     y: {
       grid: { color: 'rgba(255,255,255,0.05)' },
-      ticks: { color: '#8b8fa3', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toFixed(1) },
-      title: { display: true, text: '€ / Booster', color: '#8b8fa3', font: { family: 'DM Mono', size: 9 } }
+      ticks: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toFixed(1) },
+      title: { display: true, text: '€ / Booster', color: COLOR.muted, font: { family: 'DM Mono', size: 9 } }
     }
   }),
   singleExtra: name => {
@@ -2818,15 +2894,15 @@ const cmpHist = createCompareView({
     return {
       dataset: {
         label: 'Set Value (€)', data: h.setVal.slice(),
-        borderColor: '#f4c651', backgroundColor: 'rgba(244,198,81,0.05)',
+        borderColor: COLOR.gold, backgroundColor: alpha(COLOR.gold, 0.05),
         tension: 0.4, pointRadius: 3, borderWidth: 2, borderDash: [5, 4],
         fill: false, spanGaps: true, yAxisID: 'ySetVal'
       },
       scale: {
         ySetVal: {
           type: 'linear', position: 'right', grid: { drawOnChartArea: false },
-          ticks: { color: '#f4c651', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
-          title: { display: true, text: 'Set Value', color: '#f4c651', font: { family: 'DM Mono', size: 9 } }
+          ticks: { color: COLOR.gold, font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
+          title: { display: true, text: 'Set Value', color: COLOR.gold, font: { family: 'DM Mono', size: 9 } }
         }
       }
     };
@@ -2839,7 +2915,7 @@ const cmpHist = createCompareView({
 // ============================================================
 let scatterChart = null;
 function renderScatterChart() {
-  const typeColors = { BOX: '#4fc3f7', ETB: '#81c784', BUNDLE: '#f5c842' };
+  const typeColors = { BOX: COLOR.blue, ETB: COLOR.green, BUNDLE: COLOR.gold };
   const pool = visibleProducts();
   // Global type filter: show only the active type's series (all three when ALL).
   const types = activeType === 'ALL' ? ['BOX', 'ETB', 'BUNDLE'] : [activeType];
@@ -2879,7 +2955,7 @@ function renderScatterChart() {
     options: {
       responsive: true,
       plugins: {
-        legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 10 } },
+        legend: { labels: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, boxWidth: 10 } },
         tooltip: {
           callbacks: {
             label: ctx => {
@@ -2891,8 +2967,8 @@ function renderScatterChart() {
         }
       },
       scales: {
-        x: { title: { display: true, text: 'Age (years)', color: '#6b6f85', font: { family: 'DM Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
-        y: { title: { display: true, text: 'SV / Booster (× booster cost)', color: '#6b6f85', font: { family: 'DM Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } }
+        x: { title: { display: true, text: 'Age (years)', color: COLOR.axis, font: { family: 'DM Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } },
+        y: { title: { display: true, text: 'SV / Booster (× booster cost)', color: COLOR.axis, font: { family: 'DM Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } }
       }
     }
   });
@@ -2928,8 +3004,8 @@ function svbYScale() {
   return {
     y: {
       grid: { color: 'rgba(255,255,255,0.05)' },
-      ticks: { color: '#8b8fa3', font: { family: 'DM Mono', size: 10 }, callback: v => v.toFixed(0) + '×' },
-      title: { display: true, text: 'SV / Booster (× booster cost)', color: '#8b8fa3', font: { family: 'DM Mono', size: 9 } }
+      ticks: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, callback: v => v.toFixed(0) + '×' },
+      title: { display: true, text: 'SV / Booster (× booster cost)', color: COLOR.muted, font: { family: 'DM Mono', size: 9 } }
     }
   };
 }
@@ -3518,13 +3594,13 @@ function renderPortfolioValueChart() {
         {
           label: 'Portfolio value',
           data: values,
-          borderColor: '#5cc7f2', backgroundColor: 'rgba(92,199,242,0.10)',
-          tension: 0.4, pointRadius: 3, pointBackgroundColor: '#5cc7f2', borderWidth: 2, fill: true,
+          borderColor: COLOR.blue, backgroundColor: alpha(COLOR.blue, 0.10),
+          tension: 0.4, pointRadius: 3, pointBackgroundColor: COLOR.blue, borderWidth: 2, fill: true,
         },
         {
           label: 'Cost basis',
           data: costLine,
-          borderColor: '#8b8fa3', borderDash: [5, 4], borderWidth: 1.5,
+          borderColor: COLOR.muted, borderDash: [5, 4], borderWidth: 1.5,
           pointRadius: 0, fill: false,
         },
       ],
@@ -3533,7 +3609,7 @@ function renderPortfolioValueChart() {
       responsive: true,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
+        legend: { labels: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
         tooltip: { callbacks: {
           label: ctx => ` ${ctx.dataset.label}: ${money(ctx.parsed.y / rate)}`,
           afterBody: items => {
@@ -3547,10 +3623,10 @@ function renderPortfolioValueChart() {
         } },
       },
       scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } },
         y: {
           grid: { color: 'rgba(255,255,255,0.05)' },
-          ticks: { color: '#8b8fa3', font: { family: 'DM Mono', size: 10 }, callback: v => money(v / rate) },
+          ticks: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, callback: v => money(v / rate) },
         },
       },
     },
@@ -4090,8 +4166,8 @@ function updateScenario() {
   // Signal — the bucket comes from scenarioOutcome; only presentation here.
   const SIGNAL_UI = {
     'strong-buy': { text: '🟢 Strong Buy — excellent score at this price',    color: 'var(--accent4)', border: 'rgba(129,199,132,0.3)' },
-    'watch':      { text: '🟡 Watch — decent value, monitor for further drops', color: 'var(--accent)',  border: 'rgba(245,200,66,0.3)' },
-    'neutral':    { text: '🔵 Neutral — average value at this price point',   color: 'var(--accent3)', border: 'rgba(79,195,247,0.3)' },
+    'watch':      { text: '🟡 Watch — decent value, monitor for further drops', color: 'var(--accent)',  border: alpha(COLOR.gold, 0.3) },
+    'neutral':    { text: '🔵 Neutral — average value at this price point',   color: 'var(--accent3)', border: alpha(COLOR.blue, 0.3) },
     'avoid':      { text: '🔴 Avoid — low value relative to cost',            color: 'var(--accent2)', border: 'rgba(232,71,63,0.3)' },
   };
   const sig = document.getElementById('out-signal');
@@ -4353,15 +4429,15 @@ function renderEntryTable() {
               <a href="${url}" target="_blank" rel="noopener noreferrer"
                 title="Open link in new tab&#10;${url}"
                 class="url-link-btn"
-                style="color:var(--accent3); font-size:1rem; text-decoration:none; line-height:1; cursor:pointer;">🔗</a>
+                style="color:var(--accent3); font-size: var(--display-xs); text-decoration:none; line-height:1; cursor:pointer;">🔗</a>
               <button class="url-edit-btn" type="button" data-product="${p.name}"
                 title="Edit link" aria-label="Edit the Cardmarket link for ${p.name}"
-                style="background:none; border:none; color:var(--muted); font-size:0.75rem;
+                style="background:none; border:none; color:var(--muted); font-size: var(--text-md);
                        cursor:pointer; line-height:1; padding:2px; border-radius:4px; transition:color 0.15s;">✎</button>
             </div>`
           : `<button class="url-edit-btn" type="button" data-product="${p.name}"
               title="Add Cardmarket link" aria-label="Add a Cardmarket link for ${p.name}"
-              style="background:none; border:none; color:var(--muted); font-size:0.75rem;
+              style="background:none; border:none; color:var(--muted); font-size: var(--text-md);
                      cursor:pointer; font-family:'DM Mono',monospace; padding:2px 4px;
                      border-radius:4px; transition:color 0.15s;">+ link</button>`}
       </td>
@@ -4458,14 +4534,14 @@ function openUrlEditor(productName) {
       <input class="entry-input url-inline-input" type="url" aria-label="Cardmarket URL"
         value="${current}"
         placeholder="https://www.cardmarket.com/..."
-        style="font-size:0.72rem; padding:4px 6px; min-width:0; flex:1;">
+        style="font-size: var(--text-sm); padding:4px 6px; min-width:0; flex:1;">
       <button class="url-save-btn" title="Save"
         style="background:var(--accent); border:none; border-radius:4px;
-               color:#000; font-size:0.75rem; padding:4px 8px; cursor:pointer;
+               color:#000; font-size: var(--text-md); padding:4px 8px; cursor:pointer;
                font-family:'DM Mono',monospace; white-space:nowrap;">✓</button>
       <button class="url-cancel-btn" title="Cancel"
         style="background:none; border:1px solid var(--border); border-radius:4px;
-               color:var(--muted); font-size:0.75rem; padding:4px 6px; cursor:pointer;">✕</button>
+               color:var(--muted); font-size: var(--text-md); padding:4px 6px; cursor:pointer;">✕</button>
     </div>
   `;
 
@@ -4866,8 +4942,8 @@ function renderDrillPriceChart(p) {
 
   const datasets = [{
     label: 'Price (€)', data: priceData, spanGaps: true,
-    borderColor: '#f5c842', backgroundColor: 'rgba(245,200,66,0.06)',
-    tension: 0.35, pointRadius: 3, pointBackgroundColor: '#f5c842', fill: false, order: 0,
+    borderColor: COLOR.gold, backgroundColor: alpha(COLOR.gold, 0.06),
+    tension: 0.35, pointRadius: 3, pointBackgroundColor: COLOR.gold, fill: false, order: 0,
   }];
   if (fair != null) {
     datasets.push(
@@ -4885,13 +4961,13 @@ function renderDrillPriceChart(p) {
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: { labels: { color: '#aaa', font: { family: 'DM Mono', size: 10 }, boxWidth: 12,
+        legend: { labels: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, boxWidth: 12,
           filter: item => !item.text.startsWith('__') } },
         tooltip: { callbacks: { label: ctx => ctx.dataset.label.startsWith('__') ? null : ` ${ctx.dataset.label}: €${ctx.parsed.y.toLocaleString('de-DE')}` } },
       },
       scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
-        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') } },
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') } },
       },
     },
   });
@@ -4910,15 +4986,15 @@ function renderDrillSvbChart(p) {
     type: 'line',
     data: { labels: histDates, datasets: [{
       label: 'SV / Booster', data, spanGaps: true,
-      borderColor: '#4fc3f7', backgroundColor: 'rgba(79,195,247,0.06)',
-      tension: 0.35, pointRadius: 3, pointBackgroundColor: '#4fc3f7', fill: true,
+      borderColor: COLOR.blue, backgroundColor: alpha(COLOR.blue, 0.06),
+      tension: 0.35, pointRadius: 3, pointBackgroundColor: COLOR.blue, fill: true,
     }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(1)}× booster cost` } } },
       scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 } } },
-        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6f85', font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } },
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } },
       },
     },
   });
@@ -5103,17 +5179,17 @@ if (typeof Chart === 'undefined' || typeof XLSX === 'undefined') {
   if (typeof XLSX === 'undefined') missingLibs.push('SheetJS (xlsx)');
   document.body.insertAdjacentHTML('afterbegin',
     '<div role="alert" style="position:fixed;inset:0;z-index:9999;display:flex;' +
-    'align-items:center;justify-content:center;padding:24px;background:#0a0b0f;' +
-    'color:#f0f1f5;font-family:sans-serif;text-align:center;">' +
-    '<div style="max-width:32rem;"><h1 style="color:#f4c651;font-size:1.4rem;margin-bottom:12px;">' +
-    'Couldn’t load a required library</h1><p style="line-height:1.6;color:#b9bccb;">' +
+    'align-items:center;justify-content:center;padding:24px;background:var(--bg);' +
+    'color:var(--text);font-family:sans-serif;text-align:center;">' +
+    '<div style="max-width:32rem;"><h1 style="color:#f4c651;font-size: var(--display-md);margin-bottom:12px;">' +
+    'Couldn’t load a required library</h1><p style="line-height:1.6;color:var(--muted);">' +
     'This dashboard needs ' + missingLibs.join(' and ') + ', which load from a CDN. ' +
     'The request was blocked or failed — check your connection or any ad/script blocker, then reload.' +
     '</p></div></div>');
   throw new Error('Required libraries failed to load: ' + missingLibs.join(', '));
 }
 
-Chart.defaults.color = '#6b6f85';
+Chart.defaults.color = COLOR.axis;
 Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
 
 recomputeScores(products, ageThreshold); // apply the default age threshold to the initial data

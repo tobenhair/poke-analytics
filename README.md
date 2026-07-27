@@ -129,6 +129,8 @@ docs/architecture.mmd    …and the Mermaid source it is rendered from
 scripts/validate-workbook.mjs  Checks the workbook matches the required format
                          (plus advisory data-quality warnings)
 scripts/check-dead-code.mjs    Flags unused CSS rules, element IDs and functions
+scripts/check-design-tokens.mjs  Flags colours and font sizes that bypass the
+                         design tokens (the drift a reviewer can't see)
 scripts/gen-scale-fixture.mjs  Generates a large, contract-valid workbook for
                          performance measurement (deterministic, dev-only)
 scripts/measure-scale.mjs      Measures the board and charts at catalogue scale
@@ -167,6 +169,7 @@ npm install          # one-time: installs the dev dependencies
 npm run test:unit       # the scoring/metrics math (metrics.js) + cross-file invariants
 npm run validate        # validate pokemon_data.xlsx against the required format
 npm run check:dead-code # unused CSS rules, element IDs and functions in index.html
+npm run check:design-tokens  # colours/font sizes that bypass the design tokens
 npm run test:e2e        # browser tests: static smoke, signed-in surface, accessibility
 npm test                # all of the above
 ```

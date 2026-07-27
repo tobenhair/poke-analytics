@@ -22,11 +22,31 @@ justify it or drop it.
 **CSS variables (`:root`)** — never hard-code values these cover:
 `--bg`, `--bg3`, `--card`, `--text`, `--muted`, `--accent` (gold),
 `--accent2` (red/negative), `--accent3` (blue), `--accent4` (green/positive),
-`--hairline`, `--border`, `--radius`, `--elev`, `--ease`. Colour meaning is
-fixed: gold = primary/emphasis, green = good/positive, red = poor/negative,
-blue = neutral/secondary. Don't introduce new hues.
+`--hairline`, `--border`, `--elev`, `--ease`; the gold gradient ends
+`--accent-hi`/`--accent-lo` and the near-blacks that sit *on* them
+(`--on-accent`, `--on-accent4`); `--chart-axis` for chart chrome; the medals
+(`--medal-silver`, `--medal-bronze`). Colour meaning is fixed: gold =
+primary/emphasis, green = good/positive, red = poor/negative, blue =
+neutral/secondary. Don't introduce new hues.
 
-**Type** — three fonts only:
+**Type scale** — 11 steps, `--text-2xs · --text-xs · --text-sm · --text-md ·
+--text-lg · --text-xl · --display-xs · --display-sm · --display-md ·
+--display-lg · --display-xl`. Never write a raw `font-size`; pick the nearest
+step. (The build once carried 36 sizes, most of them 0.16px apart.)
+
+**Radii** — `--radius-pill` (999px, by far the most used), `--radius-sm` (8px,
+inputs and small surfaces), `--radius` (18px, the panel corner).
+
+**Charts use the same tokens.** The JS resolves them once into `COLOR`
+(`.gold/.red/.blue/.green/.muted/.axis`) and derives fills with `alpha(hue, a)`
+so a fill can't drift from its line. Never type a colour into a chart config —
+that is exactly how the app grew a second palette.
+
+**`npm run check:design-tokens` enforces the two above** and fails on any hex
+outside `:root` or any raw `font-size`. A genuine exception goes in its
+`ALLOWED_COLOURS` map *with a written reason*.
+
+**Fonts** — three only:
 - `Bebas Neue` — display headings (`h1`, `.panel-title`).
 - `DM Mono` — labels, figures, eyebrows, badges, anything numeric/technical.
 - `DM Sans` — body copy.

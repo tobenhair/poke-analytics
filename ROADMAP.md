@@ -294,6 +294,35 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   *after* the inline `INIT` block are in the temporal dead zone when INIT calls
   into them, which silently took out the rest of INIT's wiring — the block now
   sits above INIT with a comment saying why.
+- **The visual system reconciled with itself.** Four fixes from
+  [`docs/visual-design-review.md`](docs/visual-design-review.md), bundled because
+  they touch the same surface. **V1, the palette:** the charts carried a *second*
+  set of colours hard-coded in JS — `#4fc3f7`/`#81c784`/`#f5c842`/`#e8473f`,
+  near-duplicates of `--accent3`/`--accent4`/`--accent`/`--accent2` — so a BOX
+  badge and its own chart series were two different blues on one screen. The JS
+  now resolves the tokens at runtime (`COLOR`, read once from `:root`), and an
+  `alpha()` helper derives every chart fill from the same hue, so a fill can't
+  drift from the line it belongs to. **30 further re-typed literals went with
+  it** (`#8b8fa3` was `--muted`, `#f4c651` was `--accent`, and so on), and the
+  values that genuinely had no token got one: `--chart-axis`, `--accent-hi`,
+  `--accent-lo`, `--on-accent`, `--on-accent4`, `--medal-silver`,
+  `--medal-bronze`. **V2, the type scale:** **171 declarations across 36 sizes**,
+  mostly fractional (12.16, 13.12, 11.84 px …), because `rem` values were chosen
+  one at a time. Eleven named steps now (`--text-2xs` … `--display-xl`), picked
+  from the sizes actually doing work, with everything mapped to its nearest —
+  **32 rendered sizes → 11**, and no shift larger than 0.48 px anywhere in the
+  body range. **V5:** one `input, select, textarea, button { font: inherit }`
+  rule removed **Arial**, the fourth family in a three-font system. **V4:** the
+  radius tokens now describe the build — `--radius-pill` (233 uses) and
+  `--radius-sm` alongside the `--radius` panel corner, which was documenting the
+  *third* most-used value. And the thing that makes it stick: **`npm run
+  check:design-tokens`** (`scripts/check-design-tokens.mjs`, in `npm test` and
+  its own CI job), the guard the review itself recommended — it fails on any hex
+  literal outside `:root` and any `font-size` that isn't a scale step, with an
+  allowlist where every exception carries a written reason. Verified against
+  planted violations, not just observed to pass; it only ever reports, like the
+  dead-code checker. Also fixed on the way: a race in the smoke test, which
+  measured the drill-down's canvas before Chart.js had sized it.
 
 ## Now — trustworthy numbers (stability & quality)
 
@@ -319,30 +348,12 @@ The order below is the one the **expert UX & accessibility review** recommended
 earlier journey pass in [`docs/ux-assessment.md`](docs/ux-assessment.md) and
 corrects two of its findings). **Accessibility came first and has shipped** —
 see *Done* — along with the three phone/reflow defects that preceded it. What
-remains is the comprehension and visual-consistency work, now led by the
-**chart palette fix** — the highest value-per-effort item the visual review
-found. Every accessibility finding from the expert review is closed, and the
-measured density problem is addressed.
+remains is the comprehension work, now led by **bringing the Welcome tab onto
+the app's own section pattern**. Every accessibility finding from the expert
+review is closed, the measured density problem is addressed, and the visual
+system's token/scale drift is reconciled and now guarded by
+`npm run check:design-tokens`.
 
-- **Fix — unify the chart palette with the design tokens.** The charts and
-  scoring helpers hard-code their own colours in JS — `#4fc3f7`, `#81c784`,
-  `#f5c842`, `#e8473f` — which are *near-duplicates* of `--accent3`, `--accent4`,
-  `--accent`, `--accent2`. They appear side by side on one screen (a BOX badge is
-  `#5cc7f2`; the same product's chart series is `#4fc3f7`), close enough to read
-  as a rendering bug. Four string literals; the highest value-per-effort fix in
-  the visual review.
-- **Fix — name a type scale.** **29 distinct font sizes** render across three
-  tabs, mostly fractional (12.48, 13.28, 11.52 px …) because `rem` values were
-  chosen individually rather than from a scale, and **75 are set inline**. Pick
-  the ~7 doing real work, name them, map the rest onto the nearest step —
-  visually near-invisible, permanently cheaper. See
-  [`docs/visual-design-review.md`](docs/visual-design-review.md) V2.
-- **Fix — `font: inherit` on native form controls.** Inputs, selects and buttons
-  don't inherit `font-family`, so five controls render in **Arial** — a fourth
-  font family in a three-font system. One CSS rule.
-- **Fix — make the radius tokens describe reality.** `--radius: 18px` is only the
-  *third* most-used radius (20 uses) behind `999px` (242) and `8px` (75), across
-  9 distinct values. Split into pill/base/large and retire the strays.
 - **Fix — bring the Welcome tab onto the app's own section pattern**, and stop
   using accent colours as decoration there. Welcome uses no `.section-eyebrow`
   while Analysis and Portfolio use it throughout, and its card titles are blue
