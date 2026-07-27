@@ -61,6 +61,8 @@ blue = neutral/secondary. Don't introduce new hues.
   - Every control needs a **≥24×24 hit area** (WCAG 2.5.8). Where the layout
     can't grow, add `padding` and cancel it with an equal negative `margin`
     (see `.row-open`).
+- A new Analysis/Portfolio section's `.section-desc` is picked up automatically
+  by `initSectionDescriptions()` — write the explainer, don't add a toggle.
 - Narrow screens are part of the design, not an afterthought: a new board
   column has to declare whether it is `.col-detail` (dropped below 680px, where
   the board keeps only product · price · fair price), and a chart whose height

@@ -152,6 +152,29 @@ future change should preserve:
   explainer no longer promises it. Sorting is `#sort-select`. If you add header
   sorting, restore both affordances with it.
 
+### Collapsible explainers
+
+`initSectionDescriptions()` gives every `.section-desc`/`.kpi-intro` on the
+Analysis and Portfolio tabs a toggle, plus one global control
+(`#desc-toggle-all`) in the Analysis header. Things that are load-bearing:
+
+- **The text is hidden (`hidden`), never removed** — a first-time visitor and a
+  screen reader must still be able to read it.
+- **The toggle is `.inline` (inside the `<p>`) when expanded** and moves out
+  when collapsed. This is not decoration: 14 buttons on their own rows added
+  ~550px to the page, which is exactly the cost the feature exists to remove.
+  Move the button *before* hiding the paragraph — one still inside it would
+  vanish with it.
+- **Default is collapsed below 640px, open above**, and the choice persists in
+  `localStorage` under `sta-desc-collapsed` as an array of positional ids
+  (`desc-0`…). Positional means inserting a section mid-page shifts the ids
+  after it; the worst case is a remembered choice landing on a neighbour once.
+- **The block must stay above the `INIT` block.** INIT runs inline at module
+  evaluation and calls `initSectionDescriptions()`; module-level `const`s
+  declared below INIT are in the temporal dead zone at that point, and the throw
+  takes the rest of INIT's wiring with it. The smoke test catches this — it
+  showed up as the drill-down not opening.
+
 A separate script near the end of `<body>` drives **reveal-on-scroll animations** via IntersectionObserver (`.rv` → `.rv-in`), replayed when a tab becomes active. It is a progressive enhancement — if IntersectionObserver is unavailable, nothing is hidden.
 
 ## Design consistency (required)

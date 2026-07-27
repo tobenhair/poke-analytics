@@ -16,6 +16,14 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 - **Monthly data entry** — punch in the latest prices, add new releases, attach Cardmarket links, and export an updated `.xlsx` ready to commit back to the repo.
 - **With cloud sync enabled** (optional, see below): a private **portfolio** with unrealised P&L, concentration balancing and a value-over-time chart, plus **price alerts** on a fixed € target or on the fair price.
 
+### Reading it your way
+
+Every numbered section carries a short explainer. Once you know the page they're
+just scroll, so each one can be collapsed — and **Hide explanations** in the
+header does the lot. The choice is remembered on your device, and on a phone
+they start collapsed (that prose is 17.7% of the page). Nothing is deleted:
+expand any section to read it again.
+
 ### On a phone
 
 The board shows **product · price · fair price** on a narrow screen, with the

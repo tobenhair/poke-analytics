@@ -37,12 +37,12 @@ are kept further down rather than deleted: **2b. Board performance fixes**
 (measured, deliberately dormant until ~200 products) and **1. Backup & restore**
 (deferred by maintainer decision). Both UX passes have run
 (`docs/ux-assessment.md`, then the authoritative `docs/ux-expert-review.md`);
-the defects they found are fixed and ROADMAP's *Known bugs* is empty. **Items 10 (Accessibility)
-and 8 (Mobile optimisation) have shipped** — their plans are deleted per the
-rule below, and what they built is documented in `CLAUDE.md` → *Accessibility
-structure* and *The board on a phone*. The next planned work is **item 7,
-collapsible section descriptions**, immediately below — the density lever the
-mobile pass identified but deliberately left unpulled.
+the defects they found are fixed and ROADMAP's *Known bugs* is empty. **Items 10 (Accessibility), 8
+(Mobile optimisation) and 7 (Collapsible section descriptions) have shipped** —
+their plans are deleted per the rule below, and what they built is documented in
+`CLAUDE.md` → *Accessibility structure*, *The board on a phone* and *Collapsible
+explainers*. The remaining items in this theme are the visual-consistency fixes
+from `docs/visual-design-review.md` and the larger restructure work below.
 
 ## THEN — design & usability
 
@@ -52,21 +52,6 @@ Accessibility and mobile optimisation have both shipped, and with them every
 accessibility finding the review raised (F8 included). Section numbers are
 stable cross-reference labels — reading order is the priority, not the
 numbering.
-
-### 7. Collapsible section descriptions
-
-Each `.section-desc` gets a per-section show/hide toggle plus one global
-"hide descriptions" control; collapsed state = a small "ⓘ" affordance.
-Persist per-user in `localStorage` (key e.g. `sta-desc-collapsed`), default
-collapsed on small screens (`matchMedia('(max-width: 640px)')`), expanded on
-desktop. Text stays in the DOM (`hidden` attribute or class, not removal) for
-screen readers and first-timers. Set `aria-expanded` on the toggle. Keep the
-`hidden` text out of the a11y sweep's way — `tests/a11y.spec.mjs` will fail if a
-toggle has no accessible name. Measured target (390×780, after the mobile pass):
-Analysis is 10.7 screenfuls with the first product row at y = 2,436 and 1,478 px
-(17.7 %) of explainer prose; collapsing by default on a phone should take about
-1.9 screenfuls out. *Size: S. Item 8 (mobile) has shipped and left this as the
-remaining density lever.*
 
 ### 6. Overview-first restructure
 

@@ -271,6 +271,26 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   a phone scroll for 37 rows, but the cap is what keeps the sticky header useful;
   removing it adds ~2,300 px to the page. Revisit with the overview-first
   restructure, which changes what the board is for.
+- **Collapsible section explainers — the density lever, pulled.** The 14
+  `.section-desc`/`.kpi-intro` blocks measured **1,478 px, 17.7 % of the phone
+  page** — roughly 1.9 screenfuls of prose to scroll past on every visit after
+  the first. Each now carries a toggle, with one control in the Analysis header
+  that does all of them, and the choice persists in `localStorage`. The text is
+  **hidden, never removed**, so a first-time visitor and a screen reader still
+  reach it. Default: collapsed below 640 px, open above — the width where the
+  prose stops being affordable. Result on a phone: **10.7 → 9.4 screenfuls**,
+  with the first product row **473 px closer** (y = 2,436 → 1,963); on desktop a
+  reader who hides them goes from 8.4 to 7.5 screenfuls and the first row from
+  y = 1,673 to 1,354. The design detail that made it worth doing: the toggle
+  **rides at the end of the explainer's last line** when expanded rather than
+  taking a row of its own — 14 buttons on their own rows added ~550 px to the
+  page, which is the very thing the item exists to remove. Guarded by a case in
+  `tests/a11y.spec.mjs` (collapsed-by-default on a phone, open on desktop, per-
+  section and global toggles, persistence across a reload). Also caught here, by
+  the smoke test rather than by inspection: module-level `const`s declared
+  *after* the inline `INIT` block are in the temporal dead zone when INIT calls
+  into them, which silently took out the rest of INIT's wiring — the block now
+  sits above INIT with a comment saying why.
 
 ## Now — trustworthy numbers (stability & quality)
 
@@ -296,24 +316,11 @@ The order below is the one the **expert UX & accessibility review** recommended
 earlier journey pass in [`docs/ux-assessment.md`](docs/ux-assessment.md) and
 corrects two of its findings). **Accessibility came first and has shipped** —
 see *Done* — along with the three phone/reflow defects that preceded it. What
-remains is the density and comprehension work, now led by **collapsible section
-descriptions** — the lever the mobile pass identified but did not pull. Every
-accessibility finding from the expert review is now closed.
+remains is the comprehension and visual-consistency work, now led by the
+**chart palette fix** — the highest value-per-effort item the visual review
+found. Every accessibility finding from the expert review is closed, and the
+measured density problem is addressed.
 
-- **Collapsible section descriptions — now the top of this theme.** Every
-  Analysis section carries a `.section-desc` explainer — invaluable on first
-  read, pure scroll once you know the page, and on mobile the nine of them
-  dominate the viewport before a single number is visible. Re-measured during
-  the mobile pass (390×780, after it): the Analysis tab is **10.7 screenfuls**,
-  the first product row sits at **y = 2,436**, and the explainers are
-  **1,478 px — 17.7 % of the page**, or about 1.9 screenfuls of prose to scroll
-  past before the board. That is the single biggest remaining phone cost, and
-  this item is the lever for it. Add a show/hide toggle (per-section and a global
-  "hide descriptions") that collapses each to a tappable "ⓘ" affordance and
-  remembers the choice (localStorage), so a returning user isn't scrolling past
-  prose every visit. The text stays in the DOM for first-timers and screen
-  readers; it just starts collapsed on small screens. Important for mobile
-  specifically, useful everywhere.
 - **Fix — unify the chart palette with the design tokens.** The charts and
   scoring helpers hard-code their own colours in JS — `#4fc3f7`, `#81c784`,
   `#f5c842`, `#e8473f` — which are *near-duplicates* of `--accent3`, `--accent4`,

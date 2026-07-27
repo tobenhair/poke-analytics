@@ -340,6 +340,56 @@ test('the Top-10 bar chart keeps a label per bar at phone width', async ({ page 
   expect(h, 'ten labelled rows need ~26px each').toBeGreaterThanOrEqual(240);
 });
 
+test('section explainers collapse on a phone, stay open on desktop, and remember the choice', async ({ page }) => {
+  // Measured at 1,478px — 17.7% of the phone page — of prose before the board.
+  // The text is hidden, never removed, so it stays reachable for a first-time
+  // visitor and a screen reader.
+  await page.setViewportSize({ width: 390, height: 800 });
+  await bootStatic(page);
+  await openTab(page, 'analysis');
+
+  const shown = () => page.evaluate(() =>
+    [...document.querySelectorAll('#tab-analysis .section-desc, #tab-analysis .kpi-intro')].filter((d) => !d.hidden).length);
+  const firstToggle = page.locator('#tab-analysis .desc-toggle').first();
+
+  expect(await shown(), 'explainers start collapsed on a phone').toBe(0);
+  await expect(page.locator('#tab-analysis .section-desc').first()).toBeAttached();  // hidden, not removed
+  await expect(firstToggle).toHaveAttribute('aria-expanded', 'false');
+
+  // One section can be opened on its own…
+  await firstToggle.click();
+  expect(await shown()).toBe(1);
+  await expect(firstToggle).toHaveAttribute('aria-expanded', 'true');
+
+  // …and with one open, the global control reads "Hide" and means it.
+  await expect(page.locator('#desc-toggle-all')).toHaveText('Hide explanations');
+  await page.locator('#desc-toggle-all').click();
+  expect(await shown(), 'the global control hides every explainer').toBe(0);
+
+  // From all-collapsed it shows every one.
+  await expect(page.locator('#desc-toggle-all')).toHaveText('Show explanations');
+  await page.locator('#desc-toggle-all').click();
+  expect(await shown()).toBe(10);
+
+  // The choice survives a reload — the whole point of persisting it.
+  await page.reload();
+  await expect(page.locator('#product-tbody tr').first()).toBeAttached();
+  await openTab(page, 'analysis');
+  expect(await shown(), 'expanded state should persist').toBe(10);
+
+  // Desktop starts expanded regardless (nothing stored for a new visitor).
+  const fresh = await page.context().newPage();
+  await fresh.setViewportSize({ width: 1280, height: 900 });
+  await routeLocalLibs(fresh);
+  await forceStaticMode(fresh);
+  await fresh.goto('/?admin=1');
+  await expect(fresh.locator('#product-tbody tr').first()).toBeAttached();
+  const desktopShown = await fresh.evaluate(() =>
+    [...document.querySelectorAll('#tab-analysis .section-desc, #tab-analysis .kpi-intro')].filter((d) => !d.hidden).length);
+  expect(desktopShown, 'desktop keeps the explainers open by default').toBe(10);
+  await fresh.close();
+});
+
 test('the signed-in surface (portfolio + demo page) has no serious or critical violations', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', (err) => pageErrors.push(err.message));

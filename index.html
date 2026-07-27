@@ -471,6 +471,37 @@
   .section-desc .up { color: var(--accent4); }
   .section-desc .down { color: var(--accent2); }
   .kpi-intro { max-width: 68ch; margin: -14px 0 22px 2px; color: var(--muted); font-size: 0.83rem; line-height: 1.65; }
+
+  /* ── Collapsible explainers ──
+     The 14 .section-desc / .kpi-intro blocks measure 1,478px on a phone —
+     17.7% of the Analysis page, about 1.9 screenfuls of prose to scroll past
+     on every visit after the first. The text is never removed, only hidden,
+     so first-timers and screen readers still reach it; this toggle is what
+     keeps it discoverable once collapsed. Built at runtime — see
+     initSectionDescriptions(). */
+  .desc-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 24px;
+    padding: 2px 0;
+    margin: 0 0 20px 2px;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: color 0.2s var(--ease);
+  }
+  .desc-toggle:hover { color: var(--accent); }
+  /* Riding at the end of the explainer's last line rather than on a row of
+     its own — see initSectionDescriptions(). */
+  .desc-toggle.inline { margin: 0 0 0 10px; vertical-align: baseline; }
+  .desc-toggle .mark { font-size: 0.8rem; line-height: 1; }
+  /* When the text is showing, it owns the gap to the section below it. */
+  .section-desc.has-toggle, .kpi-intro.has-toggle { margin-bottom: 4px; }
   .kpi-intro strong { color: var(--text); font-weight: 500; }
   .kpi-intro em { font-style: normal; color: var(--text); opacity: 0.9; }
 
@@ -1585,6 +1616,7 @@
   <!-- Data status line — cloud load / save messages, plus the format guide -->
   <div class="fade-in" style="display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:10px; margin-bottom:20px; min-height:1px; animation-delay:0.02s;">
     <span id="analysis-status" class="status-pill" role="status" style="display:none"></span>
+    <button class="guide-btn" id="desc-toggle-all" type="button" aria-pressed="false">Hide explanations</button>
     <button class="guide-btn admin-only" id="guide-btn">📋 Format Guide</button>
   </div>
 
@@ -4906,6 +4938,131 @@ function renderDrillHolding(p) {
 }
 
 // ============================================================
+// COLLAPSIBLE SECTION EXPLAINERS
+// ============================================================
+// Every analysis section carries a .section-desc explaining what it shows —
+// invaluable on first read, pure scroll cost forever after. Measured on a
+// phone: 1,478px, 17.7% of the page, ~1.9 screenfuls before the board.
+//
+// The text is only ever *hidden*, never removed, so a first-time visitor and a
+// screen reader can still get to it; each block gains a toggle, and one control
+// in the header does all of them at once. The choice persists in localStorage.
+//
+// Toggles are built here rather than written into the markup: there are 14
+// blocks and the button is pure chrome, so generating it keeps the HTML about
+// the content. The class names are written as literals below, so the dead-code
+// checker still sees them — no CONSTRUCTED allowlist entry needed.
+// Declared above INIT on purpose: INIT runs inline at module evaluation and
+// calls initSectionDescriptions(), so these module-level consts must already
+// be initialised — below INIT they are in the temporal dead zone and the call
+// throws, taking the rest of INIT's wiring with it.
+const DESC_KEY = 'sta-desc-collapsed';
+const DESC_SEL = '#tab-analysis .section-desc, #tab-analysis .kpi-intro, #tab-portfolio .section-desc';
+// Below this width the explainers start collapsed for a first-time visitor —
+// it is where their share of the page stops being affordable.
+const DESC_COLLAPSE_BELOW = '(max-width: 640px)';
+
+// Section ids are positional (desc-0, desc-1, …). The blocks are static markup,
+// so the order is stable between loads; inserting a new section mid-page shifts
+// the ids after it, which at worst means a remembered choice lands on the
+// neighbouring section once.
+const descId = i => 'desc-' + i;
+
+function readCollapsedDescs() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(DESC_KEY) || 'null');
+    return Array.isArray(raw) ? new Set(raw) : null;   // null = nothing stored yet
+  } catch {
+    return null;   // private mode / corrupt value — fall back to the default
+  }
+}
+
+function saveCollapsedDescs(set) {
+  try { localStorage.setItem(DESC_KEY, JSON.stringify([...set])); } catch { /* non-fatal */ }
+}
+
+// The section this block explains, for the toggle's accessible name — the
+// eyebrow immediately above it, if there is one.
+function descSectionName(desc) {
+  let prev = desc.previousElementSibling;
+  for (let hops = 0; prev && hops < 2; hops++, prev = prev.previousElementSibling) {
+    if (prev.classList.contains('section-eyebrow')) return prev.textContent.trim();
+  }
+  return '';
+}
+
+function initSectionDescriptions() {
+  const descs = [...document.querySelectorAll(DESC_SEL)];
+  if (!descs.length) return;
+  const descToggles = [];
+
+  const stored = readCollapsedDescs();
+  const collapsed = stored
+    ? stored
+    : new Set(window.matchMedia(DESC_COLLAPSE_BELOW).matches ? descs.map((_, i) => descId(i)) : []);
+
+  const allBtn = document.getElementById('desc-toggle-all');
+
+  function paint() {
+    descs.forEach((desc, i) => {
+      const id = descId(i);
+      const isOpen = !collapsed.has(id);
+      const btn = descToggles[i];
+      // Expanded, the toggle rides at the end of the paragraph's last line, so
+      // showing the text costs no extra height — a button on its own row for
+      // each of 14 blocks added ~550px to the page, which is the very thing
+      // this feature exists to remove. Collapsed, it moves out and becomes the
+      // ⓘ affordance standing in for the text. Move before hiding: a button
+      // still inside a hidden <p> would disappear with it.
+      if (isOpen) desc.append(btn); else desc.after(btn);
+      desc.hidden = !isOpen;
+      btn.classList.toggle('inline', isOpen);
+      btn.setAttribute('aria-expanded', String(isOpen));
+      // Visible text is the start of the accessible name (WCAG 2.5.3), with
+      // the section appended so 14 identical buttons stay tellable apart.
+      const label = isOpen ? 'Hide explanation' : 'What this section shows';
+      const section = descSectionName(desc);
+      btn.innerHTML = `<span class="mark" aria-hidden="true">${isOpen ? '−' : 'ⓘ'}</span>${label}`;
+      btn.setAttribute('aria-label', section ? `${label} — ${section}` : label);
+    });
+    if (allBtn) {
+      const allHidden = collapsed.size === descs.length;
+      allBtn.textContent = allHidden ? 'Show explanations' : 'Hide explanations';
+      allBtn.setAttribute('aria-pressed', String(allHidden));
+    }
+  }
+
+  descs.forEach((desc, i) => {
+    const id = descId(i);
+    desc.id = id;
+    desc.classList.add('has-toggle');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'desc-toggle';
+    btn.setAttribute('aria-controls', id);
+    descToggles.push(btn);
+    btn.addEventListener('click', () => {
+      if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id);
+      saveCollapsedDescs(collapsed);
+      paint();
+    });
+    desc.after(btn);
+  });
+
+  if (allBtn) {
+    allBtn.addEventListener('click', () => {
+      const allHidden = collapsed.size === descs.length;
+      collapsed.clear();
+      if (!allHidden) descs.forEach((_, i) => collapsed.add(descId(i)));
+      saveCollapsedDescs(collapsed);
+      paint();
+    });
+  }
+
+  paint();
+}
+
+// ============================================================
 // INIT
 // ============================================================
 // Guard: the app depends on Chart.js and SheetJS loading from their CDNs.
@@ -4947,6 +5104,7 @@ populateCurrencySelect();
 renderPortfolio();
 renderAlerts();
 updateLastUpdated();
+initSectionDescriptions();   // static markup — runs once, not on data reload
 document.getElementById('sv-slider').addEventListener('input', updateScenario);
 document.getElementById('price-slider').addEventListener('input', updateScenario);
 document.getElementById('scenario-reset').addEventListener('click', initScenario);
