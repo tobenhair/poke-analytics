@@ -10,11 +10,18 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 
 - **Answers "is this fairly priced?"** — a **fair price in euros** per product (the expected-value-for-age fit inverted, gated on the fit's R²) and a plain-language verdict on the board.
 - **Ranks every product** by an age-weighted value score so newer and older releases can be compared fairly.
-- **Surfaces buy signals** (💰) when a product's price drops while its set value holds steady — a possible mispricing.
+- **Surfaces buy signals** when a product's price drops while its set value holds steady — a possible mispricing.
 - **Charts price history, set-value-per-booster trends, and age-vs-value** across all tracked products, comparing either products or whole sets.
 - **Scenario explorer** — drag sliders for set value and price to see how the score would move.
 - **Monthly data entry** — punch in the latest prices, add new releases, attach Cardmarket links, and export an updated `.xlsx` ready to commit back to the repo.
 - **With cloud sync enabled** (optional, see below): a private **portfolio** with unrealised P&L, concentration balancing and a value-over-time chart, plus **price alerts** on a fixed € target or on the fair price.
+
+### Icons
+
+Navigation and state use a small **SVG icon set** drawn into the page, not
+emoji — so they look the same on every platform and take the colour of the text
+they sit with (the active tab's icon goes dark on gold; the buy-signal tag is
+gold because it marks a signal).
 
 ### Reading it your way
 
@@ -63,16 +70,16 @@ Two are always visible; two appear only with cloud sync enabled and signed in.
 
 | Tab | Shown | Purpose |
 | --- | --- | --- |
-| 👋 **Welcome** | always | Overview, glossary, and how the workflow fits together. |
-| 📊 **Analysis** | always | The decision view — ranked board with fair price and verdict, KPIs, price/value charts, buy signals, and the scenario explorer. |
-| 💼 **Portfolio** | signed in | Your private holdings and price alerts — unrealised P&L, concentration balancer, value over time. |
-| ✏️ **Data Entry** | admin only | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs, and export the updated workbook. |
+| **Welcome** | always | Overview, glossary, and how the workflow fits together. |
+| **Analysis** | always | The decision view — ranked board with fair price and verdict, KPIs, price/value charts, buy signals, and the scenario explorer. |
+| **Portfolio** | signed in | Your private holdings and price alerts — unrealised P&L, concentration balancer, value over time. |
+| **Data Entry** | admin only | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs, and export the updated workbook. |
 
 ## Monthly workflow
 
 1. Once a month, fetch the latest prices from Cardmarket.
 2. Enter them in the **Data Entry** tab (today's date is pre-filled as the snapshot label).
-3. Click **⬇ Export updated .xlsx** to download the refreshed workbook.
+3. Click **Export updated .xlsx** to download the refreshed workbook.
 4. Replace `pokemon_data.xlsx` in the repo and commit it — the next visit reflects the new data.
 
 Add new products at any time from the Data Entry tab; the product name must match exactly between both sheets.
@@ -103,7 +110,7 @@ frontend on GitHub Pages. This is off unless you fill in `SUPABASE_CONFIG` in
 
 `Product` (must match Summary exactly) · `Snapshot Date` (ISO `YYYY-MM-DD`) · `Price (€)` · `Set Value (€)`
 
-The in-app **File Format Guide** (the 📋 button on the **Analysis** tab) documents every field in detail.
+The in-app **File Format Guide** (the **Format Guide** button on the **Analysis** tab) documents every field in detail.
 
 ## Key concepts
 
@@ -112,7 +119,7 @@ The in-app **File Format Guide** (the 📋 button on the **Analysis** tab) docum
 - **SV / Booster** — Set Value ÷ Price/Booster. Reads as a value-for-money **×multiple** — how many times the price of a *single booster* the whole set is worth (e.g. `185×`), **not** a euro-per-pack amount. The core comparability metric; works across all product types.
 - **Age Weight** — 0–1 multiplier. Products under a year old are penalised; ≥3 years = 1.0.
 - **Wtd. Score** — SV / Booster × Age Weight. The headline ranking metric.
-- **Buy Signal (💰)** — flagged when price dropped ≥5% in the last snapshot while set value held within ±5%.
+- **Buy Signal** — flagged when price dropped ≥5% in the last snapshot while set value held within ±5%.
 
 ## Project layout
 
@@ -129,6 +136,8 @@ docs/architecture.mmd    …and the Mermaid source it is rendered from
 scripts/validate-workbook.mjs  Checks the workbook matches the required format
                          (plus advisory data-quality warnings)
 scripts/check-dead-code.mjs    Flags unused CSS rules, element IDs and functions
+scripts/check-design-tokens.mjs  Flags colours and font sizes that bypass the
+                         design tokens (the drift a reviewer can't see)
 scripts/gen-scale-fixture.mjs  Generates a large, contract-valid workbook for
                          performance measurement (deterministic, dev-only)
 scripts/measure-scale.mjs      Measures the board and charts at catalogue scale
@@ -167,6 +176,7 @@ npm install          # one-time: installs the dev dependencies
 npm run test:unit       # the scoring/metrics math (metrics.js) + cross-file invariants
 npm run validate        # validate pokemon_data.xlsx against the required format
 npm run check:dead-code # unused CSS rules, element IDs and functions in index.html
+npm run check:design-tokens  # colours/font sizes that bypass the design tokens
 npm run test:e2e        # browser tests: static smoke, signed-in surface, accessibility
 npm test                # all of the above
 ```

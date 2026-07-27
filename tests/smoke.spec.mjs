@@ -68,9 +68,12 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   await page.locator('#product-tbody tr').first().click();
   await expect(page.locator('#drill-modal')).toHaveClass(/open/);
   await expect(page.locator('#drill-stats .drill-stat')).toHaveCount(6);
-  const drillChart = await page.locator('#drill-price-chart').boundingBox();
-  expect(drillChart, 'drill price chart should render').not.toBeNull();
-  expect(drillChart.width).toBeGreaterThan(0);
+  // Poll: Chart.js sizes the canvas on a frame *after* the dialog becomes
+  // visible, so a single boundingBox() here can catch it at zero width.
+  await expect
+    .poll(async () => (await page.locator('#drill-price-chart').boundingBox())?.width ?? 0,
+          { message: 'drill price chart should render' })
+    .toBeGreaterThan(0);
   await page.keyboard.press('Escape');
   await expect(page.locator('#drill-modal')).not.toHaveClass(/open/);
 

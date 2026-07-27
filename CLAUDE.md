@@ -28,8 +28,17 @@ The app itself has no build/bundle step — it's still one static `index.html`. 
 - `npm run test:unit` — `node --test` unit tests (`tests/unit/`). `metrics.test.mjs` covers the pure metrics module `metrics.js` (scoring/derivation, the age fit + fair price + verdict, momentum/drawdown, peer residuals, trend/buy signals, scenario math, set roll-ups, portfolio helpers); `index.html` imports the *same* file, so these assertions guard the live page's numbers, not a copy. `repo-invariants.test.mjs` covers the other kind of failure — two files that must agree with nothing relating them: the admin UUID in `supabase/schema.sql`'s `is_admin()` vs `SUPABASE_CONFIG.adminUserId`, and the all-blank-or-all-filled rule for that config. No build step, no extra dependency. Rule: no derived number ships without a test here.
 - `npm run validate` — parses `pokemon_data.xlsx` and asserts the exact contract `parseXlsx()` + `deriveProducts()` enforce (sheet/column names, Types, dates, cross-references, usable latest price/set value). Catches the *silent* fallback-to-sample-data that a malformed workbook would otherwise cause. Keep `scripts/validate-workbook.mjs` in sync with `parseXlsx()`.
 - `npm run test:e2e` — the Playwright specs, no cloud credentials needed. `tests/smoke.spec.mjs` loads the real page over HTTP against the real workbook and asserts every tab renders without runtime errors (the automated backstop for bugs like a missed `recomputeScores()` before first render); it blanks `SUPABASE_CONFIG` at request time to force the static/xlsx path. `tests/signed-in.spec.mjs` covers the Supabase surface — the logged-out demo scope, auth-driven UI gating, the snapshot pivot, portfolio/alert auto-save payloads, the admin Data Entry → cloud-save loop, and the error beacon — by intercepting the SDK request and serving `tests/fake-supabase-sdk.js`, an in-memory stand-in that logs every write to `window.__sbWrites` for assertions (it proves the client's behaviour; the real RLS policies stay server-side in `supabase/schema.sql`). Both specs are fully hermetic: `tests/local-cdn.mjs` routes Chart.js/SheetJS to the `node_modules` copies and stubs Google Fonts, and it asserts the installed versions match the CDN tags in `index.html` — so a version bump on one side fails loudly instead of testing a library the page doesn't ship. (`scripts/measure-scale.mjs` uses the same helper; `forceStaticMode()`, which blanks `SUPABASE_CONFIG` at request time, lives there too and is shared by the smoke and a11y specs.) Without it a blocked CDN surfaces as an unrelated-looking click timeout: the page's missing-library guard is an overlay that swallows pointer events. `tests/a11y.spec.mjs` is the **accessibility gate** (`@axe-core/playwright`): no serious/critical WCAG violation on any tab, plus the behaviour axe cannot see — opening the drill-down from the keyboard, the dialog focus trap and focus return, the tab list's arrow-key navigation, a visible focus ring on every tab stop, 320 px reflow, and the phone status line. **Never sample colours mid-animation**: `reducedMotion: 'reduce'` is not enough (durations collapse to 0.001ms, and switching tabs restarts the pane fade), so every sweep first awaits `settle()`, which waits on `document.getAnimations()`. Sampling early measures `var(--muted)` at ~1.83:1 instead of its resting 5.9:1 and invents contrast failures — the trap recorded in `docs/ux-expert-review.md`. Sweeps taken while a dialog is open are scoped to the dialog (`.include()`), since the overlay dims the inert page behind it.
+- `npm run check:design-tokens` — `scripts/check-design-tokens.mjs` is the
+  aggregate view no reviewer has: it fails on a hex colour literal outside
+  `:root` and on any `font-size` that isn't a scale step. It exists because the
+  build had grown a **second palette** hard-coded in the chart JS (`#4fc3f7`
+  beside the token's `#5cc7f2` on the same screen) and **36 font sizes** where a
+  scale should have ~11 — drift that is invisible one literal at a time. Genuine
+  exceptions live in `ALLOWED_COLOURS` with a written reason each (the three
+  extra comparison-series hues, message-text tints, the scrollbar hover). Like
+  the dead-code checker it only ever *reports*.
 - `npm run check:dead-code` — `scripts/check-dead-code.mjs` reports CSS classes, element IDs and functions declared in `index.html` and referenced nowhere. In one 5,200-line file dead weight is invisible; the Jul 2026 audit found 14 such items by hand, and this keeps the count at zero. **Its one blind spot is deliberate and documented in the file**: names assembled at runtime (`type-${p.type}` → `.type-BOX`, `'tab-' + btn.dataset.tab` → `#tab-portfolio`) look unreferenced to any textual scan, so they live in an explicit `CONSTRUCTED` allowlist with a note saying where each is built. The tool only ever *reports* — deleting is a human decision, and a false positive is a bug in the checker, not a licence to delete.
-- `npm test` runs all four. `.github/workflows/ci.yml` runs them on every push/PR.
+- `npm test` runs all five. `.github/workflows/ci.yml` runs them on every push/PR.
 
 Two further scripts are **tools, not checks** — deliberately outside `npm test`, since timings are machine-dependent and would flake as a gate:
 
@@ -101,7 +110,7 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   click handler stays for the mouse; the button's handler calls
   `stopPropagation()` so the drill-down isn't built twice. `.pn-head` is a
   nowrap flex line with `min-width: 0` — without it the cell's `text-overflow`
-  cannot ellipsis *part* of an inline-block, and a long name beside a 💰/🔔 flag
+  cannot ellipsis *part* of an inline-block, and a long name beside a buy/alert flag
   disappears entirely.
 - **Every `.modal-overlay` is a real dialog.** Markup carries
   `role="dialog"`/`aria-modal`/`aria-labelledby`; behaviour comes from the shared
@@ -116,8 +125,8 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   whole look (they reset the UA `font-weight`/`margin`), so keep using the class
   when adding a section — but keep the element a heading.
 - **Names and non-colour cues.** Every input/select has a label or `aria-label`
-  (the Data Entry grid builds `"<product> — new price"` from its row data); 💰/🔔
-  carry `role="img"` + `aria-label`; the board's trend arrow ships a `.sr-only`
+  (the Data Entry grid builds `"<product> — new price"` from its row data); the
+  buy-signal and alert icons carry `role="img"` + `aria-label` on their wrapper; the board's trend arrow ships a `.sr-only`
   word beside it. A new control with no visible label needs an `aria-label`.
 - **One focus rule** covers everything focusable (`a/button/input/select/
   textarea/[tabindex]:focus-visible`), written as a type+pseudo-class list so it
@@ -243,6 +252,21 @@ Markup, styles, and logic share one file, and the JS builds DOM from string temp
 
 - **Preserve element IDs and JS-referenced class names** (e.g. `product-tbody`, `top-picks-list`, `relval-tbody`, `momentum-tbody`, the `#*-chart` canvases, `.entry-input`, `.url-cell`, `.type-BOX/ETB/BUNDLE`, `.pill`, `.tab-btn`/`.tab-pane`). Renaming them silently breaks rendering.
 - **Preserve the CSS variable names** in `:root` (`--bg`, `--accent`, `--muted`, …) — inline styles throughout the markup reference them.
+- **Icons come from the sprite**, not from emoji: one inline `<svg class="sprite">`
+  of `<symbol id="i-…">` near the top of `<body>`, used as
+  `<svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg>`. Paths are
+  stroke-only on `currentColor` so an icon inherits the colour of its label —
+  that is what lets the active tab's icon go dark on gold. Adding one means
+  adding a symbol, not a literal `<path>` at the call site. An icon that carries
+  meaning alone needs `role="img"` + `aria-label` on its wrapper. Emoji survive
+  in three places on purpose: Chart.js tooltips (canvas text), status strings
+  written with `textContent`, and typographic ✓/✕/⚠ glyphs.
+- **Colours and font sizes come from tokens, everywhere** — including the chart
+  JavaScript, which resolves them at runtime into `COLOR` (and derives every
+  fill from the same hue via `alpha()`, so a fill can't drift from its line).
+  Type is an 11-step scale, `--text-2xs` … `--display-xl`; radii are
+  `--radius-pill` / `--radius-sm` / `--radius` (the panel corner). Adding a
+  literal instead fails `npm run check:design-tokens`.
 - The All Products table's `.table-wrap` is a capped-height (`70vh`) scroll area with a sticky header; other tables use different wrappers. A `.table-wrap` with **no focusable content inside** needs `tabindex="0"` or it cannot be scrolled by keyboard (§05 and §07 carry it; the board doesn't need it — its rows have `.row-open` buttons).
 
 ## Workflow / deployment
