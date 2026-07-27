@@ -125,6 +125,33 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   a control — it animates the ring's width from 0, so the indicator arrives
   ~250 ms late.
 
+### The board on a phone (column priority)
+
+Below 680px the All Products table drops its six **`.col-detail`** columns
+(Type, Set Value, €/Booster, SV/Booster, Age, Wtd. Score), freezes the product
+name (`position: sticky; left: 0`), and shows a `.scroll-hint` line. Reasons a
+future change should preserve:
+
+- The measurement it fixes: 9 columns are **1,098px wide in a 356px window**, so
+  a phone saw only the name and type, with **Fair Price — the north-star answer
+  — starting at x=392** and no hint the table scrolled. With the detail columns
+  gone the swipe is 448px, and Fair Price lands beside the frozen name.
+- **Adding a board column means deciding whether it is `.col-detail`** — mark it
+  on *both* the `<th>` and the `<td>` in `updateTable()`, or the columns
+  misalign on a phone. Everything hidden must stay reachable in the drill-down.
+- **Stacking order is load-bearing**: the sticky header row is `z-index: 2`, so
+  frozen body cells must be `1` and the frozen header cell `3`. Equal values let
+  the first body cell paint over the column labels.
+- The **`.svb-chart-wrap`** wrapper exists because Chart.js sizes a
+  `maintainAspectRatio: false` chart to its *parent* — a height on the canvas is
+  circular. The Top-10 bar chart is a fixed list of ten rows, so its height must
+  come from the row count; at the default 2:1 ratio a phone gave it 166px and
+  Chart.js silently dropped every other product label.
+- **There is no click-to-sort on `thead th`** — there never was. The `cursor:
+  pointer` and hover highlight that implied one are gone, and the board's
+  explainer no longer promises it. Sorting is `#sort-select`. If you add header
+  sorting, restore both affordances with it.
+
 A separate script near the end of `<body>` drives **reveal-on-scroll animations** via IntersectionObserver (`.rv` → `.rv-in`), replayed when a tab becomes active. It is a progressive enhancement — if IntersectionObserver is unavailable, nothing is hidden.
 
 ## Design consistency (required)

@@ -252,6 +252,94 @@ test('the phone status line stays on screen and readable', async ({ page }) => {
   expect(box.x + box.width, 'status pill runs past the right edge').toBeLessThanOrEqual(390);
 });
 
+test('no interactive control is under the 24px target minimum (WCAG 2.5.8)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await bootStatic(page);
+  await openTab(page, 'analysis');
+  // Dialog controls only have a box while a dialog is open, so measure with the
+  // drill-down up — that is where the worst offender lived (an 11×15 ✕).
+  await page.locator('#product-tbody tr').first().locator('.row-open').click();
+  await expect(page.locator('#drill-modal')).toBeVisible();
+
+  const undersized = await page.evaluate(() => {
+    const out = [];
+    document.querySelectorAll('a[href], button, input, select, textarea').forEach((el) => {
+      if (el.offsetParent === null) return;                 // not rendered
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      if (r.width < 24 || r.height < 24) {
+        const id = el.id ? `#${el.id}` : el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? `.${el.className.trim().split(/\s+/)[0]}` : '');
+        out.push(`${id} ${Math.round(r.width)}×${Math.round(r.height)}`);
+      }
+    });
+    return out;
+  });
+  expect(undersized, 'controls under 24×24').toEqual([]);
+});
+
+test('the board gives a phone the answer: column priority, a frozen name, a hint', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await bootStatic(page);
+  await openTab(page, 'analysis');
+
+  const board = page.locator('#tab-analysis .table-wrap').first();
+  const phone = await board.evaluate((wrap) => ({
+    scrollW: wrap.scrollWidth,
+    clientW: wrap.clientWidth,
+    detailShown: [...wrap.querySelectorAll('.col-detail')].some((c) => getComputedStyle(c).display !== 'none'),
+    firstColSticky: getComputedStyle(wrap.querySelector('tbody td')).position,
+  }));
+
+  // Measured before this change: 1,098px of columns in a 356px window, with
+  // Fair Price — the north-star answer — starting at x=392. The six detail
+  // columns are dropped on a phone (all of them are in the drill-down), which
+  // brings the swipe down to a fraction of a screen.
+  expect(phone.detailShown, 'detail columns must be hidden on a phone').toBe(false);
+  expect(phone.scrollW, 'board scroll width on a phone').toBeLessThan(phone.clientW * 1.4);
+  // …and the product name stays put while swiping, so a row can't be lost.
+  expect(phone.firstColSticky).toBe('sticky');
+  await expect(page.locator('#tab-analysis .scroll-hint').first()).toBeVisible();
+
+  // Fair Price is reachable, and reading it does not cost the row's identity.
+  await board.evaluate((wrap) => { wrap.scrollLeft = wrap.scrollWidth; });
+  const afterSwipe = await board.evaluate((wrap) => {
+    const cell = wrap.querySelector('tbody td');
+    const fair = wrap.querySelector('tbody td:nth-child(4)');   // Fair Price
+    const box = wrap.getBoundingClientRect();
+    const inView = (el) => {
+      const r = el.getBoundingClientRect();
+      return r.left >= box.left - 1 && r.right <= box.right + 1;
+    };
+    return { nameVisible: inView(cell), fairVisible: inView(fair) };
+  });
+  expect(afterSwipe.fairVisible, 'Fair Price after one swipe').toBe(true);
+  expect(afterSwipe.nameVisible, 'product name still visible after swiping').toBe(true);
+});
+
+test('the desktop board keeps every column', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await bootStatic(page);
+  await openTab(page, 'analysis');
+  // Column priority is a phone concession, not a feature — nothing is hidden
+  // where there is room for it.
+  const hidden = await page.evaluate(() =>
+    [...document.querySelectorAll('#tab-analysis .table-wrap .col-detail')].filter((c) => getComputedStyle(c).display === 'none').length);
+  expect(hidden).toBe(0);
+  await expect(page.locator('#tab-analysis .scroll-hint').first()).toBeHidden();
+});
+
+test('the Top-10 bar chart keeps a label per bar at phone width', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await bootStatic(page);
+  await openTab(page, 'analysis');
+
+  // Chart.js drops every other category label when the plot area is too short
+  // for them — at the default 2:1 ratio a 332px-wide phone gave 166px, and half
+  // the bars became unidentifiable. The height now comes from the wrapper.
+  const h = await page.locator('#svb-chart').evaluate((c) => c.getBoundingClientRect().height);
+  expect(h, 'ten labelled rows need ~26px each').toBeGreaterThanOrEqual(240);
+});
+
 test('the signed-in surface (portfolio + demo page) has no serious or critical violations', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', (err) => pageErrors.push(err.message));

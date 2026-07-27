@@ -37,39 +37,21 @@ are kept further down rather than deleted: **2b. Board performance fixes**
 (measured, deliberately dormant until ~200 products) and **1. Backup & restore**
 (deferred by maintainer decision). Both UX passes have run
 (`docs/ux-assessment.md`, then the authoritative `docs/ux-expert-review.md`);
-the defects they found are fixed and ROADMAP's *Known bugs* is empty. **Item 10,
-Accessibility, has shipped** — its plan is deleted per the rule below, and what
-it built is documented in `CLAUDE.md` → *Accessibility structure*. The next
-planned work is **Mobile optimisation**, immediately below.
+the defects they found are fixed and ROADMAP's *Known bugs* is empty. **Items 10 (Accessibility)
+and 8 (Mobile optimisation) have shipped** — their plans are deleted per the
+rule below, and what they built is documented in `CLAUDE.md` → *Accessibility
+structure* and *The board on a phone*. The next planned work is **item 7,
+collapsible section descriptions**, immediately below — the density lever the
+mobile pass identified but deliberately left unpulled.
 
 ## THEN — design & usability
 
 Ordered as the **expert UX & accessibility review** recommended
 (`docs/ux-expert-review.md`, which supersedes and corrects `docs/ux-assessment.md`).
-Accessibility led and has shipped; mobile optimisation is now first, and it
-inherits the one accessibility finding still open (**F8**, tap targets under the
-24 px AA minimum). Section numbers are stable cross-reference labels — reading
-order is the priority, not the numbering.
-
-### 8. Mobile optimisation
-
-Fix the audited phone experience: the 70vh `.table-wrap` scroll interplay
-with page scroll, **tap targets (F8)** — the AA floor is **24px** (2.5.8), not
-the 44px the first pass quoted, and only five controls fail it, the worst being
-the modal-close ✕ at 11 × 15px — chart legibility (Chart.js
-`maintainAspectRatio`/font sizes at narrow widths), the board's Fair Price
-column starting off-screen, and the stacked-section density (item 7 is the
-first lever).
-
-Three things the first pass filed here are **already done**, so don't re-plan
-them: the tab-bar overflow, the clipped status pill and 320px reflow are fixed
-(see ROADMAP → *Known bugs*), and the Data Entry grid's "no `overflow-x`
-wrapper" was a **mis-diagnosis** — `.entry-table-wrap` exists and works
-(`docs/ux-expert-review.md` → Correction 1). `tests/a11y.spec.mjs` already
-asserts no horizontal body scroll at 320px on every tab, so extend that spec
-rather than adding a second viewport test. *Size: M. Read
-`docs/ux-expert-review.md` first (it corrects `docs/ux-assessment.md` findings
-1, 2, 6, 8, 9). Pairs with: 7.*
+Accessibility and mobile optimisation have both shipped, and with them every
+accessibility finding the review raised (F8 included). Section numbers are
+stable cross-reference labels — reading order is the priority, not the
+numbering.
 
 ### 7. Collapsible section descriptions
 
@@ -78,8 +60,13 @@ Each `.section-desc` gets a per-section show/hide toggle plus one global
 Persist per-user in `localStorage` (key e.g. `sta-desc-collapsed`), default
 collapsed on small screens (`matchMedia('(max-width: 640px)')`), expanded on
 desktop. Text stays in the DOM (`hidden` attribute or class, not removal) for
-screen readers and first-timers. Set `aria-expanded` on the toggle. *Size: S.
-Pairs with: 8.*
+screen readers and first-timers. Set `aria-expanded` on the toggle. Keep the
+`hidden` text out of the a11y sweep's way — `tests/a11y.spec.mjs` will fail if a
+toggle has no accessible name. Measured target (390×780, after the mobile pass):
+Analysis is 10.7 screenfuls with the first product row at y = 2,436 and 1,478 px
+(17.7 %) of explainer prose; collapsing by default on a phone should take about
+1.9 screenfuls out. *Size: S. Item 8 (mobile) has shipped and left this as the
+remaining density lever.*
 
 ### 6. Overview-first restructure
 

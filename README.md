@@ -16,6 +16,13 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 - **Monthly data entry** — punch in the latest prices, add new releases, attach Cardmarket links, and export an updated `.xlsx` ready to commit back to the repo.
 - **With cloud sync enabled** (optional, see below): a private **portfolio** with unrealised P&L, concentration balancing and a value-over-time chart, plus **price alerts** on a fixed € target or on the fair price.
 
+### On a phone
+
+The board shows **product · price · fair price** on a narrow screen, with the
+product name frozen in place so swiping sideways for the rest can't lose your
+row. The columns it leaves out — type, set value, €/booster, SV/booster, age,
+score — are all in the product drill-down, one tap away.
+
 ### Keyboard and screen-reader use
 
 The whole dashboard is operable without a mouse. `Tab` reaches every control
@@ -126,8 +133,9 @@ tests/fake-supabase-sdk.js     against an in-memory Supabase stand-in
 tests/fx-currency.spec.mjs     Playwright test: the Portfolio currency picker
                          and its fallback when live FX rates are unavailable
 tests/a11y.spec.mjs      Playwright + axe test: no serious/critical WCAG
-                         violations per tab, plus the keyboard journeys axe
-                         can't see (drill-down, focus trap, tab bar, 320px)
+                         violations per tab, plus what axe can't see — keyboard
+                         journeys (drill-down, focus trap, tab bar), 320px
+                         reflow, 24px tap targets, and the phone board layout
 tests/local-cdn.mjs      Serves Chart.js/SheetJS from node_modules so the
                          browser tests run offline (and pins their versions)
 SUPABASE.md              Optional cloud-sync + login setup guide

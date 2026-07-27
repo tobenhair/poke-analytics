@@ -55,7 +55,10 @@ npm test            # all four
   payloads) via the fake SDK — no cloud credentials needed for either.
 - `tests/a11y.spec.mjs` is the conformance gate: axe (serious/critical only) on
   every tab, plus keyboard operation of the board drill-down, the dialog focus
-  trap, the tab list, the focus ring on every tab stop, and 320px reflow. **If
+  trap, the tab list, the focus ring on every tab stop, 320px reflow, the 24px
+  tap-target minimum (measured with a dialog open), and the phone board's
+  column priority — with a companion case asserting the *desktop* board still
+  shows every column, so a responsive rule can't leak upward. **If
   you add UI, expect this one to catch an unlabelled input or a `<div>` you
   should have made a `<button>`.** If it reports colour-contrast failures that
   you cannot reproduce by eye, read the comment at the top of the file before
