@@ -165,6 +165,13 @@ Analysis and Portfolio tabs a toggle, plus one global control
   ~550px to the page, which is exactly the cost the feature exists to remove.
   Move the button *before* hiding the paragraph — one still inside it would
   vanish with it.
+- **On desktop the inline toggle is `opacity: 0` until hover or focus** — once
+  the text is showing, "Hide explanation" needn't be in view at all times. It
+  stays opacity (not `display`) so it remains focusable and announced, and the
+  header's always-visible control means the function is never undiscoverable.
+  The `:focus` reveal is `transition: none` on purpose: a 200ms fade means the
+  control is invisible at the moment focus lands, the same defect as animating
+  a focus ring in.
 - **Default is collapsed below 640px, open above**, and the choice persists in
   `localStorage` under `sta-desc-collapsed` as an array of positional ids
   (`desc-0`…). Positional means inserting a section mid-page shifts the ids

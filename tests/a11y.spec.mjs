@@ -195,7 +195,12 @@ test('every tab stop shows a visible focus indicator (WCAG 2.4.7)', async ({ pag
       // The dialog container is a programmatic focus target, not a control.
       if (el.classList.contains('modal')) return { id, ok: true };
       const outlined = s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0;
-      return { id, ok: outlined };
+      // A ring on an invisible control is not an indicator. Controls that are
+      // revealed on hover (the inline explainer toggles) must also become
+      // visible on focus — checked here because they otherwise pass the
+      // outline test while being impossible to see.
+      const visible = parseFloat(s.opacity) > 0 && s.visibility !== 'hidden';
+      return { id, ok: outlined && visible };
     });
     if (probe && !probe.ok) unmarked.push(probe.id);
   }

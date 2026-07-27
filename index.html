@@ -499,6 +499,25 @@
   /* Riding at the end of the explainer's last line rather than on a row of
      its own — see initSectionDescriptions(). */
   .desc-toggle.inline { margin: 0 0 0 10px; vertical-align: baseline; }
+  /* …and out of sight until you go looking for it. Once the text is showing,
+     "Hide explanation" is not something you need in view at all times; it
+     appears on hover of the explainer it belongs to, or on Tab. Kept as
+     opacity rather than display so it stays focusable and announced, and the
+     always-visible "Hide explanations" in the header means the function is
+     never undiscoverable. Only where hover exists and the toggle is inline —
+     collapsed, the ⓘ *is* the affordance and always shows. */
+  @media (hover: hover) and (min-width: 641px) {
+    .desc-toggle.inline { opacity: 0; transition: opacity 0.2s var(--ease); }
+    .section-desc:hover .desc-toggle.inline,
+    .kpi-intro:hover .desc-toggle.inline,
+    /* Plain :focus, not :focus-visible — a focused control has to be visible
+       however focus arrived, and :focus-visible does not match programmatic
+       focus. An invisible control with a focus ring is not an indicator.
+       transition: none for the same reason the controls above don't use
+       `transition: all` — a 200ms fade means the indicator is not there when
+       focus arrives. Hover keeps the fade; focus is instant. */
+    .desc-toggle.inline:focus { opacity: 1; transition: none; }
+  }
   .desc-toggle .mark { font-size: 0.8rem; line-height: 1; }
   /* When the text is showing, it owns the gap to the section below it. */
   .section-desc.has-toggle, .kpi-intro.has-toggle { margin-bottom: 4px; }

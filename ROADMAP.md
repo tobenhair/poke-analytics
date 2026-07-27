@@ -284,7 +284,9 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   y = 1,673 to 1,354. The design detail that made it worth doing: the toggle
   **rides at the end of the explainer's last line** when expanded rather than
   taking a row of its own — 14 buttons on their own rows added ~550 px to the
-  page, which is the very thing the item exists to remove. Guarded by a case in
+  page, which is the very thing the item exists to remove — and on desktop it is
+  invisible until you hover the explainer or Tab to it, since "Hide explanation"
+  is not something to keep in view. Guarded by a case in
   `tests/a11y.spec.mjs` (collapsed-by-default on a phone, open on desktop, per-
   section and global toggles, persistence across a reload). Also caught here, by
   the smoke test rather than by inspection: module-level `const`s declared
