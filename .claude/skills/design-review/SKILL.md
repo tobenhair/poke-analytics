@@ -58,6 +58,16 @@ blue = neutral/secondary. Don't introduce new hues.
     `role="dialog"` + `aria-modal` + an accessible name.
   - Meaning must not ride on colour or an emoji alone — pair it with text (the
     board's verdict line is the pattern) or a `.sr-only` alternative.
+  - Every control needs a **≥24×24 hit area** (WCAG 2.5.8). Where the layout
+    can't grow, add `padding` and cancel it with an equal negative `margin`
+    (see `.row-open`).
+- A new Analysis/Portfolio section's `.section-desc` is picked up automatically
+  by `initSectionDescriptions()` — write the explainer, don't add a toggle.
+- Narrow screens are part of the design, not an afterthought: a new board
+  column has to declare whether it is `.col-detail` (dropped below 680px, where
+  the board keeps only product · price · fair price), and a chart whose height
+  is a function of its *row count* needs a wrapper with a height, not an aspect
+  ratio. See `CLAUDE.md` → *The board on a phone*.
 
 ## Question the aesthetics (run this checklist before committing UI)
 

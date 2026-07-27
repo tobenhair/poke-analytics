@@ -238,6 +238,62 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   zero and a tab switch restarts the pane fade — every sweep must first await
   `document.getAnimations()`, or it measures `var(--muted)` at 1.83:1 instead of
   its resting 5.9:1.
+- **Mobile optimisation — the phone can answer the question now.** Measured
+  first, at 390×780: the board's 9 columns were **1,098 px wide in a 356 px
+  window**, so the only things visible without a sideways swipe were the product
+  name and its type — the price a shopper already knows and none of the
+  judgement — with **Fair Price starting at x = 392** and nothing hinting it
+  existed. Fixed with **column priority**, which is what the finding asked for
+  rather than more scrolling: the six detail columns (all of them present in the
+  drill-down) drop away below 680 px, the product name is **frozen** so a swipe
+  can't lose the row you are reading, and a one-line hint says the table
+  scrolls. The swipe is now **448 px of columns**, and Fair Price plus its gap
+  ("€130 ▼ 38% under") sits beside the frozen name. The verdict line also wraps
+  instead of clipping mid-word ("· near tracke…"). **F8, the last open
+  accessibility finding, is closed**: every control now measures ≥ 24×24 (WCAG
+  2.5.8) — the modal-close ✕ went from 11×15 to a 28 px hit area, the three
+  range sliders from 16 px to 24, the comparison chips' × to 24, and the board's
+  row button gained a 28 px hit area via padding cancelled by an equal negative
+  margin, so the board didn't gain ~300 px of height. **Chart legibility** was
+  measured rather than assumed: the line and scatter charts read fine at 390 px,
+  but the Top-10 bar chart was silently dropping **every other product label** —
+  a fixed list of ten rows given a 2:1 aspect ratio is 166 px tall on a phone, so
+  Chart.js skipped labels; its height now comes from a wrapper (the
+  `.drill-chart` pattern), 220 px on desktop and 265 px on a phone, and all ten
+  bars are labelled again. Two false affordances went with it: `thead th` had
+  `cursor: pointer` and a hover highlight, and the board's explainer promised
+  *"or click any column header to sort"* — **there has never been a click-to-sort
+  handler**. The copy and the hover now match the code; sorting is the Sort menu.
+  Guarded by five new cases in `tests/a11y.spec.mjs` (the plan's instruction to
+  extend that spec rather than add a second viewport test), including a 2.5.8
+  sweep with a dialog open and a check that the desktop board keeps every column.
+  **Deliberately not changed:** the board's 70 vh capped scroll area. It does trap
+  a phone scroll for 37 rows, but the cap is what keeps the sticky header useful;
+  removing it adds ~2,300 px to the page. Revisit with the overview-first
+  restructure, which changes what the board is for.
+- **Collapsible section explainers — the density lever, pulled.** The 14
+  `.section-desc`/`.kpi-intro` blocks measured **1,478 px, 17.7 % of the phone
+  page** — roughly 1.9 screenfuls of prose to scroll past on every visit after
+  the first. Each now carries a toggle, with one control in the Analysis header
+  that does all of them, and the choice persists in `localStorage`. The text is
+  **hidden, never removed**, so a first-time visitor and a screen reader still
+  reach it. They **start collapsed at every width** — the explainers are
+  reference material, read once, and the page is what someone came for. Result:
+  on a phone **10.7 → 9.4 screenfuls** with the first product row **473 px
+  closer** (y = 2,436 → 1,963); on desktop **−586 px** with the first row **341
+  px closer** (y = 1,695 → 1,354), so the KPIs and the first picks are the
+  opening screen. The design detail that made it worth doing: the toggle
+  **rides at the end of the explainer's last line** when expanded rather than
+  taking a row of its own — 14 buttons on their own rows added ~550 px to the
+  page, which is the very thing the item exists to remove — and on desktop it is
+  invisible until you hover the explainer or Tab to it, since "Hide explanation"
+  is not something to keep in view. Guarded by a case in
+  `tests/a11y.spec.mjs` (collapsed-by-default on a phone, open on desktop, per-
+  section and global toggles, persistence across a reload). Also caught here, by
+  the smoke test rather than by inspection: module-level `const`s declared
+  *after* the inline `INIT` block are in the temporal dead zone when INIT calls
+  into them, which silently took out the rest of INIT's wiring — the block now
+  sits above INIT with a comment saying why.
 
 ## Now — trustworthy numbers (stability & quality)
 
@@ -263,28 +319,11 @@ The order below is the one the **expert UX & accessibility review** recommended
 earlier journey pass in [`docs/ux-assessment.md`](docs/ux-assessment.md) and
 corrects two of its findings). **Accessibility came first and has shipped** —
 see *Done* — along with the three phone/reflow defects that preceded it. What
-remains is the density and comprehension work, now led by **mobile
-optimisation**. One accessibility item is still open and sits with the mobile
-work it belongs to: **F8**, five controls under the 24 px AA target minimum
-(2.5.8), the smallest being the modal-close ✕ at 11 × 15 px.
+remains is the comprehension and visual-consistency work, now led by the
+**chart palette fix** — the highest value-per-effort item the visual review
+found. Every accessibility finding from the expert review is closed, and the
+measured density problem is addressed.
 
-- **Mobile optimisation.** Verify and fix the real phone experience
-  end-to-end: the 70vh table scroll, chart legibility, tap targets (**including
-  F8** — the five controls under the 24 px AA minimum, modal-close ✕ at
-  11 × 15 px being the worst; the 44 px figure the first pass quoted is AAA),
-  the Data Entry grid, and the vertical density of nine full-width sections
-  stacked with their descriptions (the collapsible-descriptions toggle below is
-  the first lever). A price-checking tool gets used in shops, standing up — the phone
-  layout has to answer "is this fairly priced?" without a desktop.
-- **Collapsible section descriptions.** Every Analysis section carries a
-  `.section-desc` explainer — invaluable on first read, pure scroll once you
-  know the page, and on mobile the nine of them dominate the viewport before a
-  single number is visible. Add a show/hide toggle (per-section and a global
-  "hide descriptions") that collapses each to a tappable "ⓘ" affordance and
-  remembers the choice (localStorage), so a returning user isn't scrolling past
-  prose every visit. The text stays in the DOM for first-timers and screen
-  readers; it just starts collapsed on small screens. Important for mobile
-  specifically, useful everywhere.
 - **Fix — unify the chart palette with the design tokens.** The charts and
   scoring helpers hard-code their own colours in JS — `#4fc3f7`, `#81c784`,
   `#f5c842`, `#e8473f` — which are *near-duplicates* of `--accent3`, `--accent4`,
@@ -394,9 +433,10 @@ work it belongs to: **F8**, five controls under the 24 px AA target minimum
   accounts.
 - **Mobile app / installable experience.** For a price-checking tool used in
   shops, a home-screen presence and a native-feeling mobile experience are worth
-  real weight — this is the "how do we ship mobile" bet, and it depends on the
-  **Mobile optimisation** work under "Then" landing first (no point wrapping an
-  unoptimised page). Sequenced cheapest-first: (1) a **PWA** — installable, an
+  real weight — this is the "how do we ship mobile" bet. Its prerequisite, the
+  **Mobile optimisation** work, has now shipped (see *Done*), so the remaining
+  dependency is the density work under "Then" — no point wrapping a page that
+  still costs 10.7 screenfuls to read. Sequenced cheapest-first: (1) a **PWA** — installable, an
   app icon, offline shell, splash — is the natural fit for a single static
   `index.html` and buys most of the "feels like an app" value for the least
   work and no app-store overhead; (2) a thin **wrapper** (e.g. Capacitor) around

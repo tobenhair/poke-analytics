@@ -125,6 +125,70 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   a control — it animates the ring's width from 0, so the indicator arrives
   ~250 ms late.
 
+### The board on a phone (column priority)
+
+Below 680px the All Products table drops its six **`.col-detail`** columns
+(Type, Set Value, €/Booster, SV/Booster, Age, Wtd. Score), freezes the product
+name (`position: sticky; left: 0`), and shows a `.scroll-hint` line. Reasons a
+future change should preserve:
+
+- The measurement it fixes: 9 columns are **1,098px wide in a 356px window**, so
+  a phone saw only the name and type, with **Fair Price — the north-star answer
+  — starting at x=392** and no hint the table scrolled. With the detail columns
+  gone the swipe is 448px, and Fair Price lands beside the frozen name.
+- **Adding a board column means deciding whether it is `.col-detail`** — mark it
+  on *both* the `<th>` and the `<td>` in `updateTable()`, or the columns
+  misalign on a phone. Everything hidden must stay reachable in the drill-down.
+- **Stacking order is load-bearing**: the sticky header row is `z-index: 2`, so
+  frozen body cells must be `1` and the frozen header cell `3`. Equal values let
+  the first body cell paint over the column labels.
+- The **`.svb-chart-wrap`** wrapper exists because Chart.js sizes a
+  `maintainAspectRatio: false` chart to its *parent* — a height on the canvas is
+  circular. The Top-10 bar chart is a fixed list of ten rows, so its height must
+  come from the row count; at the default 2:1 ratio a phone gave it 166px and
+  Chart.js silently dropped every other product label.
+- **There is no click-to-sort on `thead th`** — there never was. The `cursor:
+  pointer` and hover highlight that implied one are gone, and the board's
+  explainer no longer promises it. Sorting is `#sort-select`. If you add header
+  sorting, restore both affordances with it.
+
+### Collapsible explainers
+
+`initSectionDescriptions()` gives every `.section-desc`/`.kpi-intro` on the
+Analysis and Portfolio tabs a toggle, plus one global control
+(`#desc-toggle-all`) in the Analysis header. Things that are load-bearing:
+
+- **The text is hidden (`hidden`), never removed** — a first-time visitor and a
+  screen reader must still be able to read it.
+- **The toggle is `.inline` (inside the `<p>`) when expanded** and moves out
+  when collapsed. This is not decoration: 14 buttons on their own rows added
+  ~550px to the page, which is exactly the cost the feature exists to remove.
+  Move the button *before* hiding the paragraph — one still inside it would
+  vanish with it.
+- **On desktop the inline toggle is `opacity: 0` until hover or focus** — once
+  the text is showing, "Hide explanation" needn't be in view at all times. It
+  stays opacity (not `display`) so it remains focusable and announced, and the
+  header's always-visible control means the function is never undiscoverable.
+  The `:focus` reveal is `transition: none` on purpose: a 200ms fade means the
+  control is invisible at the moment focus lands, the same defect as animating
+  a focus ring in.
+- **Collapsed is the default at every width** — the explainers are reference
+  material, read once, and the page is what someone came for. A stored choice
+  always wins over the default; it persists in `localStorage` under
+  `sta-desc-collapsed` as an array of positional ids (`desc-0`…). Positional means inserting a section mid-page shifts the ids
+  after it; the worst case is a remembered choice landing on a neighbour once.
+- **The toggles are excluded from the reveal-on-scroll targets** (they are
+  direct children of the pane, so they matched by default). A collapsed
+  toggle *is* the section's only visible affordance — fading it in separately
+  would hide it. Relatedly, `.rv:focus-within` reveals a section instantly:
+  Tab scrolls a below-the-fold control into view but the IntersectionObserver
+  fires a frame later, so focus could otherwise land on something mid-fade.
+- **The block must stay above the `INIT` block.** INIT runs inline at module
+  evaluation and calls `initSectionDescriptions()`; module-level `const`s
+  declared below INIT are in the temporal dead zone at that point, and the throw
+  takes the rest of INIT's wiring with it. The smoke test catches this — it
+  showed up as the drill-down not opening.
+
 A separate script near the end of `<body>` drives **reveal-on-scroll animations** via IntersectionObserver (`.rv` → `.rv-in`), replayed when a tab becomes active. It is a progressive enhancement — if IntersectionObserver is unavailable, nothing is hidden.
 
 ## Design consistency (required)

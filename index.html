@@ -163,6 +163,11 @@
      enormous focused control. Every control *inside* it keeps one. */
   .modal:focus, .modal:focus-visible { outline: none; }
 
+  /* Native range inputs render a ~16px-tall box — under the 24px AA target
+     minimum (WCAG 2.5.8) for the three sliders (age threshold, and the two
+     scenario sliders). The track's own thickness is unchanged. */
+  input[type="range"] { min-height: 24px; }
+
   /* Visually hidden, still announced — text alternatives for the emoji that
      carry state (💰 buy signal, 🔔 alert) and for icon-only controls. */
   .sr-only {
@@ -274,6 +279,15 @@
     transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
     transition-delay: var(--rv-delay, 0ms);
   }
+  /* Focus must never land on something invisible. Tabbing to a control below
+     the fold scrolls it into view, but the IntersectionObserver that reveals
+     its section only fires a frame later — so for up to 0.7s the focused
+     control would be mid-fade. Revealing on focus-within closes that window. */
+  .rv:focus, .rv:focus-within {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 
   /* ── Filter bar ── */
   .filters {
@@ -327,9 +341,14 @@
     letter-spacing: 0.02em;
   }
   .cmp-chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  /* 24×24 hit area (WCAG 2.5.8) — the glyph alone measured 11×15, one of the
+     five controls under the minimum. The chip is ~26px tall, so this fits
+     inside it without changing the chip's size. */
   .cmp-chip button {
     border: none; background: transparent; color: var(--muted);
-    cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0 1px;
+    cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0;
+    width: 24px; height: 24px;
+    display: inline-flex; align-items: center; justify-content: center;
     transition: color 0.2s var(--ease);
   }
   .cmp-chip button:hover { color: var(--accent2); }
@@ -461,6 +480,56 @@
   .section-desc .up { color: var(--accent4); }
   .section-desc .down { color: var(--accent2); }
   .kpi-intro { max-width: 68ch; margin: -14px 0 22px 2px; color: var(--muted); font-size: 0.83rem; line-height: 1.65; }
+
+  /* ── Collapsible explainers ──
+     The 14 .section-desc / .kpi-intro blocks measure 1,478px on a phone —
+     17.7% of the Analysis page, about 1.9 screenfuls of prose to scroll past
+     on every visit after the first. The text is never removed, only hidden,
+     so first-timers and screen readers still reach it; this toggle is what
+     keeps it discoverable once collapsed. Built at runtime — see
+     initSectionDescriptions(). */
+  .desc-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 24px;
+    padding: 2px 0;
+    margin: 0 0 20px 2px;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: color 0.2s var(--ease);
+  }
+  .desc-toggle:hover { color: var(--accent); }
+  /* Riding at the end of the explainer's last line rather than on a row of
+     its own — see initSectionDescriptions(). */
+  .desc-toggle.inline { margin: 0 0 0 10px; vertical-align: baseline; }
+  /* …and out of sight until you go looking for it. Once the text is showing,
+     "Hide explanation" is not something you need in view at all times; it
+     appears on hover of the explainer it belongs to, or on Tab. Kept as
+     opacity rather than display so it stays focusable and announced, and the
+     always-visible "Hide explanations" in the header means the function is
+     never undiscoverable. Only where hover exists and the toggle is inline —
+     collapsed, the ⓘ *is* the affordance and always shows. */
+  @media (hover: hover) and (min-width: 641px) {
+    .desc-toggle.inline { opacity: 0; transition: opacity 0.2s var(--ease); }
+    .section-desc:hover .desc-toggle.inline,
+    .kpi-intro:hover .desc-toggle.inline,
+    /* Plain :focus, not :focus-visible — a focused control has to be visible
+       however focus arrived, and :focus-visible does not match programmatic
+       focus. An invisible control with a focus ring is not an indicator.
+       transition: none for the same reason the controls above don't use
+       `transition: all` — a 200ms fade means the indicator is not there when
+       focus arrives. Hover keeps the fade; focus is instant. */
+    .desc-toggle.inline:focus { opacity: 1; transition: none; }
+  }
+  .desc-toggle .mark { font-size: 0.8rem; line-height: 1; }
+  /* When the text is showing, it owns the gap to the section below it. */
+  .section-desc.has-toggle, .kpi-intro.has-toggle { margin-bottom: 4px; }
   .kpi-intro strong { color: var(--text); font-weight: 500; }
   .kpi-intro em { font-style: normal; color: var(--text); opacity: 0.9; }
 
@@ -505,6 +574,19 @@
   /* Cap the All Products list height and let it scroll on its own, so the
      sticky header below can stay pinned while scrolling a long table. */
   .table-wrap { overflow: auto; max-height: 70vh; }
+  /* Phone-only affordance. A table that scrolls sideways gives no sign that it
+     does, which is why the off-screen Fair Price column read as missing rather
+     than as one swipe away. Shown only at widths where the table actually
+     overflows (see the 680px block). */
+  .scroll-hint {
+    display: none;
+    margin: 0;
+    padding: 12px 18px 0;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
   table { width: 100%; border-collapse: collapse; }
   /* Secondary hint inside a column header ("💰 = buy signal"). It used to set
      opacity:0.6 inline, which dropped var(--muted) below the 4.5:1 minimum —
@@ -521,11 +603,11 @@
     border-bottom: 1px solid var(--hairline);
     background: transparent;
     white-space: nowrap;
-    cursor: pointer;
     user-select: none;
-    transition: color 0.2s var(--ease);
   }
-  thead th:hover { color: var(--accent); }
+  /* No :hover highlight — there is no click-to-sort handler on these headers,
+     and a hover that implies one is a false affordance. Sorting is the Sort
+     menu above the board. */
   /* Keep the column labels visible while scrolling the long All Products
      list. Scoped to .table-wrap so the entry/modal tables are unaffected.
      The inset box-shadow draws the divider reliably under a sticky header
@@ -570,6 +652,13 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    /* A 20px line of text is under the 24px target minimum. The padding grows
+       the hit area to 28px; the equal negative margin keeps the row's height
+       exactly as it was, so the board doesn't gain ~300px. (Pointer users are
+       already covered — the whole 67px row is clickable — but the button is
+       the named target, so it should measure up on its own.) */
+    padding-block: 4px;
+    margin-block: -4px;
   }
   .type-badge {
     font-family: 'DM Mono', monospace;
@@ -647,6 +736,14 @@
   /* ── Charts ── */
   .chart-panel { padding: 24px 26px; }
   canvas { max-height: 220px; }
+  /* Ten labelled rows need height per row, not a ratio — see the chart's
+     options. The height has to sit on a *wrapper*: with maintainAspectRatio
+     off, Chart.js sizes the canvas to its parent, so a height on the canvas
+     itself is circular. Same pattern as .drill-chart. 220px matches the cap
+     every other chart tops out at; the phone gets more, because the labels
+     are what it was dropping. */
+  .svb-chart-wrap { position: relative; height: 220px; }
+  .svb-chart-wrap canvas { max-height: none; }
 
   .trend-select {
     background: var(--bg3); border: 1px solid var(--hairline); color: var(--text);
@@ -738,9 +835,15 @@
     position: relative;
     box-shadow: 0 40px 100px -40px rgba(0,0,0,0.9);
   }
+  /* 28×28 hit area, not the 11×15 the glyph alone measured — that was the
+     worst of the five controls under the 24px AA target minimum (WCAG 2.5.8).
+     The offsets are pulled in by half the growth so the ✕ itself stays where
+     it has always been. */
   .modal-close {
     position: absolute;
-    top: 20px; right: 22px;
+    top: 14px; right: 14px;
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
     background: none; border: none;
     color: var(--muted); font-size: 1.2rem;
     cursor: pointer; line-height: 1;
@@ -1035,6 +1138,37 @@
   }
   @media (max-width: 680px) {
     .wrapper { padding: 28px 16px 48px; }
+
+    /* ── The board on a phone ──
+       Measured before this: the 9 columns are 1,098px wide in a 356px window,
+       so the only things visible without a sideways swipe were Product and
+       Type — the price a shopper already knows, and none of the judgement.
+       Fair Price, the north-star answer, began at x=392 with nothing hinting
+       it existed. Column priority (what ROADMAP's finding 6 asks for) rather
+       than more scrolling: keep Product · Price · Fair Price, drop the six
+       detail columns, and freeze the product name so a swipe can't lose the
+       row you are reading. Everything hidden here is one tap away in the
+       drill-down, which fits a phone viewport exactly. The product's own name
+       states its type ("… Booster Box" / "… ETB" / "… Bundle"), so the Type
+       badge is the one that costs nothing to drop. */
+    .table-wrap .col-detail { display: none; }
+    .table-wrap thead th:first-child,
+    .table-wrap tbody td:first-child {
+      position: sticky;
+      left: 0;
+      background: var(--card);
+    }
+    /* Stacking order matters here: the header row is already sticky at
+       z-index 2, so the frozen body cells must sit *below* it (1) and the
+       frozen header cell — sticky in both axes — above it (3). Equal values
+       let the first body cell paint over the column labels. */
+    .table-wrap tbody td:first-child { z-index: 1; }
+    .table-wrap thead th:first-child { z-index: 3; }
+    .product-name { max-width: 170px; }
+    /* The verdict is the answer that survives on a narrow screen — let it wrap
+       instead of clipping mid-word ("· near tracke…"). */
+    .verdict-line { white-space: normal; }
+    .scroll-hint { display: block; }
     .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 32px; }
     .kpi { padding: 18px 18px; }
     .kpi-value { font-size: 2rem; }
@@ -1048,6 +1182,7 @@
     #tab-analysis > .panel { margin-bottom: 34px; }
     .panel-header { padding: 18px 18px 14px; }
     .chart-panel { padding: 16px 12px; }
+    .svb-chart-wrap { height: 265px; }
     .filters { gap: 10px; margin-bottom: 24px; }
     .age-control { margin-left: 0; padding-left: 0; border-left: 0; }
     .sort-select { margin-left: 0; width: 100%; }
@@ -1509,6 +1644,7 @@
   <!-- Data status line — cloud load / save messages, plus the format guide -->
   <div class="fade-in" style="display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:10px; margin-bottom:20px; min-height:1px; animation-delay:0.02s;">
     <span id="analysis-status" class="status-pill" role="status" style="display:none"></span>
+    <button class="guide-btn" id="desc-toggle-all" type="button" aria-pressed="false">Hide explanations</button>
     <button class="guide-btn admin-only" id="guide-btn">📋 Format Guide</button>
   </div>
 
@@ -1596,25 +1732,26 @@
 
   <!-- ── Section: product table (full width) ── -->
   <h2 class="section-eyebrow">02 — The Board</h2>
-  <p class="section-desc"><strong>What:</strong> every tracked product in one sortable table. <strong>KPIs:</strong> <em>€/Booster</em> (price ÷ packs inside), <em>SV/Booster</em> (Set Value ÷ the price of <em>one</em> booster — i.e. how many times a single booster's cost the whole set is worth, shown as a <em>×</em> multiple; higher = better value, <strong>not</strong> a per-pack price), <em>Age</em>, and <em>Wtd. Score</em> (the headline ranking). <em>Fair Price</em> is what the live price <em>would</em> be at the SV/Booster expected for the product's age (section 05): a live price <span class="up">under</span> fair is cheap for its age, <span class="down">over</span> is expensive — the R² by the column header says how much to trust the fit. A 💰 marks a possible buy signal — price fell while set value held. Under each product name is a plain-language <em>verdict</em> — the one-line synthesis of its gap to fair price, its drawdown from peak, and its set-value trend (e.g. <span class="up">Under fair price · near tracked low</span> / <span class="down">Overpriced for age</span> / Fair — no edge). <strong>How to read:</strong> filter with the Type pills and reorder with the Sort menu above — <em>Best Deal</em> ranks by verdict, best first — or click any column header to sort.</p>
+  <p class="section-desc"><strong>What:</strong> every tracked product in one sortable table. <strong>KPIs:</strong> <em>€/Booster</em> (price ÷ packs inside), <em>SV/Booster</em> (Set Value ÷ the price of <em>one</em> booster — i.e. how many times a single booster's cost the whole set is worth, shown as a <em>×</em> multiple; higher = better value, <strong>not</strong> a per-pack price), <em>Age</em>, and <em>Wtd. Score</em> (the headline ranking). <em>Fair Price</em> is what the live price <em>would</em> be at the SV/Booster expected for the product's age (section 05): a live price <span class="up">under</span> fair is cheap for its age, <span class="down">over</span> is expensive — the R² by the column header says how much to trust the fit. A 💰 marks a possible buy signal — price fell while set value held. Under each product name is a plain-language <em>verdict</em> — the one-line synthesis of its gap to fair price, its drawdown from peak, and its set-value trend (e.g. <span class="up">Under fair price · near tracked low</span> / <span class="down">Overpriced for age</span> / Fair — no edge). <strong>How to read:</strong> filter with the Type pills and reorder with the Sort menu above — <em>Best Deal</em> ranks by verdict, best first.</p>
   <div class="panel">
     <div class="panel-header">
       <h3 class="panel-title">All Products</h3>
       <div class="panel-badge" id="count-badge">31 products</div>
     </div>
+    <p class="scroll-hint">Swipe the table sideways for more →</p>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
             <th>Product <span class="th-hint">💰 = buy signal</span></th>
-            <th>Type</th>
+            <th class="col-detail">Type</th>
             <th style="text-align:right">Price (€)</th>
             <th style="text-align:right" title="What the live price would be if the product traded at the SV/Booster expected for its age (section 05). Under it = cheap for its age; over = expensive. Reliability shown as R² — greyed when the age fit is weak.">Fair Price (€) <span id="fair-fit-note" class="fair-fit-note"></span></th>
-            <th style="text-align:right">Set Value (€)</th>
-            <th style="text-align:right">€/Booster</th>
-            <th style="text-align:right">SV/Booster</th>
-            <th style="text-align:right">Age (yr)</th>
-            <th>Wtd. Score</th>
+            <th class="col-detail" style="text-align:right">Set Value (€)</th>
+            <th class="col-detail" style="text-align:right">€/Booster</th>
+            <th class="col-detail" style="text-align:right">SV/Booster</th>
+            <th class="col-detail" style="text-align:right">Age (yr)</th>
+            <th class="col-detail">Wtd. Score</th>
           </tr>
         </thead>
         <tbody id="product-tbody"></tbody>
@@ -1631,7 +1768,7 @@
       <div class="panel-badge">Top 10</div>
     </div>
     <div class="chart-panel">
-      <canvas id="svb-chart"></canvas>
+      <div class="svb-chart-wrap"><canvas id="svb-chart"></canvas></div>
     </div>
   </div>
 
@@ -1656,6 +1793,7 @@
       <h3 class="panel-title">Relative Value — vs Peers of the Same Age</h3>
       <div class="panel-badge" id="relval-fit-badge">—</div>
     </div>
+    <p class="scroll-hint">Swipe the table sideways for more →</p>
     <!-- tabindex: a capped-height scroll region with no focusable content
          inside cannot be scrolled by keyboard otherwise (axe
          scrollable-region-focusable). The board's own wrap is exempt — its
@@ -1705,6 +1843,7 @@
       <h3 class="panel-title">Momentum &amp; Drawdown</h3>
       <div class="panel-badge">By deepest dip</div>
     </div>
+    <p class="scroll-hint">Swipe the table sideways for more →</p>
     <div class="table-wrap" tabindex="0">
       <table>
         <thead>
@@ -2331,14 +2470,14 @@ function updateTable() {
         <span class="pn-head">${isBuySignal(p.name) ? '<span class="buy-flag" role="img" aria-label="Buy signal" title="Price dropped ≥5% but set value held steady — potential buy opportunity">💰 </span>' : ''}${alertFlag(p.name)}<button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></span>
         ${verdictLine(p)}
       </td>
-      <td><span class="type-badge type-${p.type}">${p.type}</span></td>
+      <td class="col-detail"><span class="type-badge type-${p.type}">${p.type}</span></td>
       <td class="num">${fmt(p.price)}</td>
       <td class="num">${fairPriceCell(p)}</td>
-      <td class="num">${fmt(p.setVal)}</td>
-      <td class="num">${fmt(p.pricePerBooster, 1)}</td>
-      <td class="num ${svClass}">${fmt(p.svPerBooster, 1)}×</td>
-      <td class="num">${fmt(p.age, 1)}</td>
-      <td>
+      <td class="num col-detail">${fmt(p.setVal)}</td>
+      <td class="num col-detail">${fmt(p.pricePerBooster, 1)}</td>
+      <td class="num col-detail ${svClass}">${fmt(p.svPerBooster, 1)}×</td>
+      <td class="num col-detail">${fmt(p.age, 1)}</td>
+      <td class="col-detail">
         <div class="score-bar-wrap">
           <div class="score-bar-bg"><div class="score-bar-fill" style="width:${scoreW}%;background:${color}"></div></div>
           <div class="score-val" style="color:${color}">${fmt(p.score, 1)}</div>
@@ -2453,7 +2592,11 @@ function renderSVBChart() {
     },
     options: {
       indexAxis: 'y',
-      responsive: true,
+      // Height comes from CSS, not from an aspect ratio: this is a fixed list
+      // of ten rows, and at a phone's width the 2:1 default left it 166px tall,
+      // where Chart.js silently dropped every other product label — half the
+      // bars became unidentifiable. See the #svb-chart rule.
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: {
         callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(1)}× booster cost` }
       }},
@@ -4823,6 +4966,132 @@ function renderDrillHolding(p) {
 }
 
 // ============================================================
+// COLLAPSIBLE SECTION EXPLAINERS
+// ============================================================
+// Every analysis section carries a .section-desc explaining what it shows —
+// invaluable on first read, pure scroll cost forever after. Measured on a
+// phone: 1,478px, 17.7% of the page, ~1.9 screenfuls before the board.
+//
+// The text is only ever *hidden*, never removed, so a first-time visitor and a
+// screen reader can still get to it; each block gains a toggle, and one control
+// in the header does all of them at once. The choice persists in localStorage.
+// They start collapsed at every width: the explainers are reference material,
+// read once, and the page is what someone came for.
+//
+// Toggles are built here rather than written into the markup: there are 14
+// blocks and the button is pure chrome, so generating it keeps the HTML about
+// the content. The class names are written as literals below, so the dead-code
+// checker still sees them — no CONSTRUCTED allowlist entry needed.
+// Declared above INIT on purpose: INIT runs inline at module evaluation and
+// calls initSectionDescriptions(), so these module-level consts must already
+// be initialised — below INIT they are in the temporal dead zone and the call
+// throws, taking the rest of INIT's wiring with it.
+const DESC_KEY = 'sta-desc-collapsed';
+const DESC_SEL = '#tab-analysis .section-desc, #tab-analysis .kpi-intro, #tab-portfolio .section-desc';
+
+// Section ids are positional (desc-0, desc-1, …). The blocks are static markup,
+// so the order is stable between loads; inserting a new section mid-page shifts
+// the ids after it, which at worst means a remembered choice lands on the
+// neighbouring section once.
+const descId = i => 'desc-' + i;
+
+function readCollapsedDescs() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(DESC_KEY) || 'null');
+    return Array.isArray(raw) ? new Set(raw) : null;   // null = nothing stored yet
+  } catch {
+    return null;   // private mode / corrupt value — fall back to the default
+  }
+}
+
+function saveCollapsedDescs(set) {
+  try { localStorage.setItem(DESC_KEY, JSON.stringify([...set])); } catch { /* non-fatal */ }
+}
+
+// The section this block explains, for the toggle's accessible name — the
+// eyebrow immediately above it, if there is one.
+function descSectionName(desc) {
+  let prev = desc.previousElementSibling;
+  for (let hops = 0; prev && hops < 2; hops++, prev = prev.previousElementSibling) {
+    if (prev.classList.contains('section-eyebrow')) return prev.textContent.trim();
+  }
+  return '';
+}
+
+function initSectionDescriptions() {
+  const descs = [...document.querySelectorAll(DESC_SEL)];
+  if (!descs.length) return;
+  const descToggles = [];
+
+  // Collapsed is the default at every width — the page is a decision tool, and
+  // the explainers are reference material you need once. A first-time visitor
+  // still sees the ⓘ standing in for each one, plus "Show explanations" in the
+  // header. A stored choice always wins over the default.
+  const stored = readCollapsedDescs();
+  const collapsed = stored || new Set(descs.map((_, i) => descId(i)));
+
+  const allBtn = document.getElementById('desc-toggle-all');
+
+  function paint() {
+    descs.forEach((desc, i) => {
+      const id = descId(i);
+      const isOpen = !collapsed.has(id);
+      const btn = descToggles[i];
+      // Expanded, the toggle rides at the end of the paragraph's last line, so
+      // showing the text costs no extra height — a button on its own row for
+      // each of 14 blocks added ~550px to the page, which is the very thing
+      // this feature exists to remove. Collapsed, it moves out and becomes the
+      // ⓘ affordance standing in for the text. Move before hiding: a button
+      // still inside a hidden <p> would disappear with it.
+      if (isOpen) desc.append(btn); else desc.after(btn);
+      desc.hidden = !isOpen;
+      btn.classList.toggle('inline', isOpen);
+      btn.setAttribute('aria-expanded', String(isOpen));
+      // Visible text is the start of the accessible name (WCAG 2.5.3), with
+      // the section appended so 14 identical buttons stay tellable apart.
+      const label = isOpen ? 'Hide explanation' : 'What this section shows';
+      const section = descSectionName(desc);
+      btn.innerHTML = `<span class="mark" aria-hidden="true">${isOpen ? '−' : 'ⓘ'}</span>${label}`;
+      btn.setAttribute('aria-label', section ? `${label} — ${section}` : label);
+    });
+    if (allBtn) {
+      const allHidden = collapsed.size === descs.length;
+      allBtn.textContent = allHidden ? 'Show explanations' : 'Hide explanations';
+      allBtn.setAttribute('aria-pressed', String(allHidden));
+    }
+  }
+
+  descs.forEach((desc, i) => {
+    const id = descId(i);
+    desc.id = id;
+    desc.classList.add('has-toggle');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'desc-toggle';
+    btn.setAttribute('aria-controls', id);
+    descToggles.push(btn);
+    btn.addEventListener('click', () => {
+      if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id);
+      saveCollapsedDescs(collapsed);
+      paint();
+    });
+    desc.after(btn);
+  });
+
+  if (allBtn) {
+    allBtn.addEventListener('click', () => {
+      const allHidden = collapsed.size === descs.length;
+      collapsed.clear();
+      if (!allHidden) descs.forEach((_, i) => collapsed.add(descId(i)));
+      saveCollapsedDescs(collapsed);
+      paint();
+    });
+  }
+
+  paint();
+}
+
+// ============================================================
 // INIT
 // ============================================================
 // Guard: the app depends on Chart.js and SheetJS loading from their CDNs.
@@ -4864,6 +5133,7 @@ populateCurrencySelect();
 renderPortfolio();
 renderAlerts();
 updateLastUpdated();
+initSectionDescriptions();   // static markup — runs once, not on data reload
 document.getElementById('sv-slider').addEventListener('input', updateScenario);
 document.getElementById('price-slider').addEventListener('input', updateScenario);
 document.getElementById('scenario-reset').addEventListener('click', initScenario);
@@ -5413,8 +5683,12 @@ function wireAuthControls() {
     }
     // Modals are excluded because they are positioned children of the pane, not
     // part of its scroll flow — animating them would fight their own open/close.
+    // .desc-toggle is excluded because it is chrome belonging to the explainer
+    // above it, not a section of its own — and when that explainer is collapsed
+    // the toggle *is* the visible stand-in for it, so fading it in separately
+    // would hide the only affordance the section has.
     return Array.prototype.slice.call(pane.children).filter(function (el) {
-      return !el.classList.contains('modal-overlay');
+      return !el.classList.contains('modal-overlay') && !el.classList.contains('desc-toggle');
     });
   }
 
