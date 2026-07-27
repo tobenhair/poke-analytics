@@ -197,6 +197,47 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   colour literals off-token, a `--radius` token that is only the third most-used
   radius, and a fourth font family (Arial) on native form controls. Seven Fix
   items and one Feature decision filed; none is a redesign.
+- **Accessibility conformance — the app is operable without a mouse.** The
+  Level-A blockers the expert review found are closed, and the three defects that
+  came before them in the plan went with the same pass. **F1:** every board row
+  opens its drill-down from a real `<button>` around the product name — not a
+  `tabindex` on the `<tr>`, which would have stripped the table's row semantics —
+  so the product's best answer surface is now reachable by keyboard; the two
+  read-only capped-height scroll regions took `tabindex="0"`. **F2:** every
+  overlay is a genuine dialog — `role`/`aria-modal`/`aria-labelledby` in markup,
+  and behaviour from one shared `openOverlay`/`closeOverlay` pair plus a single
+  global handler that traps Tab in the topmost overlay, closes on Escape, and
+  returns focus to whatever opened it (verified: 8 consecutive Tab presses stay
+  inside, where 6/6 used to land on background controls). **F3/F4:** all 72
+  Data Entry inputs are named from their own row data (`"Team Up Booster Box —
+  new price"`), and every previously anonymous select, slider and icon-only
+  button got a name. **F5:** one focus rule now covers everything focusable,
+  written to beat the `outline: none` class rules — and the four `transition: all`
+  declarations that were fading the ring in over 250 ms were narrowed to the
+  properties they actually animate. **F9/F17:** the 14 section eyebrows are
+  `<h2>`, the 16 panel titles `<h3>`, and the panes sit in a `<main>`, so the
+  page finally has an outline to navigate. **F12:** the tab bar is an ARIA
+  tablist with a roving tabindex and ←/→/Home/End navigation that skips hidden
+  tabs. **F14:** 💰/🔔 carry text alternatives, as does the board's trend arrow.
+  The type-filter pills became real buttons (as `<div>`s with click handlers they
+  were the same 2.1.1 failure as the rows). Two things fixed on the way that
+  nobody had filed: a latent crash — the Welcome tab's two CTA buttons reuse
+  `.tab-btn`, so the old unscoped tab listener ran on them, threw on a missing
+  `data-tab`, and left *no* tab active — and a genuine AA contrast failure from
+  an inline `opacity: 0.6` on the board's "💰 = buy signal" hint.
+  Also shipped, from *Known bugs*: the **phone tab bar** now wraps instead of
+  scrolling the body sideways (four tabs at 390 px), the **status line** wraps
+  and stays on screen instead of overflowing off the left edge — the bug that
+  hid "✕ Cloud save failed" from the admin on a phone — and **320 px reflow**
+  passes on every tab (the culprit was 8 px of margin/padding on the
+  age-threshold group). And the gate that keeps all of it: **`tests/a11y.spec.mjs`**
+  (`@axe-core/playwright`) — zero serious/critical violations per tab plus the
+  journeys axe can't see. Its one hard-won lesson is recorded in the file:
+  `reducedMotion: 'reduce'` is **not** enough to avoid the phantom-contrast trap
+  the review warned about, because the durations collapse to 0.001ms rather than
+  zero and a tab switch restarts the pane fade — every sweep must first await
+  `document.getAnimations()`, or it measures `var(--muted)` at 1.83:1 instead of
+  its resting 5.9:1.
 
 ## Now — trustworthy numbers (stability & quality)
 
@@ -220,30 +261,20 @@ visitor on a phone as it does for the maintainer on a desktop.
 The order below is the one the **expert UX & accessibility review** recommended
 ([`docs/ux-expert-review.md`](docs/ux-expert-review.md), which supersedes the
 earlier journey pass in [`docs/ux-assessment.md`](docs/ux-assessment.md) and
-corrects two of its findings). **Accessibility now comes first**: four of its
-findings are Level-A conformance failures — the app is not operable without a
-mouse — which outranks the mobile density work the first pass had promoted.
-The defects both passes surfaced are under **Known bugs** and come before all of
-it.
+corrects two of its findings). **Accessibility came first and has shipped** —
+see *Done* — along with the three phone/reflow defects that preceded it. What
+remains is the density and comprehension work, now led by **mobile
+optimisation**. One accessibility item is still open and sits with the mobile
+work it belongs to: **F8**, five controls under the 24 px AA target minimum
+(2.5.8), the smallest being the modal-close ✕ at 11 × 15 px.
 
-- **Accessibility — now first in this theme.** The expert review found **four
-  Level-A failures**, so this is conformance work, not polish: board rows are not
-  keyboard-focusable (the drill-down cannot be opened without a mouse);
-  `#drill-modal` is a bare `div` with no `role="dialog"`, no accessible name, and
-  focus neither enters nor is trapped; **72/72** Data Entry inputs are named by
-  `placeholder` alone; and 5 controls have no accessible name at all. Plus at AA:
-  focus is invisible on **11 of the first 18** tab stops, the Analysis tab
-  contains **zero headings** (13 section eyebrows are `div`s) so there is no
-  document outline to navigate, and 5 controls fall under the 24 px target
-  minimum. Keyboard navigation for tabs, tables and the drill-down;
-  ARIA roles on the tab system; visible focus states; non-colour cues wherever
-  green/red still carries meaning alone (the text verdict resolves the worst
-  of it, then audit the rest).
 - **Mobile optimisation.** Verify and fix the real phone experience
-  end-to-end: the 70vh table scroll, chart legibility, tap targets, the Data
-  Entry grid, and the vertical density of nine full-width sections stacked with
-  their descriptions (the collapsible-descriptions toggle above is the first
-  lever). A price-checking tool gets used in shops, standing up — the phone
+  end-to-end: the 70vh table scroll, chart legibility, tap targets (**including
+  F8** — the five controls under the 24 px AA minimum, modal-close ✕ at
+  11 × 15 px being the worst; the 44 px figure the first pass quoted is AAA),
+  the Data Entry grid, and the vertical density of nine full-width sections
+  stacked with their descriptions (the collapsible-descriptions toggle below is
+  the first lever). A price-checking tool gets used in shops, standing up — the phone
   layout has to answer "is this fairly priced?" without a desktop.
 - **Collapsible section descriptions.** Every Analysis section carries a
   `.section-desc` explainer — invaluable on first read, pure scroll once you
@@ -598,34 +629,42 @@ worth keeping: it is *why* the pivot to Tradera/TCGdex was the right call.
 
 Defects to fix, separate from the forward-looking themes above. Newest first.
 
-**Bug — on a phone, the tab bar overflows the viewport when signed in.**
-`.tab-bar` is a non-wrapping `display: flex` row measuring **437 px at a 390 px
-viewport**, so the body scrolls sideways on *every* tab for signed-in admins (the
-only state with four tabs; three fit). Fix with `flex-wrap` or a scrollable tab
-strip.
-*Corrects an earlier mis-diagnosis:* the July journey pass blamed `.entry-table`
-for this and reported it as having no `overflow-x` wrapper. It has one
+_Nothing open._ The four defects listed here in July 2026 are all fixed; see
+the accessibility entry under **Done**. Kept below in short form because each
+records something worth not re-learning.
+
+_Previously fixed:_ **the phone tab bar overflowed the viewport when signed in.**
+`.tab-bar` was a non-wrapping flex row measuring 437 px at a 390 px viewport, so
+the body scrolled sideways on *every* tab for signed-in admins (the only state
+with four tabs). It now wraps, with a squarer radius below 680 px so a two-row
+bar doesn't read as a broken pill.
+*This corrected an earlier mis-diagnosis:* the July journey pass blamed
+`.entry-table` and reported it as having no `overflow-x` wrapper. It has one
 (`.entry-table-wrap`) and it works — the table was never the cause. See
 [`docs/ux-expert-review.md`](docs/ux-expert-review.md) → Correction 1.
 
-**Bug — reflow fails at 320 px (WCAG 1.4.10 AA).** Analysis and Data Entry both
-force two-dimensional scrolling at the 320 px conformance threshold
-(`scrollWidth` 342 vs 320). Passes at 390 px.
+_Previously fixed:_ **reflow failed at 320 px (WCAG 1.4.10 AA).** Analysis
+forced two-dimensional scrolling at the conformance threshold (`scrollWidth` 342
+vs 320). The whole 22 px was the age-threshold group's `margin-left: 8px` plus
+its `padding-left: 16px` separator rule; both drop away below 680 px, where the
+filter bar is wrapping anyway. Measured, not guessed — the element was found by
+walking the DOM for boxes extending past `window.innerWidth`.
 
-**Bug — the app cannot be operated without a mouse (WCAG 2.1.1, Level A).**
-Board rows have `cursor: pointer` and a click handler but no `tabindex`, `role`
-or key handler, so the **drill-down — the best answer surface in the app —
-cannot be opened from the keyboard at all**. Three `.table-wrap` scroll regions
-are likewise keyboard-unreachable. Grouped with the accessibility item, which
-this review promotes to the front of the design theme.
+_Previously fixed:_ **the app could not be operated without a mouse (WCAG 2.1.1,
+Level A).** Board rows had `cursor: pointer` and a click handler but no
+`tabindex`, `role` or key handler. The fix was *not* to make the `<tr>` a button
+— that strips the table's row semantics and trips `aria-required-children` —
+but to wrap the product name in a real `<button>`, with the row click kept for
+the mouse.
 
-**Bug — on a phone, the status line is unreadable and unreachable.**
-`#analysis-status` is a `white-space: nowrap` pill in a
-`justify-content: flex-end` row; on a 390 px viewport it overflows **left**,
-off-screen, and negative overflow creates no scroll area, so it cannot be
-reached. Not cosmetic: `setStatus()` is the only channel for cloud feedback, so
-on a phone the admin sees neither "✓ Saved to cloud" nor **"✕ Cloud save
-failed"** — a silent-failure path in the one flow that writes data.
+_Previously fixed:_ **on a phone, the status line was unreadable and
+unreachable.** `#analysis-status` was a `white-space: nowrap` pill in a
+`justify-content: flex-end` row; at 390 px it overflowed **left**, off-screen,
+and negative overflow creates no scroll area. Not cosmetic: `setStatus()` is the
+only channel for cloud feedback, so the admin saw neither "✓ Saved to cloud" nor
+**"✕ Cloud save failed"** — a silent-failure path in the one flow that writes
+data. The pill now wraps (`overflow-wrap: anywhere`, right-aligned) in a
+wrapping row, and carries `role="status"` so the message is announced.
 
 _Previously fixed:_ **the Portfolio currency picker offered only €.**
 The picker itself was correct — it lists € plus every currency it holds a live

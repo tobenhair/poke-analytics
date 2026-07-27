@@ -17,25 +17,8 @@
 // ============================================================
 
 import { test, expect } from '@playwright/test';
-import { routeLocalLibs } from './local-cdn.mjs';
-
-// Rewrite the inline Supabase config to empty strings so the app boots in
-// static mode. Resilient to future edits of the URL / key values.
-async function forceStaticMode(page) {
-  await page.route(/\/(index\.html)?(\?.*)?$/, async (route) => {
-    const request = route.request();
-    if (request.resourceType() !== 'document') return route.continue();
-    const response = await route.fetch();
-    let body = await response.text();
-    body = body
-      .replace(/url:\s*'[^']*'/, "url: ''")
-      .replace(/anonKey:\s*'[^']*'/, "anonKey: ''");
-    // Fulfill with an explicit content type rather than spreading the fetched
-    // response — reusing its headers (Content-Length / encoding) would conflict
-    // with the rewritten, shorter body and truncate the page.
-    return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body });
-  });
-}
+// forceStaticMode lives in local-cdn.mjs so the a11y spec can share it.
+import { routeLocalLibs, forceStaticMode } from './local-cdn.mjs';
 
 test('page loads and renders all tabs without runtime errors', async ({ page }) => {
   const pageErrors = [];

@@ -60,6 +60,29 @@ export const FX_RATES = { amount: 1, base: 'EUR', date: '2026-07-24', rates: { U
  * `**frankfurter**` route afterwards: Playwright gives precedence to the most
  * recently registered matching handler.
  */
+/**
+ * Rewrite the inline SUPABASE_CONFIG to empty strings so the app boots in
+ * plain static mode (SB_ENABLED = false → tryAutoLoad() → applyNewData()),
+ * with no login gate and no cloud calls. Resilient to future edits of the
+ * URL / key values. Call before page.goto(); shared by the smoke and a11y
+ * specs, which both exercise the static path.
+ */
+export async function forceStaticMode(page) {
+  await page.route(/\/(index\.html)?(\?.*)?$/, async (route) => {
+    const request = route.request();
+    if (request.resourceType() !== 'document') return route.continue();
+    const response = await route.fetch();
+    let body = await response.text();
+    body = body
+      .replace(/url:\s*'[^']*'/, "url: ''")
+      .replace(/anonKey:\s*'[^']*'/, "anonKey: ''");
+    // Fulfill with an explicit content type rather than spreading the fetched
+    // response — reusing its headers (Content-Length / encoding) would conflict
+    // with the rewritten, shorter body and truncate the page.
+    return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body });
+  });
+}
+
 export async function routeLocalLibs(page) {
   await page.route('**cdnjs.cloudflare.com/**Chart.js**', (r) => r.fulfill(js(chartJs)));
   await page.route('**cdnjs.cloudflare.com/**xlsx**', (r) => r.fulfill(js(xlsxJs)));

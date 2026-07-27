@@ -35,81 +35,41 @@ need a decision or a spike before detailed planning would be honest.
 _Empty — every item in this theme has shipped._ Two plans that were once here
 are kept further down rather than deleted: **2b. Board performance fixes**
 (measured, deliberately dormant until ~200 products) and **1. Backup & restore**
-(deferred by maintainer decision). The **UX assessment** has now run
-(`docs/ux-assessment.md`); the two defects it found are in ROADMAP's *Known
-bugs* and should be fixed before the design items. The next planned work is
-**Mobile optimisation**, immediately below — promoted to first *by* the
-assessment.
+(deferred by maintainer decision). Both UX passes have run
+(`docs/ux-assessment.md`, then the authoritative `docs/ux-expert-review.md`);
+the defects they found are fixed and ROADMAP's *Known bugs* is empty. **Item 10,
+Accessibility, has shipped** — its plan is deleted per the rule below, and what
+it built is documented in `CLAUDE.md` → *Accessibility structure*. The next
+planned work is **Mobile optimisation**, immediately below.
 
 ## THEN — design & usability
 
 Ordered as the **expert UX & accessibility review** recommended
 (`docs/ux-expert-review.md`, which supersedes and corrects `docs/ux-assessment.md`).
-Accessibility leads because four of its findings are Level-A conformance failures.
-Section numbers are stable cross-reference labels — reading order is the priority,
-not the numbering.
-
-### 10. Accessibility — first in this theme
-
-Scope is now specified by measurement, not intuition — see
-`docs/ux-expert-review.md` findings F1–F5, F9, F12, F14. Four are Level A, so
-treat this as conformance work. Suggested commit order (each independently
-shippable, hardest-first is wrong here — do the Level-A blockers first):
-
-1. **Board rows keyboard-operable (F1, WCAG 2.1.1).** `tabindex="0"`,
-   `role="button"`, Enter/Space → `openDrill()`. Also give the three
-   `.table-wrap` scroll regions `tabindex="0"` so they can be scrolled by
-   keyboard (`scrollable-region-focusable`).
-2. **Make the drill-down a real dialog (F2, WCAG 2.4.3/4.1.2).** `role="dialog"`,
-   `aria-modal="true"`, `aria-labelledby` the product name; move focus in on
-   open, trap it while open, return it to the invoking row on close. Verified
-   broken today: 6/6 Tab presses after opening landed on background controls.
-3. **Name the Data Entry inputs (F3, WCAG 3.3.2/4.1.2).** All **72** are
-   `placeholder`-only. The row already knows the product and field
-   (`data-product`, `data-field`) — build an `aria-label` from them
-   (`"Team Up Booster Box — new price"`). Placeholder is not a name and vanishes
-   on typing.
-4. **Name the 5 unnamed selects (F4, WCAG 4.1.2)** — sort, verdict filter, the
-   two comparison pickers, and one on Data Entry.
-5. **One `:focus-visible` rule across the token set (F5, WCAG 2.4.7).** 11 of the
-   first 18 tab stops have no indicator; some controls do have one, so this is
-   consistency work.
-6. **Give the Analysis tab a heading outline (F9, WCAG 1.3.1/2.4.6).** The 13
-   `.section-eyebrow` divs and `.panel-title` divs should be real headings, and
-   the page needs a `<main>` landmark (axe `region`: 40 on Analysis, 265 on Data
-   Entry). This is what lets a screen-reader user jump between the nine sections
-   at all.
-7. **Text alternatives for 💰/🔔 (F14)** — visually-hidden text, not just
-   `title`.
-
-- Tab system: `role="tablist"/"tab"/"tabpanel"`, `aria-selected`,
-  arrow-key navigation between tabs (F12).
-- Board rows (they open the drill-down): `tabindex="0"` + Enter/Space
-  activation, visible `:focus-visible` outline using `--accent`.
-- Modals: focus trap + focus return on close (drill-down, Format Guide,
-  account overlay); Esc already works.
-- Non-colour cues: audit every place green/red alone carries meaning; the
-  text verdict resolved the board — check momentum arrows, P&L, deltas.
-- Add `@axe-core/playwright` as a devDependency and one spec asserting no
-  serious/critical violations on each tab — turns a11y into a regression
-  test instead of a one-off pass. **Wait for the reveal animations to settle
-  before sweeping** (≥2 s after a tab switch, or run with
-  `reducedMotion: 'reduce'`): axe sampled 300 ms after a tab click reports **27
-  colour-contrast failures that do not exist**, because the entrance animation
-  has muted text mid-opacity at 4.30:1 instead of its resting 5.80:1. A gate that
-  cries wolf gets disabled. *Size: M.*
+Accessibility led and has shipped; mobile optimisation is now first, and it
+inherits the one accessibility finding still open (**F8**, tap targets under the
+24 px AA minimum). Section numbers are stable cross-reference labels — reading
+order is the priority, not the numbering.
 
 ### 8. Mobile optimisation
 
 Fix the audited phone experience: the 70vh `.table-wrap` scroll interplay
-with page scroll, tap targets ≥ 44px (tab buttons, sort selects, chips),
-chart legibility (Chart.js `maintainAspectRatio`/font sizes at narrow
-widths), the Data Entry grid's horizontal overflow (measured: the table is
-890px wide in a 390px viewport with no `overflow-x` wrapper), the clipped
-status pill, the board's Fair Price column starting off-screen, and the
-stacked-section density (item 7 is the first lever). Add one Playwright viewport test
-(`devices['Pixel 7']` or similar) asserting no horizontal body scroll and
-that the board renders. *Size: M. Read `docs/ux-assessment.md` findings 1, 2, 6, 8, 9 first — 1 and 2 are filed as bugs and should already be fixed. Pairs with: 7.*
+with page scroll, **tap targets (F8)** — the AA floor is **24px** (2.5.8), not
+the 44px the first pass quoted, and only five controls fail it, the worst being
+the modal-close ✕ at 11 × 15px — chart legibility (Chart.js
+`maintainAspectRatio`/font sizes at narrow widths), the board's Fair Price
+column starting off-screen, and the stacked-section density (item 7 is the
+first lever).
+
+Three things the first pass filed here are **already done**, so don't re-plan
+them: the tab-bar overflow, the clipped status pill and 320px reflow are fixed
+(see ROADMAP → *Known bugs*), and the Data Entry grid's "no `overflow-x`
+wrapper" was a **mis-diagnosis** — `.entry-table-wrap` exists and works
+(`docs/ux-expert-review.md` → Correction 1). `tests/a11y.spec.mjs` already
+asserts no horizontal body scroll at 320px on every tab, so extend that spec
+rather than adding a second viewport test. *Size: M. Read
+`docs/ux-expert-review.md` first (it corrects `docs/ux-assessment.md` findings
+1, 2, 6, 8, 9). Pairs with: 7.*
 
 ### 7. Collapsible section descriptions
 

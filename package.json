@@ -14,6 +14,7 @@
     "scale:measure": "node scripts/measure-scale.mjs"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.49.0",
     "chart.js": "4.4.1",
     "xlsx": "^0.18.5"
