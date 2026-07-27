@@ -345,7 +345,7 @@ test('the Top-10 bar chart keeps a label per bar at phone width', async ({ page 
   expect(h, 'ten labelled rows need ~26px each').toBeGreaterThanOrEqual(240);
 });
 
-test('section explainers collapse on a phone, stay open on desktop, and remember the choice', async ({ page }) => {
+test('section explainers start collapsed at every width and remember the choice', async ({ page }) => {
   // Measured at 1,478px — 17.7% of the phone page — of prose before the board.
   // The text is hidden, never removed, so it stays reachable for a first-time
   // visitor and a screen reader.
@@ -357,7 +357,7 @@ test('section explainers collapse on a phone, stay open on desktop, and remember
     [...document.querySelectorAll('#tab-analysis .section-desc, #tab-analysis .kpi-intro')].filter((d) => !d.hidden).length);
   const firstToggle = page.locator('#tab-analysis .desc-toggle').first();
 
-  expect(await shown(), 'explainers start collapsed on a phone').toBe(0);
+  expect(await shown(), 'explainers start collapsed').toBe(0);
   await expect(page.locator('#tab-analysis .section-desc').first()).toBeAttached();  // hidden, not removed
   await expect(firstToggle).toHaveAttribute('aria-expanded', 'false');
 
@@ -382,16 +382,20 @@ test('section explainers collapse on a phone, stay open on desktop, and remember
   await openTab(page, 'analysis');
   expect(await shown(), 'expanded state should persist').toBe(10);
 
-  // Desktop starts expanded regardless (nothing stored for a new visitor).
-  const fresh = await page.context().newPage();
-  await fresh.setViewportSize({ width: 1280, height: 900 });
-  await routeLocalLibs(fresh);
-  await forceStaticMode(fresh);
-  await fresh.goto('/?admin=1');
-  await expect(fresh.locator('#product-tbody tr').first()).toBeAttached();
-  const desktopShown = await fresh.evaluate(() =>
+  // A desktop visitor with nothing stored gets the same condensed page — the
+  // default is width-independent, so the first view is the numbers.
+  const fresh = await page.context().browser().newContext({ viewport: { width: 1280, height: 900 } });
+  const freshPage = await fresh.newPage();
+  await routeLocalLibs(freshPage);
+  await forceStaticMode(freshPage);
+  await freshPage.goto('/?admin=1');
+  await expect(freshPage.locator('#product-tbody tr').first()).toBeAttached();
+  const desktopShown = await freshPage.evaluate(() =>
     [...document.querySelectorAll('#tab-analysis .section-desc, #tab-analysis .kpi-intro')].filter((d) => !d.hidden).length);
-  expect(desktopShown, 'desktop keeps the explainers open by default').toBe(10);
+  expect(desktopShown, 'desktop starts collapsed too').toBe(0);
+  // …and the ⓘ that stands in for each one is visible, not hover-gated.
+  const markOpacity = await freshPage.locator('#tab-analysis .desc-toggle').first().evaluate((e) => getComputedStyle(e).opacity);
+  expect(Number(markOpacity), 'the collapsed affordance must always show').toBe(1);
   await fresh.close();
 });
 

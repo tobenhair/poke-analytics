@@ -18,11 +18,11 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 
 ### Reading it your way
 
-Every numbered section carries a short explainer. Once you know the page they're
-just scroll, so each one can be collapsed — and **Hide explanations** in the
-header does the lot. The choice is remembered on your device, and on a phone
-they start collapsed (that prose is 17.7% of the page). Nothing is deleted:
-expand any section to read it again.
+Every numbered section carries a short explainer, and they **start collapsed** so
+the page opens on the numbers — each one shows a small *ⓘ What this section
+shows* you can expand, or use **Show explanations** in the header for all of
+them at once. The choice is remembered on your device. Nothing is deleted:
+expand any section whenever you want it.
 
 ### On a phone
 

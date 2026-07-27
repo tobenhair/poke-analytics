@@ -279,6 +279,15 @@
     transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
     transition-delay: var(--rv-delay, 0ms);
   }
+  /* Focus must never land on something invisible. Tabbing to a control below
+     the fold scrolls it into view, but the IntersectionObserver that reveals
+     its section only fires a frame later — so for up to 0.7s the focused
+     control would be mid-fade. Revealing on focus-within closes that window. */
+  .rv:focus, .rv:focus-within {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 
   /* ── Filter bar ── */
   .filters {
@@ -4966,6 +4975,8 @@ function renderDrillHolding(p) {
 // The text is only ever *hidden*, never removed, so a first-time visitor and a
 // screen reader can still get to it; each block gains a toggle, and one control
 // in the header does all of them at once. The choice persists in localStorage.
+// They start collapsed at every width: the explainers are reference material,
+// read once, and the page is what someone came for.
 //
 // Toggles are built here rather than written into the markup: there are 14
 // blocks and the button is pure chrome, so generating it keeps the HTML about
@@ -4977,9 +4988,6 @@ function renderDrillHolding(p) {
 // throws, taking the rest of INIT's wiring with it.
 const DESC_KEY = 'sta-desc-collapsed';
 const DESC_SEL = '#tab-analysis .section-desc, #tab-analysis .kpi-intro, #tab-portfolio .section-desc';
-// Below this width the explainers start collapsed for a first-time visitor —
-// it is where their share of the page stops being affordable.
-const DESC_COLLAPSE_BELOW = '(max-width: 640px)';
 
 // Section ids are positional (desc-0, desc-1, …). The blocks are static markup,
 // so the order is stable between loads; inserting a new section mid-page shifts
@@ -5015,10 +5023,12 @@ function initSectionDescriptions() {
   if (!descs.length) return;
   const descToggles = [];
 
+  // Collapsed is the default at every width — the page is a decision tool, and
+  // the explainers are reference material you need once. A first-time visitor
+  // still sees the ⓘ standing in for each one, plus "Show explanations" in the
+  // header. A stored choice always wins over the default.
   const stored = readCollapsedDescs();
-  const collapsed = stored
-    ? stored
-    : new Set(window.matchMedia(DESC_COLLAPSE_BELOW).matches ? descs.map((_, i) => descId(i)) : []);
+  const collapsed = stored || new Set(descs.map((_, i) => descId(i)));
 
   const allBtn = document.getElementById('desc-toggle-all');
 
@@ -5673,8 +5683,12 @@ function wireAuthControls() {
     }
     // Modals are excluded because they are positioned children of the pane, not
     // part of its scroll flow — animating them would fight their own open/close.
+    // .desc-toggle is excluded because it is chrome belonging to the explainer
+    // above it, not a section of its own — and when that explainer is collapsed
+    // the toggle *is* the visible stand-in for it, so fading it in separately
+    // would hide the only affordance the section has.
     return Array.prototype.slice.call(pane.children).filter(function (el) {
-      return !el.classList.contains('modal-overlay');
+      return !el.classList.contains('modal-overlay') && !el.classList.contains('desc-toggle');
     });
   }
 

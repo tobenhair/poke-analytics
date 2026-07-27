@@ -277,11 +277,12 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   the first. Each now carries a toggle, with one control in the Analysis header
   that does all of them, and the choice persists in `localStorage`. The text is
   **hidden, never removed**, so a first-time visitor and a screen reader still
-  reach it. Default: collapsed below 640 px, open above — the width where the
-  prose stops being affordable. Result on a phone: **10.7 → 9.4 screenfuls**,
-  with the first product row **473 px closer** (y = 2,436 → 1,963); on desktop a
-  reader who hides them goes from 8.4 to 7.5 screenfuls and the first row from
-  y = 1,673 to 1,354. The design detail that made it worth doing: the toggle
+  reach it. They **start collapsed at every width** — the explainers are
+  reference material, read once, and the page is what someone came for. Result:
+  on a phone **10.7 → 9.4 screenfuls** with the first product row **473 px
+  closer** (y = 2,436 → 1,963); on desktop **−586 px** with the first row **341
+  px closer** (y = 1,695 → 1,354), so the KPIs and the first picks are the
+  opening screen. The design detail that made it worth doing: the toggle
   **rides at the end of the explainer's last line** when expanded rather than
   taking a row of its own — 14 buttons on their own rows added ~550 px to the
   page, which is the very thing the item exists to remove — and on desktop it is

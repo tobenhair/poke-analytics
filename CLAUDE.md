@@ -172,10 +172,17 @@ Analysis and Portfolio tabs a toggle, plus one global control
   The `:focus` reveal is `transition: none` on purpose: a 200ms fade means the
   control is invisible at the moment focus lands, the same defect as animating
   a focus ring in.
-- **Default is collapsed below 640px, open above**, and the choice persists in
-  `localStorage` under `sta-desc-collapsed` as an array of positional ids
-  (`desc-0`…). Positional means inserting a section mid-page shifts the ids
+- **Collapsed is the default at every width** — the explainers are reference
+  material, read once, and the page is what someone came for. A stored choice
+  always wins over the default; it persists in `localStorage` under
+  `sta-desc-collapsed` as an array of positional ids (`desc-0`…). Positional means inserting a section mid-page shifts the ids
   after it; the worst case is a remembered choice landing on a neighbour once.
+- **The toggles are excluded from the reveal-on-scroll targets** (they are
+  direct children of the pane, so they matched by default). A collapsed
+  toggle *is* the section's only visible affordance — fading it in separately
+  would hide it. Relatedly, `.rv:focus-within` reveals a section instantly:
+  Tab scrolls a below-the-fold control into view but the IntersectionObserver
+  fires a frame later, so focus could otherwise land on something mid-fade.
 - **The block must stay above the `INIT` block.** INIT runs inline at module
   evaluation and calls `initSectionDescriptions()`; module-level `const`s
   declared below INIT are in the temporal dead zone at that point, and the throw
