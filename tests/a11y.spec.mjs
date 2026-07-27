@@ -399,6 +399,36 @@ test('section explainers start collapsed at every width and remember the choice'
   await fresh.close();
 });
 
+test('the icon set resolves, is monochrome, and shows tab state', async ({ page }) => {
+  await bootStatic(page);
+
+  // Every <use> must point at a symbol that exists — a typo'd href renders
+  // nothing at all, silently.
+  const unresolved = await page.evaluate(() =>
+    [...document.querySelectorAll('use')].map((u) => u.getAttribute('href')).filter((h) => !document.querySelector(h)));
+  expect(unresolved, 'icon references with no matching <symbol>').toEqual([]);
+
+  // The reason for replacing the emoji: an icon takes the colour of its label,
+  // so it can show active vs inactive. The active tab sits on gold, and its
+  // icon has to go dark with the text.
+  await openTab(page, 'analysis');
+  const strokes = await page.evaluate(() =>
+    [...document.querySelectorAll('.tab-bar .tab-btn')]
+      .filter((b) => b.offsetParent)
+      .map((b) => ({ active: b.classList.contains('active'), stroke: getComputedStyle(b.querySelector('.icon')).stroke })));
+  const active = strokes.find((t) => t.active);
+  const inactive = strokes.find((t) => !t.active);
+  expect(active.stroke, 'the active tab icon must not match the inactive ones').not.toBe(inactive.stroke);
+
+  // No colour is baked into the sprite: icons inherit, so a token change
+  // reaches them. (currentColor resolves per-use, never to a literal here.)
+  const hardCoded = await page.evaluate(() =>
+    [...document.querySelectorAll('.sprite [stroke], .sprite [fill]')]
+      .flatMap((el) => [el.getAttribute('stroke'), el.getAttribute('fill')])
+      .filter((v) => v && v !== 'currentColor' && v !== 'none'));
+  expect(hardCoded, 'sprite paths must use currentColor').toEqual([]);
+});
+
 test('the signed-in surface (portfolio + demo page) has no serious or critical violations', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', (err) => pageErrors.push(err.message));

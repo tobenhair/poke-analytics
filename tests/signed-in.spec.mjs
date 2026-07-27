@@ -80,7 +80,12 @@ test('a regular user gets portfolio + alerts but not Data Entry, and edits auto-
   await expect(page.locator('#product-tbody')).toContainText('Alpha Booster Box');
 
   // The fixture alert (Gamma below €100, latest price €80) flags the board.
-  await expect(page.locator('#product-tbody tr', { hasText: 'Gamma ETB' })).toContainText('🔔');
+  // The alert marker is an icon, so assert its accessible name rather than a
+  // glyph — that is what a screen reader gets, and it survives an icon change.
+  await expect(
+    page.locator('#product-tbody tr', { hasText: 'Gamma ETB' })
+        .locator('[role="img"][aria-label^="Alert"]'),
+  ).toBeVisible();
 
   // Portfolio: the fixture holding renders; adding a new one auto-saves an
   // upsert row keyed user_id+product_id — no Save button anywhere.

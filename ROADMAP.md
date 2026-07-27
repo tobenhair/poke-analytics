@@ -323,6 +323,25 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   planted violations, not just observed to pass; it only ever reports, like the
   dead-code checker. Also fixed on the way: a race in the smoke test, which
   measured the drill-down's canvas before Chart.js had sized it.
+- **One icon language: an SVG set replaces the emoji.** The decision the visual
+  review left open (V8) went to **SVG, for platform consistency** — maintainer's
+  call. 👋📊✏️💼💰🔔🏆📋🔗✎☁⬇🎴📅 and the coloured signal dots are now **15
+  symbols in one inline sprite**, referenced with `<use href="#i-name">`, drawn
+  in-repo so there is no build step and no licence question. Every path is
+  stroke-only on `currentColor`, which buys the thing emoji could never do:
+  **an icon takes the colour of its label**, so the active tab's icon goes dark
+  on the gold pill while the inactive ones stay `--muted`, and the buy-signal
+  tag is `--accent` because it marks a signal. Meaning-carrying icons keep the
+  accessible name on their wrapper (`role="img"` + `aria-label`); decorative
+  ones beside a text label are `aria-hidden`. **Three places deliberately keep
+  text:** Chart.js tooltips (canvas-drawn, so no markup can go there — the words
+  carry it), status messages written with `textContent`, and the typographic
+  ✓ / ✕ / ⚠ / ⤵ glyphs, which render in the page font rather than an emoji font.
+  Guarded by a case in `tests/a11y.spec.mjs` — every `<use>` resolves to a real
+  symbol, the sprite contains no baked colour, and the active tab's icon differs
+  from the inactive ones. A test that asserted the literal `🔔` now asserts the
+  alert's *accessible name* instead, which is both more robust and closer to
+  what a screen reader gets.
 
 ## Now — trustworthy numbers (stability & quality)
 
@@ -360,11 +379,6 @@ system's token/scale drift is reconciled and now guarded by
   and green as arbitrary category tints — teaching a first-time visitor, on the
   first screen, that the colours are decorative, when everywhere else green
   genuinely means good.
-- **Feature — decide on emoji vs an SVG icon set.** 👋📊✏️💰🔔 carry navigation
-  and state, but they render differently on every platform, cannot take a colour
-  (so they can't participate in active/inactive state), and sit alongside one
-  real custom logo mark — two icon languages on a page. A decision to make before
-  launch, not a defect: emoji are friendly and free to keep.
 - **Fix — how "Fair Price" presents its own confidence.** The board header renders
   a bare *"R² 0.39"*. R² is a term most buyers don't know, **0.39 is a weak fit**,
   and the whole product rests on the number it qualifies — while both explanations

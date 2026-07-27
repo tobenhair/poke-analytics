@@ -110,7 +110,7 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   click handler stays for the mouse; the button's handler calls
   `stopPropagation()` so the drill-down isn't built twice. `.pn-head` is a
   nowrap flex line with `min-width: 0` — without it the cell's `text-overflow`
-  cannot ellipsis *part* of an inline-block, and a long name beside a 💰/🔔 flag
+  cannot ellipsis *part* of an inline-block, and a long name beside a buy/alert flag
   disappears entirely.
 - **Every `.modal-overlay` is a real dialog.** Markup carries
   `role="dialog"`/`aria-modal`/`aria-labelledby`; behaviour comes from the shared
@@ -125,8 +125,8 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   whole look (they reset the UA `font-weight`/`margin`), so keep using the class
   when adding a section — but keep the element a heading.
 - **Names and non-colour cues.** Every input/select has a label or `aria-label`
-  (the Data Entry grid builds `"<product> — new price"` from its row data); 💰/🔔
-  carry `role="img"` + `aria-label`; the board's trend arrow ships a `.sr-only`
+  (the Data Entry grid builds `"<product> — new price"` from its row data); the
+  buy-signal and alert icons carry `role="img"` + `aria-label` on their wrapper; the board's trend arrow ships a `.sr-only`
   word beside it. A new control with no visible label needs an `aria-label`.
 - **One focus rule** covers everything focusable (`a/button/input/select/
   textarea/[tabindex]:focus-visible`), written as a type+pseudo-class list so it
@@ -252,6 +252,15 @@ Markup, styles, and logic share one file, and the JS builds DOM from string temp
 
 - **Preserve element IDs and JS-referenced class names** (e.g. `product-tbody`, `top-picks-list`, `relval-tbody`, `momentum-tbody`, the `#*-chart` canvases, `.entry-input`, `.url-cell`, `.type-BOX/ETB/BUNDLE`, `.pill`, `.tab-btn`/`.tab-pane`). Renaming them silently breaks rendering.
 - **Preserve the CSS variable names** in `:root` (`--bg`, `--accent`, `--muted`, …) — inline styles throughout the markup reference them.
+- **Icons come from the sprite**, not from emoji: one inline `<svg class="sprite">`
+  of `<symbol id="i-…">` near the top of `<body>`, used as
+  `<svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg>`. Paths are
+  stroke-only on `currentColor` so an icon inherits the colour of its label —
+  that is what lets the active tab's icon go dark on gold. Adding one means
+  adding a symbol, not a literal `<path>` at the call site. An icon that carries
+  meaning alone needs `role="img"` + `aria-label` on its wrapper. Emoji survive
+  in three places on purpose: Chart.js tooltips (canvas text), status strings
+  written with `textContent`, and typographic ✓/✕/⚠ glyphs.
 - **Colours and font sizes come from tokens, everywhere** — including the chart
   JavaScript, which resolves them at runtime into `COLOR` (and derives every
   fill from the same hue via `alpha()`, so a fill can't drift from its line).

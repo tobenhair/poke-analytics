@@ -46,6 +46,12 @@ that is exactly how the app grew a second palette.
 outside `:root` or any raw `font-size`. A genuine exception goes in its
 `ALLOWED_COLOURS` map *with a written reason*.
 
+**Icons** — the inline sprite, never emoji. `<svg class="icon" aria-hidden="true">
+<use href="#i-name"/></svg>`; add a `<symbol>` rather than a one-off `<path>`.
+Stroke-only on `currentColor` so it inherits its label's colour (`.icon-lg` for
+standalone icons). Meaning-carrying alone → `role="img"` + `aria-label` on the
+wrapper.
+
 **Fonts** — three only:
 - `Bebas Neue` — display headings (`h1`, `.panel-title`).
 - `DM Mono` — labels, figures, eyebrows, badges, anything numeric/technical.
