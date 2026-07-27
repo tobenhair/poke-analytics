@@ -161,6 +161,33 @@ future change should preserve:
   explainer no longer promises it. Sorting is `#sort-select`. If you add header
   sorting, restore both affordances with it.
 
+### Fair price, and how it says what it's worth
+
+`fitConfidence(r2)` in `metrics.js` turns the age fit's R² into a band —
+**strong fit / moderate fit / rough estimate**. Two rules hold it together:
+
+- **The board shows the word, the drill-down shows the number.** A bare
+  "R² 0.39" reads as more authoritative than a weak fit deserves.
+- **`fitConfidence().trusted` must mean exactly what `fairPriceTrusted()` means**
+  (both are `r2 >= FAIR_PRICE_MIN_R2`), or the board could label a price
+  "moderate fit" while the verdict is quietly ignoring it. A unit test pins the
+  boundary from both sides.
+
+The word is a button opening `#method-modal` — the method has to be reachable
+without a hover, which a `title` never is on touch.
+
+### Passwords: two ways into one form
+
+`openPasswordForm(isRecovery)` is module-level because it has two callers: the
+header's **Change password** button, and the `PASSWORD_RECOVERY` branch in
+`onAuthStateChange` — Supabase fires that when a user returns through a reset
+link, and the call site is outside `wireAuthControls()`'s scope. The heading and
+intro switch with the flag; the form is otherwise identical.
+
+The reset request replies the same way whether or not the address exists (the
+endpoint is deliberately quiet about it), and `redirectTo` strips any existing
+fragment — the recovery token arrives in one.
+
 ### Collapsible explainers
 
 `initSectionDescriptions()` gives every `.section-desc`/`.kpi-intro` on the

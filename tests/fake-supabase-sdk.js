@@ -9,7 +9,8 @@
 // It implements ONLY the API surface index.html actually uses (audited from
 // the sbClient call sites) over in-memory fixtures:
 //   auth: onAuthStateChange (INITIAL_SESSION semantics), signInWithPassword,
-//         signUp, signOut, updateUser
+//         signUp, signOut, updateUser, resetPasswordForEmail
+//         (+ window.__sbRecovery(email) to stand in for the emailed link)
 //   from(table): select('*') [.order()] [.maybeSingle()]
 //                insert(row) [.select('id').single()]
 //                update(row).eq(...)
@@ -234,6 +235,21 @@
       updateUser: function () {
         return Promise.resolve({ data: { user: session && session.user }, error: null });
       },
+      // Recovery mail is a server concern; what the client owes is the call
+      // (recorded so a spec can assert the address and redirect) and the
+      // PASSWORD_RECOVERY event the user's return through the link produces.
+      resetPasswordForEmail: function (addr, opts) {
+        window.__sbWrites.push({ table: 'auth', op: 'resetPasswordForEmail', payload: { email: addr, options: opts } });
+        // The real endpoint never reveals whether the address exists.
+        return Promise.resolve({ data: {}, error: null });
+      },
+    };
+
+    // Test hook: stand in for the user clicking the emailed recovery link,
+    // which returns them to the page with a short-lived recovery session.
+    window.__sbRecovery = function (email) {
+      session = { user: users[email] || { id: 'recovered', email: email } };
+      listeners.forEach(function (cb) { cb('PASSWORD_RECOVERY', session); });
     };
 
     return { auth: auth, from: from };

@@ -6,12 +6,13 @@
 > it), V2 (11 named type steps; 36 rendered sizes → 11), V4 (`--radius-pill` /
 > `--radius-sm` / `--radius`), V5 (`font: inherit` — Arial is gone), V8 (the decision went to an **SVG
 > set**, now shipped: 15 symbols in one inline sprite, `currentColor`
-> throughout), V10 (`--medal-bronze`, plus `--medal-silver`). The document's own process
+> throughout), V6 and V7 (Welcome now uses `.section-eyebrow`, the hero shares the `h1`
+> treatment, and the card titles are `--text` rather than category tints), V10
+> (`--medal-bronze`, plus `--medal-silver`). The document's own process
 > suggestion also shipped: **`npm run check:design-tokens`** now fails the build
 > on a non-token colour literal or a raw `font-size`. **Still open:** V3 (the
 > remaining inline `style` attributes — the *colour* and *font-size* ones are
-> now tokenised, but the attributes themselves remain), V6 and V7 (Welcome's
-> section pattern and its decorative accent colours), V9 (gold
+> now tokenised, but the attributes themselves remain) and V9 (gold
 > over-subscribed). All tracked in `ROADMAP.md`.
 
 The third and last of the July reviews, covering what the other two explicitly

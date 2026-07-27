@@ -8,13 +8,19 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 
 ## What it does
 
-- **Answers "is this fairly priced?"** — a **fair price in euros** per product (the expected-value-for-age fit inverted, gated on the fit's R²) and a plain-language verdict on the board.
+- **Answers "is this fairly priced?"** — a **fair price in euros** per product (the expected-value-for-age fit inverted) and a plain-language verdict on the board. The board says in words how much to trust that fit — *strong fit* / *moderate fit* / *rough estimate* — and tapping it explains the method.
 - **Ranks every product** by an age-weighted value score so newer and older releases can be compared fairly.
 - **Surfaces buy signals** when a product's price drops while its set value holds steady — a possible mispricing.
 - **Charts price history, set-value-per-booster trends, and age-vs-value** across all tracked products, comparing either products or whole sets.
 - **Scenario explorer** — drag sliders for set value and price to see how the score would move.
 - **Monthly data entry** — punch in the latest prices, add new releases, attach Cardmarket links, and export an updated `.xlsx` ready to commit back to the repo.
 - **With cloud sync enabled** (optional, see below): a private **portfolio** with unrealised P&L, concentration balancing and a value-over-time chart, plus **price alerts** on a fixed € target or on the fair price.
+
+### Forgotten password
+
+The sign-in dialog has a **Forgot your password?** link: it mails a recovery
+link, and returning through it opens the form to set a new one. (With cloud sync
+enabled — see the setup guide for the one redirect-URL setting it needs.)
 
 ### Icons
 

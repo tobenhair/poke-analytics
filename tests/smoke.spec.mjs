@@ -46,10 +46,11 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   // Top Picks populated.
   await expect(page.locator('#top-picks-list')).not.toBeEmpty();
 
-  // Fair Price column derived: the header carries an R² fit note and at least
-  // one board row shows a computed fair price in euros (guards recomputeFit()
-  // running before first render and the age-fit → fair-price inversion).
-  await expect(page.locator('#fair-fit-note')).toContainText('R²');
+  // Fair Price column derived: the header states the fit's confidence in words
+  // (the R² itself lives in the drill-down) and at least one board row shows a
+  // computed fair price in euros — together these guard recomputeFit() running
+  // before the first render, and the age-fit → fair-price inversion.
+  await expect(page.locator('#fair-fit-note')).toHaveText(/strong fit|moderate fit|rough estimate/);
   await expect.poll(
     () => page.locator('#product-tbody td:nth-child(4)')
             .filter({ hasText: '€' }).count(),
