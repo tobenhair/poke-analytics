@@ -491,11 +491,21 @@ test('the signed-in surface (portfolio + demo page) has no serious or critical v
   await routeLocalLibs(page);
   await page.goto('/');
 
-  // The logged-out demo is the first thing a visitor meets.
+  // The logged-out demo is the first thing a visitor meets, and since the
+  // pitch rework it is the app's only "what this is / how to read it" surface
+  // — so it carries prose, a step panel and two dialog openers, not just a
+  // table. Sweep it before anything else.
   await expect(page.locator('#demo-page')).toBeVisible();
   expect(await blockingViolations(page), 'axe on the demo page').toEqual([]);
 
-  await page.locator('#demo-signin-btn').click();
+  // The glossary is shared with the Welcome tab, so one sweep covers both.
+  await page.locator('#demo-page .glossary-open').click();
+  await expect(page.locator('#glossary-modal')).toHaveClass(/open/);
+  expect(await blockingViolations(page, '#glossary-modal'), 'axe on the glossary').toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#glossary-modal')).not.toHaveClass(/open/);
+
+  await page.locator('#demo-page header .signin-open').click();
   await expect(page.locator('#auth-overlay')).toBeVisible();
   expect(await blockingViolations(page, '#auth-overlay'), 'axe on the sign-in dialog').toEqual([]);
 
@@ -507,5 +517,44 @@ test('the signed-in surface (portfolio + demo page) has no serious or critical v
   await openTab(page, 'portfolio');
   expect(await blockingViolations(page), 'axe on #tab-portfolio').toEqual([]);
 
+  // The Welcome tab is a signed-in landing now; sweep it in the state that
+  // actually ships (signed in, non-admin), not the static-mode one.
+  await openTab(page, 'welcome');
+  expect(await blockingViolations(page), 'axe on #tab-welcome signed in').toEqual([]);
+
   expect(pageErrors).toEqual([]);
+});
+
+test('the demo page is operable and readable on a phone', async ({ page }) => {
+  // The pitch is the surface a first-time visitor is most likely to meet on a
+  // phone — a link off social, not a bookmark. It has to reflow, and its two
+  // explanation openers have to clear the 24px target floor (WCAG 2.5.8).
+  await page.setViewportSize({ width: 320, height: 640 });
+  page.on('dialog', (d) => d.accept());
+  await page.route('**/@supabase/supabase-js@*/**', (r) => r.fulfill({ contentType: 'application/javascript', body: fakeSdk }));
+  await routeLocalLibs(page);
+  await page.goto('/');
+  await expect(page.locator('#demo-page')).toBeVisible();
+  await settle(page);
+
+  // 1.4.10: no two-dimensional scrolling at the conformance threshold. The
+  // demo is its own scroll container, so measure that, not the document.
+  const overflow = await page.evaluate(() => {
+    const el = document.getElementById('demo-page');
+    return { scrollW: el.scrollWidth, clientW: el.clientWidth };
+  });
+  expect(overflow.scrollW, 'the demo page must not scroll sideways at 320px')
+    .toBeLessThanOrEqual(overflow.clientW + 1);
+
+  // 2.5.8: every control on the pitch, including the text-weight links.
+  const small = await page.evaluate(() =>
+    [...document.querySelectorAll('#demo-page button')]
+      .filter((b) => b.offsetParent !== null)
+      .map((b) => ({ t: b.textContent.trim().slice(0, 30), r: b.getBoundingClientRect() }))
+      .filter(({ r }) => r.width < 24 || r.height < 24)
+      .map(({ t, r }) => `${t} ${Math.round(r.width)}×${Math.round(r.height)}`),
+  );
+  expect(small, 'controls under the 24px target minimum').toEqual([]);
+
+  expect(await blockingViolations(page), 'axe on the demo page at 320px').toEqual([]);
 });

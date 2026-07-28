@@ -8,9 +8,15 @@
 > modals are dialogs that trap and return focus, every input is named, and the
 > tab bar is an ARIA tablist. `tests/a11y.spec.mjs` is the gate that keeps it
 > that way. Since then **F8** (tap targets), **F10** (the board names the fit's
-> confidence in words and links the method) and **F16** (password reset) have
-> shipped too. Still open: **F11**, **F13**, **F15** — all tracked in
+> confidence in words and links the method), **F16** (password reset),
+> **F11** (the board explainer, 190 words → ~100) and **F13** (section numbering,
+> now Analysis-only) have shipped too. Still open: **F15** alone — all tracked in
 > `ROADMAP.md`.
+> Two things this review did not raise, fixed since by the demo-as-pitch pass:
+> a signed-in non-admin saw a *"How it works"* heading with nothing under it,
+> and the logged-out demo's set tables scroll sideways on a phone with nothing
+> focusable inside them, so they could not be scrolled by keyboard at all
+> (WCAG 2.1.1 — now `tabindex="0"`, guarded by a 320 px case in the spec).
 > Note for whoever runs axe next: the trap this document records is worse than
 > it says — `reducedMotion: 'reduce'` alone does **not** avoid it; wait on
 > `document.getAnimations()` as the spec does.

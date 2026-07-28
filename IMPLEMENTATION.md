@@ -48,23 +48,17 @@ from `docs/visual-design-review.md` and the larger restructure work below.
 
 Ordered as the **expert UX & accessibility review** recommended
 (`docs/ux-expert-review.md`, which supersedes and corrects `docs/ux-assessment.md`).
-Accessibility and mobile optimisation have both shipped, and with them every
-accessibility finding the review raised (F8 included). Section numbers are
-stable cross-reference labels — reading order is the priority, not the
-numbering.
+Every finding it raised has now shipped (F8 included), along with the
+overview-first restructure and the demo-as-pitch rework. One item is left, and
+no finding touched it. Section numbers are stable cross-reference labels —
+reading order is the priority, not the numbering.
 
-### 12 + 13. Onboarding, the demo as a pitch, and the Welcome tab (one PR)
-
-These two roadmap bullets are one piece of work: today the pitch lives in two
-places (Welcome tab for the signed-in, demo page for visitors) and both
-under-explain the method. Recommended resolution: make the demo page the
-single "what this is / how to read it" surface — lead with the tool's purpose
-in one screen, then the fair-price story, then demo cards — and slim the
-Welcome tab to a signed-in landing that links to the same explanations
-(glossary modal shared by both). First-visit walkthrough:
-`localStorage`-gated, dismissible, three steps (set value vs price, why age
-matters, what the verdict means). Mostly copywriting; `design-review`
-applies to every word. *Size: M. Justified by `docs/ux-assessment.md` finding 7 — the demo currently shows no fair price or verdict at all.*
+**Deliberately not built, and why** — the demo-as-pitch plan called for a
+`localStorage`-gated, dismissible three-step first-visit walkthrough. The three
+steps shipped, but as a permanent section of the demo page rather than a
+dismissible tour: the demo page *is* the first-visit surface (only logged-out
+visitors see it), so a tour overlaid on it would explain the explanation. If a
+walkthrough is ever wanted for signed-in users, it needs a different home.
 
 ### 9. Set logos (drill-down first)
 

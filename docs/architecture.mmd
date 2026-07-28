@@ -33,7 +33,7 @@ flowchart TB
 
   auto --> xlsx
   authst -->|"signed in"| cloud["loadFromSupabase()<br/>pivots snapshot rows back into<br/>aligned price[] / setVal[]"]:::core
-  authst -->|"logged out"| demo["loadDemo() → renderDemo()<br/>3 newest releases only, via anon RLS"]:::core
+  authst -->|"logged out"| demo["loadDemo() → renderDemo()<br/>the pitch — 3 newest releases via anon RLS<br/>no fair price/verdict: the fit needs the whole catalogue"]:::core
 
   xlsx --> parse["parseXlsx()<br/>validates the sheet + column contract"]:::core
   db --> cloud
@@ -54,10 +54,10 @@ flowchart TB
 
   subgraph views["Render functions — each wired into BOTH INIT and applyNewData()"]
     direction LR
-    vAnalysis["📊 <b>Analysis</b> 01–09<br/>updateKPIs · updateTable · updateTopPicks<br/>renderSVBChart · renderScatterChart<br/>renderRelativeValue · renderMomentum<br/>cmpHist / cmpSvb · initScenario"]:::view
+    vAnalysis["📊 <b>Analysis</b> — lands here on sign-in<br/>renderOverview · 01–09<br/>updateKPIs · updateTable · updateTopPicks<br/>renderSVBChart · renderScatterChart<br/>renderRelativeValue · renderMomentum<br/>cmpHist / cmpSvb · initScenario"]:::view
     vPortfolio["💼 <b>Portfolio</b> 01–03 · signed in<br/>renderPortfolio · renderAlerts<br/>renderPortfolioValueChart · renderBalancer"]:::view
     vEntry["✏️ <b>Data Entry</b> · admin only<br/>renderEntryTable · renderEntryQuality<br/><i>writes back: ☁ Save to cloud → Supabase<br/>(UI gating only — the real boundary is<br/>RLS is_admin()) · ⬇ Export → .xlsx</i>"]:::view
-    vWelcome["👋 <b>Welcome</b><br/>static explainer"]:::view
+    vWelcome["👋 <b>Welcome</b><br/>signed-in landing — where to go +<br/>the shared #method-modal / #glossary-modal"]:::view
   end
 
   subgraph jobs["Supabase side jobs — pg_cron + Resend, all optional"]

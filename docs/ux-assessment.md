@@ -7,6 +7,14 @@
 > the AAA criterion (2.5.5) — AA (2.5.8) is 24 px, which only 5 controls fail.
 > The density and journey measurements here remain valid; where the two documents
 > disagree, the expert review wins.
+>
+> **Finding 7 (the demo shows no fair price or verdict) has been answered, but
+> not the way it asked.** The demo still does not show either, deliberately:
+> both are read off a fit across the whole catalogue's ages, and the anon RLS
+> scope is three release dates, so a demo-side fit would print a number the
+> signed-in board contradicts. The page now leads with the question, explains
+> the method, and says plainly what it is withholding and why — which is the
+> honest form of what this finding wanted.
 
 The structured end-to-end pass called for by `ROADMAP.md` → *Then — design &
 usability*. **No code changes**: the output is this prioritised findings list,

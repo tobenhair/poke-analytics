@@ -17,6 +17,20 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 - **Monthly data entry** — punch in the latest prices, add new releases, attach Cardmarket links, and export an updated `.xlsx` ready to commit back to the repo.
 - **With cloud sync enabled** (optional, see below): a private **portfolio** with unrealised P&L, concentration balancing and a value-over-time chart, plus **price alerts** on a fixed € target or on the fair price.
 
+### Before you sign in
+
+With cloud sync enabled, the logged-out page is where the tool explains itself:
+the question it answers, the three ideas you need to read an answer (value
+rather than price, why age moves the bar, what the verdict means), and a sample
+of the three most recently released sets. It is deliberately **not** showing a
+fair price or a verdict there — both are read off a fit across the whole
+tracked catalogue, so a three-set preview couldn't produce the same number the
+signed-in board does. It says as much rather than showing you one.
+
+*How the fair price works* and *What the numbers mean* open from that page and
+from the Welcome tab — the same two explanations either side of the login.
+Signing in takes you straight to Analysis.
+
 ### When data doesn't load
 
 The page ships with a few sample products so it's never blank — and it says so
@@ -84,7 +98,7 @@ Two are always visible; two appear only with cloud sync enabled and signed in.
 
 | Tab | Shown | Purpose |
 | --- | --- | --- |
-| **Welcome** | always | Overview, glossary, and how the workflow fits together. |
+| **Welcome** | always | A landing map: where each tab is, and the two shared explanations. |
 | **Analysis** | always | The decision view — ranked board with fair price and verdict, KPIs, price/value charts, buy signals, and the scenario explorer. |
 | **Portfolio** | signed in | Your private holdings and price alerts — unrealised P&L, concentration balancer, value over time. |
 | **Data Entry** | admin only | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs, and export the updated workbook. |
