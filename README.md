@@ -16,6 +16,13 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 - **Monthly data entry** — punch in the latest prices, add new releases, attach Cardmarket links, and export an updated `.xlsx` ready to commit back to the repo.
 - **With cloud sync enabled** (optional, see below): a private **portfolio** with unrealised P&L, concentration balancing and a value-over-time chart, plus **price alerts** on a fixed € target or on the fair price.
 
+### When data doesn't load
+
+The page ships with a few sample products so it's never blank — and it says so
+plainly. A banner under the header states **"Sample data"** and why (a missing
+workbook, a failed cloud load, an empty account) until real numbers arrive.
+Nothing here is ever presented as a tracked price when it isn't one.
+
 ### Forgotten password
 
 The sign-in dialog has a **Forgot your password?** link: it mails a recovery

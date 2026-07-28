@@ -375,6 +375,36 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   *Authentication → URL Configuration*, or Supabase refuses to mail the link and
   the button is silently useless. Covered end-to-end in `tests/signed-in.spec.mjs`
   against the fake SDK, including the no-address case and the redirect target.
+- **Sample data can no longer pass itself off as real.** The page boots with a
+  small hardcoded dataset so nothing is ever blank — convenient, and until now
+  dangerous: a missing or unparseable workbook `return`ed silently, leaving
+  those numbers on screen looking exactly like tracked prices. The board, the
+  portfolio's P&L and every chart would have been fiction, with nothing saying
+  so. Now the data source is **state** (`sample` / `workbook` / `cloud`), and
+  while it is `sample` a persistent banner sits under the header on **every**
+  tab, saying what the numbers are *and why* ("the tracked workbook didn't load:
+  pokemon_data.xlsx returned HTTP 404"). It covers the other paths that leave
+  sample data up too: a cloud load that fails, and a brand-new account with
+  nothing saved yet. A `.status-pill` would not do — it scrolls away, and a
+  warning you can lose is no warning. Guarded by a smoke case that 404s the
+  workbook and asserts the banner appears, names the reason, and survives a tab
+  change and a scroll. **Found while building it:** `[hidden]` was losing to any
+  class that sets `display` — the banner stayed up after the workbook loaded —
+  so `[hidden] { display: none !important }` is now a base rule.
+- **The board's explainer, cut from 190 words to ~100.** It sat directly above
+  the most important table and was the single largest contributor to the
+  measured prose share. Most of it had also been overtaken: the fair-price
+  method now has its own dialog, and the verdict says in words what three
+  sentences used to explain. What remains leads with the verdict, points at the
+  confidence word, and defers the column definitions to section 03 and the
+  Welcome tab rather than restating them.
+- **Section numbers mean one thing now.** Analysis numbered 01–09 and Portfolio
+  independently numbered 01–04, so "section 05" was ambiguous app-wide — and the
+  board's own copy cited sections by number. Rather than prefixing every eyebrow,
+  the numbers were removed everywhere they were *not* cited: Portfolio, Welcome
+  and the demo's set headings now use plain eyebrow labels, leaving Analysis as
+  the only numbered surface. (The demo's numbers had a second problem — they
+  enumerated sets in recency order, which reads as a ranking they are not in.)
 
 ## Now — trustworthy numbers (stability & quality)
 
@@ -400,30 +430,18 @@ The order below is the one the **expert UX & accessibility review** recommended
 earlier journey pass in [`docs/ux-assessment.md`](docs/ux-assessment.md) and
 corrects two of its findings). **Accessibility came first and has shipped** —
 see *Done* — along with the three phone/reflow defects that preceded it. What
-remains is the comprehension work, now led by **shortening the board's explainer
-paragraph** and the larger **overview-first restructure**. Every accessibility
+remains is the larger restructure work, led by the **overview-first
+restructure** and the **demo-as-pitch** rework. Every accessibility
 finding from the expert review is closed, the measured density problem is
 addressed, the visual system is reconciled and guarded by
 `npm run check:design-tokens`, and the two trust gaps — an unexplained R² and a
 locked-out user with no way back — are fixed.
 
-- **Fix — edit the board's explainer paragraph.** ~200 words of accurate, dense
-  prose sitting directly above the most important table, and the single largest
-  contributor to the measured 16.4 % prose share on phone. Collapsing it (above)
-  hides the scroll cost; this is the separate job of *shortening* it.
-- **Fix — resolve the section-numbering collision.** Analysis numbers its sections
-  01–09 and Portfolio independently numbers its own 01–03, so "section 05" is
-  ambiguous app-wide — and the board's own explainer text refers to "section 05"
-  by number. Prefix or renumber.
 - **Overview-first restructure.** With the verdict shipped, the top of the
   Analysis tab can *answer the question* — best deals now, each with its fair
   price gap — and the nine numbered sections become the supporting evidence a
   curious user drills into (progressive disclosure), rather than a wall to
   scroll. Less on screen, more answered.
-- **First-class loading, empty, and error states.** Every async surface
-  (boot, cloud load, demo, save) gets a designed state instead of a blank
-  panel or a toast — including the currently-invisible "workbook failed,
-  showing sample data" fallback, which must never masquerade as real data.
 - **Onboarding & the demo as a pitch.** The section descriptions explain each
   chart; nothing yet explains the *method* — or, on the logged-out demo, even
   what the tool *is*. Lead the demo page with a plain statement of the tool's

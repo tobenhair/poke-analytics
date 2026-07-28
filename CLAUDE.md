@@ -161,6 +161,20 @@ future change should preserve:
   explainer no longer promises it. Sorting is `#sort-select`. If you add header
   sorting, restore both affordances with it.
 
+### Where the numbers came from
+
+`dataSource` is `'sample' | 'workbook' | 'cloud'`, and while it is `sample` the
+`#data-source-banner` strip says so under the header on every tab. This exists
+because the hardcoded fallback is *indistinguishable* from tracked data once
+rendered — a silent `return` on a missing workbook made the whole page fiction.
+Any new path that leaves the fallback on screen must call
+`setDataSource('sample', why)` with a reason; any path that replaces it must
+call `setDataSource('workbook'|'cloud')`.
+
+Base rule that came out of it: **`[hidden] { display: none !important }`**. A
+class that sets `display` beats the UA's `[hidden]` rule on specificity, so a
+component can otherwise stay visible while claiming to be hidden.
+
 ### Fair price, and how it says what it's worth
 
 `fitConfidence(r2)` in `metrics.js` turns the age fit's R² into a band —

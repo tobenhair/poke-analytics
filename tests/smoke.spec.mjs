@@ -102,6 +102,36 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   await page.mouse.wheel(0, 120);
   expect(await priceInput.inputValue(), 'wheel must not change a number input').toBe(beforeWheel);
 
+  // The workbook loaded, so the sample-data banner must be gone.
+  await expect(page.locator('#data-source-banner')).toBeHidden();
+
   // No uncaught exceptions anywhere along the way.
   expect(pageErrors, `uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([]);
+});
+
+test('a missing workbook says so instead of passing sample data off as real', async ({ page }) => {
+  // The dangerous failure: the page boots with a small hardcoded dataset so
+  // nothing is blank, and until now a 404 left those numbers on screen looking
+  // exactly like tracked prices — the board, the P&L and every chart fiction,
+  // silently.
+  await routeLocalLibs(page);
+  await forceStaticMode(page);
+  await page.route('**/pokemon_data.xlsx', (route) => route.fulfill({ status: 404, body: '' }));
+  await page.goto('/?admin=1');
+
+  const banner = page.locator('#data-source-banner');
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText('Sample data');
+  await expect(banner).toContainText('404');          // says *why*, not just that
+
+  // It is on every tab, not just the one that happened to be open — the
+  // portfolio's P&L would be computed from these numbers too.
+  await page.locator('.tab-bar .tab-btn[data-tab="analysis"]').click();
+  await expect(banner).toBeVisible();
+  await page.locator('.tab-bar .tab-btn[data-tab="entry"]').click();
+  await expect(banner).toBeVisible();
+
+  // And it does not scroll away — a warning you can lose is no warning.
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect(banner).toBeVisible();
 });

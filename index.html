@@ -168,6 +168,12 @@
     z-index: 0;
   }
 
+  /* `hidden` must win over any class that sets display. A class rule beats the
+     UA's `[hidden] { display: none }` on specificity, so a component styled
+     `display: flex` stays visible while claiming to be hidden — which is how
+     the sample-data banner survived the workbook loading. */
+  [hidden] { display: none !important; }
+
   ::selection { background: var(--accent-soft); color: var(--text); }
 
   /* Refined scrollbars */
@@ -887,6 +893,29 @@
   .val-excellent { color: var(--accent4); }
   .val-good { color: var(--accent); }
   .val-poor { color: var(--accent2); }
+
+  /* ── Data-source banner ──
+     Shown while the page is running on the built-in sample data: either the
+     workbook hasn't loaded yet, or it failed. Deliberately a persistent strip
+     rather than the transient .status-pill — a message that scrolls away can't
+     stop someone reading sample prices as real ones. */
+  .data-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 0 22px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(244,198,81,0.28);
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    color: var(--text);
+    font-size: var(--text-lg);
+    line-height: 1.55;
+  }
+  .data-banner .icon { color: var(--accent); margin-top: 2px; }
+  .data-banner strong { color: var(--accent); font-weight: 500; }
+  .data-banner .why { color: var(--muted); font-family: 'DM Mono', monospace; font-size: var(--text-sm); }
 
   /* ── Status pill ──
      The generic inline save/load status line. Written by setStatus(); used by
@@ -1651,6 +1680,12 @@
   </header>
 
 
+  <!-- Where the numbers came from. Visible on every tab, because the sample
+       data is indistinguishable from the real thing once it is on screen —
+       the board, the portfolio's P&L and every chart would all be fiction.
+       Removed (not hidden) the moment real data lands. -->
+  <div id="data-source-banner" class="data-banner" role="status" hidden></div>
+
   <!-- Tab bar — a real ARIA tablist. The emoji are decorative (each button
        carries its own text label), so they are hidden from assistive tech.
        Note two Welcome CTA buttons also use .tab-btn for styling but live
@@ -1923,7 +1958,7 @@
 
   <!-- ── Section: product table (full width) ── -->
   <h2 class="section-eyebrow">02 — The Board</h2>
-  <p class="section-desc"><strong>What:</strong> every tracked product in one sortable table. <strong>KPIs:</strong> <em>€/Booster</em> (price ÷ packs inside), <em>SV/Booster</em> (Set Value ÷ the price of <em>one</em> booster — i.e. how many times a single booster's cost the whole set is worth, shown as a <em>×</em> multiple; higher = better value, <strong>not</strong> a per-pack price), <em>Age</em>, and <em>Wtd. Score</em> (the headline ranking). <em>Fair Price</em> is what the live price <em>would</em> be at the SV/Booster expected for the product's age (section 05): a live price <span class="up">under</span> fair is cheap for its age, <span class="down">over</span> is expensive — the confidence word by the column header says how much to trust the fit, and explains itself when you tap it. A <svg class="icon" aria-hidden="true"><use href="#i-deal"/></svg> marks a possible buy signal — price fell while set value held. Under each product name is a plain-language <em>verdict</em> — the one-line synthesis of its gap to fair price, its drawdown from peak, and its set-value trend (e.g. <span class="up">Under fair price · near tracked low</span> / <span class="down">Overpriced for age</span> / Fair — no edge). <strong>How to read:</strong> filter with the Type pills and reorder with the Sort menu above — <em>Best Deal</em> ranks by verdict, best first.</p>
+  <p class="section-desc"><strong>What:</strong> every tracked product, ranked. <strong>How to read:</strong> the line under each name is the <em>verdict</em> — the plain-language answer, synthesising the gap to fair price, the drawdown from peak and the set-value trend. <em>Fair Price</em> is what this product would cost if it traded like its same-age peers; the confidence word beside that column says how much to trust it, and explains the method when you tap it. A <svg class="icon" aria-hidden="true" style="color:var(--accent)"><use href="#i-deal"/></svg> marks a possible buy signal — price fell while set value held. Filter with the Type pills, reorder with the Sort menu. <em>SV/Booster</em> and the other column terms are defined in section 03 below, and on the Welcome tab.</p>
   <div class="panel">
     <div class="panel-header">
       <h3 class="panel-title">All Products</h3>
@@ -2172,7 +2207,7 @@
     <span id="portfolio-status" class="status-pill" role="status" style="display:none"></span>
 
     <!-- ── Section: portfolio ── -->
-    <h2 class="section-eyebrow">01 — Your Portfolio</h2>
+    <h2 class="section-eyebrow">Your Portfolio</h2>
     <p class="section-desc"><strong>What:</strong> what you own and what it's worth now. <strong>How to read:</strong> <em>Add / buy more</em> tops up a holding and blends the cost basis to a weighted average; use the <svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg> button on a row to correct the exact quantity or cost. <em>Unrealised P&amp;L</em> compares your cost basis to each product's latest tracked price. Private to your account, saved automatically.</p>
     <div class="panel">
       <div class="panel-header">
@@ -2218,7 +2253,7 @@
     </div>
 
     <!-- ── Section: portfolio value over time ── -->
-    <h2 class="section-eyebrow">02 — Value Over Time</h2>
+    <h2 class="section-eyebrow">Value Over Time</h2>
     <p class="section-desc"><strong>What:</strong> what your <em>current</em> holdings would have been worth across every tracked snapshot — the <em>portfolio value</em> line against your flat <em>cost basis</em>, so unrealised P&amp;L reads as a trajectory rather than just today's number. <strong>How to read:</strong> the gap between the lines is your gain (value above cost) or loss (below); a rising value line means the basket you hold has appreciated. Values your current quantities back across history — purchase dates aren't tracked.</p>
     <div class="panel">
       <div class="chart-panel" id="portfolio-value-chart-wrap" style="padding: 20px 24px;">
@@ -2228,14 +2263,14 @@
     </div>
 
     <!-- ── Section: concentration & rebalance (portfolio balancer) ── -->
-    <h2 class="section-eyebrow">03 — Concentration &amp; Rebalance</h2>
+    <h2 class="section-eyebrow">Concentration &amp; Rebalance</h2>
     <p class="section-desc"><strong>What:</strong> how your holdings are spread across <em>sets</em>, <em>release years</em> and <em>product types</em> — and, when you're over-exposed, which <em>under-fair-price</em> products in areas you underweight would diversify you. <strong>How to read:</strong> a bar near full means a large share of your value rides on one bucket (red = over-exposed); the shortlist points the next euro at good-value buys that spread the risk. Derived live from your holdings — nothing saved.</p>
     <div class="panel">
       <div id="balancer-body"></div>
     </div>
 
     <!-- ── Section: price alerts ── -->
-    <h2 class="section-eyebrow">04 — Price Alerts</h2>
+    <h2 class="section-eyebrow">Price Alerts</h2>
     <p class="section-desc"><strong>What:</strong> buy targets for the products you're watching — a fixed <em>€</em> price, or a <em>% below fair price</em> that recomputes automatically as the age fit moves. <strong>How to read:</strong> when a product's latest tracked price falls to or below the target it's flagged here and with a <svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg> on the Analysis board. Private to your account, saved automatically.</p>
     <div class="panel">
       <div class="panel-header">
@@ -3489,6 +3524,34 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   // not when the page happened to load.
   updateLastUpdated();
   document.getElementById('kpi-total').textContent = products.length;
+}
+
+// ============================================================
+// WHERE THE NUMBERS CAME FROM
+// ============================================================
+// The page boots with a small hardcoded sample dataset so nothing is ever
+// blank. That is convenient and, until now, dangerous: once it is on screen,
+// sample data is indistinguishable from tracked data — the board, the
+// portfolio's P&L and every chart would be fiction, silently. So the source is
+// state, and while it is 'sample' the page says so in a banner that does not
+// scroll away.
+let dataSource = 'sample';     // 'sample' | 'workbook' | 'cloud'
+let dataSourceWhy = 'Loading the tracked workbook…';
+
+function setDataSource(source, why) {
+  dataSource = source;
+  if (why != null) dataSourceWhy = why;
+  renderDataSourceBanner();
+}
+
+function renderDataSourceBanner() {
+  const el = document.getElementById('data-source-banner');
+  if (!el) return;
+  if (dataSource !== 'sample') { el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  el.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>`
+    + `<span><strong>Sample data.</strong> These are example numbers, not tracked prices —`
+    + ` nothing here reflects the real market. <span class="why">${dataSourceWhy}</span></span>`;
 }
 
 // Inline save/load status line. Each tab owns its own element (the Analysis
@@ -5381,6 +5444,7 @@ populateCurrencySelect();
 renderPortfolio();
 renderAlerts();
 updateLastUpdated();
+renderDataSourceBanner();    // honest from the first frame: this is sample data
 initSectionDescriptions();   // static markup — runs once, not on data reload
 document.getElementById('sv-slider').addEventListener('input', updateScenario);
 document.getElementById('price-slider').addEventListener('input', updateScenario);
@@ -5402,14 +5466,18 @@ fetchFxRates().then(() => { populateCurrencySelect(); renderPortfolio(); });
 async function tryAutoLoad() {
   try {
     const res = await fetch('pokemon_data.xlsx', { cache: 'no-cache' });
-    if (!res.ok) return; // file not found — silently fall back to hardcoded data
+    // A missing workbook used to return here silently, leaving the sample data
+    // on screen looking exactly like tracked prices. Now it says so.
+    if (!res.ok) throw new Error(`pokemon_data.xlsx returned HTTP ${res.status}`);
     const buf = await res.arrayBuffer();
     const result = parseXlsx(buf);
     applyNewData(result);
+    setDataSource('workbook');
     setStatus('analysis-status', '✓ Auto-loaded pokemon_data.xlsx from repo — ' + result.newProducts.length + ' products', false);
   } catch (err) {
-    // Parse error — log to console but don't disrupt the UI
     console.warn('Auto-load failed:', err.message);
+    reportClientError({ message: 'Workbook auto-load failed: ' + (err.message || err) });
+    setDataSource('sample', `The tracked workbook didn't load: ${err.message || err}`);
   }
 }
 
@@ -5624,11 +5692,14 @@ async function loadFromSupabase() {
   const usable = newProducts.filter(p => p.price != null && p.setVal != null);
 
   if (!usable.length) {
-    // Empty (new) account: leave the sample data on screen and prompt the user.
+    // Empty (new) account: the sample data stays on screen, so the banner has
+    // to stay up — this is exactly the case where it would be mistaken for real.
+    setDataSource('sample', 'Your cloud account has no products yet — add them in Data Entry, then “Save to cloud”.');
     setStatus('analysis-status', 'Signed in — no cloud data yet. Add products in Data Entry, then “Save to cloud”.', false);
     return;
   }
   applyNewData({ newProducts: usable, newHistoricalData, newHistDates, newLinks });
+  setDataSource('cloud');
   setStatus('analysis-status', 'Loaded ' + usable.length + ' products from your cloud account', false);
 }
 
@@ -5694,7 +5765,7 @@ function renderDemo(groups) {
     host.innerHTML = '<div class="demo-empty">Preview unavailable right now — sign in to view the dashboard.</div>';
     return;
   }
-  host.innerHTML = groups.map((g, i) => {
+  host.innerHTML = groups.map((g) => {
     const dateLabel = new Date(g.date).toLocaleDateString('en-SE', { year: 'numeric', month: 'long', day: 'numeric' });
     const n = g.products.length;
     const rows = g.products.map(p => {
@@ -5709,7 +5780,7 @@ function renderDemo(groups) {
       </tr>`;
     }).join('');
     return `
-      <h2 class="section-eyebrow">${String(i + 1).padStart(2, '0')} — ${demoSetName(g.products)}</h2>
+      <h2 class="section-eyebrow">${demoSetName(g.products)}</h2>
       <p class="section-desc">Released ${dateLabel} · ${n} product${n > 1 ? 's' : ''} tracked in this set.</p>
       <div class="panel" style="margin-bottom:40px;">
         <div class="table-wrap" style="max-height:none;">
@@ -5913,6 +5984,10 @@ function wireAuthControls() {
           console.error('Cloud load failed:', err);
           reportClientError({ message: 'Cloud load failed: ' + (err.message || err), stack: err.stack });
           setStatus('analysis-status', '✕ Could not load cloud data: ' + (err.message || err), true);
+          // Falls back to the workbook; if that fails too, tryAutoLoad leaves
+          // the banner up rather than passing sample data off as the account's.
+          setDataSource('sample', 'Your cloud data didn’t load — trying the offline workbook.');
+          tryAutoLoad();
         });
       } else if (!uid) {
         // Logged out (initial load or sign-out) → show the pre-login demo.
@@ -5925,6 +6000,7 @@ function wireAuthControls() {
     console.error('Supabase init failed, falling back to static data:', err);
     showAuthOverlay(false);
     setStatus('analysis-status', '⚠ Cloud sync unavailable — showing local data. ' + (err.message || ''), true);
+    setDataSource('sample', 'Cloud sync is unavailable — falling back to the offline workbook.');
     tryAutoLoad();
   }
 })();
