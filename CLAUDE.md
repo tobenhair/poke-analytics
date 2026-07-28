@@ -161,6 +161,20 @@ future change should preserve:
   explainer no longer promises it. Sorting is `#sort-select`. If you add header
   sorting, restore both affordances with it.
 
+### The overview leads the Analysis tab
+
+`renderOverview()` renders **Best deals right now** above the nine numbered
+sections — the tab's answer, with the sections as its evidence. It derives
+nothing new (`fairGap` and `verdict` already exist) and follows `activeType`
+like every other analytical view, so it is wired into `INIT`, `applyNewData()`
+**and** `applyTypeFilter()`.
+
+Its one rule: **when `fairPriceTrusted()` is false it must not rank by the fair
+price**, because the verdict is already ignoring it. It falls back to the
+weighted score and says which ranking it used, in both the badge and the lead
+sentence. A ranking built on a number the rest of the page disregards would be
+the most damaging kind of wrong here.
+
 ### Where the numbers came from
 
 `dataSource` is `'sample' | 'workbook' | 'cloud'`, and while it is `sample` the

@@ -9,6 +9,7 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 ## What it does
 
 - **Answers "is this fairly priced?"** — a **fair price in euros** per product (the expected-value-for-age fit inverted) and a plain-language verdict on the board. The board says in words how much to trust that fit — *strong fit* / *moderate fit* / *rough estimate* — and tapping it explains the method.
+- **Opens on the answer** — the Analysis tab leads with *Best deals right now*: how many products are currently under their fair price, and the three biggest gaps.
 - **Ranks every product** by an age-weighted value score so newer and older releases can be compared fairly.
 - **Surfaces buy signals** when a product's price drops while its set value holds steady — a possible mispricing.
 - **Charts price history, set-value-per-booster trends, and age-vs-value** across all tracked products, comparing either products or whole sets.

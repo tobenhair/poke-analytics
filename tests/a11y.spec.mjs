@@ -429,6 +429,60 @@ test('the icon set resolves, is monochrome, and shows tab state', async ({ page 
   expect(hardCoded, 'sprite paths must use currentColor').toEqual([]);
 });
 
+test('the Analysis tab opens on the answer, not on the dataset', async ({ page }) => {
+  await bootStatic(page);
+  await openTab(page, 'analysis');
+
+  // Measured before this: the first thing a buyer needed sat 1,354px down on
+  // desktop. The overview has to be near the top, not merely present.
+  const y = await page.locator('#overview-deals').evaluate(
+    (el) => el.getBoundingClientRect().top + window.scrollY);
+  expect(y, 'the overview should be above the fold').toBeLessThan(700);
+
+  const rows = page.locator('#overview-deals .pick-item');
+  await expect(rows).toHaveCount(3);
+
+  const badge = await page.locator('#overview-badge').textContent();
+  const gaps = await page.locator('#overview-deals .pick-gap').allTextContents();
+
+  if (badge.includes('fair price')) {
+    // Ranked by gap: every row must actually be under fair, best deal first.
+    expect(gaps.every((g) => g.includes('under'))).toBe(true);
+    const pct = gaps.map((g) => parseInt(g, 10));
+    expect([...pct].sort((a, b) => b - a), 'deals should be ordered best-first').toEqual(pct);
+    await expect(page.locator('#overview-lead')).toContainText('under what they');
+  } else {
+    // The honesty rule: when the age fit is too weak the verdict ignores the
+    // fair price, so the overview must not rank by it either — and must say so.
+    expect(gaps.every((g) => g.includes('score'))).toBe(true);
+    await expect(page.locator('#overview-lead')).toContainText('weighted score');
+  }
+
+  // The product name is the same affordance as on the board.
+  await rows.first().locator('.row-open').click();
+  await expect(page.locator('#drill-modal')).toBeVisible();
+  await page.keyboard.press('Escape');
+  // Wait for it to actually close: the overlay swallows pointer events, so the
+  // next click would hit the backdrop instead of the pill.
+  await expect(page.locator('#drill-modal')).not.toBeVisible();
+
+  // It follows the global type filter, like every other analytical view.
+  // Driven from the keyboard rather than a mouse click: the filter bar sits
+  // below the fold, and `html { scroll-behavior: smooth }` makes Playwright's
+  // scroll-into-view race its own click — the click lands where the pill was.
+  // focus()+Enter is a real user path (and the one the pill test already
+  // proves works) that needs no scrolling.
+  const etb = page.locator('#type-filters .pill[data-type="ETB"]');
+  await etb.focus();
+  await page.keyboard.press('Enter');
+  await expect
+    .poll(async () => {
+      const metas = await page.locator('#overview-deals .pick-meta').allTextContents();
+      return metas.map((m) => m.split(' ')[0]).join(',');
+    }, { message: 'overview must respect the type filter' })
+    .toBe('ETB,ETB,ETB');
+});
+
 test('the signed-in surface (portfolio + demo page) has no serious or critical violations', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', (err) => pageErrors.push(err.message));

@@ -826,6 +826,25 @@
   .trend-neutral { color: var(--muted); }
 
 
+  /* The overview's summary line, above its deal list. */
+  .overview-lead {
+    margin: 0;
+    padding: 18px 24px 4px;
+    color: var(--muted);
+    font-size: var(--text-lg);
+    line-height: 1.6;
+  }
+  .overview-lead strong { color: var(--text); font-weight: 500; }
+  /* A deal's gap to fair price, in the slot .pick-score occupies for a rank. */
+  .pick-gap {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: var(--display-md);
+    color: var(--accent4);
+    white-space: nowrap;
+  }
+  .pick-gap .unit { font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--muted); }
+  .overview-empty { padding: 8px 24px 22px; color: var(--muted); font-size: var(--text-lg); line-height: 1.6; }
+
   .pick-item {
     padding: 16px 24px;
     border-bottom: 1px solid var(--hairline);
@@ -1874,6 +1893,23 @@
     <button class="guide-btn admin-only" id="guide-btn"><svg class="icon" aria-hidden="true"><use href="#i-guide"/></svg> Format Guide</button>
   </div>
 
+  <!-- ── The answer, first ──
+       Measured before this: the first product row sat 1,354px down on desktop
+       and 1,963px on a phone, so nothing a buyer needs to decide was visible
+       without scrolling. This block leads with the conclusion — what is cheap
+       right now and by how much — and the nine numbered sections below become
+       the evidence for it. Unnumbered: it is the summary of the sections, not
+       one of them. -->
+  <h2 class="section-eyebrow">Right now</h2>
+  <div class="panel">
+    <div class="panel-header">
+      <h3 class="panel-title">Best deals right now</h3>
+      <div class="panel-badge" id="overview-badge">—</div>
+    </div>
+    <p class="overview-lead" id="overview-lead"></p>
+    <div id="overview-deals"></div>
+  </div>
+
   <!-- KPIs -->
   <p class="kpi-intro"><strong>At-a-glance headline metrics.</strong> <em>Products Tracked</em> is the size of your dataset · <em>Top Score</em> is the current #1 by Weighted Score · <em>Best Value / Booster</em> is the highest SV/Booster (set value as a multiple of one booster's cost) · <em>Newest Release</em> flags the most recent set. Every metric is explained in the numbered sections below.</p>
   <div class="kpi-row fade-in" style="animation-delay:0.05s">
@@ -2699,6 +2735,68 @@ function updateKPIs() {
 }
 
 // ============================================================
+// OVERVIEW — the answer, before the evidence
+// ============================================================
+// Leads the Analysis tab with what is cheap right now and by how much, so the
+// page opens on a conclusion rather than on the dataset. Everything here is
+// already derived (fairGap, verdict); this is presentation, not new maths.
+//
+// The honesty rule: when the age fit is too weak to trust, the verdict already
+// ignores the fair price — so this must not rank by it either. It falls back to
+// the weighted score and says why, rather than presenting a ranking built on a
+// number the rest of the page is disregarding.
+const OVERVIEW_COUNT = 3;
+
+function renderOverview() {
+  const lead = document.getElementById('overview-lead');
+  const list = document.getElementById('overview-deals');
+  const badge = document.getElementById('overview-badge');
+  if (!lead || !list || !badge) return;
+
+  const data = visibleProducts();
+  const trusted = fairPriceTrusted();
+  const under = data.filter(p => p.fairGap != null && p.fairGap < 0);
+
+  let picks, byGap;
+  if (trusted && under.length) {
+    picks = [...under].sort((a, b) => a.fairGap - b.fairGap).slice(0, OVERVIEW_COUNT);
+    byGap = true;
+    badge.textContent = 'By gap to fair price';
+    lead.innerHTML = `<strong>${under.length} of ${data.length}</strong> tracked products are `
+      + `currently priced under what they'd cost at the value expected for their age.`;
+  } else {
+    picks = [...data].sort((a, b) => b.score - a.score).slice(0, OVERVIEW_COUNT);
+    byGap = false;
+    badge.textContent = 'By weighted score';
+    lead.innerHTML = trusted
+      ? `Nothing is under its fair price right now — these are the strongest on value density instead.`
+      : `The age fit is too weak to price against right now, so these are ranked by `
+        + `<strong>weighted score</strong> instead of by gap to fair price.`;
+  }
+
+  if (!picks.length) {
+    list.innerHTML = `<div class="overview-empty">No products to rank — clear the type filter, or add data in Data Entry.</div>`;
+    return;
+  }
+
+  list.innerHTML = picks.map(p => `
+    <div class="pick-item">
+      <div class="pick-info">
+        <div class="pick-name"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></div>
+        <div class="pick-meta">${p.type} · €${fmt(p.price)}${byGap ? ` · fair €${fmt(p.fairPrice)}` : ''}</div>
+        ${verdictLine(p)}
+      </div>
+      <div class="pick-gap">${byGap ? `${Math.abs(p.fairGap)}%<span class="unit"> under</span>`
+                                    : `${fmt(p.score, 1)}<span class="unit"> score</span>`}</div>
+    </div>`).join('');
+
+  // Same affordance as the board: the name opens the product's drill-down.
+  [...list.querySelectorAll('.row-open')].forEach((btn, i) => {
+    btn.addEventListener('click', () => openDrill(picks[i].name));
+  });
+}
+
+// ============================================================
 // TABLE
 // ============================================================
 function updateTable() {
@@ -3242,6 +3340,7 @@ document.querySelectorAll('#type-filters .pill').forEach(pill => {
 // Re-render everything the global type filter scopes: the board plus the
 // analytical charts/tables and the comparison views.
 function applyTypeFilter() {
+  renderOverview();
   updateTable();
   renderSVBChart();
   renderScatterChart();
@@ -3507,6 +3606,7 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   recomputeScores(products, ageThreshold); // apply the current age threshold to freshly loaded data
   recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
   updateKPIs();
+  renderOverview();
   updateTable();
   updateTopPicks();
   renderSVBChart();
@@ -5430,6 +5530,7 @@ Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
 recomputeScores(products, ageThreshold); // apply the default age threshold to the initial data
 recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
 updateKPIs();
+renderOverview();
 updateTable();
 updateTopPicks();
 renderSVBChart();
