@@ -429,6 +429,60 @@ test('the icon set resolves, is monochrome, and shows tab state', async ({ page 
   expect(hardCoded, 'sprite paths must use currentColor').toEqual([]);
 });
 
+test('the Analysis tab opens on the answer, not on the dataset', async ({ page }) => {
+  await bootStatic(page);
+  await openTab(page, 'analysis');
+
+  // Measured before this: the first thing a buyer needed sat 1,354px down on
+  // desktop. The overview has to be near the top, not merely present.
+  const y = await page.locator('#overview-deals').evaluate(
+    (el) => el.getBoundingClientRect().top + window.scrollY);
+  expect(y, 'the overview should be above the fold').toBeLessThan(700);
+
+  const rows = page.locator('#overview-deals .pick-item');
+  await expect(rows).toHaveCount(3);
+
+  const badge = await page.locator('#overview-badge').textContent();
+  const gaps = await page.locator('#overview-deals .pick-gap').allTextContents();
+
+  if (badge.includes('fair price')) {
+    // Ranked by gap: every row must actually be under fair, best deal first.
+    expect(gaps.every((g) => g.includes('under'))).toBe(true);
+    const pct = gaps.map((g) => parseInt(g, 10));
+    expect([...pct].sort((a, b) => b - a), 'deals should be ordered best-first').toEqual(pct);
+    await expect(page.locator('#overview-lead')).toContainText('under what they');
+  } else {
+    // The honesty rule: when the age fit is too weak the verdict ignores the
+    // fair price, so the overview must not rank by it either — and must say so.
+    expect(gaps.every((g) => g.includes('score'))).toBe(true);
+    await expect(page.locator('#overview-lead')).toContainText('weighted score');
+  }
+
+  // The product name is the same affordance as on the board.
+  await rows.first().locator('.row-open').click();
+  await expect(page.locator('#drill-modal')).toBeVisible();
+  await page.keyboard.press('Escape');
+  // Wait for it to actually close: the overlay swallows pointer events, so the
+  // next click would hit the backdrop instead of the pill.
+  await expect(page.locator('#drill-modal')).not.toBeVisible();
+
+  // It follows the global type filter, like every other analytical view.
+  // Driven from the keyboard rather than a mouse click: the filter bar sits
+  // below the fold, and `html { scroll-behavior: smooth }` makes Playwright's
+  // scroll-into-view race its own click — the click lands where the pill was.
+  // focus()+Enter is a real user path (and the one the pill test already
+  // proves works) that needs no scrolling.
+  const etb = page.locator('#type-filters .pill[data-type="ETB"]');
+  await etb.focus();
+  await page.keyboard.press('Enter');
+  await expect
+    .poll(async () => {
+      const metas = await page.locator('#overview-deals .pick-meta').allTextContents();
+      return metas.map((m) => m.split(' ')[0]).join(',');
+    }, { message: 'overview must respect the type filter' })
+    .toBe('ETB,ETB,ETB');
+});
+
 test('the signed-in surface (portfolio + demo page) has no serious or critical violations', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', (err) => pageErrors.push(err.message));
@@ -437,11 +491,21 @@ test('the signed-in surface (portfolio + demo page) has no serious or critical v
   await routeLocalLibs(page);
   await page.goto('/');
 
-  // The logged-out demo is the first thing a visitor meets.
+  // The logged-out demo is the first thing a visitor meets, and since the
+  // pitch rework it is the app's only "what this is / how to read it" surface
+  // — so it carries prose, a step panel and two dialog openers, not just a
+  // table. Sweep it before anything else.
   await expect(page.locator('#demo-page')).toBeVisible();
   expect(await blockingViolations(page), 'axe on the demo page').toEqual([]);
 
-  await page.locator('#demo-signin-btn').click();
+  // The glossary is shared with the Welcome tab, so one sweep covers both.
+  await page.locator('#demo-page .glossary-open').click();
+  await expect(page.locator('#glossary-modal')).toHaveClass(/open/);
+  expect(await blockingViolations(page, '#glossary-modal'), 'axe on the glossary').toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#glossary-modal')).not.toHaveClass(/open/);
+
+  await page.locator('#demo-page header .signin-open').click();
   await expect(page.locator('#auth-overlay')).toBeVisible();
   expect(await blockingViolations(page, '#auth-overlay'), 'axe on the sign-in dialog').toEqual([]);
 
@@ -453,5 +517,44 @@ test('the signed-in surface (portfolio + demo page) has no serious or critical v
   await openTab(page, 'portfolio');
   expect(await blockingViolations(page), 'axe on #tab-portfolio').toEqual([]);
 
+  // The Welcome tab is a signed-in landing now; sweep it in the state that
+  // actually ships (signed in, non-admin), not the static-mode one.
+  await openTab(page, 'welcome');
+  expect(await blockingViolations(page), 'axe on #tab-welcome signed in').toEqual([]);
+
   expect(pageErrors).toEqual([]);
+});
+
+test('the demo page is operable and readable on a phone', async ({ page }) => {
+  // The pitch is the surface a first-time visitor is most likely to meet on a
+  // phone — a link off social, not a bookmark. It has to reflow, and its two
+  // explanation openers have to clear the 24px target floor (WCAG 2.5.8).
+  await page.setViewportSize({ width: 320, height: 640 });
+  page.on('dialog', (d) => d.accept());
+  await page.route('**/@supabase/supabase-js@*/**', (r) => r.fulfill({ contentType: 'application/javascript', body: fakeSdk }));
+  await routeLocalLibs(page);
+  await page.goto('/');
+  await expect(page.locator('#demo-page')).toBeVisible();
+  await settle(page);
+
+  // 1.4.10: no two-dimensional scrolling at the conformance threshold. The
+  // demo is its own scroll container, so measure that, not the document.
+  const overflow = await page.evaluate(() => {
+    const el = document.getElementById('demo-page');
+    return { scrollW: el.scrollWidth, clientW: el.clientWidth };
+  });
+  expect(overflow.scrollW, 'the demo page must not scroll sideways at 320px')
+    .toBeLessThanOrEqual(overflow.clientW + 1);
+
+  // 2.5.8: every control on the pitch, including the text-weight links.
+  const small = await page.evaluate(() =>
+    [...document.querySelectorAll('#demo-page button')]
+      .filter((b) => b.offsetParent !== null)
+      .map((b) => ({ t: b.textContent.trim().slice(0, 30), r: b.getBoundingClientRect() }))
+      .filter(({ r }) => r.width < 24 || r.height < 24)
+      .map(({ t, r }) => `${t} ${Math.round(r.width)}×${Math.round(r.height)}`),
+  );
+  expect(small, 'controls under the 24px target minimum').toEqual([]);
+
+  expect(await blockingViolations(page), 'axe on the demo page at 320px').toEqual([]);
 });

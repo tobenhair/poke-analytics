@@ -67,6 +67,12 @@ wrapper.
 - Product type: `.type-badge.type-BOX/.type-ETB/.type-BUNDLE`.
 - Chrome: the `header` (`.logo`/`.logo-mark`/gradient `h1`/`.subtitle`), the
   `.tab-bar`/`.tab-btn`, `.modal-overlay`/`.modal`, `.pill`.
+- Prose surfaces (the demo page, the Welcome tab): `.hero-title` for the one
+  headline, `.steps`/`.step`/`.step-n`/`.step-label` for a numbered three-across
+  explanation, `.text-link` for a text-weight action, `.link-row` for a row of
+  them, `.glossary` for a term/definition table, `.code-inline` for a filename
+  in a sentence. All of these already exist in two places — adding a third
+  should mean reusing them, not writing a variant.
 - Motion: reveal-on-scroll (`.rv` → `.rv-in`) is a progressive enhancement —
   don't hide content without it, and respect `prefers-reduced-motion`.
 - Accessibility is part of the system, not a later pass (the app is at WCAG 2.2

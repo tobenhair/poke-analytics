@@ -9,12 +9,27 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 ## What it does
 
 - **Answers "is this fairly priced?"** — a **fair price in euros** per product (the expected-value-for-age fit inverted) and a plain-language verdict on the board. The board says in words how much to trust that fit — *strong fit* / *moderate fit* / *rough estimate* — and tapping it explains the method.
+- **Opens on the answer** — the Analysis tab leads with *Best deals right now*: how many products are currently under their fair price, and the three biggest gaps.
 - **Ranks every product** by an age-weighted value score so newer and older releases can be compared fairly.
 - **Surfaces buy signals** when a product's price drops while its set value holds steady — a possible mispricing.
 - **Charts price history, set-value-per-booster trends, and age-vs-value** across all tracked products, comparing either products or whole sets.
 - **Scenario explorer** — drag sliders for set value and price to see how the score would move.
 - **Monthly data entry** — punch in the latest prices, add new releases, attach Cardmarket links, and export an updated `.xlsx` ready to commit back to the repo.
 - **With cloud sync enabled** (optional, see below): a private **portfolio** with unrealised P&L, concentration balancing and a value-over-time chart, plus **price alerts** on a fixed € target or on the fair price.
+
+### Before you sign in
+
+With cloud sync enabled, the logged-out page is where the tool explains itself:
+the question it answers, the three ideas you need to read an answer (value
+rather than price, why age moves the bar, what the verdict means), and a sample
+of the three most recently released sets. It is deliberately **not** showing a
+fair price or a verdict there — both are read off a fit across the whole
+tracked catalogue, so a three-set preview couldn't produce the same number the
+signed-in board does. It says as much rather than showing you one.
+
+*How the fair price works* and *What the numbers mean* open from that page and
+from the Welcome tab — the same two explanations either side of the login.
+Signing in takes you straight to Analysis.
 
 ### When data doesn't load
 
@@ -83,7 +98,7 @@ Two are always visible; two appear only with cloud sync enabled and signed in.
 
 | Tab | Shown | Purpose |
 | --- | --- | --- |
-| **Welcome** | always | Overview, glossary, and how the workflow fits together. |
+| **Welcome** | always | A landing map: where each tab is, and the two shared explanations. |
 | **Analysis** | always | The decision view — ranked board with fair price and verdict, KPIs, price/value charts, buy signals, and the scenario explorer. |
 | **Portfolio** | signed in | Your private holdings and price alerts — unrealised P&L, concentration balancer, value over time. |
 | **Data Entry** | admin only | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs, and export the updated workbook. |

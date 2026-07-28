@@ -35,7 +35,7 @@ async function boot(page) {
 }
 
 async function signIn(page, email) {
-  await page.locator('#demo-signin-btn').click();
+  await page.locator('#demo-page header .signin-open').click();
   await page.locator('#auth-email').fill(email);
   await page.locator('#auth-password').fill('test-password');
   await page.locator('#auth-signin-btn').click();
@@ -58,10 +58,105 @@ test('logged-out visitors get the demo scope and a dismissible sign-in', async (
   await expect(page.locator('#demo-sets')).not.toContainText('Alpha Booster Box');
 
   // Sign-in overlay opens and dismisses without forcing a login.
-  await page.locator('#demo-signin-btn').click();
+  await page.locator('#demo-page header .signin-open').click();
   await expect(page.locator('#auth-overlay')).toBeVisible();
   await page.locator('#auth-close').click();
   await expect(page.locator('#auth-overlay')).not.toBeVisible();
+
+  expect(pageErrors).toEqual([]);
+});
+
+test('the demo page pitches before it lists, and is honest about what it withholds', async ({ page }) => {
+  // The demo used to open on a bare table of Price / Set Value / €/Booster /
+  // SV/Booster with no statement of what the tool is or what any column means
+  // — a visitor's first screen was six numbers and no argument. These are the
+  // parts of the pitch that have to survive a refactor.
+  const pageErrors = await boot(page);
+  await expect(page.locator('#demo-page')).toBeVisible();
+
+  // The question comes first, above the sample.
+  const heroY = (await page.locator('#demo-page .hero-title').boundingBox()).y;
+  const tableY = (await page.locator('#demo-sets table').first().boundingBox()).y;
+  expect(heroY, 'the pitch must lead the page').toBeLessThan(tableY);
+
+  // Three steps: value not price, why age matters, what the verdict means.
+  await expect(page.locator('#demo-page .steps .step')).toHaveCount(3);
+
+  // Fair price and the verdict are *not* claimed here, and the page says why
+  // rather than leaving a visitor to notice the gap. Computing a fit from the
+  // 3 demo sets would produce a number the signed-in board disagrees with —
+  // the one failure this trust-first page cannot afford.
+  await expect(page.locator('#demo-page .section-desc')).toContainText('whole');
+  await expect(page.locator('#demo-sets')).not.toContainText('Under fair price');
+
+  // Both explanations are reachable without signing in, and they are the same
+  // dialogs the signed-in Welcome tab opens.
+  await page.locator('#demo-page .method-open').click();
+  await expect(page.locator('#method-modal')).toHaveClass(/open/);
+  await page.keyboard.press('Escape');
+  await page.locator('#demo-page .glossary-open').click();
+  await expect(page.locator('#glossary-modal')).toHaveClass(/open/);
+  await expect(page.locator('#glossary-modal')).toContainText('Fair Price');
+  await expect(page.locator('#glossary-modal')).toContainText('SV / Booster');
+  await page.keyboard.press('Escape');
+
+  // A second sign-in button closes the pitch — the page is long enough that
+  // scrolling back to the header would be friction.
+  await page.locator('#demo-page .demo-cta .signin-open').click();
+  await expect(page.locator('#auth-overlay')).toBeVisible();
+
+  expect(pageErrors).toEqual([]);
+});
+
+test('signing in lands on the answer, and Welcome shares the demo page explanations', async ({ page }) => {
+  const pageErrors = await boot(page);
+  await signIn(page, 'user@test.local');
+
+  // The pitch is read once, logged out. A signed-in session opens on Analysis
+  // — which itself opens on "best deals right now" — not on the Welcome tab.
+  await expect(page.locator('#tab-analysis')).toBeVisible();
+  await expect(page.locator('#tab-welcome')).toBeHidden();
+  await expect(page.locator('.tab-bar .tab-btn[data-tab="analysis"]')).toHaveAttribute('aria-selected', 'true');
+
+  await page.locator('.tab-bar .tab-btn[data-tab="welcome"]').click();
+  await expect(page.locator('#tab-welcome')).toBeVisible();
+
+  // Welcome advertises every tab this user actually has. Portfolio used to be
+  // missing here even though the tab exists for every signed-in user.
+  await expect(page.locator('#tab-welcome .card-title[data-goto="analysis"]')).toBeVisible();
+  await expect(page.locator('#tab-welcome .card-title[data-goto="portfolio"]')).toBeVisible();
+  await expect(page.locator('#tab-welcome .card-title[data-goto="entry"]')).toBeHidden();
+
+  // …and no heading is left standing over hidden content. A signed-in
+  // non-admin used to get a "How it works" eyebrow with nothing underneath it,
+  // because the panel was .admin-only and the <h2> introducing it was not.
+  // Assert the pairing rather than the visibility: every eyebrow must appear
+  // exactly when the block it introduces does.
+  const orphans = await page.evaluate(() =>
+    [...document.querySelectorAll('#tab-welcome h2.section-eyebrow')]
+      .filter((h) => {
+        const shown = (el) => !!el && el.offsetParent !== null;
+        return shown(h) !== shown(h.nextElementSibling);
+      })
+      .map((h) => h.textContent.trim()),
+  );
+  expect(orphans, 'a section heading is showing without its content').toEqual([]);
+
+  // The two explanations are the *same dialogs* the demo page opens — one
+  // definition of SV/Booster in the build, not one per surface.
+  //
+  // Driven from the keyboard, not clicked: these sit below the fold at the
+  // default viewport, and `html { scroll-behavior: smooth }` makes Playwright's
+  // scroll-into-view race its own click — the click silently lands on nothing.
+  // (The demo page's copies of these buttons *can* be clicked: #demo-page is
+  // its own `overflow-y: auto` container, and the smooth rule is on <html>.)
+  await page.locator('#tab-welcome .glossary-open').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#glossary-modal')).toHaveClass(/open/);
+  await page.keyboard.press('Escape');
+  await page.locator('#tab-welcome .method-open').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#method-modal')).toHaveClass(/open/);
 
   expect(pageErrors).toEqual([]);
 });
@@ -146,7 +241,7 @@ test('a locked-out user can request a reset and finish through the link', async 
   // so a forgotten password meant losing the account — and with it the
   // RLS-scoped holdings and alerts.
   const pageErrors = await boot(page);
-  await page.locator('#demo-signin-btn').click();
+  await page.locator('#demo-page header .signin-open').click();
 
   // Asking without an address should say so rather than mail nowhere.
   await page.locator('#auth-forgot-btn').click();

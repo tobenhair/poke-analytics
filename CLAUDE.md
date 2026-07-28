@@ -66,7 +66,7 @@ When configured, `boot()` (replacing the old bare `tryAutoLoad()` IIFE) loads th
 
 Any signed-in user (not just the admin) can keep a private **Portfolio** and **Price Alerts**, which live together in their own signed-in-only top-level tab (`#tab-portfolio`, revealed by the `.tab-btn.sb-only[data-tab="portfolio"]` button) — the shared product data plus their own holdings/targets. `loadFromSupabase()` also reads the per-user `holdings` and `alerts` tables into the module-level `holdings` map (name → `{ quantity, costBasis }`) and `alerts` map (name → the user's buy target, of **two kinds**: `fixed`, a euro `target_price`; or `fair`, a `below_pct` meaning "≥ N% under the fair price"). `renderPortfolio()` derives unrealised P&L = (latest price − cost basis) × quantity; `renderAlerts()` flags a product as triggered when its latest price is at or under the target — the euro figure for `fixed`, the recomputed fair-price threshold for `fair` — and `alertFlag()` surfaces a 🔔 on the Analysis All Products board via `updateTable()`. Fair alerts move as the age fit moves, which is why they are evaluated in-browser: the server-side email job (`supabase/alert-emails.sql`) can only cover `fixed` targets. Both render functions are wired into `INIT` and `applyNewData()`. The Portfolio tab also carries a **concentration balancer** (`renderBalancer()`, called from `renderPortfolio()`): it groups current holding value by set / release-year / product-type via the pure `concentrationShares()` in `metrics.js`, flags over-exposure (≥ `OVER_EXPOSED_SHARE`), and lists fair-price-aware rebalance buys — under-fair-price products in sets/types you underweight — via `rebalanceSuggestions()`. A **value-over-time** chart (`renderPortfolioValueChart()`, pure `portfolioValueSeries()`) plots the current holdings valued at every snapshot against the flat cost basis. All derived client-side; no new stored data. A per-user **display currency** (`portfolioCurrency`; € is canonical and the only stored unit) converts the Portfolio tab's amounts and its value chart at render time via `money()` and a single live FX rate fetched once from a key-less API (`fetchFxRates()`); the choice persists in `user_settings.currency` (`persistCurrency()`, per-user RLS, read in `loadFromSupabase()`). Conversion is deliberately confined to the Portfolio tab — the shared catalogue, set values and all SV/Booster maths stay in €. **The picker only ever offers € plus the currencies it holds a live rate for**, so a €-only picker always means the FX fetch failed, never a missing feature: `FX_ENDPOINTS` tries Frankfurter's current host (`api.frankfurter.dev/v1/latest?base=…&symbols=…`) then the legacy one (`api.frankfurter.app/latest?from=…&to=…` — the two hosts spell the parameters differently, and on the new API `from`/`to` mean a *date range*, so the URLs are not interchangeable). If both fail the app stays in €, but says so: a `#fx-note` line next to the picker, a `console.warn`, and a `reportClientError()` beacon. Silently swallowing that failure was a real reported bug; `tests/fx-currency.spec.mjs` pins all three outcomes. The portfolio editor supports **buy-more** (adds quantity and blends cost basis to a weighted average via `commitHolding()`) and **edit-in-place** (`startPortfolioEdit()` overrides exact values). There are **no Save buttons** — every add/edit/remove auto-saves a single row (`persistHolding`/`deleteHoldingRow`, `persistAlert`/`deleteAlertRow`: `upsert` on `onConflict: 'user_id,product_id'`, `delete` on removal), with feedback in the tab's own `#portfolio-status`. RLS scopes every row to `auth.uid()`; both maps reset on sign-out.
 
-Logged-out visitors see a **pre-login demo** (`#demo-page`, a `<body>` child shown by `setAuthedUI(null)` instead of a hard login gate). `loadDemo()` queries products/snapshots as the anonymous role — RLS `"demo read …"` policies expose only the rows in the 3 newest release dates (via the `public.demo_product_ids()` SECURITY DEFINER function) — then derives metrics with the shared `deriveProducts()` and renders read-only cards grouped by set (`renderDemo()`/`demoSetName()`). A **Sign in** button opens `#auth-overlay` (now dismissible via `#auth-close`); the full catalogue still requires login.
+Logged-out visitors see a **pre-login demo** (`#demo-page`, a `<body>` child shown by `setAuthedUI(null)` instead of a hard login gate). `loadDemo()` queries products/snapshots as the anonymous role — RLS `"demo read …"` policies expose only the rows in the 3 newest release dates (via the `public.demo_product_ids()` SECURITY DEFINER function) — then derives metrics with the shared `deriveProducts()` and renders read-only panels grouped by set (`renderDemo()`/`demoSetName()`). A **Sign in** button opens `#auth-overlay` (now dismissible via `#auth-close`); the full catalogue still requires login. See *The pitch lives once* below for what that page is and what it deliberately withholds.
 
 Runtime errors are reported to an insert-only **`client_errors`** table (error monitoring): an early inline script near the top of `index.html` buffers `window.onerror`/`unhandledrejection` events from the first script tick, and the module drains the buffer via `reportClientError()`/`initErrorReporting()` once `sbClient` exists — deduped, capped at 10/session, fire-and-forget, a no-op in static mode. Anyone may insert (RLS blocks spoofing another `user_id`), only the admin may read; an optional daily `pg_cron` + Resend digest (`supabase/error-digest.sql`) emails a grouped summary and stays silent when the table is clean.
 
@@ -160,6 +160,60 @@ future change should preserve:
   pointer` and hover highlight that implied one are gone, and the board's
   explainer no longer promises it. Sorting is `#sort-select`. If you add header
   sorting, restore both affordances with it.
+
+### The overview leads the Analysis tab
+
+`renderOverview()` renders **Best deals right now** above the nine numbered
+sections — the tab's answer, with the sections as its evidence. It derives
+nothing new (`fairGap` and `verdict` already exist) and follows `activeType`
+like every other analytical view, so it is wired into `INIT`, `applyNewData()`
+**and** `applyTypeFilter()`.
+
+Its one rule: **when `fairPriceTrusted()` is false it must not rank by the fair
+price**, because the verdict is already ignoring it. It falls back to the
+weighted score and says which ranking it used, in both the badge and the lead
+sentence. A ranking built on a number the rest of the page disregards would be
+the most damaging kind of wrong here.
+
+### The pitch lives once — demo page vs Welcome tab
+
+Two surfaces used to explain the app, and only one of them was reachable by the
+people who needed it. The split is now by **role**, and the rule is that no
+explanation exists in two places:
+
+- **`#demo-page` is the pitch** — the only "what this is / how to read it"
+  surface. Order is the argument: the question (`.hero-title`), then the three
+  ideas needed to read an answer (`.steps`), then the sample rows. Prose goes
+  here, not on Welcome.
+- **`#tab-welcome` is a signed-in landing** — where to go, and links to the same
+  explanations. It must not grow a second pitch; if you find yourself writing
+  what the app is *for* on this tab, it belongs on the demo page.
+- **The explanations are shared dialogs.** `#method-modal` (the fair-price
+  method) and `#glossary-modal` (every term) are opened by **class**, not id —
+  `.method-open` / `.glossary-open` — precisely so a third caller costs nothing
+  and no surface can define SV/Booster its own way. `#fair-fit-note` on the
+  board is one of the `.method-open` callers.
+- **Signing in lands on Analysis**, not Welcome — the pitch is read once, logged
+  out, and Analysis opens on the answer. It is wired in the
+  `uid !== sbLoadedUserId` branch of `onAuthStateChange` on purpose: a token
+  refresh fires that handler too, and switching tabs under a reading user would
+  be a bug. It dispatches a **click** rather than calling `activateTab()`, so
+  the reveal-on-scroll handler (which listens for clicks) replays.
+
+**What the demo must not do: show a fair price or a verdict.** Both are read off
+`linearFit()` across *every* product's age, and the anon RLS scope is three
+release dates — a fit over that slice would render a number the signed-in board
+contradicts. The page says so instead, and names it as what sign-in buys. If a
+future change wants real fair prices there, the honest route is a
+SECURITY&nbsp;DEFINER function returning only the fit coefficients
+(`regr_slope`/`regr_intercept`/`regr_r2` over all products), not a client-side
+fit on the visible rows.
+
+Two smaller things worth not re-learning: the demo's set tables carry
+`tabindex="0"` on their `.table-wrap` (nothing inside is focusable, so without
+it a keyboard user cannot scroll them on a phone), and `.glossary td` sets
+`white-space: normal` to opt out of the board's global `tbody td { white-space:
+nowrap }` — inherited, it ran every definition out of the dialog.
 
 ### Where the numbers came from
 
