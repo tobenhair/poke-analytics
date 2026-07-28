@@ -83,6 +83,28 @@ export function linearFit(pts) {
 // the UI still shows it, but greyed, and flags the low confidence.
 export const FAIR_PRICE_MIN_R2 = 0.25;
 
+// How much to trust the fair price, in words rather than a statistic.
+//
+// The board used to render a bare "R² 0.39". R² is a term most buyers don't
+// know, 0.39 is a *weak* fit, and the whole product rests on the number it
+// qualifies — presenting it raw reads as more authoritative than it is. The
+// number stays (in the drill-down, where there is room to explain it); the
+// board gets the plain-language band.
+//
+// Bands: below FAIR_PRICE_MIN_R2 the verdict already ignores the fair price,
+// so that boundary is the one that carries meaning; 0.5 is the second step.
+export const FIT_BANDS = [
+  { min: 0.5,  key: 'strong',   label: 'strong fit' },
+  { min: 0.25, key: 'moderate', label: 'moderate fit' },
+  { min: 0,    key: 'rough',    label: 'rough estimate' },
+];
+
+export function fitConfidence(r2) {
+  if (r2 == null || isNaN(r2)) return null;
+  const band = FIT_BANDS.find(b => r2 >= b.min) || FIT_BANDS[FIT_BANDS.length - 1];
+  return { ...band, r2, trusted: r2 >= FAIR_PRICE_MIN_R2 };
+}
+
 // Expected SV/Booster for a product of a given age, read off the age-fit line.
 // Floored at 0: a linear fit extrapolates below zero for the oldest products,
 // which is not a meaningful expectation. Returns null without a fit.

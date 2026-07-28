@@ -7,8 +7,10 @@
 > describes the build: board rows open the drill-down from a real button, the
 > modals are dialogs that trap and return focus, every input is named, and the
 > tab bar is an ARIA tablist. `tests/a11y.spec.mjs` is the gate that keeps it
-> that way. Still open: **F8** (5 controls under the 24 px AA target minimum),
-> **F10**, **F11**, **F13**, **F15**, **F16** — all tracked in `ROADMAP.md`.
+> that way. Since then **F8** (tap targets), **F10** (the board names the fit's
+> confidence in words and links the method) and **F16** (password reset) have
+> shipped too. Still open: **F11**, **F13**, **F15** — all tracked in
+> `ROADMAP.md`.
 > Note for whoever runs axe next: the trap this document records is worse than
 > it says — `reducedMotion: 'reduce'` alone does **not** avoid it; wait on
 > `document.getAnimations()` as the spec does.

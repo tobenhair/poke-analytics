@@ -46,10 +46,11 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   // Top Picks populated.
   await expect(page.locator('#top-picks-list')).not.toBeEmpty();
 
-  // Fair Price column derived: the header carries an R² fit note and at least
-  // one board row shows a computed fair price in euros (guards recomputeFit()
-  // running before first render and the age-fit → fair-price inversion).
-  await expect(page.locator('#fair-fit-note')).toContainText('R²');
+  // Fair Price column derived: the header states the fit's confidence in words
+  // (the R² itself lives in the drill-down) and at least one board row shows a
+  // computed fair price in euros — together these guard recomputeFit() running
+  // before the first render, and the age-fit → fair-price inversion.
+  await expect(page.locator('#fair-fit-note')).toHaveText(/strong fit|moderate fit|rough estimate/);
   await expect.poll(
     () => page.locator('#product-tbody td:nth-child(4)')
             .filter({ hasText: '€' }).count(),
@@ -101,6 +102,36 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   await page.mouse.wheel(0, 120);
   expect(await priceInput.inputValue(), 'wheel must not change a number input').toBe(beforeWheel);
 
+  // The workbook loaded, so the sample-data banner must be gone.
+  await expect(page.locator('#data-source-banner')).toBeHidden();
+
   // No uncaught exceptions anywhere along the way.
   expect(pageErrors, `uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([]);
+});
+
+test('a missing workbook says so instead of passing sample data off as real', async ({ page }) => {
+  // The dangerous failure: the page boots with a small hardcoded dataset so
+  // nothing is blank, and until now a 404 left those numbers on screen looking
+  // exactly like tracked prices — the board, the P&L and every chart fiction,
+  // silently.
+  await routeLocalLibs(page);
+  await forceStaticMode(page);
+  await page.route('**/pokemon_data.xlsx', (route) => route.fulfill({ status: 404, body: '' }));
+  await page.goto('/?admin=1');
+
+  const banner = page.locator('#data-source-banner');
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText('Sample data');
+  await expect(banner).toContainText('404');          // says *why*, not just that
+
+  // It is on every tab, not just the one that happened to be open — the
+  // portfolio's P&L would be computed from these numbers too.
+  await page.locator('.tab-bar .tab-btn[data-tab="analysis"]').click();
+  await expect(banner).toBeVisible();
+  await page.locator('.tab-bar .tab-btn[data-tab="entry"]').click();
+  await expect(banner).toBeVisible();
+
+  // And it does not scroll away — a warning you can lose is no warning.
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect(banner).toBeVisible();
 });

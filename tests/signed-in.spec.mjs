@@ -141,6 +141,43 @@ test('the admin sees Data Entry and cloud-save writes the entered snapshot', asy
   expect(pageErrors).toEqual([]);
 });
 
+test('a locked-out user can request a reset and finish through the link', async ({ page }) => {
+  // Before this the sign-in overlay offered only Sign in and Create an account,
+  // so a forgotten password meant losing the account — and with it the
+  // RLS-scoped holdings and alerts.
+  const pageErrors = await boot(page);
+  await page.locator('#demo-signin-btn').click();
+
+  // Asking without an address should say so rather than mail nowhere.
+  await page.locator('#auth-forgot-btn').click();
+  await expect(page.locator('#auth-error')).toContainText('Enter your email address first');
+  expect(await writes(page, 'auth', 'resetPasswordForEmail')).toHaveLength(0);
+
+  await page.locator('#auth-email').fill('user@test.local');
+  await page.locator('#auth-forgot-btn').click();
+
+  const [reset] = await writes(page, 'auth', 'resetPasswordForEmail');
+  expect(reset.payload.email).toBe('user@test.local');
+  // Must come back to this page, without dragging an old fragment along.
+  expect(reset.payload.options.redirectTo).not.toContain('#');
+  // The reply must not confirm whether the account exists.
+  await expect(page.locator('#auth-error')).toContainText('If an account exists');
+
+  // Returning through the emailed link: a recovery session, and the password
+  // form open and titled for the occasion.
+  await page.evaluate(() => window.__sbRecovery('user@test.local'));
+  await expect(page.locator('#account-overlay')).toBeVisible();
+  await expect(page.locator('#account-heading')).toHaveText('Set a new password');
+  await expect(page.locator('#account-password')).toBeFocused();
+
+  await page.locator('#account-password').fill('a-new-password');
+  await page.locator('#account-password2').fill('a-new-password');
+  await page.locator('#account-save-btn').click();
+  await expect(page.locator('#account-msg')).toContainText('Password updated');
+
+  expect(pageErrors).toEqual([]);
+});
+
 test('the error beacon reports a runtime error to client_errors', async ({ page }) => {
   await boot(page);
 

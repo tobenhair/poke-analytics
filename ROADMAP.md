@@ -342,6 +342,69 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   from the inactive ones. A test that asserted the literal `🔔` now asserts the
   alert's *accessible name* instead, which is both more robust and closer to
   what a screen reader gets.
+- **Fair price says how much to trust it, in words.** The board header rendered a
+  bare **"R² 0.39"** — a statistical term most buyers don't know, qualifying a
+  *weak* fit, on the number the whole product rests on. Worse, both explanations
+  sat where a phone can't reach them: a `title` tooltip (no hover on touch) and a
+  ~200-word paragraph. Now the header carries the band in plain language —
+  **strong fit / moderate fit / rough estimate** — derived by `fitConfidence()`
+  in `metrics.js`, whose `trusted` boundary is unit-tested to agree exactly with
+  the gate the verdict uses, so the board can never call a price "moderate" that
+  the verdict is ignoring. The statistic itself stays in the drill-down. The word
+  is a **button** opening *How the fair price works*, a short method dialog —
+  reachable by touch and keyboard, and the seed of the launch checklist's
+  "how the numbers work" page.
+- **Welcome joins the rest of the app.** V6/V7 from the visual review: the tab
+  now introduces its sections with `.section-eyebrow` like Analysis and
+  Portfolio, and the hero uses the *same* display treatment as the page `h1`
+  (they were two treatments for "the most important text on screen", 300px
+  apart) — which also retired `#f5a623`, the last allowlisted colour literal in
+  the guard. The card titles are `--text` instead of blue and green: those mean
+  *neutral* and *positive* everywhere else, and using them as category tints on
+  the first screen taught a first-time visitor that colour is decorative. The
+  titles also became real buttons — the cards navigate, and a `<div>` with a
+  click handler was the same Level-A gap the board rows had.
+- **Password reset — a locked-out user has a way back.** The sign-in overlay
+  offered only *Sign in* and *Create an account*; `resetPasswordForEmail`
+  appeared nowhere. Since holdings and alerts are RLS-scoped to the account, a
+  forgotten password meant losing the portfolio with it. Now: a *Forgot your
+  password?* action that mails a recovery link (replying without revealing
+  whether the address exists), and a `PASSWORD_RECOVERY` branch that opens the
+  password form retitled *Set a new password* when the user returns through it.
+  `SUPABASE.md` gained the step this needs — the app's URL must be listed under
+  *Authentication → URL Configuration*, or Supabase refuses to mail the link and
+  the button is silently useless. Covered end-to-end in `tests/signed-in.spec.mjs`
+  against the fake SDK, including the no-address case and the redirect target.
+- **Sample data can no longer pass itself off as real.** The page boots with a
+  small hardcoded dataset so nothing is ever blank — convenient, and until now
+  dangerous: a missing or unparseable workbook `return`ed silently, leaving
+  those numbers on screen looking exactly like tracked prices. The board, the
+  portfolio's P&L and every chart would have been fiction, with nothing saying
+  so. Now the data source is **state** (`sample` / `workbook` / `cloud`), and
+  while it is `sample` a persistent banner sits under the header on **every**
+  tab, saying what the numbers are *and why* ("the tracked workbook didn't load:
+  pokemon_data.xlsx returned HTTP 404"). It covers the other paths that leave
+  sample data up too: a cloud load that fails, and a brand-new account with
+  nothing saved yet. A `.status-pill` would not do — it scrolls away, and a
+  warning you can lose is no warning. Guarded by a smoke case that 404s the
+  workbook and asserts the banner appears, names the reason, and survives a tab
+  change and a scroll. **Found while building it:** `[hidden]` was losing to any
+  class that sets `display` — the banner stayed up after the workbook loaded —
+  so `[hidden] { display: none !important }` is now a base rule.
+- **The board's explainer, cut from 190 words to ~100.** It sat directly above
+  the most important table and was the single largest contributor to the
+  measured prose share. Most of it had also been overtaken: the fair-price
+  method now has its own dialog, and the verdict says in words what three
+  sentences used to explain. What remains leads with the verdict, points at the
+  confidence word, and defers the column definitions to section 03 and the
+  Welcome tab rather than restating them.
+- **Section numbers mean one thing now.** Analysis numbered 01–09 and Portfolio
+  independently numbered 01–04, so "section 05" was ambiguous app-wide — and the
+  board's own copy cited sections by number. Rather than prefixing every eyebrow,
+  the numbers were removed everywhere they were *not* cited: Portfolio, Welcome
+  and the demo's set headings now use plain eyebrow labels, leaving Analysis as
+  the only numbered surface. (The demo's numbers had a second problem — they
+  enumerated sets in recency order, which reads as a ranking they are not in.)
 
 ## Now — trustworthy numbers (stability & quality)
 
@@ -367,43 +430,18 @@ The order below is the one the **expert UX & accessibility review** recommended
 earlier journey pass in [`docs/ux-assessment.md`](docs/ux-assessment.md) and
 corrects two of its findings). **Accessibility came first and has shipped** —
 see *Done* — along with the three phone/reflow defects that preceded it. What
-remains is the comprehension work, now led by **bringing the Welcome tab onto
-the app's own section pattern**. Every accessibility finding from the expert
-review is closed, the measured density problem is addressed, and the visual
-system's token/scale drift is reconciled and now guarded by
-`npm run check:design-tokens`.
+remains is the larger restructure work, led by the **overview-first
+restructure** and the **demo-as-pitch** rework. Every accessibility
+finding from the expert review is closed, the measured density problem is
+addressed, the visual system is reconciled and guarded by
+`npm run check:design-tokens`, and the two trust gaps — an unexplained R² and a
+locked-out user with no way back — are fixed.
 
-- **Fix — bring the Welcome tab onto the app's own section pattern**, and stop
-  using accent colours as decoration there. Welcome uses no `.section-eyebrow`
-  while Analysis and Portfolio use it throughout, and its card titles are blue
-  and green as arbitrary category tints — teaching a first-time visitor, on the
-  first screen, that the colours are decorative, when everywhere else green
-  genuinely means good.
-- **Fix — how "Fair Price" presents its own confidence.** The board header renders
-  a bare *"R² 0.39"*. R² is a term most buyers don't know, **0.39 is a weak fit**,
-  and the whole product rests on the number it qualifies — while both explanations
-  sit where a phone user cannot reach them (a `title` tooltip, and a ~200-word
-  paragraph). Show confidence qualitatively on the board, keep the statistic for
-  the drill-down, and put the method somewhere reachable without hover. Presenting
-  a weak fit as a bare statistic reads as more authoritative than it is, which is
-  a credibility risk for a tool whose pitch is trustworthiness.
-- **Fix — edit the board's explainer paragraph.** ~200 words of accurate, dense
-  prose sitting directly above the most important table, and the single largest
-  contributor to the measured 16.4 % prose share on phone. Collapsing it (above)
-  hides the scroll cost; this is the separate job of *shortening* it.
-- **Fix — resolve the section-numbering collision.** Analysis numbers its sections
-  01–09 and Portfolio independently numbers its own 01–03, so "section 05" is
-  ambiguous app-wide — and the board's own explainer text refers to "section 05"
-  by number. Prefix or renumber.
 - **Overview-first restructure.** With the verdict shipped, the top of the
   Analysis tab can *answer the question* — best deals now, each with its fair
   price gap — and the nine numbered sections become the supporting evidence a
   curious user drills into (progressive disclosure), rather than a wall to
   scroll. Less on screen, more answered.
-- **First-class loading, empty, and error states.** Every async surface
-  (boot, cloud load, demo, save) gets a designed state instead of a blank
-  panel or a toast — including the currently-invisible "workbook failed,
-  showing sample data" fallback, which must never masquerade as real data.
 - **Onboarding & the demo as a pitch.** The section descriptions explain each
   chart; nothing yet explains the *method* — or, on the logged-out demo, even
   what the tool *is*. Lead the demo page with a plain statement of the tool's
@@ -422,14 +460,6 @@ system's token/scale drift is reconciled and now guarded by
   explanation instead of maintaining two. The goal either way is a single
   authoritative "what this is and how to read it" surface — not today's split
   where the pitch lives in one place for visitors and another for members.
-- **Password reset (new — from the UX assessment).** The sign-in overlay offers
-  only *Sign in* and *Create an account*; `resetPasswordForEmail` appears nowhere
-  in the app. A user who forgets their password has no route back, and since
-  holdings and alerts are RLS-scoped to their account they lose their own
-  portfolio with it. Easy to miss because signed-in users *can* change a password
-  (`#change-pw-btn`) — the gap is only for the locked-out. Small: a "Forgot
-  password?" link on the overlay, `sbClient.auth.resetPasswordForEmail()`, and a
-  recovery-token branch that opens `#account-overlay`.
 - **Set logos (drill-down first).** Give each set a visual anchor: the
   expansion logo, at least on the product drill-down view where there's room to
   frame a single product, and later a small mark on board rows and set

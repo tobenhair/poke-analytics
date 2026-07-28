@@ -168,6 +168,12 @@
     z-index: 0;
   }
 
+  /* `hidden` must win over any class that sets display. A class rule beats the
+     UA's `[hidden] { display: none }` on specificity, so a component styled
+     `display: flex` stays visible while claiming to be hidden — which is how
+     the sample-data banner survived the workbook loading. */
+  [hidden] { display: none !important; }
+
   ::selection { background: var(--accent-soft); color: var(--text); }
 
   /* Refined scrollbars */
@@ -532,6 +538,36 @@
   /* keep the eyebrow visually attached to the section it introduces */
   .section-eyebrow { margin-top: 4px; }
 
+  /* The Welcome hero, in the same display treatment as the page h1 — they are
+     both "the most important text on screen" and used to be styled two
+     different ways 300px apart. */
+  .hero-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: var(--display-xl);
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    background: linear-gradient(120deg, var(--accent-hi) 0%, var(--accent) 45%, var(--accent-lo) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  /* Welcome card titles. In --text, not blue/green: those mean positive and
+     neutral everywhere else in the app, and using them as category tints on
+     the first screen teaches a first-time visitor that colour is decorative.
+     A real button, because the card navigates. */
+  .card-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: var(--display-sm);
+    letter-spacing: 0.08em;
+    color: var(--text);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+  }
+  .panel:hover .card-title { color: var(--accent); }
+
   /* Short "what / KPIs / how to read" explainer under each section eyebrow */
   .section-desc {
     max-width: 68ch;
@@ -739,7 +775,25 @@
   /* Fair-price gap: a small second line under the fair price in the board cell */
   .fair-gap { display: block; font-size: var(--text-xs); letter-spacing: 0.02em; margin-top: 2px; white-space: nowrap; }
   /* R² confidence note in the Fair Price column header */
-  .fair-fit-note { font-family: 'DM Mono', monospace; font-weight: 400; font-size: var(--text-2xs); opacity: 0.85; letter-spacing: 0.04em; }
+  /* The fair-price confidence: a word, and a button — the method behind it has
+     to be reachable without a hover, which a `title` never is on touch. */
+  .fair-fit-note {
+    font-family: 'DM Mono', monospace;
+    font-weight: 400;
+    font-size: var(--text-2xs);
+    letter-spacing: 0.04em;
+    background: none;
+    border: 0;
+    /* Block padding to clear the 24px target minimum (WCAG 2.5.8) without
+       moving the header text; the header cell has room for it. */
+    padding: 4px 0;
+    min-height: 24px;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .method-text { color: var(--text); font-size: var(--text-lg); line-height: 1.7; }
+  .method-text strong { color: var(--accent); font-weight: 500; }
   /* Verdict: the row's plain-language headline, under the product name */
   .verdict-line { display: block; font-family: 'DM Mono', monospace; font-size: var(--text-xs); letter-spacing: 0.02em; margin-top: 3px; white-space: nowrap; }
   /* Board rows open a product drill-down on click */
@@ -839,6 +893,29 @@
   .val-excellent { color: var(--accent4); }
   .val-good { color: var(--accent); }
   .val-poor { color: var(--accent2); }
+
+  /* ── Data-source banner ──
+     Shown while the page is running on the built-in sample data: either the
+     workbook hasn't loaded yet, or it failed. Deliberately a persistent strip
+     rather than the transient .status-pill — a message that scrolls away can't
+     stop someone reading sample prices as real ones. */
+  .data-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 0 22px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(244,198,81,0.28);
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    color: var(--text);
+    font-size: var(--text-lg);
+    line-height: 1.55;
+  }
+  .data-banner .icon { color: var(--accent); margin-top: 2px; }
+  .data-banner strong { color: var(--accent); font-weight: 500; }
+  .data-banner .why { color: var(--muted); font-family: 'DM Mono', monospace; font-size: var(--text-sm); }
 
   /* ── Status pill ──
      The generic inline save/load status line. Written by setStatus(); used by
@@ -1295,6 +1372,17 @@
   .auth-btn:hover { filter: brightness(1.08); }
   .auth-btn.secondary { background: transparent; color: var(--muted); }
   .auth-btn.secondary:hover { border-color: var(--accent); color: var(--text); }
+  /* Text-weight action inside the sign-in dialog: recovering an account is not
+     a third equal choice next to Sign in and Create an account. */
+  .auth-link {
+    background: none; border: 0; padding: 4px;
+    color: var(--muted); font-family: 'DM Mono', monospace;
+    font-size: var(--text-sm); letter-spacing: 0.03em; cursor: pointer;
+    text-decoration: underline dotted; text-underline-offset: 3px;
+    transition: color 0.15s;
+  }
+  .auth-link:hover { color: var(--accent); }
+
   .auth-signout {
     background: transparent; border: 1px solid var(--border); border-radius: 6px;
     color: var(--muted); font-family: 'DM Mono', monospace; font-size: var(--text-xs);
@@ -1386,6 +1474,7 @@
     <div style="display:flex; flex-direction:column; gap:10px;">
       <button class="auth-btn" id="auth-signin-btn" type="button">Sign in</button>
       <button class="auth-btn secondary" id="auth-signup-btn" type="button">Create an account</button>
+      <button class="auth-link" id="auth-forgot-btn" type="button">Forgot your password?</button>
     </div>
     <p style="font-family:'DM Mono',monospace; font-size: var(--text-2xs); color:var(--muted); margin-top:14px; line-height:1.5;">
       Your data is private to your account. New sign-ups may require email confirmation depending on the project's settings.
@@ -1400,7 +1489,7 @@
   <div class="modal" style="max-width:400px;" role="dialog" aria-modal="true" aria-labelledby="account-heading" tabindex="-1">
     <button class="modal-close" id="account-close" type="button" aria-label="Close change-password">✕</button>
     <h2 style="margin:0 0 6px;" id="account-heading">Change password</h2>
-    <p class="modal-intro">Set a new password for your account. You'll stay signed in.</p>
+    <p class="modal-intro" id="account-intro">Set a new password for your account. You'll stay signed in.</p>
     <div class="auth-field">
       <div class="field-label">New password</div>
       <input class="field-input" id="account-password" type="password" autocomplete="new-password" placeholder="at least 6 characters">
@@ -1462,6 +1551,42 @@
     <div class="modal-note">
       <b>Monthly workflow:</b> Each month, enter the latest Price and Set Value for each product in the <b>Data Entry</b> tab and click <b><svg class="icon" aria-hidden="true"><use href="#i-cloud-up"/></svg> Save to cloud</b> — all charts and signals update automatically. This guide describes the <code style="font-family:'DM Mono',monospace;">.xlsx</code> layout used by the <b>Export</b> backup and the offline fallback file.<br><br>
       <b>New products:</b> Add a new row to Summary, then add matching rows to Historical Data. The product name must match exactly in both sheets.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ HOW THE FAIR PRICE WORKS ═══════════
+     Opened from the confidence button in the board's Fair Price header. The
+     method used to live in two places a phone can't reach: a `title` tooltip
+     (no hover on touch) and a ~200-word paragraph. This is the reachable one. -->
+<div class="modal-overlay" id="method-modal">
+  <div class="modal" style="max-width:520px;" role="dialog" aria-modal="true" aria-labelledby="method-heading" tabindex="-1">
+    <button class="modal-close" id="method-close" type="button" aria-label="Close">✕</button>
+    <h2 id="method-heading">How the fair price works</h2>
+    <p class="modal-intro">In one paragraph, so you can judge how much to lean on it.</p>
+
+    <div class="modal-section">
+      <h3>The method</h3>
+      <p class="method-text">Sealed product tends to lose value density as it ages. So the app fits a
+      straight line through <em>every</em> tracked product — SV/Booster against age — and reads off the
+      value a product of this age would be expected to have. Turn that expectation back into euros and
+      you get the <strong>fair price</strong>: what this product would cost if it traded like its
+      same-age peers. Under it is cheap for its age; over it is expensive.</p>
+    </div>
+
+    <div class="modal-section">
+      <h3>How confident it is</h3>
+      <p class="method-text">The line never fits perfectly, and how well it fits is what the confidence
+      word tells you. <strong>Strong fit</strong> — age explains most of the variation, so the fair price
+      is a firm number. <strong>Moderate fit</strong> — a reasonable guide, not a valuation.
+      <strong>Rough estimate</strong> — age explains little here, so the fair price is greyed out and
+      the buy/avoid verdict ignores it entirely rather than pretending. The underlying statistic (R²)
+      is on each product's drill-down.</p>
+    </div>
+
+    <div class="modal-note">
+      A fair price is a comparison with the rest of the catalogue, not a valuation or a price forecast.
+      It moves as the catalogue moves.
     </div>
   </div>
 </div>
@@ -1555,6 +1680,12 @@
   </header>
 
 
+  <!-- Where the numbers came from. Visible on every tab, because the sample
+       data is indistinguishable from the real thing once it is on screen —
+       the board, the portfolio's P&L and every chart would all be fiction.
+       Removed (not hidden) the moment real data lands. -->
+  <div id="data-source-banner" class="data-banner" role="status" hidden></div>
+
   <!-- Tab bar — a real ARIA tablist. The emoji are decorative (each button
        carries its own text label), so they are hidden from assistive tech.
        Note two Welcome CTA buttons also use .tab-btn for styling but live
@@ -1584,7 +1715,7 @@
       <div style="text-align:center; padding: 24px 0 36px;">
         <div style="display:inline-flex; align-items:center; gap:14px; margin-bottom:18px;">
           <div style="font-size: var(--display-xl); color: var(--accent); display:flex;"><svg class="icon" aria-hidden="true"><use href="#i-cards"/></svg></div>
-          <h2 style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-xl); letter-spacing:0.08em; background: linear-gradient(135deg, var(--accent) 0%, #f5a623 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">
+          <h2 class="hero-title">
             Track. Analyse. Decide.
           </h2>
         </div>
@@ -1594,6 +1725,7 @@
         </p>
       </div>
 
+      <h2 class="section-eyebrow">Where to go</h2>
       <!-- Three-card overview of tabs -->
       <div class="tab-overview" style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 36px;">
 
@@ -1601,8 +1733,8 @@
         <div class="panel" style="cursor:pointer;" onclick="document.querySelector('[data-tab=&quot;analysis&quot;]').click()">
           <div style="padding: 22px 24px;">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom: 12px;">
-              <div style="font-size: var(--display-md); color: var(--accent3); display:flex;"><svg class="icon" aria-hidden="true"><use href="#i-analysis"/></svg></div>
-              <div style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-sm); letter-spacing:0.08em; color: var(--accent3);">Analysis</div>
+              <div style="font-size: var(--display-md); color: var(--muted); display:flex;"><svg class="icon" aria-hidden="true"><use href="#i-analysis"/></svg></div>
+              <button type="button" class="card-title" data-goto="analysis">Analysis</button>
             </div>
             <p style="font-size: var(--text-lg); color: var(--text); line-height: 1.55; margin-bottom: 14px;">
               The decision-making view. See all your tracked products ranked by weighted score, compare set value against booster cost, watch price history per product, and explore scenarios.
@@ -1621,8 +1753,8 @@
         <div class="panel admin-only" style="cursor:pointer;" onclick="document.querySelector('[data-tab=&quot;entry&quot;]').click()">
           <div style="padding: 22px 24px;">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom: 12px;">
-              <div style="font-size: var(--display-md); color: var(--accent4); display:flex;"><svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg></div>
-              <div style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-sm); letter-spacing:0.08em; color: var(--accent4);">Data Entry</div>
+              <div style="font-size: var(--display-md); color: var(--muted); display:flex;"><svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg></div>
+              <button type="button" class="card-title" data-goto="entry">Data Entry</button>
             </div>
             <p style="font-size: var(--text-lg); color: var(--text); line-height: 1.55; margin-bottom: 14px;">
               The monthly update view. Enter the latest Price and Set Value for each product, add new releases, attach Cardmarket links, then export the updated file.
@@ -1638,11 +1770,9 @@
         </div>
       </div>
 
+      <h2 class="section-eyebrow">How it works</h2>
       <!-- How it works section (describes the admin update workflow) -->
       <div class="panel admin-only" style="margin-bottom: 24px;">
-        <div class="panel-header">
-          <h3 class="panel-title">How it works</h3>
-        </div>
         <div style="padding: 20px 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;">
 
           <div>
@@ -1678,6 +1808,7 @@
         </div>
       </div>
 
+      <h2 class="section-eyebrow">Key concepts</h2>
       <!-- Key concepts -->
       <div class="panel" style="margin-bottom: 24px;">
         <div class="panel-header">
@@ -1827,7 +1958,7 @@
 
   <!-- ── Section: product table (full width) ── -->
   <h2 class="section-eyebrow">02 — The Board</h2>
-  <p class="section-desc"><strong>What:</strong> every tracked product in one sortable table. <strong>KPIs:</strong> <em>€/Booster</em> (price ÷ packs inside), <em>SV/Booster</em> (Set Value ÷ the price of <em>one</em> booster — i.e. how many times a single booster's cost the whole set is worth, shown as a <em>×</em> multiple; higher = better value, <strong>not</strong> a per-pack price), <em>Age</em>, and <em>Wtd. Score</em> (the headline ranking). <em>Fair Price</em> is what the live price <em>would</em> be at the SV/Booster expected for the product's age (section 05): a live price <span class="up">under</span> fair is cheap for its age, <span class="down">over</span> is expensive — the R² by the column header says how much to trust the fit. A <svg class="icon" aria-hidden="true"><use href="#i-deal"/></svg> marks a possible buy signal — price fell while set value held. Under each product name is a plain-language <em>verdict</em> — the one-line synthesis of its gap to fair price, its drawdown from peak, and its set-value trend (e.g. <span class="up">Under fair price · near tracked low</span> / <span class="down">Overpriced for age</span> / Fair — no edge). <strong>How to read:</strong> filter with the Type pills and reorder with the Sort menu above — <em>Best Deal</em> ranks by verdict, best first.</p>
+  <p class="section-desc"><strong>What:</strong> every tracked product, ranked. <strong>How to read:</strong> the line under each name is the <em>verdict</em> — the plain-language answer, synthesising the gap to fair price, the drawdown from peak and the set-value trend. <em>Fair Price</em> is what this product would cost if it traded like its same-age peers; the confidence word beside that column says how much to trust it, and explains the method when you tap it. A <svg class="icon" aria-hidden="true" style="color:var(--accent)"><use href="#i-deal"/></svg> marks a possible buy signal — price fell while set value held. Filter with the Type pills, reorder with the Sort menu. <em>SV/Booster</em> and the other column terms are defined in section 03 below, and on the Welcome tab.</p>
   <div class="panel">
     <div class="panel-header">
       <h3 class="panel-title">All Products</h3>
@@ -1841,7 +1972,7 @@
             <th>Product <span class="th-hint"><svg class="icon" aria-hidden="true" style="color:var(--accent)"><use href="#i-deal"/></svg> = buy signal</span></th>
             <th class="col-detail">Type</th>
             <th style="text-align:right">Price (€)</th>
-            <th style="text-align:right" title="What the live price would be if the product traded at the SV/Booster expected for its age (section 05). Under it = cheap for its age; over = expensive. Reliability shown as R² — greyed when the age fit is weak.">Fair Price (€) <span id="fair-fit-note" class="fair-fit-note"></span></th>
+            <th style="text-align:right">Fair Price (€) <button type="button" id="fair-fit-note" class="fair-fit-note" aria-haspopup="dialog"></button></th>
             <th class="col-detail" style="text-align:right">Set Value (€)</th>
             <th class="col-detail" style="text-align:right">€/Booster</th>
             <th class="col-detail" style="text-align:right">SV/Booster</th>
@@ -2076,7 +2207,7 @@
     <span id="portfolio-status" class="status-pill" role="status" style="display:none"></span>
 
     <!-- ── Section: portfolio ── -->
-    <h2 class="section-eyebrow">01 — Your Portfolio</h2>
+    <h2 class="section-eyebrow">Your Portfolio</h2>
     <p class="section-desc"><strong>What:</strong> what you own and what it's worth now. <strong>How to read:</strong> <em>Add / buy more</em> tops up a holding and blends the cost basis to a weighted average; use the <svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg> button on a row to correct the exact quantity or cost. <em>Unrealised P&amp;L</em> compares your cost basis to each product's latest tracked price. Private to your account, saved automatically.</p>
     <div class="panel">
       <div class="panel-header">
@@ -2122,7 +2253,7 @@
     </div>
 
     <!-- ── Section: portfolio value over time ── -->
-    <h2 class="section-eyebrow">02 — Value Over Time</h2>
+    <h2 class="section-eyebrow">Value Over Time</h2>
     <p class="section-desc"><strong>What:</strong> what your <em>current</em> holdings would have been worth across every tracked snapshot — the <em>portfolio value</em> line against your flat <em>cost basis</em>, so unrealised P&amp;L reads as a trajectory rather than just today's number. <strong>How to read:</strong> the gap between the lines is your gain (value above cost) or loss (below); a rising value line means the basket you hold has appreciated. Values your current quantities back across history — purchase dates aren't tracked.</p>
     <div class="panel">
       <div class="chart-panel" id="portfolio-value-chart-wrap" style="padding: 20px 24px;">
@@ -2132,14 +2263,14 @@
     </div>
 
     <!-- ── Section: concentration & rebalance (portfolio balancer) ── -->
-    <h2 class="section-eyebrow">03 — Concentration &amp; Rebalance</h2>
+    <h2 class="section-eyebrow">Concentration &amp; Rebalance</h2>
     <p class="section-desc"><strong>What:</strong> how your holdings are spread across <em>sets</em>, <em>release years</em> and <em>product types</em> — and, when you're over-exposed, which <em>under-fair-price</em> products in areas you underweight would diversify you. <strong>How to read:</strong> a bar near full means a large share of your value rides on one bucket (red = over-exposed); the shortlist points the next euro at good-value buys that spread the risk. Derived live from your holdings — nothing saved.</p>
     <div class="panel">
       <div id="balancer-body"></div>
     </div>
 
     <!-- ── Section: price alerts ── -->
-    <h2 class="section-eyebrow">04 — Price Alerts</h2>
+    <h2 class="section-eyebrow">Price Alerts</h2>
     <p class="section-desc"><strong>What:</strong> buy targets for the products you're watching — a fixed <em>€</em> price, or a <em>% below fair price</em> that recomputes automatically as the age fit moves. <strong>How to read:</strong> when a product's latest tracked price falls to or below the target it's flagged here and with a <svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg> on the Analysis board. Private to your account, saved automatically.</p>
     <div class="panel">
       <div class="panel-header">
@@ -2318,7 +2449,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, verdict, VERDICT, momentum, trendDirection, buySignal, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
+import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -2656,9 +2787,17 @@ function fairPriceCell(p) {
 function updateFairFitNote() {
   const note = document.getElementById('fair-fit-note');
   if (!note) return;
-  if (!ageFit) { note.textContent = ''; return; }
-  note.textContent = `R² ${ageFit.r2.toFixed(2)}`;
-  note.style.color = fairPriceTrusted() ? 'var(--accent4)' : 'var(--muted)';
+  const fit = ageFit ? fitConfidence(ageFit.r2) : null;
+  if (!fit) { note.hidden = true; return; }
+  note.hidden = false;
+  // The band in words. The statistic itself lives in the drill-down, where
+  // there is room to say what it means — a bare "R² 0.39" on the board reads
+  // as more authoritative than a weak fit deserves.
+  note.textContent = fit.label;
+  note.style.color = fit.key === 'strong' ? 'var(--accent4)'
+                   : fit.key === 'moderate' ? 'var(--accent)'
+                   : 'var(--muted)';
+  note.setAttribute('aria-label', `Fair price confidence: ${fit.label}. How this is worked out`);
 }
 
 // Board ▲/▼ arrow and 💰 flag — math in metrics.js (trendDirection/buySignal);
@@ -3385,6 +3524,34 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   // not when the page happened to load.
   updateLastUpdated();
   document.getElementById('kpi-total').textContent = products.length;
+}
+
+// ============================================================
+// WHERE THE NUMBERS CAME FROM
+// ============================================================
+// The page boots with a small hardcoded sample dataset so nothing is ever
+// blank. That is convenient and, until now, dangerous: once it is on screen,
+// sample data is indistinguishable from tracked data — the board, the
+// portfolio's P&L and every chart would be fiction, silently. So the source is
+// state, and while it is 'sample' the page says so in a banner that does not
+// scroll away.
+let dataSource = 'sample';     // 'sample' | 'workbook' | 'cloud'
+let dataSourceWhy = 'Loading the tracked workbook…';
+
+function setDataSource(source, why) {
+  dataSource = source;
+  if (why != null) dataSourceWhy = why;
+  renderDataSourceBanner();
+}
+
+function renderDataSourceBanner() {
+  const el = document.getElementById('data-source-banner');
+  if (!el) return;
+  if (dataSource !== 'sample') { el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  el.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>`
+    + `<span><strong>Sample data.</strong> These are example numbers, not tracked prices —`
+    + ` nothing here reflects the real market. <span class="why">${dataSourceWhy}</span></span>`;
 }
 
 // Inline save/load status line. Each tab owns its own element (the Analysis
@@ -4124,6 +4291,19 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
     if (e.target === e.currentTarget) dismissTopOverlay();
   });
 });
+
+// Welcome cards: the title is the keyboard/screen-reader affordance for a card
+// that navigates. stopPropagation so the card's own click doesn't fire twice.
+document.querySelectorAll('.card-title').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    document.querySelector(`.tab-bar .tab-btn[data-tab="${btn.dataset.goto}"]`)?.click();
+  });
+});
+
+// Fair-price method dialog, opened from the board's confidence button.
+document.getElementById('fair-fit-note').addEventListener('click', () => openOverlay('method-modal'));
+document.getElementById('method-close').addEventListener('click', () => closeOverlay('method-modal'));
 
 // Format guide modal
 document.getElementById('guide-btn').addEventListener('click', () => openOverlay('guide-modal'));
@@ -5264,6 +5444,7 @@ populateCurrencySelect();
 renderPortfolio();
 renderAlerts();
 updateLastUpdated();
+renderDataSourceBanner();    // honest from the first frame: this is sample data
 initSectionDescriptions();   // static markup — runs once, not on data reload
 document.getElementById('sv-slider').addEventListener('input', updateScenario);
 document.getElementById('price-slider').addEventListener('input', updateScenario);
@@ -5285,14 +5466,18 @@ fetchFxRates().then(() => { populateCurrencySelect(); renderPortfolio(); });
 async function tryAutoLoad() {
   try {
     const res = await fetch('pokemon_data.xlsx', { cache: 'no-cache' });
-    if (!res.ok) return; // file not found — silently fall back to hardcoded data
+    // A missing workbook used to return here silently, leaving the sample data
+    // on screen looking exactly like tracked prices. Now it says so.
+    if (!res.ok) throw new Error(`pokemon_data.xlsx returned HTTP ${res.status}`);
     const buf = await res.arrayBuffer();
     const result = parseXlsx(buf);
     applyNewData(result);
+    setDataSource('workbook');
     setStatus('analysis-status', '✓ Auto-loaded pokemon_data.xlsx from repo — ' + result.newProducts.length + ' products', false);
   } catch (err) {
-    // Parse error — log to console but don't disrupt the UI
     console.warn('Auto-load failed:', err.message);
+    reportClientError({ message: 'Workbook auto-load failed: ' + (err.message || err) });
+    setDataSource('sample', `The tracked workbook didn't load: ${err.message || err}`);
   }
 }
 
@@ -5371,6 +5556,22 @@ function showAuthError(msg) {
   el.textContent = msg;
   el.style.display = 'block';
 }
+
+// Opens the password form. Two entry points: the header's Change password
+// button (signed in, deliberate), and a recovery link (locked out, just landed
+// back on the page). Module-level because onAuthStateChange fires outside
+// wireAuthControls' scope.
+function openPasswordForm(isRecovery) {
+  document.getElementById('account-password').value = '';
+  document.getElementById('account-password2').value = '';
+  accountMsg('');
+  document.getElementById('account-heading').textContent = isRecovery ? 'Set a new password' : 'Change password';
+  document.getElementById('account-intro').textContent = isRecovery
+    ? 'Your reset link signed you in. Choose a new password to finish — this link is single-use.'
+    : "Set a new password for your account. You'll stay signed in.";
+  openOverlay('account-overlay', '#account-password');   // focuses the first field, traps Tab
+}
+const openPasswordRecovery = () => openPasswordForm(true);
 
 // Message inside the change-password modal (isError toggles red vs green).
 function accountMsg(msg, isError) {
@@ -5491,11 +5692,14 @@ async function loadFromSupabase() {
   const usable = newProducts.filter(p => p.price != null && p.setVal != null);
 
   if (!usable.length) {
-    // Empty (new) account: leave the sample data on screen and prompt the user.
+    // Empty (new) account: the sample data stays on screen, so the banner has
+    // to stay up — this is exactly the case where it would be mistaken for real.
+    setDataSource('sample', 'Your cloud account has no products yet — add them in Data Entry, then “Save to cloud”.');
     setStatus('analysis-status', 'Signed in — no cloud data yet. Add products in Data Entry, then “Save to cloud”.', false);
     return;
   }
   applyNewData({ newProducts: usable, newHistoricalData, newHistDates, newLinks });
+  setDataSource('cloud');
   setStatus('analysis-status', 'Loaded ' + usable.length + ' products from your cloud account', false);
 }
 
@@ -5561,7 +5765,7 @@ function renderDemo(groups) {
     host.innerHTML = '<div class="demo-empty">Preview unavailable right now — sign in to view the dashboard.</div>';
     return;
   }
-  host.innerHTML = groups.map((g, i) => {
+  host.innerHTML = groups.map((g) => {
     const dateLabel = new Date(g.date).toLocaleDateString('en-SE', { year: 'numeric', month: 'long', day: 'numeric' });
     const n = g.products.length;
     const rows = g.products.map(p => {
@@ -5576,7 +5780,7 @@ function renderDemo(groups) {
       </tr>`;
     }).join('');
     return `
-      <h2 class="section-eyebrow">${String(i + 1).padStart(2, '0')} — ${demoSetName(g.products)}</h2>
+      <h2 class="section-eyebrow">${demoSetName(g.products)}</h2>
       <p class="section-desc">Released ${dateLabel} · ${n} product${n > 1 ? 's' : ''} tracked in this set.</p>
       <div class="panel" style="margin-bottom:40px;">
         <div class="table-wrap" style="max-height:none;">
@@ -5692,6 +5896,24 @@ function wireAuthControls() {
     }
   });
 
+  // Forgot password. Without this a locked-out user has no route back at all —
+  // and since holdings and alerts are RLS-scoped to their account, they lose
+  // their portfolio with it. Supabase mails a recovery link; returning through
+  // it fires PASSWORD_RECOVERY, which opens the change-password dialog below.
+  document.getElementById('auth-forgot-btn').addEventListener('click', async () => {
+    showAuthError('');
+    const addr = email();
+    if (!addr) { showAuthError('Enter your email address first, then choose “Forgot your password?”.'); return; }
+    const { error } = await sbClient.auth.resetPasswordForEmail(addr, {
+      // Back to this page: the recovery token arrives in the URL fragment and
+      // the SDK turns it into a PASSWORD_RECOVERY event on load.
+      redirectTo: window.location.href.split('#')[0],
+    });
+    showAuthError(error
+      ? error.message
+      : `If an account exists for ${addr}, a reset link is on its way. Open it on this device to set a new password.`);
+  });
+
   document.getElementById('auth-password').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('auth-signin-btn').click();
   });
@@ -5703,12 +5925,7 @@ function wireAuthControls() {
   document.getElementById('save-cloud-btn').addEventListener('click', saveToSupabase);
 
   // ── Change password (signed-in only) ──
-  const openAccount = () => {
-    document.getElementById('account-password').value = '';
-    document.getElementById('account-password2').value = '';
-    accountMsg('');
-    openOverlay('account-overlay', '#account-password');   // focuses the first field, traps Tab
-  };
+  const openAccount = () => openPasswordForm(false);
   const closeAccount = () => closeOverlay('account-overlay');
 
   document.getElementById('change-pw-btn').addEventListener('click', openAccount);
@@ -5754,8 +5971,12 @@ function wireAuthControls() {
     // The sbLoadedUserId guard makes loading idempotent, so token refreshes
     // and window refocus (which can re-emit SIGNED_IN) never reload the data
     // and clobber unsaved Data Entry edits.
-    sbClient.auth.onAuthStateChange((_event, session) => {
+    sbClient.auth.onAuthStateChange((event, session) => {
       setAuthedUI(session ? session.user : null);
+      // Arriving back through a recovery link: Supabase signs the user in with
+      // a short-lived recovery session and fires this. Send them straight to
+      // the password form — the session is only good for setting a new one.
+      if (event === 'PASSWORD_RECOVERY') openPasswordRecovery();
       const uid = session ? session.user.id : null;
       if (uid && uid !== sbLoadedUserId) {
         sbLoadedUserId = uid;
@@ -5763,6 +5984,10 @@ function wireAuthControls() {
           console.error('Cloud load failed:', err);
           reportClientError({ message: 'Cloud load failed: ' + (err.message || err), stack: err.stack });
           setStatus('analysis-status', '✕ Could not load cloud data: ' + (err.message || err), true);
+          // Falls back to the workbook; if that fails too, tryAutoLoad leaves
+          // the banner up rather than passing sample data off as the account's.
+          setDataSource('sample', 'Your cloud data didn’t load — trying the offline workbook.');
+          tryAutoLoad();
         });
       } else if (!uid) {
         // Logged out (initial load or sign-out) → show the pre-login demo.
@@ -5775,6 +6000,7 @@ function wireAuthControls() {
     console.error('Supabase init failed, falling back to static data:', err);
     showAuthOverlay(false);
     setStatus('analysis-status', '⚠ Cloud sync unavailable — showing local data. ' + (err.message || ''), true);
+    setDataSource('sample', 'Cloud sync is unavailable — falling back to the offline workbook.');
     tryAutoLoad();
   }
 })();

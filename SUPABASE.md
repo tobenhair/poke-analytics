@@ -48,7 +48,16 @@ This is a **shared-dataset** setup:
    the RLS policies (shared read, admin-only write; private per-user settings,
    portfolio, and alerts). Safe to re-run.
 
-4. **Add your keys + admin UUID to the app.** In `index.html`, fill in the
+4. **Allow the app's URL as a redirect target** (needed for password reset).
+   *Authentication → URL Configuration*: set **Site URL** to where you host the
+   page (e.g. `https://you.github.io/poke-analytics/`) and add the same URL
+   under **Redirect URLs** — plus `http://localhost:8000` if you develop
+   locally. The app calls `resetPasswordForEmail()` with `redirectTo` set to the
+   current page; Supabase refuses to mail a link to a URL that isn't on this
+   list, so a missing entry makes "Forgot your password?" silently useless.
+   The default **Reset Password** email template needs no changes.
+
+5. **Add your keys + admin UUID to the app.** In `index.html`, fill in the
    `SUPABASE_CONFIG` block near the top:
 
    ```js
@@ -63,12 +72,12 @@ This is a **shared-dataset** setup:
    from step 2 (it must match the value baked into `schema.sql`). Leaving `url`
    or `anonKey` blank keeps the app in its original static/xlsx mode.
 
-5. **Sign in.** Serve the app, and the sign-in overlay appears. Sign in with the
+6. **Sign in.** Serve the app, and the sign-in overlay appears. Sign in with the
    admin account from step 2 — Data Entry and **☁ Save to cloud** appear only
    for that account. Other people can **Create an account** and will see the
    shared data in read-only form (no Data Entry).
 
-6. **(Optional) Import your existing data.** Seed your account from the current
+7. **(Optional) Import your existing data.** Seed your account from the current
    workbook instead of re-entering it. Two ways:
 
    **a) No terminal / phone-friendly — paste SQL.** Open

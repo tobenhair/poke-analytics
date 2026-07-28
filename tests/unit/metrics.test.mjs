@@ -42,6 +42,8 @@ import {
   rebalanceSuggestions,
   OVER_EXPOSED_SHARE,
   portfolioValueSeries,
+  fitConfidence,
+  FIT_BANDS,
 } from '../../metrics.js';
 
 // ── boostersFromType: the fixed physical constants ──────────────
@@ -656,4 +658,35 @@ test('typeOutliers does not flag the live catalogue pattern', () => {
     ...setOf('2026-01-30', ['AH ETB', 'ETB', 311.3], ['AH Bundle', 'BUNDLE', 337.2]),
   ];
   assert.deepEqual(typeOutliers(products, 2.5), []);
+});
+
+// ── fit confidence ──────────────────────────────────────────────────────────
+// The board shows the band, not the statistic (F10): a bare R² reads as more
+// authoritative than a weak fit deserves.
+
+test('fitConfidence names the band and agrees with the trust gate', () => {
+  assert.equal(fitConfidence(0.9).key, 'strong');
+  assert.equal(fitConfidence(0.5).key, 'strong');      // inclusive lower bound
+  assert.equal(fitConfidence(0.49).key, 'moderate');
+  assert.equal(fitConfidence(0.25).key, 'moderate');   // == FAIR_PRICE_MIN_R2
+  assert.equal(fitConfidence(0.2449).key, 'rough');
+  assert.equal(fitConfidence(0).key, 'rough');
+
+  // "trusted" must mean exactly what fairPriceTrusted() means in the page,
+  // or the board could say "moderate fit" about a price the verdict ignores.
+  assert.equal(fitConfidence(0.25).trusted, true);
+  assert.equal(fitConfidence(0.2499).trusted, false);
+  assert.equal(fitConfidence(0.9).trusted, true);
+});
+
+test('fitConfidence returns null without a usable fit', () => {
+  assert.equal(fitConfidence(null), null);
+  assert.equal(fitConfidence(undefined), null);
+  assert.equal(fitConfidence(NaN), null);
+});
+
+test('FIT_BANDS is ordered high-to-low so the first match wins', () => {
+  const mins = FIT_BANDS.map(b => b.min);
+  assert.deepEqual(mins, [...mins].sort((a, b) => b - a));
+  assert.ok(FIT_BANDS.every(b => b.label && b.key));
 });

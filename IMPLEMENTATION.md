@@ -64,17 +64,6 @@ numbering, `design-review` throughout, smoke test must keep passing
 unchanged. Plan the DOM moves on paper first; this is a large diff of mostly
 markup. *Size: M/L. Justified by `docs/ux-assessment.md` findings 3, 4, 6.*
 
-### 11. First-class loading, empty, and error states
-
-Inventory every async surface: `boot()`, `loadFromSupabase()`, `loadDemo()`,
-cloud save, FX fetch, and — the critical one — the **workbook-failed →
-sample-data fallback, which today masquerades as real data**. Give each a
-designed state from existing tokens (skeleton/`.portfolio-empty`-style
-panels, not spinners everywhere). The fallback specifically must show a
-persistent, visible banner ("showing sample data — real data failed to
-load") and the smoke test should assert it appears when the workbook 404s.
-*Size: M.*
-
 ### 12 + 13. Onboarding, the demo as a pitch, and the Welcome tab (one PR)
 
 These two roadmap bullets are one piece of work: today the pitch lives in two

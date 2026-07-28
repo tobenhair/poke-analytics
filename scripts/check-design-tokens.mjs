@@ -38,7 +38,6 @@ const ALLOWED_COLOURS = new Map([
   ['#e8a0a0', 'account/auth message text: a lighter --accent2 for small text on its own tinted panel'],
   ['#9fd9ad', 'account/auth message text: a lighter --accent4, same reason'],
   ['#2c303c', 'scrollbar thumb hover — one step above --border, not a semantic colour'],
-  ['#f5a623', 'Welcome hero gradient. Decorative accent use; ROADMAP\'s "bring Welcome onto the section pattern" removes it'],
 ]);
 
 // Strip comments first: this file's own documentation names the literals it
