@@ -74,7 +74,11 @@ Automated checks don't judge whether it looks or behaves right. In the browser:
 1. **Data actually loaded** — a known value from `pokemon_data.xlsx` appears
    (not the sample fallback). Check the browser console for errors.
 2. **All the tabs** — Welcome, Analysis, and (signed in) Portfolio and Data
-   Entry: each renders, charts draw, tables populate.
+   Entry: each renders, charts draw, tables populate. Signing in lands on
+   Analysis, so reach Welcome from the tab bar rather than expecting it.
+   With cloud sync configured, check the **logged-out demo page** too — it is a
+   separate surface (`#demo-page`), not a tab, and nothing about it is exercised
+   by loading the app signed in.
 3. **The affected view specifically** — drive the exact flow you changed
    (sort, filter, slider, selector, export), not just page load.
 4. **Interactions** — age-threshold slider re-ranks; scenario sliders update;

@@ -422,6 +422,34 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   branch is live: ranked-by-gap must be ordered best-first with every row
   genuinely under fair, ranked-by-score must say so.
 
+- **The logged-out page is the pitch, and the Welcome tab stopped being a second
+  one.** A first-time visitor's opening screen was a table of Price / Set Value /
+  €/Booster / SV/Booster with **no statement of what the tool is, what question
+  it answers, or what a single column means** — six numbers and no argument. The
+  explanations existed, but only on the Welcome tab, behind the login, where the
+  person most likely to need them could never reach them. The demo now leads with
+  the question — *Is this sealed box fairly priced?* — then the three ideas needed
+  to read an answer (value not price, age moves the bar, what the verdict means),
+  then the sample rows. **What it refuses to do is the point:** it does not show a
+  fair price or a verdict, because both are read off a fit across the *whole*
+  catalogue's ages and a three-set slice would produce a number the signed-in
+  board disagrees with. It says so, and names that as the thing sign-in buys —
+  a better pitch than a figure that would have to be walked back. The two
+  explanations (*How the fair price works*, *What the numbers mean*) are **shared
+  dialogs**, opened from the demo page and the Welcome tab alike, so there is one
+  definition of SV/Booster in the build rather than one per surface — the glossary
+  gained the fair price, fit confidence and the verdict, which it had never
+  covered. **Welcome became a signed-in landing** (1,107 → 448 px): where to go,
+  the two shared explanations, and — for the admin — the monthly loop. Signing in
+  now lands on **Analysis**, which itself opens on the answer; the pitch is read
+  once, logged out. Three defects fixed on the way, none of them filed: a
+  non-admin got a *"How it works"* heading with nothing under it (the panel was
+  `.admin-only`, the `<h2>` introducing it was not); **Portfolio was never
+  advertised** on Welcome although every signed-in user has the tab; and the demo's
+  set tables scroll sideways on a phone with nothing focusable inside, so a
+  keyboard user could not scroll them at all — caught by a new 320 px case rather
+  than by inspection.
+
 ## Now — trustworthy numbers (stability & quality)
 
 A tool that tells people what's fairly priced has to be *right*, visibly and
@@ -444,33 +472,14 @@ visitor on a phone as it does for the maintainer on a desktop.
 The order below is the one the **expert UX & accessibility review** recommended
 ([`docs/ux-expert-review.md`](docs/ux-expert-review.md), which supersedes the
 earlier journey pass in [`docs/ux-assessment.md`](docs/ux-assessment.md) and
-corrects two of its findings). **Accessibility came first and has shipped** —
-see *Done* — along with the three phone/reflow defects that preceded it. What
-remains is the **demo-as-pitch** rework, to be done together with reconciling
-the Welcome tab so two overlapping intros don't drift. Every accessibility
-finding from the expert review is closed, the measured density problem is
-addressed, the visual system is reconciled and guarded by
-`npm run check:design-tokens`, and the two trust gaps — an unexplained R² and a
-locked-out user with no way back — are fixed.
+corrects two of its findings). **Everything the review raised has now shipped** —
+accessibility, the three phone/reflow defects, mobile column priority, the
+density work, the visual-system reconciliation (guarded by
+`npm run check:design-tokens`), the two trust gaps (an unexplained R² and a
+locked-out user with no way back), the overview-first restructure, and the
+demo-as-pitch rework with the Welcome tab reconciled against it. What remains
+here is one item that no finding touched.
 
-- **Onboarding & the demo as a pitch.** The section descriptions explain each
-  chart; nothing yet explains the *method* — or, on the logged-out demo, even
-  what the tool *is*. Lead the demo page with a plain statement of the tool's
-  purpose and goal (what it tracks, the one question it answers, why sealed
-  product and set value) before the demo cards, so a first-time visitor
-  understands what they're looking at in one screen. Then a short first-visit
-  walkthrough ("set value vs price, why age matters, what the verdict means")
-  plus a glossary, and the rest of the demo reworked to tell the fair-price
-  story — the logged-out page is the marketing site, and its job is to earn a
-  sign-in.
-- **Reconcile the Welcome tab with the demo page.** Do this *at the same time*
-  as the demo rework above, rather than leaving two overlapping intros to drift.
-  Decide the Welcome tab's fate: either fold the parts of it the logged-out demo
-  lacks into the demo page and retire the tab, or make the Welcome page visible
-  to logged-out visitors too so signed-in and signed-out users share one
-  explanation instead of maintaining two. The goal either way is a single
-  authoritative "what this is and how to read it" surface — not today's split
-  where the pitch lives in one place for visitors and another for members.
 - **Set logos (drill-down first).** Give each set a visual anchor: the
   expansion logo, at least on the product drill-down view where there's room to
   frame a single product, and later a small mark on board rows and set

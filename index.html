@@ -1373,8 +1373,6 @@
      <html> carries .is-admin (set by the ?admin gate in <head>). The safe
      default is "hidden", so the admin UI never flashes for visitors. */
   html:not(.is-admin) .admin-only { display: none !important; }
-  /* With the Data Entry card hidden, let the remaining overview card fill the row */
-  html:not(.is-admin) .tab-overview { grid-template-columns: 1fr !important; }
 
   /* ── Supabase auth UI ──
      .sb-only elements (sign-out button, cloud-save button) appear only when
@@ -1391,16 +1389,21 @@
   .auth-btn:hover { filter: brightness(1.08); }
   .auth-btn.secondary { background: transparent; color: var(--muted); }
   .auth-btn.secondary:hover { border-color: var(--accent); color: var(--text); }
-  /* Text-weight action inside the sign-in dialog: recovering an account is not
-     a third equal choice next to Sign in and Create an account. */
-  .auth-link {
+  /* Text-weight action: a real button that carries no button weight. Started
+     life scoped to the sign-in dialog's "Forgot your password?" — recovering an account is
+     not a third equal choice beside Sign in and Create an account — and the
+     demo page's two explainer links want exactly the same treatment, so the
+     name lost its auth- prefix rather than growing a near-identical twin.
+     inline-flex + min-height keeps it over the 24px target floor (WCAG 2.5.8). */
+  .text-link {
+    display: inline-flex; align-items: center; min-height: 24px;
     background: none; border: 0; padding: 4px;
     color: var(--muted); font-family: 'DM Mono', monospace;
     font-size: var(--text-sm); letter-spacing: 0.03em; cursor: pointer;
     text-decoration: underline dotted; text-underline-offset: 3px;
     transition: color 0.15s;
   }
-  .auth-link:hover { color: var(--accent); }
+  .text-link:hover { color: var(--accent); }
 
   .auth-signout {
     background: transparent; border: 1px solid var(--border); border-radius: 6px;
@@ -1408,6 +1411,87 @@
     padding: 4px 10px; cursor: pointer; transition: border-color 0.15s, color 0.15s;
   }
   .auth-signout:hover { border-color: var(--accent2); color: var(--text); }
+
+  /* ── Welcome tab — a signed-in landing ──
+     Built from classes rather than the inline styles it used to carry, so the
+     token guard can see it and the card/step shapes are shared with the demo
+     page instead of re-declared. */
+  .welcome-inner { max-width: 920px; margin: 0 auto; }
+  .welcome-hero { text-align: center; padding: 24px 0 36px; }
+  .welcome-lede {
+    max-width: 640px; margin: 16px auto 0;
+    font-size: var(--text-xl); color: var(--text); line-height: 1.6;
+  }
+  /* auto-fit, not a fixed column count: the row holds 2 cards for a signed-in
+     user and 3 for the admin, and empty tracks collapse — so neither state
+     needs the `html:not(.is-admin)` override the two-card grid used to. */
+  .welcome-cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px; margin-bottom: 36px;
+  }
+  .welcome-card { padding: 22px 24px; cursor: pointer; }
+  .welcome-card-head {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+    color: var(--muted);
+  }
+  .welcome-card p { font-size: var(--text-lg); color: var(--text); line-height: 1.55; }
+  .welcome-block { margin-bottom: 36px; }
+  @media (max-width: 760px) { .welcome-cards { grid-template-columns: 1fr; } }
+
+  /* Inline file/identifier names in prose. Was two inline style attributes
+     spelling out the same three declarations. */
+  .code-inline { font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--accent); }
+
+  /* ── Numbered steps ──
+     The Welcome tab's "How it works" panel built this out of inline styles;
+     the demo page's "How to read it" needs the same three-across shape, so it
+     is a component now rather than a second copy of the same declarations. */
+  .steps {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 28px; padding: 22px 24px;
+  }
+  .step-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .step-n {
+    font-family: 'Bebas Neue', sans-serif; font-size: var(--display-lg);
+    color: var(--accent); line-height: 1;
+  }
+  .step-label {
+    font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.1em;
+  }
+  .step p { font-size: var(--text-md); color: var(--text); line-height: 1.55; }
+  @media (max-width: 760px) { .steps { grid-template-columns: 1fr; gap: 22px; } }
+
+  /* ── Shared glossary ──
+     One definition per term, in one place. These words used to live only in
+     the Welcome tab, where a logged-out visitor — the person most likely to
+     need them — could never reach them; copying them onto the demo page would
+     have created two versions to drift apart. So the table moved into a modal
+     both surfaces open. <th scope="row"> makes it a real definition table. */
+  .glossary { width: 100%; border-collapse: collapse; }
+  .glossary th {
+    width: 30%; padding: 10px 14px 10px 0; text-align: left; vertical-align: top;
+    font-family: 'DM Mono', monospace; font-weight: 400;
+    font-size: var(--text-md); color: var(--accent);
+  }
+  .glossary td {
+    padding: 10px 0; font-size: var(--text-md); color: var(--text); line-height: 1.55;
+    /* Opt out of the board's `tbody td { white-space: nowrap }` — that rule is
+       there so a price never wraps mid-figure, and inheriting it here ran every
+       definition straight out of the dialog. */
+    white-space: normal;
+  }
+  /* Likewise the board's row hover: nothing here is clickable, so a highlight
+     that follows the pointer is a false affordance. */
+  .glossary tr:hover { background: none; }
+  .glossary tr + tr th, .glossary tr + tr td { border-top: 1px solid var(--hairline); }
+  @media (max-width: 560px) {
+    /* Two columns in ~300px gives the term one word per line. Stack instead. */
+    .glossary th, .glossary td { display: block; width: auto; padding: 0; }
+    .glossary th { padding-top: 14px; }
+    .glossary td { padding-bottom: 4px; }
+    .glossary tr + tr td { border-top: 0; }
+  }
 
   /* ── Pre-login demo page — reuses the app's header, section-eyebrow and
      panel/table styles so it matches the signed-in dashboard. ── */
@@ -1424,12 +1508,28 @@
      behind it and there's no second scrollbar. #demo-page precedes .wrapper. */
   #demo-page.open ~ .wrapper { display: none; }
   .demo-inner { max-width: 1200px; margin: 0 auto; padding: 40px 28px 64px; }
+  /* The pitch. Narrower than the tables below it — the argument is prose and
+     reads at prose measure, while the sample rows want the full width. */
+  .demo-hero { max-width: 720px; margin: 0 auto; padding: 28px 0 40px; text-align: center; }
+  .demo-lede {
+    margin-top: 18px;
+    font-size: var(--text-xl); color: var(--text); line-height: 1.6;
+  }
+  .demo-block { margin-bottom: 18px; }
+  /* A row of text-weight actions. Shared by the demo page and the Welcome tab,
+     which open the same two dialogs. */
+  .link-row { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 40px; }
+  .demo-cta { text-align: center; margin-top: 8px; }
+  .demo-cta .auth-btn { width: auto; padding: 11px 28px; }
   .demo-foot {
-    text-align: center; margin-top: 8px;
+    text-align: center; margin-top: 12px;
     font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted);
   }
   .demo-empty { text-align: center; color: var(--muted); font-size: var(--text-lg); padding: 40px 0; }
-  @media (max-width: 640px) { .demo-inner { padding: 28px 16px 48px; } }
+  @media (max-width: 640px) {
+    .demo-inner { padding: 28px 16px 48px; }
+    .demo-hero { padding: 12px 0 28px; text-align: left; }
+  }
 
 </style>
 </head>
@@ -1457,7 +1557,6 @@
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10.6 13.4a3.6 3.6 0 0 0 5.1 0l2.9-2.9a3.6 3.6 0 0 0-5.1-5.1l-1.5 1.5"/><path d="M13.4 10.6a3.6 3.6 0 0 0-5.1 0l-2.9 2.9a3.6 3.6 0 0 0 5.1 5.1l1.5-1.5"/></symbol>
   <symbol id="i-cloud-up" viewBox="0 0 24 24"><path d="M7.2 19h9.6a3.9 3.9 0 0 0 .3-7.8A5.7 5.7 0 0 0 6.5 11.4 3.9 3.9 0 0 0 7.2 19z"/><path d="M12 17v-5M9.8 14 12 11.8 14.2 14"/></symbol>
   <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v10.6M8 10.8l4 4 4-4"/><path d="M4.5 18.5v1.5h15v-1.5"/></symbol>
-  <symbol id="i-cards" viewBox="0 0 24 24"><rect x="3.5" y="5" width="9.5" height="14" rx="1.6"/><path d="M15.4 7.2l3.3 1.2a1.6 1.6 0 0 1 1 2l-2.9 8.2"/></symbol>
   <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="15" rx="2"/><path d="M3.5 10.2h17M8 3.5v4M16 3.5v4"/></symbol>
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5.2"/><circle cx="12" cy="8.1" r="0.9" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.5" fill="currentColor" stroke="none"/></symbol>
@@ -1493,7 +1592,7 @@
     <div style="display:flex; flex-direction:column; gap:10px;">
       <button class="auth-btn" id="auth-signin-btn" type="button">Sign in</button>
       <button class="auth-btn secondary" id="auth-signup-btn" type="button">Create an account</button>
-      <button class="auth-link" id="auth-forgot-btn" type="button">Forgot your password?</button>
+      <button class="text-link" id="auth-forgot-btn" type="button">Forgot your password?</button>
     </div>
     <p style="font-family:'DM Mono',monospace; font-size: var(--text-2xs); color:var(--muted); margin-top:14px; line-height:1.5;">
       Your data is private to your account. New sign-ups may require email confirmation depending on the project's settings.
@@ -1568,7 +1667,7 @@
     </div>
 
     <div class="modal-note">
-      <b>Monthly workflow:</b> Each month, enter the latest Price and Set Value for each product in the <b>Data Entry</b> tab and click <b><svg class="icon" aria-hidden="true"><use href="#i-cloud-up"/></svg> Save to cloud</b> — all charts and signals update automatically. This guide describes the <code style="font-family:'DM Mono',monospace;">.xlsx</code> layout used by the <b>Export</b> backup and the offline fallback file.<br><br>
+      <b>Monthly workflow:</b> Each month, enter the latest Price and Set Value for each product in the <b>Data Entry</b> tab and click <b><svg class="icon" aria-hidden="true"><use href="#i-cloud-up"/></svg> Save to cloud</b> — all charts and signals update automatically. This guide describes the <code class="code-inline">.xlsx</code> layout used by the <b>Export</b> backup and the offline fallback file.<br><br>
       <b>New products:</b> Add a new row to Summary, then add matching rows to Historical Data. The product name must match exactly in both sheets.
     </div>
   </div>
@@ -1610,6 +1709,66 @@
   </div>
 </div>
 
+<!-- ═══════════ GLOSSARY ═══════════
+     The single definition of every term the dashboard uses. Opened from the
+     pre-login demo page *and* the Welcome tab: the terms have to be readable
+     by someone deciding whether to sign in, and one shared surface is the only
+     way the two can't drift apart. Direct child of <body> so both can open it. -->
+<div class="modal-overlay" id="glossary-modal">
+  <div class="modal" style="max-width:640px;" role="dialog" aria-modal="true" aria-labelledby="glossary-heading" tabindex="-1">
+    <button class="modal-close" id="glossary-close" type="button" aria-label="Close">✕</button>
+    <h2 id="glossary-heading">What the numbers mean</h2>
+    <p class="modal-intro">Every term on the board, defined once.</p>
+
+    <div class="modal-section">
+      <table class="glossary">
+        <tbody>
+          <tr>
+            <th scope="row">Set Value</th>
+            <td>The total market value of all the cards in a complete set — what the product is a lottery ticket for.</td>
+          </tr>
+          <tr>
+            <th scope="row">Price / Booster</th>
+            <td>The product price ÷ the number of boosters inside (BOX = 36, ETB = 9, BUNDLE = 6). Puts a €58 bundle and a €400 box on the same footing.</td>
+          </tr>
+          <tr>
+            <th scope="row">SV / Booster</th>
+            <td>Set Value ÷ Price/Booster — how many times the price of a <em>single booster</em> the whole set is worth (a value-for-money <em>×</em> multiple, <strong>not</strong> a euro amount). The core comparability metric; works equally well across BOX, ETB and BUNDLE.</td>
+          </tr>
+          <tr>
+            <th scope="row">Age Weight</th>
+            <td>A penalty applied to newer products, which haven't had time to appreciate. Adjustable with the age-threshold slider on the Analysis tab.</td>
+          </tr>
+          <tr>
+            <th scope="row">Wtd. Score</th>
+            <td>SV / Booster × Age Weight. The ranking metric behind the board's default order.</td>
+          </tr>
+          <tr>
+            <th scope="row">Fair Price</th>
+            <td>What this product would cost if it traded like its same-age peers — the age fit read back into euros. Under it is cheap for its age, over it is expensive.</td>
+          </tr>
+          <tr>
+            <th scope="row">Fit confidence</th>
+            <td><em>Strong fit</em>, <em>moderate fit</em> or <em>rough estimate</em> — how well age explains value across the catalogue right now, and so how far to lean on the fair price. On a rough estimate the verdict ignores it entirely.</td>
+          </tr>
+          <tr>
+            <th scope="row">Verdict</th>
+            <td>The board's one-line answer per product, from the gap to fair price plus how far the price has fallen from its tracked peak — <em>Under fair price</em>, <em>Fair — no edge</em>, <em>Overpriced for age</em>, and so on.</td>
+          </tr>
+          <tr>
+            <th scope="row">Buy Signal</th>
+            <td>Flagged when a product's price dropped at least 5% since the last snapshot while its set value held within ±5% — a possible mispricing.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal-note">
+      Every figure is in EUR and comes from prices entered by hand, one snapshot at a time. Nothing here is financial advice.
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ PRODUCT DRILL-DOWN ═══════════
      One product, one screen: the verdict and its ingredients, fair price,
      momentum/drawdown, price history with today's fair-price band overlaid,
@@ -1646,9 +1805,14 @@
 </div>
 
 <!-- ═══════════ PRE-LOGIN DEMO PAGE (Supabase) ═══════════
-     Shown to logged-out visitors when cloud sync is enabled. Loads the 3
-     newest release-date sets (the only rows the anon RLS policy exposes) and
-     invites sign-in for the full catalogue. Direct child of <body>. -->
+     Shown to logged-out visitors when cloud sync is enabled, and the only
+     "what this is / how to read it" surface in the app — the Welcome tab is a
+     signed-in landing, so the pitch is written once, here.
+
+     Order is the argument: the question first, then the three ideas needed to
+     read an answer, then the sample of real tracked rows. The sample loads the
+     3 newest release dates (the only rows the anon RLS policy exposes).
+     Direct child of <body>. -->
 <div id="demo-page">
   <div class="demo-inner">
     <header>
@@ -1664,12 +1828,63 @@
         </div>
       </div>
       <div class="header-meta">
-        <button class="auth-btn" id="demo-signin-btn" type="button" style="width:auto; padding:9px 24px;">Sign in</button>
+        <button class="auth-btn signin-open" type="button" aria-haspopup="dialog" style="width:auto; padding:9px 24px;">Sign in</button>
       </div>
     </header>
-    <p class="kpi-intro" style="margin-top:10px;">A preview of the three latest sets. <strong>Sign in</strong> to explore the full catalogue — value rankings, price history, and buy signals.</p>
+
+    <!-- The pitch: the one question, then what is being compared and why. -->
+    <div class="demo-hero">
+      <h2 class="hero-title">Is this sealed box fairly priced?</h2>
+      <p class="demo-lede">
+        That is the one question this dashboard answers. It tracks sealed Pokémon TCG products —
+        booster boxes, Elite Trainer Boxes and bundles — and weighs what each one costs against the
+        <strong>set value</strong> behind it: what a complete set of the cards inside is worth.
+        Prices are entered by hand, one month at a time, so every number has a dated history behind it.
+      </p>
+    </div>
+
+    <h2 class="section-eyebrow">How to read it</h2>
+    <div class="panel demo-block">
+      <div class="steps">
+        <div class="step">
+          <div class="step-head"><span class="step-n">1</span><span class="step-label">Value, not price</span></div>
+          <p>A €180 box is neither cheap nor expensive on its own. Divide the set value by the price of one
+          booster and you get <strong>SV/Booster</strong> — how many times a booster's price the whole set is
+          worth. That single figure compares a €58 bundle with a €400 box directly.</p>
+        </div>
+        <div class="step">
+          <div class="step-head"><span class="step-n">2</span><span class="step-label">Age moves the bar</span></div>
+          <p>Sealed product tends to lose value density as it ages, so a three-year-old box and a three-month-old
+          one can't be judged against the same number. The dashboard fits a line through <em>every</em> tracked
+          product — value density against age — and measures each one against its own age.</p>
+        </div>
+        <div class="step">
+          <div class="step-head"><span class="step-n">3</span><span class="step-label">The verdict</span></div>
+          <p>Read that expectation back into euros and you get the <strong>fair price</strong>: what this product
+          would cost trading like its same-age peers. The board says which side of it you're on, in words —
+          <em>Under fair price</em>, <em>Fair — no edge</em>, <em>Overpriced for age</em> — and how far to trust the fit.</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="link-row">
+      <button type="button" class="text-link method-open" aria-haspopup="dialog">How the fair price works</button>
+      <button type="button" class="text-link glossary-open" aria-haspopup="dialog">What the numbers mean</button>
+    </p>
+
+    <h2 class="section-eyebrow">A sample of what's tracked</h2>
+    <p class="section-desc">
+      The three most recently released sets, with the raw figures behind every verdict. Fair price and the
+      verdict itself aren't shown here — both are read off a fit across the <em>whole</em> catalogue's ages,
+      so three sets can't produce the same answer the board would. Sign in and every product carries them,
+      along with its price history, buy signals and a portfolio.
+    </p>
     <div id="demo-sets"></div>
-    <p class="demo-foot">Showing the 3 most recent sets · sign in to see everything.</p>
+
+    <div class="demo-cta">
+      <button class="auth-btn signin-open" type="button" aria-haspopup="dialog">Sign in to see the full catalogue</button>
+      <p class="demo-foot">Showing the 3 most recent sets · free account · prices in EUR.</p>
+    </div>
   </div>
 </div>
 
@@ -1726,157 +1941,87 @@
   <main>
 
   <!-- ═══════════════════ WELCOME TAB ═══════════════════ -->
+  <!-- A signed-in landing, not a second pitch. "What this is and why" lives
+       once, on the logged-out demo page — the surface for someone deciding
+       whether to sign in. By the time this tab is reachable that decision is
+       made, so its job is narrower: say where things are, and put the two
+       shared explanations (the fair-price method, the glossary) one click
+       away. Both open the same dialogs the demo page opens, which is what
+       stops the two surfaces drifting apart. -->
   <div class="tab-pane active" id="tab-welcome" role="tabpanel" aria-labelledby="tabbtn-welcome" tabindex="0">
 
-    <div style="max-width: 920px; margin: 0 auto;">
+    <div class="welcome-inner">
 
-      <!-- Hero -->
-      <div style="text-align:center; padding: 24px 0 36px;">
-        <div style="display:inline-flex; align-items:center; gap:14px; margin-bottom:18px;">
-          <div style="font-size: var(--display-xl); color: var(--accent); display:flex;"><svg class="icon" aria-hidden="true"><use href="#i-cards"/></svg></div>
-          <h2 class="hero-title">
-            Track. Analyse. Decide.
-          </h2>
-        </div>
-        <p style="font-size: var(--display-xs); color: var(--text); line-height: 1.6; max-width: 640px; margin: 0 auto;">
-          A personal investment dashboard for sealed Pokémon TCG products.
-          Track prices and set values over time, surface buying signals, and explore scenarios — all from a single Excel file you control.
+      <div class="welcome-hero">
+        <h2 class="hero-title">Is this sealed box fairly priced?</h2>
+        <p class="welcome-lede">
+          Analysis answers it product by product, and opens on the closest thing to a straight answer:
+          which of your tracked products are currently under their fair price.
         </p>
       </div>
 
       <h2 class="section-eyebrow">Where to go</h2>
-      <!-- Three-card overview of tabs -->
-      <div class="tab-overview" style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 36px;">
+      <div class="welcome-cards">
 
-        <!-- Analysis card -->
-        <div class="panel" style="cursor:pointer;" onclick="document.querySelector('[data-tab=&quot;analysis&quot;]').click()">
-          <div style="padding: 22px 24px;">
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom: 12px;">
-              <div style="font-size: var(--display-md); color: var(--muted); display:flex;"><svg class="icon" aria-hidden="true"><use href="#i-analysis"/></svg></div>
-              <button type="button" class="card-title" data-goto="analysis">Analysis</button>
-            </div>
-            <p style="font-size: var(--text-lg); color: var(--text); line-height: 1.55; margin-bottom: 14px;">
-              The decision-making view. See all your tracked products ranked by weighted score, compare set value against booster cost, watch price history per product, and explore scenarios.
-            </p>
-            <ul style="font-size: var(--text-md); color: var(--muted); line-height: 1.7; padding-left: 18px;">
-              <li>KPIs at a glance — top score, best value, newest release</li>
-              <li>Filter by Booster Box / ETB / Bundle and sort by any metric</li>
-              <li>Buy-signal flags <svg class="icon" aria-hidden="true"><use href="#i-deal"/></svg> when price drops but set value holds</li>
-              <li>Scenario explorer — drag sliders to test outcomes</li>
-              <li>Adjustable age threshold for weighted scoring</li>
-            </ul>
+        <div class="panel welcome-card" onclick="document.querySelector('.tab-bar .tab-btn[data-tab=&quot;analysis&quot;]').click()">
+          <div class="welcome-card-head">
+            <svg class="icon icon-lg" aria-hidden="true"><use href="#i-analysis"/></svg>
+            <button type="button" class="card-title" data-goto="analysis">Analysis</button>
           </div>
+          <p>Every tracked product with its fair price and a one-line verdict, plus the evidence behind
+          them — value per booster, age vs value, price history, momentum and the scenario explorer.</p>
         </div>
 
-        <!-- Data Entry card -->
-        <div class="panel admin-only" style="cursor:pointer;" onclick="document.querySelector('[data-tab=&quot;entry&quot;]').click()">
-          <div style="padding: 22px 24px;">
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom: 12px;">
-              <div style="font-size: var(--display-md); color: var(--muted); display:flex;"><svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg></div>
-              <button type="button" class="card-title" data-goto="entry">Data Entry</button>
-            </div>
-            <p style="font-size: var(--text-lg); color: var(--text); line-height: 1.55; margin-bottom: 14px;">
-              The monthly update view. Enter the latest Price and Set Value for each product, add new releases, attach Cardmarket links, then export the updated file.
-            </p>
-            <ul style="font-size: var(--text-md); color: var(--muted); line-height: 1.7; padding-left: 18px;">
-              <li>One row per product — last known values shown for reference</li>
-              <li>Today's date pre-filled as the snapshot label</li>
-              <li>Add new products with name, type, release date, initial price</li>
-              <li>Attach &amp; edit Cardmarket URLs per product <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg></li>
-              <li>Export updated .xlsx ready to commit back to the repo</li>
-            </ul>
+        <div class="panel welcome-card sb-only" onclick="document.querySelector('.tab-bar .tab-btn[data-tab=&quot;portfolio&quot;]').click()">
+          <div class="welcome-card-head">
+            <svg class="icon icon-lg" aria-hidden="true"><use href="#i-portfolio"/></svg>
+            <button type="button" class="card-title" data-goto="portfolio">Portfolio</button>
           </div>
+          <p>What you actually hold: unrealised profit and loss against your cost basis, value over time,
+          where you are over-concentrated, and price alerts on a euro target or on the fair price.</p>
+        </div>
+
+        <div class="panel welcome-card admin-only" onclick="document.querySelector('.tab-bar .tab-btn[data-tab=&quot;entry&quot;]').click()">
+          <div class="welcome-card-head">
+            <svg class="icon icon-lg" aria-hidden="true"><use href="#i-entry"/></svg>
+            <button type="button" class="card-title" data-goto="entry">Data Entry</button>
+          </div>
+          <p>The monthly update: this month's price and set value per product, new releases, Cardmarket
+          links, and the export that writes the workbook back out.</p>
         </div>
       </div>
 
-      <h2 class="section-eyebrow">How it works</h2>
-      <!-- How it works section (describes the admin update workflow) -->
-      <div class="panel admin-only" style="margin-bottom: 24px;">
-        <div style="padding: 20px 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;">
+      <!-- Both open the same dialogs the demo page opens. That shared surface
+           is the whole point: two copies of "what SV/Booster means" would drift
+           within a release. -->
+      <h2 class="section-eyebrow">How to read it</h2>
+      <p class="link-row">
+        <button type="button" class="text-link method-open" aria-haspopup="dialog">How the fair price works</button>
+        <button type="button" class="text-link glossary-open" aria-haspopup="dialog">What the numbers mean</button>
+      </p>
 
-          <div>
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-lg); color: var(--accent); line-height:1;">1</span>
-              <span style="font-family:'DM Mono',monospace; font-size: var(--text-sm); color: var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Load</span>
-            </div>
-            <p style="font-size: var(--text-md); color: var(--text); line-height:1.55;">
-              Your tracked products and price history load from the cloud when you sign in. (If cloud sync is ever unavailable, the dashboard falls back to the committed <code style="font-family:'DM Mono',monospace; color: var(--accent); font-size: var(--text-sm);">pokemon_data.xlsx</code>.)
-            </p>
+      <!-- The monthly loop. Admin-only, heading included: a signed-in
+           non-admin used to get this eyebrow with nothing underneath it. -->
+      <h2 class="section-eyebrow admin-only">The monthly loop</h2>
+      <div class="panel admin-only welcome-block">
+        <div class="steps">
+          <div class="step">
+            <div class="step-head"><span class="step-n">1</span><span class="step-label">Load</span></div>
+            <p>Your products and price history load from the cloud when you sign in. If cloud sync is ever
+            unavailable the dashboard falls back to the committed
+            <code class="code-inline">pokemon_data.xlsx</code> — and says so under the header.</p>
           </div>
-
-          <div>
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-lg); color: var(--accent); line-height:1;">2</span>
-              <span style="font-family:'DM Mono',monospace; font-size: var(--text-sm); color: var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Update</span>
-            </div>
-            <p style="font-size: var(--text-md); color: var(--text); line-height:1.55;">
-              Once a month, fetch latest prices from Cardmarket and enter them in the Data Entry tab. New products can be added at any time.
-            </p>
+          <div class="step">
+            <div class="step-head"><span class="step-n">2</span><span class="step-label">Update</span></div>
+            <p>Once a month, fetch the latest prices and enter them in Data Entry. The grid warns on a large
+            jump against last month and flags skipped snapshots. New products can be added at any time.</p>
           </div>
-
-          <div>
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-family:'Bebas Neue',sans-serif; font-size: var(--display-lg); color: var(--accent); line-height:1;">3</span>
-              <span style="font-family:'DM Mono',monospace; font-size: var(--text-sm); color: var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Decide</span>
-            </div>
-            <p style="font-size: var(--text-md); color: var(--text); line-height:1.55;">
-              Use the Analysis tab to spot buy signals, compare options, and check the weighted score before pulling the trigger.
-            </p>
+          <div class="step">
+            <div class="step-head"><span class="step-n">3</span><span class="step-label">Decide</span></div>
+            <p>Save to the cloud, then read the board: the verdict, the gap to fair price, and the buy
+            signals it raises. Export the workbook to keep an off-repo backup.</p>
           </div>
-
         </div>
-      </div>
-
-      <h2 class="section-eyebrow">Key concepts</h2>
-      <!-- Key concepts -->
-      <div class="panel" style="margin-bottom: 24px;">
-        <div class="panel-header">
-          <h3 class="panel-title">Key concepts</h3>
-          <div class="panel-badge">Glossary</div>
-        </div>
-        <div style="padding: 18px 24px;">
-          <table style="width:100%; border-collapse:collapse;">
-            <tbody>
-              <tr style="border-bottom: 1px solid rgba(42,45,62,0.5);">
-                <td style="padding: 10px 0; width: 28%; font-family:'DM Mono',monospace; color: var(--accent); font-size: var(--text-md); vertical-align: top;">Set Value</td>
-                <td style="padding: 10px 0; font-size: var(--text-md); color: var(--text); line-height:1.55;">The total market value of all cards in a complete set.</td>
-              </tr>
-              <tr style="border-bottom: 1px solid rgba(42,45,62,0.5);">
-                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: var(--text-md); vertical-align: top;">Price / Booster</td>
-                <td style="padding: 10px 0; font-size: var(--text-md); color: var(--text); line-height:1.55;">The product price ÷ number of boosters inside (BOX = 36, ETB = 9, BUNDLE = 6).</td>
-              </tr>
-              <tr style="border-bottom: 1px solid rgba(42,45,62,0.5);">
-                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: var(--text-md); vertical-align: top;">SV / Booster</td>
-                <td style="padding: 10px 0; font-size: var(--text-md); color: var(--text); line-height:1.55;">Set Value ÷ Price/Booster — how many times the price of a <em>single booster</em> the whole set is worth (a value-for-money <em>×</em> multiple, <strong>not</strong> a euro amount). The core comparability metric — works equally well across BOX, ETB, and BUNDLE products.</td>
-              </tr>
-              <tr style="border-bottom: 1px solid rgba(42,45,62,0.5);">
-                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: var(--text-md); vertical-align: top;">Age Weight</td>
-                <td style="padding: 10px 0; font-size: var(--text-md); color: var(--text); line-height:1.55;">A penalty applied to newer products to reflect that they haven't had time to appreciate. Adjustable via the Age Threshold slider.</td>
-              </tr>
-              <tr style="border-bottom: 1px solid rgba(42,45,62,0.5);">
-                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: var(--text-md); vertical-align: top;">Wtd. Score</td>
-                <td style="padding: 10px 0; font-size: var(--text-md); color: var(--text); line-height:1.55;">SV / Booster × Age Weight. The primary ranking metric used by the dashboard.</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 0; font-family:'DM Mono',monospace; color: var(--accent); font-size: var(--text-md); vertical-align: top;"><svg class="icon" aria-hidden="true"><use href="#i-deal"/></svg> Buy Signal</td>
-                <td style="padding: 10px 0; font-size: var(--text-md); color: var(--text); line-height:1.55;">Flagged when a product's price has dropped at least 5% in the last snapshot, while its set value held within ±5% — a possible mispricing.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Quick actions -->
-      <div style="display:flex; gap:12px; justify-content:center; margin-bottom: 36px;">
-        <button class="tab-btn" style="background: var(--accent); color: #000; font-weight:500; border-color: var(--accent); border-radius: 8px;"
-          onclick="document.querySelector('[data-tab=&quot;analysis&quot;]').click()"><svg class="icon" aria-hidden="true"><use href="#i-analysis"/></svg> Open Analysis →</button>
-        <button class="tab-btn admin-only" style="background: transparent; color: var(--accent4); border: 1px solid var(--accent4); border-radius: 8px;"
-          onclick="document.querySelector('[data-tab=&quot;entry&quot;]').click()"><svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg> Update Data →</button>
-      </div>
-
-      <!-- Disclaimer -->
-      <div style="text-align: center; font-family:'DM Mono',monospace; font-size: var(--text-sm); color: var(--muted); padding: 16px;">
-        Built for personal use. Always do your own research. Past performance does not guarantee future results.
       </div>
 
     </div>
@@ -2008,7 +2153,7 @@
             <th>Product <span class="th-hint"><svg class="icon" aria-hidden="true" style="color:var(--accent)"><use href="#i-deal"/></svg> = buy signal</span></th>
             <th class="col-detail">Type</th>
             <th style="text-align:right">Price (€)</th>
-            <th style="text-align:right">Fair Price (€) <button type="button" id="fair-fit-note" class="fair-fit-note" aria-haspopup="dialog"></button></th>
+            <th style="text-align:right">Fair Price (€) <button type="button" id="fair-fit-note" class="fair-fit-note method-open" aria-haspopup="dialog"></button></th>
             <th class="col-detail" style="text-align:right">Set Value (€)</th>
             <th class="col-detail" style="text-align:right">€/Booster</th>
             <th class="col-detail" style="text-align:right">SV/Booster</th>
@@ -4401,9 +4546,20 @@ document.querySelectorAll('.card-title').forEach(btn => {
   });
 });
 
-// Fair-price method dialog, opened from the board's confidence button.
-document.getElementById('fair-fit-note').addEventListener('click', () => openOverlay('method-modal'));
+// Fair-price method dialog. Three openers: the board's confidence button, and
+// the demo page's and Welcome tab's "How the fair price works" links — the
+// method is the same explanation whichever side of the login you are on.
+[...document.querySelectorAll('.method-open')].forEach(btn => {
+  btn.addEventListener('click', () => openOverlay('method-modal'));
+});
 document.getElementById('method-close').addEventListener('click', () => closeOverlay('method-modal'));
+
+// Glossary dialog — every term, defined once, reachable from the logged-out
+// demo page and the signed-in Welcome tab alike.
+[...document.querySelectorAll('.glossary-open')].forEach(btn => {
+  btn.addEventListener('click', () => openOverlay('glossary-modal'));
+});
+document.getElementById('glossary-close').addEventListener('click', () => closeOverlay('glossary-modal'));
 
 // Format guide modal
 document.getElementById('guide-btn').addEventListener('click', () => openOverlay('guide-modal'));
@@ -5880,11 +6036,22 @@ function renderDemo(groups) {
         <td class="num ${svClass}">${fmt(p.svPerBooster, 1)}×</td>
       </tr>`;
     }).join('');
+    // Each set is a .panel with its name as the .panel-title — an <h3>, which
+    // nests correctly under the section's <h2>. It used to emit its own
+    // section-eyebrow <h2> per set, which flattened the outline and made each
+    // set look like a top-level section of the page rather than one sample.
     return `
-      <h2 class="section-eyebrow">${demoSetName(g.products)}</h2>
-      <p class="section-desc">Released ${dateLabel} · ${n} product${n > 1 ? 's' : ''} tracked in this set.</p>
-      <div class="panel" style="margin-bottom:40px;">
-        <div class="table-wrap" style="max-height:none;">
+      <div class="panel" style="margin-bottom:24px;">
+        <div class="panel-header">
+          <h3 class="panel-title">${demoSetName(g.products)}</h3>
+          <div class="panel-badge">${dateLabel} · ${n} product${n > 1 ? 's' : ''}</div>
+        </div>
+        <!-- tabindex="0" because these six columns scroll sideways on a phone
+             and nothing inside the wrapper is focusable — without it the region
+             cannot be scrolled by keyboard at all. Same rule as §05/§07; the
+             board is exempt only because its rows carry .row-open buttons. -->
+        <div class="table-wrap" style="max-height:none;" tabindex="0"
+             role="group" aria-label="${demoSetName(g.products)} — tracked products">
           <table>
             <thead><tr>
               <th>Product</th>
@@ -5976,9 +6143,13 @@ function wireAuthControls() {
   const pass  = () => document.getElementById('auth-password').value;
 
   // Open the sign-in overlay from the demo page; close it back to the demo.
-  document.getElementById('demo-signin-btn').addEventListener('click', () => {
-    showAuthError('');
-    showAuthOverlay(true);   // moves focus to the first field itself
+  // Two openers — the header button and the one closing the pitch — because
+  // the page is long enough that scrolling back up to sign in is friction.
+  [...document.querySelectorAll('.signin-open')].forEach(btn => {
+    btn.addEventListener('click', () => {
+      showAuthError('');
+      showAuthOverlay(true);   // moves focus to the first field itself
+    });
   });
   document.getElementById('auth-close').addEventListener('click', () => showAuthOverlay(false));
 
@@ -6081,6 +6252,14 @@ function wireAuthControls() {
       const uid = session ? session.user.id : null;
       if (uid && uid !== sbLoadedUserId) {
         sbLoadedUserId = uid;
+        // A signed-in session lands on the answer, not on the pitch. The
+        // Welcome tab is a map of the app; Analysis now opens on "best deals
+        // right now", which is what someone signs in for. Deliberately scoped
+        // to *this* branch — a token refresh fires onAuthStateChange too, and
+        // yanking the user off whatever tab they were reading would be a bug.
+        // A click rather than activateTab() so the reveal-on-scroll handler,
+        // which listens for clicks, replays for the pane it lands on.
+        document.getElementById('tabbtn-analysis').click();
         loadFromSupabase().catch(err => {
           console.error('Cloud load failed:', err);
           reportClientError({ message: 'Cloud load failed: ' + (err.message || err), stack: err.stack });
