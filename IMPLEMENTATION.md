@@ -53,17 +53,6 @@ accessibility finding the review raised (F8 included). Section numbers are
 stable cross-reference labels — reading order is the priority, not the
 numbering.
 
-### 6. Overview-first restructure
-
-With the verdict shipped, the Analysis tab can lead with the answer: a
-compact "best deals now" block (verdict-sorted, fair-price gap, drill-down
-links — the data already exists in `updateTopPicks`/`verdict`) above the
-nine numbered sections, which become progressive disclosure. Constraints:
-preserve section IDs/canvases (editing invariants), keep `.section-eyebrow`
-numbering, `design-review` throughout, smoke test must keep passing
-unchanged. Plan the DOM moves on paper first; this is a large diff of mostly
-markup. *Size: M/L. Justified by `docs/ux-assessment.md` findings 3, 4, 6.*
-
 ### 12 + 13. Onboarding, the demo as a pitch, and the Welcome tab (one PR)
 
 These two roadmap bullets are one piece of work: today the pitch lives in two

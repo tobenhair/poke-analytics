@@ -405,6 +405,22 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   and the demo's set headings now use plain eyebrow labels, leaving Analysis as
   the only numbered surface. (The demo's numbers had a second problem — they
   enumerated sets in recency order, which reads as a ranking they are not in.)
+- **Overview-first: the Analysis tab opens on the answer.** Measured before this,
+  the first thing a buyer needed sat **1,354 px down on desktop and 1,963 px on a
+  phone** — nothing that helps you decide was visible without scrolling. The tab
+  now leads with **Best deals right now**: a line saying how many of the tracked
+  products are currently under their fair price, then the three biggest gaps,
+  each with its verdict and a name that opens the drill-down. It sits **418 px
+  from the top**, above the fold, and the nine numbered sections below became
+  what they should be — the evidence for the claim, not a wall to scroll before
+  reaching one. It follows the global type filter like every other analytical
+  view, and adds no new maths: `fairGap` and `verdict` were already derived.
+  **The honesty rule it enforces:** when the age fit is too weak to trust, the
+  verdict already ignores the fair price — so the overview refuses to rank by it
+  either, falls back to the weighted score, and says which it used in the badge
+  and the lead. Guarded by a case in `tests/a11y.spec.mjs` that checks whichever
+  branch is live: ranked-by-gap must be ordered best-first with every row
+  genuinely under fair, ranked-by-score must say so.
 
 ## Now — trustworthy numbers (stability & quality)
 
@@ -430,18 +446,13 @@ The order below is the one the **expert UX & accessibility review** recommended
 earlier journey pass in [`docs/ux-assessment.md`](docs/ux-assessment.md) and
 corrects two of its findings). **Accessibility came first and has shipped** —
 see *Done* — along with the three phone/reflow defects that preceded it. What
-remains is the larger restructure work, led by the **overview-first
-restructure** and the **demo-as-pitch** rework. Every accessibility
+remains is the **demo-as-pitch** rework, to be done together with reconciling
+the Welcome tab so two overlapping intros don't drift. Every accessibility
 finding from the expert review is closed, the measured density problem is
 addressed, the visual system is reconciled and guarded by
 `npm run check:design-tokens`, and the two trust gaps — an unexplained R² and a
 locked-out user with no way back — are fixed.
 
-- **Overview-first restructure.** With the verdict shipped, the top of the
-  Analysis tab can *answer the question* — best deals now, each with its fair
-  price gap — and the nine numbered sections become the supporting evidence a
-  curious user drills into (progressive disclosure), rather than a wall to
-  scroll. Less on screen, more answered.
 - **Onboarding & the demo as a pitch.** The section descriptions explain each
   chart; nothing yet explains the *method* — or, on the logged-out demo, even
   what the tool *is*. Lead the demo page with a plain statement of the tool's
