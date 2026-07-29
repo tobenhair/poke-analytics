@@ -12,19 +12,24 @@
 // Two subcommands:
 //   discover  Name-match the tracked products (cardmarket-map.json) against the
 //             nonsingles catalogue and write cardmarket-map.draft.json with the
-//             best-guess idProduct/idExpansion for each. HUMAN reviews it, copies
-//             confirmed ids into cardmarket-map.json.
-//   compare   Using the ids already in cardmarket-map.json, derive today's Price
-//             (price guide) and Set Value (sum of the expansion's singles) and
-//             print them beside the latest values in pokemon_data.xlsx, so you can
-//             see coverage and calibrate the Set Value definition before trusting it.
+//             best-guess idProduct/idExpansion for each; print the top candidates
+//             for any non-exact match so a human can pin the right id. A product
+//             may be pinned in the map by `idProduct` (exact) or `nameHint` (match
+//             against a given string, e.g. a "Version 1" bundle variant).
+//   compare   Using the map's ids, derive today's Price (price guide) and Set Value
+//             (sum of the expansion's singles) and print them beside the latest
+//             pokemon_data.xlsx values, so coverage and the Set Value definition
+//             can be calibrated before trusting it.
+//   both      discover then compare in one pass, chaining the discovered ids in
+//             memory — no hand-copy into the map needed for a quick end-to-end look.
 //
-// This is deliberately OUTSIDE `npm test` (it needs network + the ids filled in).
-// Run it where downloads.s3.cardmarket.com is reachable (CI or a dev machine).
+// This is deliberately OUTSIDE `npm test` (it needs network). Run it where
+// downloads.s3.cardmarket.com is reachable (CI or a dev machine).
 //
 // Usage:
 //   node scripts/cardmarket-spike.mjs discover [--refresh]
 //   node scripts/cardmarket-spike.mjs compare  [--refresh] [--price-field trend]
+//   node scripts/cardmarket-spike.mjs both      [--refresh] [--price-field trend]
 //
 // Nothing here writes to Supabase or the workbook — it only reads and reports.
 // The exact JSON field names are confirmed by the FIRST run: --schema prints the
@@ -115,6 +120,10 @@ const norm = (s) =>
     .replace(/\betb\b/g, 'elite trainer box')
     .replace(/\bbooster display\b/g, 'booster box') // EU sometimes says "Display"
     .replace(/[^a-z0-9 ]+/g, ' ')
+    // crude singularise so plural/singular spellings match symmetrically
+    // ("Mega Evolutions" ↔ catalogue's "Mega Evolution", "Skies" ↔ "Skie"…);
+    // applied to both sides, so exact names still score 1.0.
+    .replace(/\b([a-z]{3,}?)s\b/g, '$1')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -152,47 +161,81 @@ async function discover() {
     raw: r,
   }));
 
+  const byId = new Map(cat.filter((c) => c.id != null).map((c) => [String(c.id), c]));
   const draft = structuredClone(map);
+  const resolved = {}; // name -> { idProduct, idExpansion } for `both` to chain into compare
   let matched = 0;
   const rows = [];
+  const ambiguous = []; // rows worth showing alternatives for
   for (const [name, entry] of Object.entries(map.products)) {
-    let best = null;
-    let bestScore = 0;
+    // A human can override matching two ways in cardmarket-map.json:
+    //   idProduct: <n>   pin the exact product (wins outright)
+    //   nameHint: "…"    match against this string instead of the product name
+    //                    (e.g. "Shrouded Fable Booster Bundle Version 1")
+    const query = entry.nameHint || name;
+    const scored = [];
     for (const c of cat) {
       if (!c.name) continue;
-      const sc = score(name, c.name);
-      if (sc > bestScore) {
-        bestScore = sc;
-        best = c;
-      }
+      scored.push({ c, sc: score(query, c.name) });
     }
-    const ok = best && bestScore >= 0.6;
+    scored.sort((a, b) => b.sc - a.sc);
+
+    let chosen;
+    let chosenScore;
+    let source;
+    if (entry.idProduct != null && byId.has(String(entry.idProduct))) {
+      chosen = byId.get(String(entry.idProduct));
+      chosenScore = 1;
+      source = 'pinned';
+    } else {
+      chosen = scored[0]?.c || null;
+      chosenScore = scored[0]?.sc || 0;
+      source = 'match';
+    }
+
+    const ok = source === 'pinned' || chosenScore >= 0.6;
     if (ok) matched += 1;
-    draft.products[name].idProduct = best ? best.id : null;
-    draft.products[name].idExpansion = best ? best.expansion : null;
-    draft.products[name]._match = best
-      ? { catalogueName: best.name, category: best.category, score: +bestScore.toFixed(2), confident: ok }
-      : { catalogueName: null, score: 0, confident: false };
+    resolved[name] = { idProduct: chosen ? chosen.id : null, idExpansion: chosen ? chosen.expansion : null };
+    draft.products[name].idProduct = chosen ? chosen.id : null;
+    draft.products[name].idExpansion = chosen ? chosen.expansion : null;
+    draft.products[name]._match = chosen
+      ? { catalogueName: chosen.name, category: chosen.category, score: +chosenScore.toFixed(2), source, confident: ok }
+      : { catalogueName: null, score: 0, source, confident: false };
     rows.push({
       product: name,
-      score: +bestScore.toFixed(2),
-      idProduct: best ? best.id : '—',
-      catalogueName: best ? best.name : '(no match)',
+      score: source === 'pinned' ? 'pinned' : +chosenScore.toFixed(2),
+      idProduct: chosen ? chosen.id : '—',
+      catalogueName: chosen ? chosen.name : '(no match)',
     });
+    // Anything not a clean 1.0 auto-match: show the top few so a human can pin the right id.
+    if (source === 'match' && chosenScore < 1) {
+      ambiguous.push({ name, alts: scored.slice(0, 3) });
+    }
   }
 
   writeFileSync(DRAFT_PATH, JSON.stringify(draft, null, 2) + '\n');
   console.table(rows);
+  if (ambiguous.length) {
+    console.log('\nAmbiguous matches (score < 1.00) — top candidates, pin the right id in cardmarket-map.json:');
+    for (const { name, alts } of ambiguous) {
+      console.log(`  ${name}:`);
+      for (const { c, sc } of alts) console.log(`      ${sc.toFixed(2)}  id=${c.id}  exp=${c.expansion}  ${c.name}`);
+    }
+  }
   console.log(
     `\n${matched}/${Object.keys(map.products).length} confident matches (score ≥ 0.6). ` +
       `Draft written to cardmarket-map.draft.json.`,
   );
-  console.log('Review low-score / wrong rows by hand, then copy confirmed idProduct + idExpansion into cardmarket-map.json.');
+  console.log('Pin any wrong/low-score row via idProduct or nameHint in cardmarket-map.json, then re-run.');
+  return resolved;
 }
 
 // ── compare ───────────────────────────────────────────────
-async function compare() {
+// `resolvedIds` (from discover, when run as `both`) supplies ids in-memory so no
+// hand-copy into cardmarket-map.json is needed; otherwise the map's ids are used.
+async function compare(resolvedIds = null) {
   const map = readMap();
+  const idsFor = (name, entry) => resolvedIds?.[name] || entry;
   const priceField = opt('price-field', map.priceField || 'trend');
   const [pg, singles] = await Promise.all([loadFile('priceGuide'), loadFile('singles')]);
 
@@ -229,17 +272,18 @@ async function compare() {
 
   const rows = [];
   for (const [name, entry] of Object.entries(map.products)) {
-    if (entry.idProduct == null) {
-      rows.push({ product: name, note: 'no idProduct in map — run discover' });
+    const idInfo = idsFor(name, entry);
+    if (idInfo.idProduct == null) {
+      rows.push({ product: name, note: 'no idProduct — run discover' });
       continue;
     }
-    const pgRec = pgById.get(String(entry.idProduct));
+    const pgRec = pgById.get(String(idInfo.idProduct));
     const price = pgRec ? priceOf(pgRec) : null;
 
     let setValue = null;
     let nSingles = null;
-    if (entry.idExpansion != null) {
-      const ids = singlesByExp.get(String(entry.idExpansion)) || [];
+    if (idInfo.idExpansion != null) {
+      const ids = singlesByExp.get(String(idInfo.idExpansion)) || [];
       nSingles = ids.length;
       let sum = 0;
       let counted = 0;
@@ -269,10 +313,21 @@ async function compare() {
   }
 
   console.table(rows);
+  const median = (xs) => {
+    const s = xs.filter((x) => typeof x === 'number' && Number.isFinite(x)).sort((a, b) => a - b);
+    if (!s.length) return null;
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  };
   const priced = rows.filter((r) => typeof r.cmPrice === 'number').length;
+  const medPrice = median(rows.map((r) => r.priceRatio));
+  const medSv = median(rows.map((r) => r.svRatio));
   console.log(
-    `\nPrice coverage: ${priced}/${Object.keys(map.products).length}. ` +
-      `priceField="${priceField}".`,
+    `\nPrice coverage: ${priced}/${Object.keys(map.products).length}. priceField="${priceField}".`,
+  );
+  console.log(
+    `Median priceRatio (Cardmarket ÷ hand): ${medPrice != null ? medPrice.toFixed(2) : 'n/a'}  ` +
+      `·  Median svRatio: ${medSv != null ? medSv.toFixed(2) : 'n/a'}`,
   );
   console.log(
     'svRatio ≈ (Cardmarket singles-sum) ÷ (your hand Set Value). If it clusters around a\n' +
@@ -303,8 +358,12 @@ function latestFromWorkbook() {
   try {
     if (cmd === 'discover') await discover();
     else if (cmd === 'compare') await compare();
-    else {
-      console.log('Usage: node scripts/cardmarket-spike.mjs <discover|compare> [--refresh] [--price-field trend]');
+    else if (cmd === 'both') {
+      const resolved = await discover();
+      console.log('\n========================================\n');
+      await compare(resolved);
+    } else {
+      console.log('Usage: node scripts/cardmarket-spike.mjs <discover|compare|both> [--refresh] [--price-field trend]');
       process.exit(2);
     }
   } catch (err) {

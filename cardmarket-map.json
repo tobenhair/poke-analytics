@@ -1,5 +1,5 @@
 {
-  "_README": "Curated allowlist: each tracked sealed product -> its Cardmarket productCatalog ids. idProduct resolves the price (price_guide_6.json); idExpansion resolves Set Value (sum this expansion's singles from products_singles_6.json). Fill the null ids by running: node scripts/cardmarket-spike.mjs discover (writes cardmarket-map.draft.json for human review, then copy confirmed ids here). Adding a new set = one entry here.",
+  "_README": "Curated allowlist: each tracked sealed product -> its Cardmarket productCatalog ids. idProduct resolves the price (price_guide_6.json); idExpansion resolves Set Value (sum this expansion's singles from products_singles_6.json). Run `node scripts/cardmarket-spike.mjs discover` to draft ids (writes cardmarket-map.draft.json for review); pin a tricky product with an explicit `idProduct` (exact) or `nameHint` (match against a given string, e.g. a bundle 'Version 1' variant). Adding a new set = one entry here.",
   "priceField": "trend",
   "products": {
     "Roaring Skies Booster Box": {
@@ -146,6 +146,7 @@
       "type": "BUNDLE",
       "release": "2024-08-02",
       "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Shrouded-Fable-Booster-Bundle-Version-1?language=1",
+      "nameHint": "Shrouded Fable Booster Bundle Version 1",
       "idProduct": null,
       "idExpansion": null
     },
