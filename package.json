@@ -12,7 +12,8 @@
     "check:design-tokens": "node scripts/check-design-tokens.mjs",
     "test": "npm run test:unit && npm run validate && npm run check:dead-code && npm run check:design-tokens && npm run test:e2e",
     "scale:fixture": "node scripts/gen-scale-fixture.mjs",
-    "scale:measure": "node scripts/measure-scale.mjs"
+    "scale:measure": "node scripts/measure-scale.mjs",
+    "cardmarket:spike": "node scripts/cardmarket-spike.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
