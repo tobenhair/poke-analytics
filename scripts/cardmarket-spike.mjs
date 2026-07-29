@@ -338,7 +338,9 @@ async function compare(resolvedIds = null) {
 
 // Latest snapshot Price/Set Value per product from the workbook.
 function latestFromWorkbook() {
-  const wb = XLSX.readFile(XLSX_PATH, { cellDates: true });
+  // Use read(buffer) not readFile(path): the ESM xlsx build has no fs-bound
+  // readFile (same reason scripts/validate-workbook.mjs reads bytes first).
+  const wb = XLSX.read(readFileSync(XLSX_PATH), { type: 'buffer', cellDates: true });
   const hist = XLSX.utils.sheet_to_json(wb.Sheets['Historical Data'], { defval: null });
   const toISO = (v) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v));
   const byName = {};
