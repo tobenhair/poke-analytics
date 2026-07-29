@@ -1,0 +1,66 @@
+name: Cardmarket ingestion spike
+
+# Manual-only. Runs scripts/cardmarket-spike.mjs on a GitHub runner (which can
+# reach downloads.s3.cardmarket.com) and uploads the results as artifacts, so the
+# route can be validated without any local setup. Read-only: it never writes
+# Supabase or the workbook. See ROADMAP "Automated ingestion".
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Which subcommand to run'
+        type: choice
+        default: discover
+        options: [discover, compare, both]
+      price_field:
+        description: 'Price guide field to use for compare (trend/avg/avg7/avg30/low)'
+        type: string
+        default: trend
+
+jobs:
+  spike:
+    name: Run spike (${{ inputs.command }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run spike
+        env:
+          CMD: ${{ inputs.command }}
+          PRICE_FIELD: ${{ inputs.price_field }}
+        run: |
+          set -o pipefail
+          run_discover() { node scripts/cardmarket-spike.mjs discover; }
+          run_compare()  { node scripts/cardmarket-spike.mjs compare --price-field "$PRICE_FIELD"; }
+          {
+            case "$CMD" in
+              discover) run_discover ;;
+              compare)  run_compare ;;
+              both)     run_discover; echo; echo '========================================'; echo; run_compare ;;
+            esac
+          } 2>&1 | tee spike-output.txt
+      - name: Publish output to job summary
+        if: always()
+        run: |
+          {
+            echo '## Cardmarket spike output (`'"$CMD"'`)'
+            echo '```'
+            cat spike-output.txt 2>/dev/null || echo '(no output captured)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          CMD: ${{ inputs.command }}
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardmarket-spike-${{ inputs.command }}
+          path: |
+            spike-output.txt
+            cardmarket-map.draft.json
+          if-no-files-found: warn
+          retention-days: 7
