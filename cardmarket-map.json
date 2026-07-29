@@ -1,0 +1,265 @@
+{
+  "_README": "Curated allowlist: each tracked sealed product -> its Cardmarket productCatalog ids. idProduct resolves the price (price_guide_6.json); idExpansion resolves Set Value (sum this expansion's singles from products_singles_6.json). Fill the null ids by running: node scripts/cardmarket-spike.mjs discover (writes cardmarket-map.draft.json for human review, then copy confirmed ids here). Adding a new set = one entry here.",
+  "priceField": "trend",
+  "products": {
+    "Roaring Skies Booster Box": {
+      "type": "BOX",
+      "release": "2015-05-06",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Roaring-Skies-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Team Up Booster Box": {
+      "type": "BOX",
+      "release": "2019-02-01",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Team-Up-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Battle Styles Booster Box": {
+      "type": "BOX",
+      "release": "2021-03-19",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Battle-Styles-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Chilling Reign Booster Box": {
+      "type": "BOX",
+      "release": "2021-06-18",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Chilling-Reign-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Evolving Skies Booster Box": {
+      "type": "BOX",
+      "release": "2021-08-27",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Evolving-Skies-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Fusion Strike Booster Box": {
+      "type": "BOX",
+      "release": "2021-11-12",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Fusion-Strike-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Brilliant Stars Booster Box": {
+      "type": "BOX",
+      "release": "2022-02-25",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Brilliant-Stars-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Astral Radiance Booster Box": {
+      "type": "BOX",
+      "release": "2022-05-27",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Astral-Radiance-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Lost Origin Booster Box": {
+      "type": "BOX",
+      "release": "2022-09-09",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Lost-Origin-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Silver Tempest Booster Box": {
+      "type": "BOX",
+      "release": "2022-11-11",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Silver-Tempest-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Crown Zenith Elite Trainer Box": {
+      "type": "ETB",
+      "release": "2023-01-20",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Elite-Trainer-Boxes/Crown-Zenith-Elite-Trainer-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Scarlet & Violet Booster Box": {
+      "type": "BOX",
+      "release": "2023-03-31",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Scarlet-Violet-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Paldea Evolved Booster Box": {
+      "type": "BOX",
+      "release": "2023-06-09",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Paldea-Evolved-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Obsidian Flames Booster Box": {
+      "type": "BOX",
+      "release": "2023-08-11",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Obsidian-Flames-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "151 Booster Bundle": {
+      "type": "BUNDLE",
+      "release": "2023-09-22",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/151-Booster-Bundle?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "151 Elite Trainer Box": {
+      "type": "ETB",
+      "release": "2023-09-22",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Elite-Trainer-Boxes/151-Elite-Trainer-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Paradox Rift Booster Box": {
+      "type": "BOX",
+      "release": "2023-11-03",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Paradox-Rift-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Temporal Forces Booster Box": {
+      "type": "BOX",
+      "release": "2024-03-22",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Temporal-Forces-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Twilight Masquerade Booster Box": {
+      "type": "BOX",
+      "release": "2024-05-24",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Twilight-Masquerade-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Shrouded Fable Elite Trainer Box": {
+      "type": "ETB",
+      "release": "2024-08-02",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Elite-Trainer-Boxes/Shrouded-Fable-Elite-Trainer-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Shrouded Fable Booster Bundle": {
+      "type": "BUNDLE",
+      "release": "2024-08-02",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Shrouded-Fable-Booster-Bundle-Version-1?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Stellar Crown Booster Box": {
+      "type": "BOX",
+      "release": "2024-09-13",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Stellar-Crown-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Surging Sparks Booster Box": {
+      "type": "BOX",
+      "release": "2024-11-08",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Surging-Sparks-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Prismatic Evolutions ETB": {
+      "type": "ETB",
+      "release": "2025-01-17",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Elite-Trainer-Boxes/Prismatic-Evolutions-Elite-Trainer-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Prismatic Evolutions Booster Bundle": {
+      "type": "BUNDLE",
+      "release": "2025-01-17",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Prismatic-Evolutions-Booster-Bundle?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Journey Together Booster Box": {
+      "type": "BOX",
+      "release": "2025-03-28",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Journey-Together-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Destined Rivals Booster Box": {
+      "type": "BOX",
+      "release": "2025-05-30",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Destined-Rivals-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "White Flare ETB": {
+      "type": "ETB",
+      "release": "2025-07-18",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Elite-Trainer-Boxes/White-Flare-Elite-Trainer-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Black Bolt ETB": {
+      "type": "ETB",
+      "release": "2025-07-18",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Elite-Trainer-Boxes/Black-Bolt-Elite-Trainer-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "White Flare Booster Bundle": {
+      "type": "BUNDLE",
+      "release": "2025-07-18",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/White-Flare-Booster-Bundle?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Black Bolt Booster Bundle": {
+      "type": "BUNDLE",
+      "release": "2025-07-18",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Black-Bolt-Booster-Bundle?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Mega Evolutions Booster Box": {
+      "type": "BOX",
+      "release": "2025-09-26",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Mega-Evolution-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Phantasmal Flames Booster Box": {
+      "type": "BOX",
+      "release": "2025-11-14",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Phantasmal-Flames-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Ascended Heroes Booster Bundle": {
+      "type": "BUNDLE",
+      "release": "2026-01-30",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Ascended-Heroes-Booster-Bundle?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Ascended Heroes ETB": {
+      "type": "ETB",
+      "release": "2026-01-30",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Elite-Trainer-Boxes/Ascended-Heroes-Elite-Trainer-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Perfect Order Booster Box": {
+      "type": "BOX",
+      "release": "2026-03-27",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Perfect-Order-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    },
+    "Chaos Rising Booster Box": {
+      "type": "BOX",
+      "release": "2026-05-22",
+      "cardmarket_url": "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Chaos-Rising-Booster-Box?language=1",
+      "idProduct": null,
+      "idExpansion": null
+    }
+  }
+}

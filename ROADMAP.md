@@ -561,11 +561,38 @@ here is one item that no finding touched.
   changelog, a public "how the numbers work" methodology page (the trust
   document for a tool that claims to know what's fairly priced).
 
-## Automated ingestion — now viable (Tradera + TCGdex)
+## Automated ingestion — now viable (Cardmarket bulk files; Tradera + TCGdex as fallback)
 
-The ingestion problem that sat parked as a pre-launch blocker now has a
-concrete, **sanctioned, free** path — enough to move it out of "parked" and
-treat it as a real plan. The unlock was to stop forcing the two hard sources
+**New lead route (Jul 2026): Cardmarket's official bulk catalogue downloads.**
+The maintainer located Cardmarket's published productCatalog files — served
+without auth from `downloads.s3.cardmarket.com` for idGame 6 (Pokémon):
+`products_nonsingles_6.json` (sealed products), `products_singles_6.json`
+(singles, grouped by expansion) and `price_guide_6.json` (daily **EUR** price
+per `idProduct`). These are *published files*, not the website, so they sidestep
+the GTC clause that blocked the parked routes (which barred spidering/crawling
+*the site*). The payoff is bigger than Tradera + TCGdex: **one native-EUR source
+supplies both halves** — Price from the price guide, and Set Value by summing the
+expansion's singles from the same guide — so there is no SEK→EUR FX to store, no
+C2C free-text noise to filter, and no cross-source currency-coherence problem.
+Filtering is a curated allowlist keyed by `idProduct` (`cardmarket-map.json`,
+seeded from the current Summary sheet); adding a set is one entry. A spike tool
+(`scripts/cardmarket-spike.mjs`, `npm run cardmarket:spike`) validates the route
+before anything depends on it: `discover` name-matches the tracked products to
+the catalogue and drafts their ids for human review; `compare` derives today's
+Price and Set Value and prints them beside the hand-entered values so coverage
+and the **Set Value sum definition** (full singles-sum vs a holo/rare subset —
+the same calibration question TCGdex raised) can be pinned. Two things still to
+settle, both flagged as decisions, not blockers: (1) the exact JSON field names
+(the spike prints the detected schema on first run); (2) the GTC's *reuse /
+republishing* clause still bites a public price dashboard **regardless of how the
+data was obtained** — access looks clean, publishing needs the terms re-read
+before this becomes the source of record. Where a scheduled job **writes** —
+straight into Supabase `snapshots` vs a PR against `pokemon_data.xlsx` for a
+human merge — is deferred until the spike proves coverage. The Tradera + TCGdex
+plan below stays as the fallback and as a local-Swedish-market cross-check.
+
+The earlier unlock still holds for that fallback. The move was to stop forcing
+the two hard sources
 (Cardmarket's ToS-blocked prices; a paid, US-skewed PriceCharting) and instead
 pair two official free APIs: **Tradera for product prices** — the maintainer's
 actual Swedish market — and **TCGdex for set values**. Both are schedulable and
