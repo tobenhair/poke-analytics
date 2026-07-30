@@ -646,19 +646,35 @@ files don't carry. The `kpi` check flags these as the products where `trend` and
 `avg` **disagree by ≥20%**; on today's data only **2/37** trip it (Team Up,
 Astral Radiance), and they fail in *opposite* directions (Team Up's `trend`
 collapsed low, Astral's `avg` is stale-high), which is why no single field is
-right for all. Handling is two parts, not an auto-pick:
+right for all. Handling is three parts, not an auto-pick:
 1. **Flag + down-weight.** The scheduled job records a per-snapshot liquidity
    flag; the dashboard shows a "thin market — price unreliable" badge and the
    fair-price fit excludes/down-weights the row (reuse the existing
    `fairPriceTrusted` / advisory-guard machinery — a flagged value must never
    silently drive a verdict).
-2. **Manual `priceOverride`.** An optional per-product EUR number in
-   `cardmarket-map.json` forces the box Price for the flagged few (Set Value
-   stays derived); the spike honours it now (a `src=override` marker in
-   `compare`), and the ingestion job will too. Human judgement exactly where the
-   data is weak, automation everywhere else.
+2. **In-app manual override (decided: this is the primary control).** The
+   maintainer keeps control in the app, not a config file: a per-product **"price
+   locked / manual"** toggle in **Data Entry**, stored in Supabase
+   (`products.price_locked boolean`, admin-only RLS). When set, the admin types
+   the box price by hand (the normal Data Entry → snapshot path) and **the
+   ingestion job never overwrites that product's price** — Set Value still
+   auto-updates (it's derived and reliable). The `kpi` liquidity flag surfaces
+   *which* products to lock. The config `priceOverride` in `cardmarket-map.json`
+   stays as a simpler secondary lever the spike already honours (`src=override`).
+3. **Manual fetch (decided: yes).** The ingestion job is `workflow_dispatch`-
+   triggerable on demand in addition to the daily cron, so the maintainer can
+   refresh immediately — e.g. right after locking/correcting a price.
 A real listings/asking-price source (eBay EU Browse API) stays the optional
-future upgrade if flag+override proves insufficient.
+future upgrade if this proves insufficient.
+
+Ingestion-job build spec (when it ships): daily + manual `workflow_dispatch`
+Action → fetch the 3 bulk files → filter via `cardmarket-map.json` → per tracked
+product write a `snapshots` row (service-role key): **Set Value** = `avg30`
+all-cards expansion sum; **Price** = `trend` today (→ rolling 30-day mean of our
+own stored snapshots once ≥30 days exist), **unless** `products.price_locked` is
+true, in which case the price is left to the admin's manual entry; also persist
+the **liquidity flag**. Continues the existing series (accept the one-time
+US→EU basis step, mark the switchover date).
 
 The one workflow gotcha found and fixed: the Action's `both` must invoke the
 script's own `both` subcommand (one process), not run `discover` then `compare`
