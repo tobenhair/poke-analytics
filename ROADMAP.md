@@ -591,6 +591,96 @@ straight into Supabase `snapshots` vs a PR against `pokemon_data.xlsx` for a
 human merge — is deferred until the spike proves coverage. The Tradera + TCGdex
 plan below stays as the fallback and as a local-Swedish-market cross-check.
 
+**Spike results (validated Jul 2026, via the manual `cardmarket-spike.yml`
+Action).** The route works end to end: schema confirmed (`products_nonsingles_6`
+wraps a `products` array of 5,006 records with
+`idProduct`/`name`/`categoryName`/`idExpansion`; `price_guide_6` wraps
+`priceGuides`, 76,892 records, with `avg`/`low`/`trend`/…). Name-matching resolved
+**37/37** tracked products (the two tricky ones needed help: singularising names
+so "Mega Evolutions" stops colliding with the 2016 "Evolutions" set, and a
+`nameHint` pinning Shrouded Fable Booster Bundle to its Version 1 SKU). End-to-end
+`both` gives **37/37 price coverage**.
+
+**Canonical field: `avg30` (the 30-day average).** Chosen over `trend` so a
+short-term spike or dip can't jerk a value around; set once in
+`cardmarket-map.json` (`priceField`). **Important data limit found in the spike:
+Cardmarket populates the rolling averages `avg1`/`avg7`/`avg30` only for
+SINGLES — sealed products (BOX/ETB/BUNDLE) carry only `avg`/`low`/`trend`
+(their `avg1/7/30` are `null`).** So:
+- **Set Value** (sum of singles) genuinely uses `avg30` — the smoothing the
+  maintainer asked for applies here, where single-card outliers actually occur.
+- **Sealed Price** has no 30-day average in the file, so it uses `trend`
+  (Cardmarket's own smoothed trend indicator — already far steadier than a raw
+  spot; not `avg`, which for sealed skews to older, staler sales). The **true
+  30-day average for booster boxes must be computed from our own daily
+  snapshots** once the scheduled job is ingesting — a rolling mean over the
+  stored series, which also makes the window fully ours rather than Cardmarket's.
+  Until 30 days of history accumulate, `trend` is the interim price.
+
+Results on `avg30`:
+- **Price** — median `avg30 ÷ hand` ratio **0.91** (Cardmarket sits a few % under
+  the maintainer's hand prices but tightly, mostly 0.75–1.15). A solid,
+  slightly-conservative price of record. (`trend` gave the same 0.91.)
+- **Set Value** — median `singles-sum ÷ hand` ratio **1.17** on `avg30` (was
+  **1.22** on `trend`; the 30-day average visibly damps outliers, e.g. Obsidian
+  Flames 2.28→1.78). **Definition decided (maintainer, Jul 2026): Set Value is
+  the sum of *all* cards in the set** (lower rarities barely move it), so the
+  full expansion singles-sum *is* the canonical formula — **no subset, no scale
+  factor**. The residual ~17% gap is a **market-basis difference**: the historical
+  hand-entered Set Values were sourced from the **US market**, whereas
+  Cardmarket's sum is **EU/EUR**. Going forward the canonical Set Value is the
+  Cardmarket EUR all-cards `avg30` sum (`sum of avg30 over every single sharing
+  the expansion`). One consequence to design for: adopting the EU basis puts a
+  **one-time ~15–20% step-change** in the Set Value (and therefore SV/Booster)
+  **time series** at the switchover — old US-basis snapshots vs new EU-basis
+  ones. The bulk files are current-day only (no history to backfill), so the
+  honest options are: accept the discontinuity (everything is internally
+  consistent from the switch date on) and optionally mark the switchover, or
+  keep the old series frozen and start EU fresh. The same is true, but far
+  milder, for **Price** (median 0.91 — a small basis shift, not a break).
+
+**Thin-liquidity handling (decided Jul 2026).** All the price-guide fields are
+sales-based, so for a low-volume product few sales move `trend`/`avg` and the
+number goes stale — usually well below the current *listings*, which the bulk
+files don't carry. The `kpi` check flags these as the products where `trend` and
+`avg` **disagree by ≥20%**; on today's data only **2/37** trip it (Team Up,
+Astral Radiance), and they fail in *opposite* directions (Team Up's `trend`
+collapsed low, Astral's `avg` is stale-high), which is why no single field is
+right for all. Handling is three parts, not an auto-pick:
+1. **Flag + down-weight.** The scheduled job records a per-snapshot liquidity
+   flag; the dashboard shows a "thin market — price unreliable" badge and the
+   fair-price fit excludes/down-weights the row (reuse the existing
+   `fairPriceTrusted` / advisory-guard machinery — a flagged value must never
+   silently drive a verdict).
+2. **In-app manual override (decided: this is the primary control).** The
+   maintainer keeps control in the app, not a config file: a per-product **"price
+   locked / manual"** toggle in **Data Entry**, stored in Supabase
+   (`products.price_locked boolean`, admin-only RLS). When set, the admin types
+   the box price by hand (the normal Data Entry → snapshot path) and **the
+   ingestion job never overwrites that product's price** — Set Value still
+   auto-updates (it's derived and reliable). The `kpi` liquidity flag surfaces
+   *which* products to lock. The config `priceOverride` in `cardmarket-map.json`
+   stays as a simpler secondary lever the spike already honours (`src=override`).
+3. **Manual fetch (decided: yes).** The ingestion job is `workflow_dispatch`-
+   triggerable on demand in addition to the daily cron, so the maintainer can
+   refresh immediately — e.g. right after locking/correcting a price.
+A real listings/asking-price source (eBay EU Browse API) stays the optional
+future upgrade if this proves insufficient.
+
+Ingestion-job build spec (when it ships): daily + manual `workflow_dispatch`
+Action → fetch the 3 bulk files → filter via `cardmarket-map.json` → per tracked
+product write a `snapshots` row (service-role key): **Set Value** = `avg30`
+all-cards expansion sum; **Price** = `trend` today (→ rolling 30-day mean of our
+own stored snapshots once ≥30 days exist), **unless** `products.price_locked` is
+true, in which case the price is left to the admin's manual entry; also persist
+the **liquidity flag**. Continues the existing series (accept the one-time
+US→EU basis step, mark the switchover date).
+
+The one workflow gotcha found and fixed: the Action's `both` must invoke the
+script's own `both` subcommand (one process), not run `discover` then `compare`
+as two processes — the second process starts with no discovered ids and reports
+0 coverage.
+
 The earlier unlock still holds for that fallback. The move was to stop forcing
 the two hard sources
 (Cardmarket's ToS-blocked prices; a paid, US-skewed PriceCharting) and instead
