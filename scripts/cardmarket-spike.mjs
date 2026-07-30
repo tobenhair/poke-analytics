@@ -367,7 +367,13 @@ function latestFromWorkbook() {
     if (cmd === 'discover') await discover();
     else if (cmd === 'compare') await compare();
     else if (cmd === 'both') {
-      const resolved = await discover();
+      await discover(); // writes the draft with resolved ids
+      // Read the ids back from the draft on disk rather than an in-memory handoff.
+      const draft = JSON.parse(readFileSync(DRAFT_PATH, 'utf8'));
+      const resolved = {};
+      for (const [n, e] of Object.entries(draft.products)) {
+        resolved[n] = { idProduct: e.idProduct ?? null, idExpansion: e.idExpansion ?? null };
+      }
       console.log('\n========================================\n');
       await compare(resolved);
     } else {
