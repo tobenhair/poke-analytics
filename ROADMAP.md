@@ -599,28 +599,35 @@ wraps a `products` array of 5,006 records with
 **37/37** tracked products (the two tricky ones needed help: singularising names
 so "Mega Evolutions" stops colliding with the 2016 "Evolutions" set, and a
 `nameHint` pinning Shrouded Fable Booster Bundle to its Version 1 SKU). End-to-end
-`both` gives **37/37 price coverage** with:
-- **Price** — median `trend ÷ hand` ratio **0.91** (Cardmarket trend runs a few
-  % under the maintainer's hand prices but tightly, mostly 0.75–1.15). Cardmarket
-  `trend` is a solid, slightly-conservative price of record.
-- **Set Value** — median `singles-sum ÷ hand` ratio **1.22** (the full
-  expansion singles-sum runs ~20% above the hand values, mostly clustered
-  1.0–1.6). **Definition decided (maintainer, Jul 2026): Set Value is the sum of
-  *all* cards in the set** (lower rarities barely move it), so the full
-  expansion singles-sum *is* the canonical formula — **no subset, no scale
-  factor**. The ~22% gap is a **market-basis difference**: the historical
+`both` gives **37/37 price coverage**.
+
+**Canonical field: `avg30` (the 30-day average), for both Price and Set Value**
+— chosen over the current `trend` so a short-term spike or dip on any single
+card (or on the sealed product) can't jerk a value around; the 30-day window is
+the smoothing. It is set once in `cardmarket-map.json` (`priceField`) and applied
+to the sealed price *and* to every single in the Set Value sum. Where a product
+is too new to have a 30-day average the code falls back to `trend`/`avg`. Results
+on `avg30`:
+- **Price** — median `avg30 ÷ hand` ratio **0.91** (Cardmarket sits a few % under
+  the maintainer's hand prices but tightly, mostly 0.75–1.15). A solid,
+  slightly-conservative price of record. (`trend` gave the same 0.91.)
+- **Set Value** — median `singles-sum ÷ hand` ratio **1.17** on `avg30` (was
+  **1.22** on `trend`; the 30-day average visibly damps outliers, e.g. Obsidian
+  Flames 2.28→1.78). **Definition decided (maintainer, Jul 2026): Set Value is
+  the sum of *all* cards in the set** (lower rarities barely move it), so the
+  full expansion singles-sum *is* the canonical formula — **no subset, no scale
+  factor**. The residual ~17% gap is a **market-basis difference**: the historical
   hand-entered Set Values were sourced from the **US market**, whereas
   Cardmarket's sum is **EU/EUR**. Going forward the canonical Set Value is the
-  Cardmarket EUR all-cards sum (`sum of trend over every single sharing the
-  expansion`). One consequence to design for: adopting the EU basis puts a
-  **one-time ~20% step-change** in the Set Value (and therefore SV/Booster)
+  Cardmarket EUR all-cards `avg30` sum (`sum of avg30 over every single sharing
+  the expansion`). One consequence to design for: adopting the EU basis puts a
+  **one-time ~15–20% step-change** in the Set Value (and therefore SV/Booster)
   **time series** at the switchover — old US-basis snapshots vs new EU-basis
   ones. The bulk files are current-day only (no history to backfill), so the
   honest options are: accept the discontinuity (everything is internally
   consistent from the switch date on) and optionally mark the switchover, or
   keep the old series frozen and start EU fresh. The same is true, but far
-  milder, for **Price** (median 0.91 — Cardmarket `trend` sits ~9% under the
-  hand prices; adopting it is a small basis shift, not a break).
+  milder, for **Price** (median 0.91 — a small basis shift, not a break).
 
 The one workflow gotcha found and fixed: the Action's `both` must invoke the
 script's own `both` subcommand (one process), not run `discover` then `compare`
