@@ -601,13 +601,23 @@ so "Mega Evolutions" stops colliding with the 2016 "Evolutions" set, and a
 `nameHint` pinning Shrouded Fable Booster Bundle to its Version 1 SKU). End-to-end
 `both` gives **37/37 price coverage**.
 
-**Canonical field: `avg30` (the 30-day average), for both Price and Set Value**
-— chosen over the current `trend` so a short-term spike or dip on any single
-card (or on the sealed product) can't jerk a value around; the 30-day window is
-the smoothing. It is set once in `cardmarket-map.json` (`priceField`) and applied
-to the sealed price *and* to every single in the Set Value sum. Where a product
-is too new to have a 30-day average the code falls back to `trend`/`avg`. Results
-on `avg30`:
+**Canonical field: `avg30` (the 30-day average).** Chosen over `trend` so a
+short-term spike or dip can't jerk a value around; set once in
+`cardmarket-map.json` (`priceField`). **Important data limit found in the spike:
+Cardmarket populates the rolling averages `avg1`/`avg7`/`avg30` only for
+SINGLES — sealed products (BOX/ETB/BUNDLE) carry only `avg`/`low`/`trend`
+(their `avg1/7/30` are `null`).** So:
+- **Set Value** (sum of singles) genuinely uses `avg30` — the smoothing the
+  maintainer asked for applies here, where single-card outliers actually occur.
+- **Sealed Price** has no 30-day average in the file, so it uses `trend`
+  (Cardmarket's own smoothed trend indicator — already far steadier than a raw
+  spot; not `avg`, which for sealed skews to older, staler sales). The **true
+  30-day average for booster boxes must be computed from our own daily
+  snapshots** once the scheduled job is ingesting — a rolling mean over the
+  stored series, which also makes the window fully ours rather than Cardmarket's.
+  Until 30 days of history accumulate, `trend` is the interim price.
+
+Results on `avg30`:
 - **Price** — median `avg30 ÷ hand` ratio **0.91** (Cardmarket sits a few % under
   the maintainer's hand prices but tightly, mostly 0.75–1.15). A solid,
   slightly-conservative price of record. (`trend` gave the same 0.91.)
