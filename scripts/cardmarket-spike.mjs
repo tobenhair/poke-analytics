@@ -22,6 +22,9 @@
 //             can be calibrated before trusting it.
 //   both      discover then compare in one pass, chaining the discovered ids in
 //             memory — no hand-copy into the map needed for a quick end-to-end look.
+//   kpi       discover then compare the sealed-price candidate fields
+//             (trend / avg / low) against the currently stored price, to choose
+//             the best box-price KPI. (avg1/7/30 are singles-only; not for sealed.)
 //
 // This is deliberately OUTSIDE `npm test` (it needs network). Run it where
 // downloads.s3.cardmarket.com is reachable (CI or a dev machine).
@@ -360,6 +363,87 @@ function latestFromWorkbook() {
   return byName;
 }
 
+// Read the resolved ids back from the draft discover wrote to disk.
+function resolvedFromDraft() {
+  const draft = JSON.parse(readFileSync(DRAFT_PATH, 'utf8'));
+  const resolved = {};
+  for (const [n, e] of Object.entries(draft.products)) {
+    resolved[n] = { idProduct: e.idProduct ?? null, idExpansion: e.idExpansion ?? null };
+  }
+  return resolved;
+}
+
+// ── kpi ───────────────────────────────────────────────────
+// Compares the sealed-price candidate fields (trend / avg / low) against the
+// currently stored (hand-entered) price, so the maintainer can judge which KPI
+// best represents the box price before committing to it. (Only these three
+// exist for sealed products; avg1/7/30 are singles-only.) Note: this measures
+// closeness to the stored values on ONE day — a stability/outlier test needs
+// several days of snapshots, which the scheduled job will provide.
+async function priceKpi(resolvedIds) {
+  const map = readMap();
+  const pg = await loadFile('priceGuide');
+  const pgu = toRecords(pg);
+  console.log('\nSCHEMA:');
+  printSchema('priceGuide', pgu.key, pgu.records);
+  const pgById = new Map();
+  for (const r of pgu.records) {
+    const id = pick(r, FIELD_ALIASES.id);
+    if (id != null) pgById.set(String(id), r);
+  }
+  const hand = latestFromWorkbook();
+  const num = (v) => (v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
+  const acc = { trend: [], avg: [], low: [] };
+  const rows = [];
+  for (const [name] of Object.entries(map.products)) {
+    const id = resolvedIds[name]?.idProduct;
+    const rec = id != null ? pgById.get(String(id)) : null;
+    const h = num(hand[name]?.price);
+    const t = rec ? num(rec.trend) : null;
+    const a = rec ? num(rec.avg) : null;
+    const l = rec ? num(rec.low) : null;
+    const ratio = (x) => (x != null && h ? +(x / h).toFixed(2) : '—');
+    if (h) {
+      if (t != null) acc.trend.push(t / h);
+      if (a != null) acc.avg.push(a / h);
+      if (l != null) acc.low.push(l / h);
+    }
+    rows.push({
+      product: name,
+      hand: h ?? '—',
+      trend: t ?? '—',
+      'trend/hand': ratio(t),
+      avg: a ?? '—',
+      'avg/hand': ratio(a),
+      low: l ?? '—',
+      'low/hand': ratio(l),
+    });
+  }
+  console.table(rows);
+  const median = (xs) => {
+    const s = xs.slice().sort((a, b) => a - b);
+    if (!s.length) return null;
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  };
+  // Spread = mean |ratio − median|; smaller = the KPI tracks the stored values
+  // more consistently (a rough proxy; a real stability test wants a time series).
+  const spread = (xs, med) => (xs.length ? xs.reduce((s, x) => s + Math.abs(x - med), 0) / xs.length : null);
+  console.log('\nCandidate box-price KPI vs your stored price (ratio = Cardmarket ÷ stored):');
+  for (const k of ['trend', 'avg', 'low']) {
+    const med = median(acc[k]);
+    const sp = med != null ? spread(acc[k], med) : null;
+    console.log(
+      `  ${k.padEnd(6)} median ratio ${med != null ? med.toFixed(2) : 'n/a'}  ·  ` +
+        `spread ±${sp != null ? sp.toFixed(2) : 'n/a'}  (n=${acc[k].length})`,
+    );
+  }
+  console.log(
+    'Closest median to 1.00 = least biased vs your values; smallest spread = most\n' +
+      'consistent. A true short-term-outlier test needs several daily snapshots.',
+  );
+}
+
 // ── main ──
 (async () => {
   try {
@@ -367,16 +451,14 @@ function latestFromWorkbook() {
     else if (cmd === 'compare') await compare();
     else if (cmd === 'both') {
       await discover(); // writes the draft with resolved ids
-      // Read the ids back from the draft on disk rather than an in-memory handoff.
-      const draft = JSON.parse(readFileSync(DRAFT_PATH, 'utf8'));
-      const resolved = {};
-      for (const [n, e] of Object.entries(draft.products)) {
-        resolved[n] = { idProduct: e.idProduct ?? null, idExpansion: e.idExpansion ?? null };
-      }
       console.log('\n========================================\n');
-      await compare(resolved);
+      await compare(resolvedFromDraft());
+    } else if (cmd === 'kpi') {
+      await discover();
+      console.log('\n========================================\n');
+      await priceKpi(resolvedFromDraft());
     } else {
-      console.log('Usage: node scripts/cardmarket-spike.mjs <discover|compare|both> [--refresh] [--price-field trend]');
+      console.log('Usage: node scripts/cardmarket-spike.mjs <discover|compare|both|kpi> [--refresh] [--price-field trend]');
       process.exit(2);
     }
   } catch (err) {
