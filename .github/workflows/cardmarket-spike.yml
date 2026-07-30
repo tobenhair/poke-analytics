@@ -34,15 +34,11 @@ jobs:
           PRICE_FIELD: ${{ inputs.price_field }}
         run: |
           set -o pipefail
-          run_discover() { node scripts/cardmarket-spike.mjs discover; }
-          run_compare()  { node scripts/cardmarket-spike.mjs compare --price-field "$PRICE_FIELD"; }
-          {
-            case "$CMD" in
-              discover) run_discover ;;
-              compare)  run_compare ;;
-              both)     run_discover; echo; echo '========================================'; echo; run_compare ;;
-            esac
-          } 2>&1 | tee spike-output.txt
+          # One process per invocation: `both` must be the script's own subcommand,
+          # not discover+compare as two processes (compare would then start fresh
+          # with no discovered ids and report 0 coverage). --price-field is ignored
+          # by discover, so it is safe to pass for every command.
+          node scripts/cardmarket-spike.mjs "$CMD" --price-field "$PRICE_FIELD" 2>&1 | tee spike-output.txt
       - name: Publish output to job summary
         if: always()
         run: |

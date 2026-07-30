@@ -334,12 +334,6 @@ async function compare(resolvedIds = null) {
       'constant, a single subset/scale reproduces your definition — pin it and it becomes canonical.\n' +
       'If it is all over the place, Set Value likely needs a card subset (holos/rares), not the full sum.',
   );
-  const firstName = Object.keys(map.products)[0];
-  console.log(
-    `[debug] resolvedIds=${resolvedIds ? Object.keys(resolvedIds).length + ' keys' : 'NULL'} | ` +
-      `firstName=${JSON.stringify(firstName)} | ` +
-      `lookup=${resolvedIds ? JSON.stringify(resolvedIds[firstName]) : 'n/a'}`,
-  );
 }
 
 // Latest snapshot Price/Set Value per product from the workbook.
