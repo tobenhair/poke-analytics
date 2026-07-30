@@ -639,6 +639,27 @@ Results on `avg30`:
   keep the old series frozen and start EU fresh. The same is true, but far
   milder, for **Price** (median 0.91 — a small basis shift, not a break).
 
+**Thin-liquidity handling (decided Jul 2026).** All the price-guide fields are
+sales-based, so for a low-volume product few sales move `trend`/`avg` and the
+number goes stale — usually well below the current *listings*, which the bulk
+files don't carry. The `kpi` check flags these as the products where `trend` and
+`avg` **disagree by ≥20%**; on today's data only **2/37** trip it (Team Up,
+Astral Radiance), and they fail in *opposite* directions (Team Up's `trend`
+collapsed low, Astral's `avg` is stale-high), which is why no single field is
+right for all. Handling is two parts, not an auto-pick:
+1. **Flag + down-weight.** The scheduled job records a per-snapshot liquidity
+   flag; the dashboard shows a "thin market — price unreliable" badge and the
+   fair-price fit excludes/down-weights the row (reuse the existing
+   `fairPriceTrusted` / advisory-guard machinery — a flagged value must never
+   silently drive a verdict).
+2. **Manual `priceOverride`.** An optional per-product EUR number in
+   `cardmarket-map.json` forces the box Price for the flagged few (Set Value
+   stays derived); the spike honours it now (a `src=override` marker in
+   `compare`), and the ingestion job will too. Human judgement exactly where the
+   data is weak, automation everywhere else.
+A real listings/asking-price source (eBay EU Browse API) stays the optional
+future upgrade if flag+override proves insufficient.
+
 The one workflow gotcha found and fixed: the Action's `both` must invoke the
 script's own `both` subcommand (one process), not run `discover` then `compare`
 as two processes — the second process starts with no discovered ids and reports

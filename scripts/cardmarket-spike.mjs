@@ -285,8 +285,12 @@ async function compare(resolvedIds = null) {
       rows.push({ product: name, note: 'no idProduct — run discover' });
       continue;
     }
+    // A manual priceOverride in the map wins over the fetched field — the escape
+    // hatch for thin-liquidity products whose sales-based price is unreliable
+    // (see the low-liquidity flag in `kpi`). Set Value stays derived.
+    const override = entry.priceOverride != null && entry.priceOverride !== '' ? Number(entry.priceOverride) : null;
     const pgRec = pgById.get(String(idInfo.idProduct));
-    const price = pgRec ? priceOf(pgRec) : null;
+    const price = override != null ? override : pgRec ? priceOf(pgRec) : null;
 
     let setValue = null;
     let nSingles = null;
@@ -311,6 +315,7 @@ async function compare(resolvedIds = null) {
     rows.push({
       product: name,
       cmPrice: price != null ? +price.toFixed(2) : '—',
+      src: override != null ? 'override' : priceField,
       handPrice: h.price ?? '—',
       priceRatio: price != null && h.price ? +(price / h.price).toFixed(2) : '—',
       cmSetValue: setValue ?? '—',

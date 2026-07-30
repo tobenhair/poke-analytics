@@ -816,6 +816,10 @@
   .drill-ingredients { display: flex; flex-direction: column; gap: 8px; }
   .drill-ingredient { display: flex; justify-content: space-between; gap: 14px; font-family: 'DM Mono', monospace; font-size: var(--text-sm); padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
   .drill-ingredient .lbl { color: var(--muted); }
+  /* Marketplace links (Cardmarket / eBay) — reuse .text-link; just space the icon and lay them in a row. */
+  .drill-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin: 16px 0 4px; }
+  .drill-links .k { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+  .drill-links .text-link { gap: 7px; }
   .score-bar-wrap { display: flex; align-items: center; gap: 10px; }
   .score-bar-bg { flex: 1; height: 3px; background: rgba(255,255,255,0.08); border-radius: var(--radius-pill); min-width: 56px; overflow: hidden; }
   .score-bar-fill { height: 100%; border-radius: var(--radius-pill); transition: width 0.6s var(--ease); }
@@ -1781,6 +1785,7 @@
     <h2 id="drill-title">Product</h2>
     <div id="drill-verdict" class="drill-verdict"></div>
     <div id="drill-stats" class="drill-stats"></div>
+    <div id="drill-links" class="drill-links"></div>
 
     <div class="modal-section">
       <h3>Price history · fair-price band</h3>
@@ -5415,10 +5420,38 @@ function renderDrill() {
     stat('Wtd. Score', fmt(p.score, 1), `age weight ${fmt(p.ageWeight, 2)}`),
   ].join('');
 
+  renderDrillLinks(p);
   renderDrillPriceChart(p);
   renderDrillSvbChart(p);
   renderDrillIngredients(p, m);
   renderDrillHolding(p);
+}
+
+// Direct links to the source marketplaces so the user can go check listings /
+// buy. Cardmarket uses the tracked product URL when we have one (the Links
+// sheet / cloud), else a name search; eBay is always a name search. Built via
+// DOM APIs so a stored URL can't break out of the attribute.
+function renderDrillLinks(p) {
+  const wrap = document.getElementById('drill-links');
+  wrap.innerHTML = '';
+  const cmUrl = productUrls[p.name]
+    || `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(p.name)}`;
+  const ebayUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent('Pokemon ' + p.name)}`;
+  const label = document.createElement('span');
+  label.className = 'k';
+  label.textContent = 'Buy / view';
+  wrap.appendChild(label);
+  for (const [text, url] of [['Cardmarket', cmUrl], ['eBay', ebayUrl]]) {
+    const a = document.createElement('a');
+    a.className = 'text-link';
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.setAttribute('aria-label', `View ${p.name} on ${text} (opens in a new tab)`);
+    a.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>';
+    a.appendChild(document.createTextNode(text));
+    wrap.appendChild(a);
+  }
 }
 
 function renderDrillPriceChart(p) {
