@@ -236,6 +236,14 @@ async function discover() {
 async function compare(resolvedIds = null) {
   const map = readMap();
   const idsFor = (name, entry) => resolvedIds?.[name] || entry;
+  if (resolvedIds) {
+    const keys = Object.keys(resolvedIds);
+    const firstName = Object.keys(map.products)[0];
+    console.log(
+      `[debug] resolvedIds: ${keys.length} keys; firstMapName=${JSON.stringify(firstName)}; ` +
+        `lookup=${JSON.stringify(resolvedIds[firstName])}; firstKey=${JSON.stringify(keys[0])}`,
+    );
+  }
   const priceField = opt('price-field', map.priceField || 'trend');
   const [pg, singles] = await Promise.all([loadFile('priceGuide'), loadFile('singles')]);
 
