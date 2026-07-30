@@ -25,8 +25,8 @@
 //   kpi       discover then compare the sealed-price candidate fields
 //             (trend / avg / low) against the currently stored price, to choose
 //             the best box-price KPI. (avg1/7/30 are singles-only; not for sealed.)
-//   svcheck   discover then compare Set Value under avg30 vs low, to see how much
-//             graded-card sales inflate the singles sum (per-set low/avg30).
+//   svcheck   discover then compare Set Value under avg30 vs trend vs low, to see
+//             how much graded/chase sales inflate the singles sum (per-set low/avg30).
 //
 // This is deliberately OUTSIDE `npm test` (it needs network). Run it where
 // downloads.s3.cardmarket.com is reachable (CI or a dev machine).
@@ -448,10 +448,11 @@ async function fieldsProbe(resolvedIds) {
 }
 
 // ── svcheck ───────────────────────────────────────────────
-// Compares the Set Value (singles sum) computed with `avg30` vs `low`. The
-// point: avg/avg30/trend pool in graded-card sales, which inflate the sum on
-// chase-heavy sets, whereas `low` is the raw-card floor. `low/avg30` per set is
-// the size of that graded-card effect; both are shown against the stored value.
+// Compares the Set Value (singles sum) under `avg30` vs `trend` vs `low`. The
+// point: avg/avg30 pool in graded/chase-card sales, which inflate the sum on
+// established sets, whereas `low` is the raw-card floor (too low) and `trend`
+// is the smoothed typical price (the middle option). `low/avg30` per set is the
+// size of the graded effect; all three are shown against the stored value.
 async function svCheck(resolvedIds) {
   const map = readMap();
   const [pg, singles] = await Promise.all([loadFile('priceGuide'), loadFile('singles')]);
@@ -486,6 +487,7 @@ async function svCheck(resolvedIds) {
     return c ? +s.toFixed(2) : null;
   };
   const accA = [];
+  const accT = [];
   const accL = [];
   const accLA = [];
   const rows = [];
@@ -494,12 +496,14 @@ async function svCheck(resolvedIds) {
     if (exp == null) { rows.push({ product: name, note: 'no idExpansion — run discover' }); continue; }
     const ids = singlesByExp.get(String(exp)) || [];
     const svAvg30 = sumField(ids, 'avg30');
+    const svTrend = sumField(ids, 'trend');
     const svLow = sumField(ids, 'low');
     const h = num(hand[name]?.setVal);
     const ratio = (x) => (x != null && h ? +(x / h).toFixed(2) : '—');
     const lowVsAvg = svLow != null && svAvg30 ? +(svLow / svAvg30).toFixed(2) : '—';
     if (h) {
       if (svAvg30 != null) accA.push(svAvg30 / h);
+      if (svTrend != null) accT.push(svTrend / h);
       if (svLow != null) accL.push(svLow / h);
     }
     if (svLow != null && svAvg30) accLA.push(svLow / svAvg30);
@@ -507,9 +511,11 @@ async function svCheck(resolvedIds) {
       product: name,
       handSV: h ?? '—',
       svAvg30: svAvg30 ?? '—',
-      'avg30/hand': ratio(svAvg30),
+      svTrend: svTrend ?? '—',
       svLow: svLow ?? '—',
-      'low/hand': ratio(svLow),
+      'avg30/h': ratio(svAvg30),
+      'trend/h': ratio(svTrend),
+      'low/h': ratio(svLow),
       'low/avg30': lowVsAvg,
       nSingles: ids.length,
     });
@@ -522,15 +528,17 @@ async function svCheck(resolvedIds) {
     return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
   };
   const mA = median(accA);
+  const mT = median(accT);
   const mL = median(accL);
   const mLA = median(accLA);
-  console.log('\nSet Value basis — singles sum ÷ your stored Set Value:');
+  console.log('\nSet Value basis — singles sum ÷ your stored Set Value (closest to 1.00 wins):');
   console.log(`  avg30 : median ${mA != null ? mA.toFixed(2) : 'n/a'}  (n=${accA.length})`);
+  console.log(`  trend : median ${mT != null ? mT.toFixed(2) : 'n/a'}  (n=${accT.length})`);
   console.log(`  low   : median ${mL != null ? mL.toFixed(2) : 'n/a'}  (n=${accL.length})`);
-  console.log(`  low as a share of avg30 (graded-card effect): median ${mLA != null ? mLA.toFixed(2) : 'n/a'}`);
+  console.log(`  low as a share of avg30 (graded/chase-card effect): median ${mLA != null ? mLA.toFixed(2) : 'n/a'}`);
   console.log(
     'The lower `low/avg30` is, the more graded/expensive cards were padding the\n' +
-      'avg30 sum for that set — those are the sets where the basis choice matters most.',
+      'avg30 sum for that set. `trend` is the smoothed typical price — the middle option.',
   );
 }
 

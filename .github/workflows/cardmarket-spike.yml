@@ -13,7 +13,7 @@ on:
         # focus: kpi = box-price KPIs + liquidity flags; fields = raw price-field
         # coverage + language check; discover = id matches only; compare = data
         # using ids already saved in the map.
-        description: 'What to run: both = ids + Price + Set Value (default) · kpi = box-price KPIs + thin-market flags · svcheck = Set Value avg30 vs low (graded-card effect) · fields = field coverage + language · discover = id matches only'
+        description: 'What to run: both = ids + Price + Set Value (default) · kpi = box-price KPIs + thin-market flags · svcheck = Set Value avg30 vs trend vs low (graded-card effect) · fields = field coverage + language · discover = id matches only'
         type: choice
         default: both
         options: [both, kpi, svcheck, fields, discover, compare]
