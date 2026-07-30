@@ -395,6 +395,8 @@ async function priceKpi(resolvedIds) {
   const num = (v) => (v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
   const acc = { trend: [], avg: [], low: [] };
   const rows = [];
+  const thin = []; // low-liquidity: trend and avg disagree, so the number is unreliable
+  const THIN_GAP = 0.2; // |avg − trend| ≥ 20% of the higher of the two
   for (const [name] of Object.entries(map.products)) {
     const id = resolvedIds[name]?.idProduct;
     const rec = id != null ? pgById.get(String(id)) : null;
@@ -407,6 +409,13 @@ async function priceKpi(resolvedIds) {
       if (t != null) acc.trend.push(t / h);
       if (a != null) acc.avg.push(a / h);
       if (l != null) acc.low.push(l / h);
+    }
+    if (t != null && a != null) {
+      const hi = Math.max(a, t);
+      const gap = hi > 0 ? Math.abs(a - t) / hi : 0;
+      if (gap >= THIN_GAP) {
+        thin.push({ product: name, trend: t, avg: a, low: l ?? '—', 'gap%': Math.round(gap * 100), stored: h ?? '—' });
+      }
     }
     rows.push({
       product: name,
@@ -442,6 +451,17 @@ async function priceKpi(resolvedIds) {
     'Closest median to 1.00 = least biased vs your values; smallest spread = most\n' +
       'consistent. A true short-term-outlier test needs several daily snapshots.',
   );
+
+  // Low-liquidity flag: when trend and avg disagree by ≥20%, few sales are moving
+  // the sales-based fields, so the value is unreliable (and usually well below the
+  // current listings/asking prices). These are the products to flag/override, not
+  // auto-trust — a single field can't be right for all of them (trend is stale-low
+  // on some, avg is stale-high on others).
+  console.log(
+    `\nLow-liquidity flags (|avg − trend| ≥ ${Math.round(THIN_GAP * 100)}% — thin sales, ` +
+      `number unreliable, likely under current listings): ${thin.length}/${acc.trend.length}`,
+  );
+  if (thin.length) console.table(thin);
 }
 
 // ── main ──
