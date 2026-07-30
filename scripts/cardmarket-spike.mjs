@@ -378,6 +378,73 @@ function resolvedFromDraft() {
   return resolved;
 }
 
+// ── fields ────────────────────────────────────────────────
+// Answers two data questions about the tracked BOXES: which price-guide fields
+// are actually populated (non-empty) for sealed products, and whether the
+// catalogue / price guide carry any language dimension or same-name variants.
+async function fieldsProbe(resolvedIds) {
+  const map = readMap();
+  const [pg, nonsingles] = await Promise.all([loadFile('priceGuide'), loadFile('nonsingles')]);
+  const pgu = toRecords(pg);
+  const nsu = toRecords(nonsingles);
+  const pgById = new Map();
+  for (const r of pgu.records) {
+    const id = pick(r, FIELD_ALIASES.id);
+    if (id != null) pgById.set(String(id), r);
+  }
+  const PRICE_FIELDS = ['avg', 'low', 'trend', 'avg1', 'avg7', 'avg30', 'avg-holo', 'low-holo', 'trend-holo', 'avg1-holo', 'avg7-holo', 'avg30-holo'];
+  const nonEmpty = (v) => v != null && v !== '';
+
+  // Which price fields are populated across the tracked boxes.
+  const coverage = Object.fromEntries(PRICE_FIELDS.map((f) => [f, 0]));
+  const perProduct = [];
+  let n = 0;
+  for (const [name] of Object.entries(map.products)) {
+    const id = resolvedIds[name]?.idProduct;
+    const rec = id != null ? pgById.get(String(id)) : null;
+    if (!rec) continue;
+    n += 1;
+    for (const f of PRICE_FIELDS) if (nonEmpty(rec[f])) coverage[f] += 1;
+    perProduct.push({ product: name, 'non-empty fields': PRICE_FIELDS.filter((f) => nonEmpty(rec[f])).join(', ') });
+  }
+  console.log(`\nPrice-guide field coverage across ${n} tracked boxes (non-empty count):`);
+  console.table(PRICE_FIELDS.map((f) => ({ field: f, present: `${coverage[f]}/${n}` })));
+  console.log('\nPer-box non-empty price fields:');
+  console.table(perProduct);
+
+  // Language dimension?
+  const LANG_KEYS = ['language', 'idLanguage', 'languageId', 'lang'];
+  const hasLang = (recs) => LANG_KEYS.filter((k) => recs.some((r) => k in r));
+  console.log('\nRecord keys:');
+  console.log('  price-guide:', Object.keys(pgu.records[0] || {}).join(', '));
+  console.log('  catalogue  :', Object.keys(nsu.records[0] || {}).join(', '));
+  console.log(`  language field in price-guide: ${hasLang(pgu.records).join(', ') || 'none'}`);
+  console.log(`  language field in catalogue  : ${hasLang(nsu.records).join(', ') || 'none'}`);
+
+  // Same-name variants (a booster box appearing more than once in the catalogue
+  // would be the signature of language / version SKUs).
+  const byNorm = new Map();
+  for (const r of nsu.records) {
+    const nm = pick(r, FIELD_ALIASES.name);
+    if (!nm) continue;
+    const k = norm(nm);
+    if (!byNorm.has(k)) byNorm.set(k, []);
+    byNorm.get(k).push(r);
+  }
+  const variants = [];
+  for (const [name, entry] of Object.entries(map.products)) {
+    const hits = byNorm.get(norm(entry.nameHint || name)) || [];
+    if (hits.length > 1) {
+      for (const h of hits) {
+        variants.push({ tracked: name, idProduct: pick(h, FIELD_ALIASES.id), idExpansion: pick(h, FIELD_ALIASES.expansion), catalogueName: pick(h, FIELD_ALIASES.name) });
+      }
+    }
+  }
+  console.log('\nSame-name catalogue variants for tracked boxes (possible language/version SKUs):');
+  if (variants.length) console.table(variants);
+  else console.log('  none — each tracked box matches a single catalogue product.');
+}
+
 // ── kpi ───────────────────────────────────────────────────
 // Compares the sealed-price candidate fields (trend / avg / low) against the
 // currently stored (hand-entered) price, so the maintainer can judge which KPI
@@ -482,8 +549,12 @@ async function priceKpi(resolvedIds) {
       await discover();
       console.log('\n========================================\n');
       await priceKpi(resolvedFromDraft());
+    } else if (cmd === 'fields') {
+      await discover();
+      console.log('\n========================================\n');
+      await fieldsProbe(resolvedFromDraft());
     } else {
-      console.log('Usage: node scripts/cardmarket-spike.mjs <discover|compare|both|kpi> [--refresh] [--price-field trend]');
+      console.log('Usage: node scripts/cardmarket-spike.mjs <discover|compare|both|kpi|fields> [--refresh] [--price-field trend]');
       process.exit(2);
     }
   } catch (err) {

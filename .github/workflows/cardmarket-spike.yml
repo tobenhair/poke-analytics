@@ -11,7 +11,7 @@ on:
         description: 'Which subcommand to run'
         type: choice
         default: discover
-        options: [discover, compare, both, kpi]
+        options: [discover, compare, both, kpi, fields]
       price_field:
         description: 'Price guide field for Price and Set Value (avg30 = 30-day average, the canonical basis; also trend/avg/avg7/low)'
         type: string
