@@ -23,10 +23,17 @@ create table if not exists public.products (
   type           text not null check (type in ('BOX','ETB','BUNDLE')),
   release        date not null,
   cardmarket_url text,
+  -- When true, the automated Cardmarket ingestion job leaves this product's
+  -- Price alone (the admin sets it by hand in Data Entry) — the manual override
+  -- for thin-liquidity products whose sales-based price is unreliable. Set Value
+  -- is still auto-updated. Written by the admin only (see RLS below).
+  price_locked   boolean not null default false,
   created_at     timestamptz not null default now(),
   -- product names are unique per user (matches the app's duplicate-name rule)
   unique (user_id, name)
 );
+-- Idempotent add for deployments created before price_locked existed.
+alter table public.products add column if not exists price_locked boolean not null default false;
 
 -- ── Snapshots: one Price / Set Value reading per product per date ──
 create table if not exists public.snapshots (
@@ -36,9 +43,16 @@ create table if not exists public.snapshots (
   snapshot_date date not null,
   price         numeric check (price is null or price >= 0),
   set_value     numeric check (set_value is null or set_value >= 0),
+  -- Advisory flag set by the ingestion job when the Cardmarket sales-based price
+  -- is unreliable (thin liquidity: the guide's trend and avg disagree sharply).
+  -- The client can badge it and the fair-price fit can down-weight it; never a
+  -- hard gate.
+  low_liquidity boolean not null default false,
   -- the app upserts on this pair (onConflict: 'product_id,snapshot_date')
   unique (product_id, snapshot_date)
 );
+-- Idempotent add for deployments created before low_liquidity existed.
+alter table public.snapshots add column if not exists low_liquidity boolean not null default false;
 
 create index if not exists snapshots_product_idx on public.snapshots (product_id);
 
@@ -178,6 +192,11 @@ create policy "admin writes snapshots" on public.snapshots
   for all to authenticated
   using (public.is_admin())
   with check (public.is_admin());
+-- Note: the automated Cardmarket ingestion job writes products/snapshots with
+-- the SERVICE-ROLE key, which bypasses RLS — so it needs no policy here. It sets
+-- user_id to the admin UUID to keep every product row owned by the admin (what
+-- the shared-read policies above assume). `products.price_locked` is written by
+-- the admin through Data Entry, covered by "admin writes products" above.
 
 -- ── user_settings: each user reads/writes only their own row ──
 drop policy if exists "own settings" on public.user_settings;

@@ -561,9 +561,22 @@ here is one item that no finding touched.
   changelog, a public "how the numbers work" methodology page (the trust
   document for a tool that claims to know what's fairly priced).
 
-## Automated ingestion — now viable (Cardmarket bulk files; Tradera + TCGdex as fallback)
+## Automated ingestion — BUILT (Cardmarket bulk files; Tradera + TCGdex as fallback)
 
-**New lead route (Jul 2026): Cardmarket's official bulk catalogue downloads.**
+**Shipped (Jul 2026).** The server-side ingestion job now exists: the shared,
+unit-tested core in `scripts/cardmarket-lib.mjs` (fetch → name-match →
+derive) + `scripts/cardmarket-ingest.mjs` (upserts today's `snapshots` row via
+the Supabase service-role key) + the daily/manual `cardmarket-ingest.yml`
+Action, with `products.price_locked` / `snapshots.low_liquidity` added to the
+schema. It writes Set Value = `avg30` all-cards singles sum and Box Price =
+`trend` (skipped when a product is price-locked), flags thin liquidity, and has
+a secret-free `--dry-run`. **Still to wire (fast follow):** the in-app **Data
+Entry price-lock toggle** (the schema column and job already honour it; the UI
+control that flips it is the remaining piece), and the box **rolling 30-day
+average** once ≥30 days of snapshots exist (interim: `trend`). Design detail
+below is retained as the record of why each choice was made.
+
+**Lead route: Cardmarket's official bulk catalogue downloads.**
 The maintainer located Cardmarket's published productCatalog files — served
 without auth from `downloads.s3.cardmarket.com` for idGame 6 (Pokémon):
 `products_nonsingles_6.json` (sealed products), `products_singles_6.json`

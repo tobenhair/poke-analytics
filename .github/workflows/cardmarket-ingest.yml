@@ -1,0 +1,63 @@
+name: Cardmarket ingest
+
+# Writes today's Price + Set Value snapshot for every tracked product into
+# Supabase from Cardmarket's daily bulk files. Runs on a daily schedule and can
+# be triggered by hand (with a safe dry-run). See scripts/cardmarket-ingest.mjs
+# and ROADMAP "Automated ingestion".
+#
+# Requires two repository secrets before the real (non-dry-run) job can write:
+#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  (Settings → Secrets → Actions)
+on:
+  schedule:
+    - cron: '17 4 * * *' # daily ~04:17 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run — derive + print, write nothing (no secrets needed)'
+        type: boolean
+        default: true
+      refresh:
+        description: 'Bypass the 12h fetch cache'
+        type: boolean
+        default: false
+
+concurrency:
+  group: cardmarket-ingest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    name: Ingest snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run ingest
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          REFRESH: ${{ inputs.refresh }}
+        run: |
+          set -o pipefail
+          ARGS=""
+          # inputs.* are empty on the scheduled run → a real write.
+          [ "$DRY_RUN" = "true" ] && ARGS="$ARGS --dry-run"
+          [ "$REFRESH" = "true" ] && ARGS="$ARGS --refresh"
+          node scripts/cardmarket-ingest.mjs $ARGS 2>&1 | tee ingest-output.txt
+      - name: Publish output to job summary
+        if: always()
+        run: |
+          {
+            echo '## Cardmarket ingest'
+            echo '```'
+            cat ingest-output.txt 2>/dev/null || echo '(no output captured)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -220,8 +220,8 @@ inputs live in the database:
 
 | Table | Purpose | Access | Key columns |
 |-------|---------|--------|-------------|
-| `products` | one row per tracked product | read: all signed-in · write: admin | `name`, `type`, `release`, `cardmarket_url` |
-| `snapshots` | one row per product per date | read: all signed-in · write: admin | `product_id`, `snapshot_date`, `price`, `set_value` |
+| `products` | one row per tracked product | read: all signed-in · write: admin | `name`, `type`, `release`, `cardmarket_url`, `price_locked` |
+| `snapshots` | one row per product per date | read: all signed-in · write: admin | `product_id`, `snapshot_date`, `price`, `set_value`, `low_liquidity` |
 | `user_settings` | per-user preferences | read/write: own row | `age_threshold`, `currency` |
 | `holdings` | per-user portfolio | read/write: own row | `product_id`, `quantity`, `cost_basis` |
 | `alerts` | per-user price alerts | read/write: own row | `product_id`, `alert_type` (`fixed`/`fair`), `target_price` (fixed), `below_pct` (fair) |
@@ -234,3 +234,45 @@ rather than the mismatch surfacing later as an admin who cannot save.
 
 Note `currency` is display-only: **€ is the canonical stored unit** for every
 price and set value, and the Portfolio tab converts at render time.
+
+## Optional: automated Cardmarket ingestion
+
+Instead of entering prices by hand each month, a scheduled job can write the
+daily snapshot for you from Cardmarket's official bulk catalogue files (native
+EUR). It runs entirely outside the app — a GitHub Action, `service-role` key,
+never the browser — and feeds the same `snapshots` table the app already reads.
+See `ROADMAP.md` → *Automated ingestion* for the full rationale.
+
+**What it writes, per tracked product, once a day:**
+
+- **Set Value** = the sum of every single in the set (`avg30`, the 30-day
+  average) — the all-cards EU value.
+- **Box Price** = Cardmarket's `trend` — *unless* the product is **price-locked**
+  (see below), in which case the price is left to your manual entry.
+- **`low_liquidity`** — an advisory flag set when the sales-based price is
+  unreliable (the guide's `trend` and `avg` disagree by ≥20%, i.e. thin volume).
+
+**Manual control for thin-liquidity products.** Set `products.price_locked =
+true` (a per-product toggle in Data Entry) and the job never overwrites that
+product's price — you set it by hand — while Set Value still auto-updates. It's
+the override for grails whose few sales make the automated price untrustworthy.
+
+**Setup:**
+
+1. Apply the schema (`supabase/schema.sql`) so `products.price_locked` and
+   `snapshots.low_liquidity` exist (both idempotent `add column if not exists`).
+2. Add two repository secrets (Settings → Secrets and variables → Actions):
+   - `SUPABASE_URL` — your project URL.
+   - `SUPABASE_SERVICE_ROLE_KEY` — Settings → API → `service_role` key. **Secret,
+     server-only** — it bypasses RLS; never put it in the client.
+3. Seed the `products` rows first (Data Entry → Save to cloud, or the workbook).
+   The job writes snapshots for products that already exist; it warns and skips
+   any tracked product missing from Supabase.
+4. The **Cardmarket ingest** workflow (`.github/workflows/cardmarket-ingest.yml`)
+   then runs daily, and you can trigger it by hand — leave the **dry run** input
+   on to preview (derive + print, writes nothing, needs no secrets), or turn it
+   off to write. Locally: `npm run cardmarket:ingest -- --dry-run`.
+
+The derivation is the shared, unit-tested core in `scripts/cardmarket-lib.mjs`
+(`tests/unit/cardmarket-lib.test.mjs` pins the numbers), so the automated values
+match what the read-only `cardmarket:spike` checks reported.
