@@ -25,6 +25,8 @@
 //   kpi       discover then compare the sealed-price candidate fields
 //             (trend / avg / low) against the currently stored price, to choose
 //             the best box-price KPI. (avg1/7/30 are singles-only; not for sealed.)
+//   svcheck   discover then compare Set Value under avg30 vs low, to see how much
+//             graded-card sales inflate the singles sum (per-set low/avg30).
 //
 // This is deliberately OUTSIDE `npm test` (it needs network). Run it where
 // downloads.s3.cardmarket.com is reachable (CI or a dev machine).
@@ -445,6 +447,93 @@ async function fieldsProbe(resolvedIds) {
   else console.log('  none — each tracked box matches a single catalogue product.');
 }
 
+// ── svcheck ───────────────────────────────────────────────
+// Compares the Set Value (singles sum) computed with `avg30` vs `low`. The
+// point: avg/avg30/trend pool in graded-card sales, which inflate the sum on
+// chase-heavy sets, whereas `low` is the raw-card floor. `low/avg30` per set is
+// the size of that graded-card effect; both are shown against the stored value.
+async function svCheck(resolvedIds) {
+  const map = readMap();
+  const [pg, singles] = await Promise.all([loadFile('priceGuide'), loadFile('singles')]);
+  const pgu = toRecords(pg);
+  const su = toRecords(singles);
+  console.log('\nSCHEMA:');
+  printSchema('priceGuide', pgu.key, pgu.records);
+  const pgById = new Map();
+  for (const r of pgu.records) {
+    const id = pick(r, FIELD_ALIASES.id);
+    if (id != null) pgById.set(String(id), r);
+  }
+  const singlesByExp = new Map();
+  for (const r of su.records) {
+    const exp = pick(r, FIELD_ALIASES.expansion);
+    const id = pick(r, FIELD_ALIASES.id);
+    if (exp == null || id == null) continue;
+    if (!singlesByExp.has(String(exp))) singlesByExp.set(String(exp), []);
+    singlesByExp.get(String(exp)).push(String(id));
+  }
+  const hand = latestFromWorkbook();
+  const num = (v) => (v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
+  const sumField = (ids, field) => {
+    let s = 0;
+    let c = 0;
+    for (const id of ids) {
+      const r = pgById.get(id);
+      if (!r) continue;
+      const v = num(r[field]);
+      if (v != null) { s += v; c += 1; }
+    }
+    return c ? +s.toFixed(2) : null;
+  };
+  const accA = [];
+  const accL = [];
+  const accLA = [];
+  const rows = [];
+  for (const [name] of Object.entries(map.products)) {
+    const exp = resolvedIds[name]?.idExpansion;
+    if (exp == null) { rows.push({ product: name, note: 'no idExpansion — run discover' }); continue; }
+    const ids = singlesByExp.get(String(exp)) || [];
+    const svAvg30 = sumField(ids, 'avg30');
+    const svLow = sumField(ids, 'low');
+    const h = num(hand[name]?.setVal);
+    const ratio = (x) => (x != null && h ? +(x / h).toFixed(2) : '—');
+    const lowVsAvg = svLow != null && svAvg30 ? +(svLow / svAvg30).toFixed(2) : '—';
+    if (h) {
+      if (svAvg30 != null) accA.push(svAvg30 / h);
+      if (svLow != null) accL.push(svLow / h);
+    }
+    if (svLow != null && svAvg30) accLA.push(svLow / svAvg30);
+    rows.push({
+      product: name,
+      handSV: h ?? '—',
+      svAvg30: svAvg30 ?? '—',
+      'avg30/hand': ratio(svAvg30),
+      svLow: svLow ?? '—',
+      'low/hand': ratio(svLow),
+      'low/avg30': lowVsAvg,
+      nSingles: ids.length,
+    });
+  }
+  console.table(rows);
+  const median = (xs) => {
+    const s = xs.slice().sort((a, b) => a - b);
+    if (!s.length) return null;
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  };
+  const mA = median(accA);
+  const mL = median(accL);
+  const mLA = median(accLA);
+  console.log('\nSet Value basis — singles sum ÷ your stored Set Value:');
+  console.log(`  avg30 : median ${mA != null ? mA.toFixed(2) : 'n/a'}  (n=${accA.length})`);
+  console.log(`  low   : median ${mL != null ? mL.toFixed(2) : 'n/a'}  (n=${accL.length})`);
+  console.log(`  low as a share of avg30 (graded-card effect): median ${mLA != null ? mLA.toFixed(2) : 'n/a'}`);
+  console.log(
+    'The lower `low/avg30` is, the more graded/expensive cards were padding the\n' +
+      'avg30 sum for that set — those are the sets where the basis choice matters most.',
+  );
+}
+
 // ── kpi ───────────────────────────────────────────────────
 // Compares the sealed-price candidate fields (trend / avg / low) against the
 // currently stored (hand-entered) price, so the maintainer can judge which KPI
@@ -553,8 +642,12 @@ async function priceKpi(resolvedIds) {
       await discover();
       console.log('\n========================================\n');
       await fieldsProbe(resolvedFromDraft());
+    } else if (cmd === 'svcheck') {
+      await discover();
+      console.log('\n========================================\n');
+      await svCheck(resolvedFromDraft());
     } else {
-      console.log('Usage: node scripts/cardmarket-spike.mjs <discover|compare|both|kpi|fields> [--refresh] [--price-field trend]');
+      console.log('Usage: node scripts/cardmarket-spike.mjs <discover|compare|both|kpi|fields|svcheck> [--refresh] [--price-field trend]');
       process.exit(2);
     }
   } catch (err) {
