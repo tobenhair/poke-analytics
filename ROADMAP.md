@@ -630,7 +630,14 @@ Results on `avg30`:
   hand-entered Set Values were sourced from the **US market**, whereas
   Cardmarket's sum is **EU/EUR**. Going forward the canonical Set Value is the
   Cardmarket EUR all-cards `avg30` sum (`sum of avg30 over every single sharing
-  the expansion`). One consequence to design for: adopting the EU basis puts a
+  the expansion`). **Basis validated** (`svcheck`, Jul 2026) against the
+  alternatives and `avg30` **confirmed**: `trend` ≈ `avg30` (median 1.20 vs 1.17×
+  the stored values — both carry the chase/graded-card pool, so `trend` is not a
+  middle ground), while `low` is the raw *floor* (median 0.58×, i.e. the single
+  cheapest copy of every card — it understates each set by ~half and is wrong for
+  "what your raw pulls are worth"). No price-guide field lands between the floor
+  and the average, so `avg30` (the typical raw-market price) is the defensible
+  basis; trimming outlier cards was considered and declined. One consequence to design for: adopting the EU basis puts a
   **one-time ~15–20% step-change** in the Set Value (and therefore SV/Booster)
   **time series** at the switchover — old US-basis snapshots vs new EU-basis
   ones. The bulk files are current-day only (no history to backfill), so the
