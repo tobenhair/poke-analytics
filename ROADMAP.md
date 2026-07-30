@@ -604,11 +604,23 @@ so "Mega Evolutions" stops colliding with the 2016 "Evolutions" set, and a
   % under the maintainer's hand prices but tightly, mostly 0.75–1.15). Cardmarket
   `trend` is a solid, slightly-conservative price of record.
 - **Set Value** — median `singles-sum ÷ hand` ratio **1.22** (the full
-  expansion singles-sum overshoots hand values by ~20%, mostly clustered
-  1.0–1.6 with a few outliers). So the full sum is close but not the definition:
-  the next calibration step is a **subset (chase/holo/rare) or a ~0.82 scale
-  factor** to reproduce the curated Set Value — exactly the open question this
-  spike existed to answer, now quantified.
+  expansion singles-sum runs ~20% above the hand values, mostly clustered
+  1.0–1.6). **Definition decided (maintainer, Jul 2026): Set Value is the sum of
+  *all* cards in the set** (lower rarities barely move it), so the full
+  expansion singles-sum *is* the canonical formula — **no subset, no scale
+  factor**. The ~22% gap is a **market-basis difference**: the historical
+  hand-entered Set Values were sourced from the **US market**, whereas
+  Cardmarket's sum is **EU/EUR**. Going forward the canonical Set Value is the
+  Cardmarket EUR all-cards sum (`sum of trend over every single sharing the
+  expansion`). One consequence to design for: adopting the EU basis puts a
+  **one-time ~20% step-change** in the Set Value (and therefore SV/Booster)
+  **time series** at the switchover — old US-basis snapshots vs new EU-basis
+  ones. The bulk files are current-day only (no history to backfill), so the
+  honest options are: accept the discontinuity (everything is internally
+  consistent from the switch date on) and optionally mark the switchover, or
+  keep the old series frozen and start EU fresh. The same is true, but far
+  milder, for **Price** (median 0.91 — Cardmarket `trend` sits ~9% under the
+  hand prices; adopting it is a small basis shift, not a break).
 
 The one workflow gotcha found and fixed: the Action's `both` must invoke the
 script's own `both` subcommand (one process), not run `discover` then `compare`
