@@ -270,6 +270,10 @@ async function compare(resolvedIds = null) {
   // Latest hand-entered Price / Set Value per product, for the diff.
   const hand = latestFromWorkbook();
 
+  const has = (rec) => rec && rec[priceField] != null && rec[priceField] !== '';
+  let sealedTotal = 0;
+  let sealedWithField = 0;
+  let sampleSealed = null;
   const rows = [];
   for (const [name, entry] of Object.entries(map.products)) {
     const idInfo = idsFor(name, entry);
@@ -279,6 +283,11 @@ async function compare(resolvedIds = null) {
     }
     const pgRec = pgById.get(String(idInfo.idProduct));
     const price = pgRec ? priceOf(pgRec) : null;
+    if (pgRec) {
+      sealedTotal += 1;
+      if (has(pgRec)) sealedWithField += 1;
+      if (!sampleSealed) sampleSealed = pgRec;
+    }
 
     let setValue = null;
     let nSingles = null;
@@ -334,6 +343,11 @@ async function compare(resolvedIds = null) {
       'constant, a single subset/scale reproduces your definition — pin it and it becomes canonical.\n' +
       'If it is all over the place, Set Value likely needs a card subset (holos/rares), not the full sum.',
   );
+  console.log(
+    `[field check] sealed products carrying "${priceField}": ${sealedWithField}/${sealedTotal} ` +
+      `(the rest fell back to ${FIELD_ALIASES.price.join('/')}).`,
+  );
+  if (sampleSealed) console.log('[field check] sample sealed price record:', JSON.stringify(sampleSealed));
 }
 
 // Latest snapshot Price/Set Value per product from the workbook.
