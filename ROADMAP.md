@@ -591,6 +591,30 @@ straight into Supabase `snapshots` vs a PR against `pokemon_data.xlsx` for a
 human merge — is deferred until the spike proves coverage. The Tradera + TCGdex
 plan below stays as the fallback and as a local-Swedish-market cross-check.
 
+**Spike results (validated Jul 2026, via the manual `cardmarket-spike.yml`
+Action).** The route works end to end: schema confirmed (`products_nonsingles_6`
+wraps a `products` array of 5,006 records with
+`idProduct`/`name`/`categoryName`/`idExpansion`; `price_guide_6` wraps
+`priceGuides`, 76,892 records, with `avg`/`low`/`trend`/…). Name-matching resolved
+**37/37** tracked products (the two tricky ones needed help: singularising names
+so "Mega Evolutions" stops colliding with the 2016 "Evolutions" set, and a
+`nameHint` pinning Shrouded Fable Booster Bundle to its Version 1 SKU). End-to-end
+`both` gives **37/37 price coverage** with:
+- **Price** — median `trend ÷ hand` ratio **0.91** (Cardmarket trend runs a few
+  % under the maintainer's hand prices but tightly, mostly 0.75–1.15). Cardmarket
+  `trend` is a solid, slightly-conservative price of record.
+- **Set Value** — median `singles-sum ÷ hand` ratio **1.22** (the full
+  expansion singles-sum overshoots hand values by ~20%, mostly clustered
+  1.0–1.6 with a few outliers). So the full sum is close but not the definition:
+  the next calibration step is a **subset (chase/holo/rare) or a ~0.82 scale
+  factor** to reproduce the curated Set Value — exactly the open question this
+  spike existed to answer, now quantified.
+
+The one workflow gotcha found and fixed: the Action's `both` must invoke the
+script's own `both` subcommand (one process), not run `discover` then `compare`
+as two processes — the second process starts with no discovered ids and reports
+0 coverage.
+
 The earlier unlock still holds for that fallback. The move was to stop forcing
 the two hard sources
 (Cardmarket's ToS-blocked prices; a paid, US-skewed PriceCharting) and instead
