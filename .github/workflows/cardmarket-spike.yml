@@ -13,9 +13,9 @@ on:
         default: discover
         options: [discover, compare, both]
       price_field:
-        description: 'Price guide field to use for compare (trend/avg/avg7/avg30/low)'
+        description: 'Price guide field for Price and Set Value (avg30 = 30-day average, the canonical basis; also trend/avg/avg7/low)'
         type: string
-        default: trend
+        default: avg30
 
 jobs:
   spike:
