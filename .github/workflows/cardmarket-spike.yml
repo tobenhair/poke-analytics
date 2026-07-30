@@ -8,10 +8,15 @@ on:
   workflow_dispatch:
     inputs:
       command:
-        description: 'Which subcommand to run'
+        # Default to `both` so a plain "Run workflow" shows the actual data
+        # (ids + Price + Set Value), not just the id matches. Pick another to
+        # focus: kpi = box-price KPIs + liquidity flags; fields = raw price-field
+        # coverage + language check; discover = id matches only; compare = data
+        # using ids already saved in the map.
+        description: 'What to run: both = ids + Price + Set Value (default) · kpi = box-price KPIs + thin-market flags · fields = field coverage + language · discover = id matches only'
         type: choice
-        default: discover
-        options: [discover, compare, both, kpi, fields]
+        default: both
+        options: [both, kpi, fields, discover, compare]
       price_field:
         description: 'Price guide field for Price and Set Value (avg30 = 30-day average, the canonical basis; also trend/avg/avg7/low)'
         type: string
