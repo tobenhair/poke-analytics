@@ -243,25 +243,27 @@ daily snapshot for you from Cardmarket's official bulk catalogue files (native
 EUR). It feeds the same `snapshots` table the app already reads, and never runs
 in the browser. See `ROADMAP.md` → *Automated ingestion* for the full rationale.
 
-**Architecture — precompute + Edge Function.** The work is split in two so the
-daily job can live inside Supabase despite the Edge runtime's ~256 MB memory
-limit:
+**Architecture — two Edge Functions, both inside Supabase.** No GitHub Action.
+The work is split so the daily job stays within the Edge runtime's ~256 MB
+memory limit:
 
-- **Daily snapshot — a Supabase Edge Function** (`supabase/functions/cardmarket-daily`),
-  scheduled by `pg_cron` (`supabase/cardmarket-cron.sql`). It fetches only the
-  smaller `price_guide` bulk file and, using ids the DB already holds, writes
-  today's Price + Set Value. Fully Supabase-hosted.
-- **Occasional catalog sync — a GitHub Action** (`.github/workflows/cardmarket-ingest.yml`
-  → `scripts/cardmarket-ingest.mjs --refresh-catalog`). This is the memory-heavy
-  half: it reads Cardmarket's large *singles* bulk file and caches, per
-  expansion, the single-card ids that make up its Set Value into
-  `public.cardmarket_expansion_singles` — plus each product's
-  `cardmarket_expansion_id`. Run weekly / when you add sets, where memory is
-  plentiful. The Edge Function then never has to load that file.
+- **Daily snapshot — `supabase/functions/cardmarket-daily`**, scheduled by
+  `pg_cron` (`supabase/cardmarket-cron.sql`). It fetches only the smaller
+  `price_guide` bulk file and, using ids the DB already holds, writes today's
+  Price + Set Value.
+- **On-demand catalog refresh — `supabase/functions/cardmarket-catalog-refresh`**,
+  triggered from Data Entry (the **Sync catalog** button, admin-only). It caches,
+  per expansion id on your products, the single-card ids that make up Set Value
+  into `public.cardmarket_expansion_singles`, so the daily function never loads
+  the huge singles file. It **streams** that file (reads it chunk by chunk, one
+  record at a time) so it too stays inside the memory limit no matter the file
+  size, and reports each set's card count + max single price so a mis-categorised
+  sealed item would show up. Run it after adding a product/set.
 
-Both halves derive numbers identically (the Edge Function mirrors the
-unit-tested `scripts/cardmarket-lib.mjs`), so the daily values match the catalog
-sync's.
+Both derive numbers identically to the unit-tested `scripts/cardmarket-lib.mjs`,
+so the automated values match. (`scripts/cardmarket-ingest.mjs` mirrors the same
+work on the command line — `--dry-run`, `--backfill-ids`, `--refresh-catalog` —
+as a local fallback, but production needs no GitHub.)
 
 **What the daily job writes, per tracked product:**
 
@@ -272,18 +274,17 @@ sync's.
 - **`low_liquidity`** — an advisory flag set when the sales-based price is
   unreliable (the guide's `trend` and `avg` disagree by ≥20%, i.e. thin volume).
 
-**Which Cardmarket product each row maps to.** The job is **DB-driven**: the
-tracked set is your `products` table. Each product carries a
-**`cardmarket_product_id`** (the Cardmarket `idProduct`), entered in the Data
-Entry **"CM ID"** column and saved with **☁ Save to cloud**. When set, the job
-resolves that product's price and Set Value directly from the id — no
-name-matching — and derives the expansion for the singles sum from the
-catalogue. A product with no id falls back to matching by name. To fill them all
-in one go, run the workflow once with the **backfill-ids** mode (or
-`npm run cardmarket:ingest -- --backfill-ids`): it writes the confident match
-onto every product that lacks an id, then stops. (The **refresh-catalog** mode
-below also fills a missing id as it goes.) `cardmarket-map.json` is now only for
-overrides (`nameHint`, `priceOverride`) and the offline dry-run allowlist.
+**Which Cardmarket product/set each row maps to.** The job is **DB-driven**: the
+tracked set is your `products` table. Each product carries two Cardmarket ids you
+enter in Data Entry and save with **☁ Save to cloud**:
+- **`cardmarket_product_id`** (the **"CM ID"** column) — the Cardmarket
+  `idProduct`; the daily job reads this product's Box Price directly from it.
+- **`cardmarket_expansion_id`** (the **"Exp ID"** column) — the set whose singles
+  make up Set Value. The catalog refresh uses it to cache that set's card list.
+
+Find both on the product's / set's Cardmarket page. `cardmarket-map.json` is now
+only for overrides (`nameHint`, `priceOverride`) and the offline dry-run
+allowlist used by the local `scripts/cardmarket-ingest.mjs` fallback.
 
 **Manual control for thin-liquidity products.** Set `products.price_locked =
 true` (a per-product toggle in Data Entry) and the job never overwrites that
@@ -296,29 +297,26 @@ the override for grails whose few sales make the automated price untrustworthy.
    `products.cardmarket_expansion_id`, `products.price_locked`,
    `snapshots.low_liquidity` and the `cardmarket_expansion_singles` table exist
    (all idempotent).
-2. Add two repository secrets (Settings → Secrets and variables → Actions) for
-   the GitHub catalog-sync job:
-   - `SUPABASE_URL` — your project URL.
-   - `SUPABASE_SERVICE_ROLE_KEY` — Settings → API → `service_role` key. **Secret,
-     server-only** — it bypasses RLS; never put it in the client.
-3. Seed the `products` rows first (Data Entry → Save to cloud, or the workbook).
-   The jobs write snapshots for products that already exist; a tracked product
-   missing from Supabase is warned and skipped.
-4. **Run the catalog sync once** — the GitHub **Cardmarket catalog sync**
-   workflow with the **refresh-catalog** mode (or
-   `npm run cardmarket:ingest -- --refresh-catalog` locally). It fills each
-   product's Cardmarket id + expansion id and caches the expansion singles.
-   Spot-check the summary; enter any it couldn't resolve by hand in the Data
-   Entry "CM ID" column. It then re-runs weekly on its own.
-5. **Deploy the daily Edge Function:** `supabase functions deploy cardmarket-daily`
-   (it uses the auto-injected `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`).
-   Test it once: `supabase functions invoke cardmarket-daily` — it returns a JSON
-   summary of what it wrote.
-6. **Schedule it:** run `supabase/cardmarket-cron.sql` in the SQL editor (fill in
-   your project ref and store the `service_role` key in Vault as instructed).
-   `pg_cron` then invokes the function daily at ~04:17 UTC.
+2. Seed the `products` rows (Data Entry → Save to cloud, or the workbook), and
+   fill each product's **CM ID** and **Exp ID** in Data Entry, then **Save to
+   cloud**. A product missing from Supabase is skipped by the jobs.
+3. **Deploy both Edge Functions** (they use the auto-injected `SUPABASE_URL` /
+   `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY`):
+   ```
+   supabase functions deploy cardmarket-daily
+   supabase functions deploy cardmarket-catalog-refresh
+   ```
+4. **Cache the card lists:** in Data Entry, click **Sync catalog** (or
+   `supabase functions invoke cardmarket-catalog-refresh`). It streams the
+   singles file and caches each Exp ID's card list; the response reports each
+   set's card count + max single price — sanity-check those. Re-run it whenever
+   you add a set.
+5. **Schedule the daily job:** run `supabase/cardmarket-cron.sql` in the SQL
+   editor (fill in your project ref and store the `service_role` key in Vault as
+   instructed). `pg_cron` then invokes `cardmarket-daily` daily at ~04:17 UTC.
+   Test once: `supabase functions invoke cardmarket-daily`.
 
 The derivation is the unit-tested core in `scripts/cardmarket-lib.mjs`
-(`tests/unit/cardmarket-lib.test.mjs` pins the numbers); the Edge Function
-mirrors the same math, so the daily values match the catalog sync's and what the
-read-only `cardmarket:spike` checks reported.
+(`tests/unit/cardmarket-lib.test.mjs` pins the numbers); both Edge Functions
+mirror the same math, so the daily values match what the read-only
+`cardmarket:spike` checks reported.

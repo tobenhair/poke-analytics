@@ -572,18 +572,20 @@ Edge Function** so the daily job runs inside Supabase despite the Edge runtime's
   scheduled by `pg_cron` via `supabase/cardmarket-cron.sql`). Reads the products
   + precomputed catalog from the DB, fetches only the smaller `price_guide` file,
   and upserts today's `snapshots` row with the service-role key.
-- **Occasional catalog sync** — `scripts/cardmarket-ingest.mjs --refresh-catalog`
-  (GitHub Action `cardmarket-ingest.yml`, weekly + manual, in a memory-rich
-  runner). Reads the large *singles* file once and caches each expansion's
-  single-card ids into `public.cardmarket_expansion_singles` (+ writes
-  `cardmarket_expansion_id` / fills a missing `cardmarket_product_id`), so the
-  Edge Function never loads it.
+- **On-demand catalog refresh** — `supabase/functions/cardmarket-catalog-refresh`
+  (Edge Function, triggered from Data Entry's **Sync catalog** button). It
+  **streams** the large *singles* file (chunk by chunk, one record at a time, so
+  it fits the memory limit at any size) and caches each expansion's single-card
+  ids into `public.cardmarket_expansion_singles`, so the daily function never
+  loads it. The admin enters `cardmarket_product_id` (**CM ID**) and
+  `cardmarket_expansion_id` (**Exp ID**) by hand in Data Entry. No GitHub Action.
 
-Both derive via the shared, unit-tested `scripts/cardmarket-lib.mjs` (the Edge
-Function mirrors its math), writing Set Value = `avg30` all-cards singles sum and
-Box Price = `trend` (skipped when `products.price_locked`), flagging thin
-liquidity (`snapshots.low_liquidity`). The Node script also has `--backfill-ids`
-and a secret-free `--dry-run`. **Still to wire (fast follow):** the in-app **Data
+Both Edge Functions derive via the same math as the unit-tested
+`scripts/cardmarket-lib.mjs`, writing Set Value = `avg30` all-cards singles sum
+and Box Price = `trend` (skipped when `products.price_locked`), flagging thin
+liquidity (`snapshots.low_liquidity`). `scripts/cardmarket-ingest.mjs` mirrors
+both halves on the command line (`--dry-run`, `--backfill-ids`,
+`--refresh-catalog`) as a local fallback. **Still to wire (fast follow):** the in-app **Data
 Entry price-lock toggle** (the schema column and jobs already honour it; the UI
 control that flips it is the remaining piece), and the box **rolling 30-day
 average** once ≥30 days of snapshots exist (interim: `trend`). Design detail

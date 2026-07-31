@@ -12,13 +12,13 @@
 // by name. `cardmarket-map.json` is now just OVERRIDES (nameHint / priceOverride)
 // plus the offline allowlist used by --dry-run when there are no DB creds.
 //
-// PRECOMPUTE half of the "precompute + Edge Function" split: in production the
-// DAILY snapshot is written by the Supabase Edge Function
-// (supabase/functions/cardmarket-daily), scheduled by pg_cron. This Node script's
-// primary scheduled role is the occasional, memory-heavy CATALOG SYNC
-// (--refresh-catalog): it reads the large singles bulk file and caches each
-// expansion's single-card ids into Supabase so the Edge Function never has to.
-// It can also still write a snapshot directly (manual/backfill fallback).
+// LOCAL / MANUAL FALLBACK. In production BOTH halves now run inside Supabase:
+// the DAILY snapshot is the `cardmarket-daily` Edge Function (scheduled by
+// pg_cron), and the occasional CATALOG SYNC is the `cardmarket-catalog-refresh`
+// Edge Function (triggered from Data Entry). This script mirrors that work for
+// the command line — handy for a dry-run preview, a one-time --backfill-ids, or
+// running --refresh-catalog / a snapshot by hand if you'd rather not use the
+// functions. Its derive math is the same shared, tested core.
 //
 // Rules (shared with the Edge Function):
 //   • Set Value always auto-updates (avg30 all-cards singles sum).

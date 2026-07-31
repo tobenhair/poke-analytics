@@ -1561,6 +1561,7 @@
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10.6 13.4a3.6 3.6 0 0 0 5.1 0l2.9-2.9a3.6 3.6 0 0 0-5.1-5.1l-1.5 1.5"/><path d="M13.4 10.6a3.6 3.6 0 0 0-5.1 0l-2.9 2.9a3.6 3.6 0 0 0 5.1 5.1l1.5-1.5"/></symbol>
   <symbol id="i-cloud-up" viewBox="0 0 24 24"><path d="M7.2 19h9.6a3.9 3.9 0 0 0 .3-7.8A5.7 5.7 0 0 0 6.5 11.4 3.9 3.9 0 0 0 7.2 19z"/><path d="M12 17v-5M9.8 14 12 11.8 14.2 14"/></symbol>
   <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v10.6M8 10.8l4 4 4-4"/><path d="M4.5 18.5v1.5h15v-1.5"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4v4h-4"/></symbol>
   <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="15" rx="2"/><path d="M3.5 10.2h17M8 3.5v4M16 3.5v4"/></symbol>
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5.2"/><circle cx="12" cy="8.1" r="0.9" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.5" fill="currentColor" stroke="none"/></symbol>
@@ -2531,6 +2532,7 @@
               <tr>
                 <th></th>
                 <th>CM ID</th>
+                <th>Exp ID</th>
                 <th>Product</th>
                 <th>Type</th>
                 <th>Last Price (€)</th>
@@ -2546,6 +2548,10 @@
         <div style="padding: 14px 20px; border-top: 1px solid var(--border); display:flex; gap:10px; justify-content:flex-end;">
           <button class="export-btn sb-only admin-only" id="save-cloud-btn" style="width:auto; padding: 8px 20px; background:var(--accent3); color:var(--on-accent);">
             <svg class="icon" aria-hidden="true"><use href="#i-cloud-up"/></svg> Save to cloud
+          </button>
+          <button class="export-btn sb-only admin-only" id="sync-catalog-btn" style="width:auto; padding: 8px 20px;"
+            title="Cache each set's card list from Cardmarket so the daily job can sum Set Value">
+            <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg> Sync catalog
           </button>
           <button class="export-btn" id="export-xlsx-btn" style="width:auto; padding: 8px 20px;">
             <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg> Export updated .xlsx
@@ -2609,6 +2615,10 @@
               <div class="field-group">
                 <div class="field-label">Cardmarket product ID <span style="color:var(--muted); font-size: var(--text-2xs);">(optional — for auto-ingestion)</span></div>
                 <input class="field-input" id="new-product-cmid" type="number" min="0" step="1" placeholder="e.g. 568765">
+              </div>
+              <div class="field-group">
+                <div class="field-label">Cardmarket expansion ID <span style="color:var(--muted); font-size: var(--text-2xs);">(optional — for Set Value)</span></div>
+                <input class="field-input" id="new-product-expid" type="number" min="0" step="1" placeholder="e.g. 5801">
               </div>
               <div id="add-product-error" style="font-family:'DM Mono',monospace; font-size: var(--text-sm); color:var(--accent2); display:none;"></div>
               <button class="add-btn" id="add-product-btn">+ Add Product</button>
@@ -4738,6 +4748,10 @@ let productUrls = {};
 // Cardmarket product ids (idProduct): { productName -> number } — used by the
 // automated ingestion job to fetch prices; edited in Data Entry, saved to cloud.
 let productCmIds = {};
+// Cardmarket expansion ids (idExpansion): { productName -> number } — the set
+// whose singles make up Set Value. The catalog-refresh Edge Function reads these
+// to know which expansions' card lists to cache. Edited in Data Entry, saved to cloud.
+let productExpIds = {};
 // Holds new products added this session (not yet in products array)
 let pendingProducts = [];
 
@@ -4949,6 +4963,12 @@ function renderEntryTable() {
           data-product="${p.name}"
           value="${productCmIds[p.name] != null ? productCmIds[p.name] : ''}">
       </td>
+      <td style="width:90px;">
+        <input class="entry-input expid-input" type="number" min="0" step="1" placeholder="exp"
+          aria-label="${p.name} — Cardmarket expansion ID"
+          data-product="${p.name}"
+          value="${productExpIds[p.name] != null ? productExpIds[p.name] : ''}">
+      </td>
       <td class="entry-product-name" title="${p.name}">${p.name}</td>
       <td><span class="type-badge type-${p.type}">${p.type}</span></td>
       <td class="entry-last-price">${last.price != null ? '€' + last.price.toLocaleString('de-DE') : '—'}</td>
@@ -5016,6 +5036,16 @@ function renderEntryTable() {
       const raw = e.target.value.trim();
       if (raw === '') delete productCmIds[name];
       else productCmIds[name] = parseInt(raw, 10);
+    });
+  });
+
+  // Cardmarket expansion ID cell — edits the productExpIds map. Integer id or blank.
+  tbody.querySelectorAll('.expid-input').forEach(input => {
+    input.addEventListener('input', e => {
+      const name = e.target.dataset.product;
+      const raw = e.target.value.trim();
+      if (raw === '') delete productExpIds[name];
+      else productExpIds[name] = parseInt(raw, 10);
     });
   });
 
@@ -5221,12 +5251,17 @@ document.getElementById('add-product-btn').addEventListener('click', () => {
   const cmidVal = document.getElementById('new-product-cmid').value.trim();
   if (cmidVal) productCmIds[name] = parseInt(cmidVal, 10);
 
+  // Store Cardmarket expansion id if provided
+  const expidVal = document.getElementById('new-product-expid').value.trim();
+  if (expidVal) productExpIds[name] = parseInt(expidVal, 10);
+
   // Clear form
   document.getElementById('new-product-name').value  = '';
   document.getElementById('new-product-price').value = '';
   document.getElementById('new-product-sv').value    = '';
   document.getElementById('new-product-url').value   = '';
   document.getElementById('new-product-cmid').value  = '';
+  document.getElementById('new-product-expid').value = '';
 
   renderEntryTable();
 });
@@ -5971,11 +6006,13 @@ async function loadFromSupabase() {
 
   sbProductIds = {};
   productCmIds = {};
+  productExpIds = {};
   const newHistoricalData = {};
   const newLinks = {};
   const newProducts = productList.map(p => {
     sbProductIds[p.name] = p.id;
     if (p.cardmarket_product_id != null) productCmIds[p.name] = p.cardmarket_product_id;
+    if (p.cardmarket_expansion_id != null) productExpIds[p.name] = p.cardmarket_expansion_id;
     const byDate = {};
     snapList.filter(s => s.product_id === p.id).forEach(r => { byDate[r.snapshot_date] = r; });
     newHistoricalData[p.name] = {
@@ -6152,20 +6189,23 @@ async function saveToSupabase() {
       const { data, error } = await sbClient.from('products')
         .insert({ name: p.name, type: p.type, release: p.release,
                   cardmarket_url: productUrls[p.name] || null,
-                  cardmarket_product_id: productCmIds[p.name] ?? null })
+                  cardmarket_product_id: productCmIds[p.name] ?? null,
+                  cardmarket_expansion_id: productExpIds[p.name] ?? null })
         .select('id').single();
       if (error) throw error;
       sbProductIds[p.name] = data.id;
     }
 
-    // 2. Update Cardmarket link + product id on existing products (whichever the
-    //    admin has touched). Names with an id but no url still get updated.
-    const metaNames = new Set([...Object.keys(productUrls), ...Object.keys(productCmIds)]);
+    // 2. Update Cardmarket link + product/expansion ids on existing products
+    //    (whichever the admin has touched). Any name with any of the three set.
+    const metaNames = new Set([...Object.keys(productUrls), ...Object.keys(productCmIds), ...Object.keys(productExpIds)]);
     for (const name of metaNames) {
       const id = sbProductIds[name];
       if (!id || newOnes.find(p => p.name === name)) continue;
       const { error } = await sbClient.from('products')
-        .update({ cardmarket_url: productUrls[name] || null, cardmarket_product_id: productCmIds[name] ?? null })
+        .update({ cardmarket_url: productUrls[name] || null,
+                  cardmarket_product_id: productCmIds[name] ?? null,
+                  cardmarket_expansion_id: productExpIds[name] ?? null })
         .eq('id', id);
       if (error) throw error;
     }
@@ -6203,6 +6243,32 @@ async function saveToSupabase() {
     console.error('Cloud save failed:', err);
     reportClientError({ message: 'Cloud save failed: ' + (err.message || err), stack: err.stack });
     setStatus('analysis-status', '✕ Cloud save failed: ' + (err.message || err), true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── Sync catalog: cache each set's card list from Cardmarket ──
+// Invokes the `cardmarket-catalog-refresh` Edge Function, which stream-reads
+// Cardmarket's singles bulk file (in Supabase, bounded memory) and stores, per
+// expansion id on the products, the single-card ids that make up Set Value. The
+// daily ingestion job then sums over those without ever loading that file. Run
+// this after saving a newly-added product's expansion id. Admin-only; the write
+// boundary is enforced server-side (the function checks is_admin()).
+async function syncCatalog() {
+  const btn = document.getElementById('sync-catalog-btn');
+  if (btn) btn.disabled = true;
+  setStatus('analysis-status', 'Syncing catalog from Cardmarket… (this reads a large file, ~1 min)', false);
+  try {
+    const { data, error } = await sbClient.functions.invoke('cardmarket-catalog-refresh');
+    if (error) throw error;
+    const n = data && data.expansions != null ? data.expansions : 0;
+    const cards = data && data.cards != null ? data.cards : 0;
+    setStatus('analysis-status', `✓ Catalog synced — ${n} set(s), ${cards} card(s) cached`, false);
+  } catch (err) {
+    console.error('Catalog sync failed:', err);
+    reportClientError({ message: 'Catalog sync failed: ' + (err.message || err), stack: err.stack });
+    setStatus('analysis-status', '✕ Catalog sync failed: ' + (err.message || err), true);
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -6266,6 +6332,7 @@ function wireAuthControls() {
   });
 
   document.getElementById('save-cloud-btn').addEventListener('click', saveToSupabase);
+  document.getElementById('sync-catalog-btn').addEventListener('click', syncCatalog);
 
   // ── Change password (signed-in only) ──
   const openAccount = () => openPasswordForm(false);
