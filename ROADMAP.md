@@ -572,13 +572,17 @@ Edge Function** so the daily job runs inside Supabase despite the Edge runtime's
   scheduled by `pg_cron` via `supabase/cardmarket-cron.sql`). Reads the products
   + precomputed catalog from the DB, fetches only the smaller `price_guide` file,
   and upserts today's `snapshots` row with the service-role key.
+- **Resolve ids** — `supabase/functions/cardmarket-resolve-ids` (Edge Function,
+  Data Entry's **Resolve ids** button). Name-matches every product missing a
+  `cardmarket_product_id` / `cardmarket_expansion_id` against the small nonsingles
+  catalogue and writes the ids back (NULLs only — manual pins survive), so
+  bulk-adding products needs no hand-sourced id.
 - **On-demand catalog refresh** — `supabase/functions/cardmarket-catalog-refresh`
-  (Edge Function, triggered from Data Entry's **Sync catalog** button). It
-  **streams** the large *singles* file (chunk by chunk, one record at a time, so
-  it fits the memory limit at any size) and caches each expansion's single-card
-  ids into `public.cardmarket_expansion_singles`, so the daily function never
-  loads it. The admin enters `cardmarket_product_id` (**CM ID**) and
-  `cardmarket_expansion_id` (**Exp ID**) by hand in Data Entry. No GitHub Action.
+  (Edge Function, Data Entry's **Sync catalog** button). It **streams** the large
+  *singles* file (chunk by chunk, one record at a time, so it fits the memory
+  limit at any size) and caches each expansion's single-card ids into
+  `public.cardmarket_expansion_singles`, so the daily function never loads it.
+  No GitHub Action.
 
 Both Edge Functions derive via the same math as the unit-tested
 `scripts/cardmarket-lib.mjs`, writing Set Value = `avg30` all-cards singles sum

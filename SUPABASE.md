@@ -243,7 +243,7 @@ daily snapshot for you from Cardmarket's official bulk catalogue files (native
 EUR). It feeds the same `snapshots` table the app already reads, and never runs
 in the browser. See `ROADMAP.md` → *Automated ingestion* for the full rationale.
 
-**Architecture — two Edge Functions, both inside Supabase.** No GitHub Action.
+**Architecture — three Edge Functions, all inside Supabase.** No GitHub Action.
 The work is split so the daily job stays within the Edge runtime's ~256 MB
 memory limit:
 
@@ -251,7 +251,13 @@ memory limit:
   `pg_cron` (`supabase/cardmarket-cron.sql`). It fetches only the smaller
   `price_guide` bulk file and, using ids the DB already holds, writes today's
   Price + Set Value.
-- **On-demand catalog refresh — `supabase/functions/cardmarket-catalog-refresh`**,
+- **Resolve ids — `supabase/functions/cardmarket-resolve-ids`**, triggered from
+  Data Entry (the **Resolve ids** button, admin-only). For every product missing
+  a CM ID and/or Exp ID it name-matches against Cardmarket's (small) nonsingles
+  catalogue and writes the ids back — **NULLs only**, so a manual pin is never
+  overwritten. This is what makes bulk-adding products hands-off; you never
+  hand-source an id.
+- **Catalog refresh — `supabase/functions/cardmarket-catalog-refresh`**,
   triggered from Data Entry (the **Sync catalog** button, admin-only). It caches,
   per expansion id on your products, the single-card ids that make up Set Value
   into `public.cardmarket_expansion_singles`, so the daily function never loads
@@ -260,7 +266,7 @@ memory limit:
   size, and reports each set's card count + max single price so a mis-categorised
   sealed item would show up. Run it after adding a product/set.
 
-Both derive numbers identically to the unit-tested `scripts/cardmarket-lib.mjs`,
+All three derive/​match identically to the unit-tested `scripts/cardmarket-lib.mjs`,
 so the automated values match. (`scripts/cardmarket-ingest.mjs` mirrors the same
 work on the command line — `--dry-run`, `--backfill-ids`, `--refresh-catalog` —
 as a local fallback, but production needs no GitHub.)
@@ -282,7 +288,9 @@ enter in Data Entry and save with **☁ Save to cloud**:
 - **`cardmarket_expansion_id`** (the **"Exp ID"** column) — the set whose singles
   make up Set Value. The catalog refresh uses it to cache that set's card list.
 
-Find both on the product's / set's Cardmarket page. `cardmarket-map.json` is now
+You don't hand-source these — click **Resolve ids** (below) and both are filled
+by name-matching. Type them in only to override a specific product; a value you
+enter by hand is never overwritten by Resolve ids. `cardmarket-map.json` is now
 only for overrides (`nameHint`, `priceOverride`) and the offline dry-run
 allowlist used by the local `scripts/cardmarket-ingest.mjs` fallback.
 
@@ -291,32 +299,38 @@ true` (a per-product toggle in Data Entry) and the job never overwrites that
 product's price — you set it by hand — while Set Value still auto-updates. It's
 the override for grails whose few sales make the automated price untrustworthy.
 
-**Setup:**
+**Setup:** every step is in the browser — no terminal required (deploy the
+functions via **Edge Functions → Deploy a new function → Via Editor**, pasting
+each `supabase/functions/<name>/index.ts`; the CLI `supabase functions deploy
+<name>` works too).
 
 1. Apply the schema (`supabase/schema.sql`) so `products.cardmarket_product_id`,
    `products.cardmarket_expansion_id`, `products.price_locked`,
    `snapshots.low_liquidity` and the `cardmarket_expansion_singles` table exist
    (all idempotent).
-2. Seed the `products` rows (Data Entry → Save to cloud, or the workbook), and
-   fill each product's **CM ID** and **Exp ID** in Data Entry, then **Save to
-   cloud**. A product missing from Supabase is skipped by the jobs.
-3. **Deploy both Edge Functions** (they use the auto-injected `SUPABASE_URL` /
-   `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY`):
-   ```
-   supabase functions deploy cardmarket-daily
-   supabase functions deploy cardmarket-catalog-refresh
-   ```
-4. **Cache the card lists:** in Data Entry, click **Sync catalog** (or
-   `supabase functions invoke cardmarket-catalog-refresh`). It streams the
-   singles file and caches each Exp ID's card list; the response reports each
-   set's card count + max single price — sanity-check those. Re-run it whenever
-   you add a set.
-5. **Schedule the daily job:** run `supabase/cardmarket-cron.sql` in the SQL
+2. Seed the `products` rows (Data Entry → Save to cloud, or the workbook). A
+   product missing from Supabase is skipped by the jobs. You do **not** need to
+   hand-enter the Cardmarket ids — step 4 fills them.
+3. **Deploy all three Edge Functions** (they use the auto-injected `SUPABASE_URL`
+   / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY` — no secrets to set):
+   `cardmarket-resolve-ids`, `cardmarket-catalog-refresh`, `cardmarket-daily`.
+4. **Fill the ids:** in Data Entry, click **Resolve ids**. It name-matches every
+   product missing a CM ID / Exp ID and writes both back (leaving any you typed
+   yourself). Anything it can't match confidently is listed — enter those by hand
+   in the CM ID / Exp ID columns and **Save to cloud**.
+5. **Cache the card lists:** click **Sync catalog**. It streams the singles file
+   and caches each Exp ID's card list; the response reports each set's card count
+   + max single price — sanity-check those. Re-run it whenever you add a set.
+6. **Schedule the daily job:** run `supabase/cardmarket-cron.sql` in the SQL
    editor (fill in your project ref and store the `service_role` key in Vault as
    instructed). `pg_cron` then invokes `cardmarket-daily` daily at ~04:17 UTC.
-   Test once: `supabase functions invoke cardmarket-daily`.
+   Test once via the function's **Invoke** button (or `supabase functions invoke
+   cardmarket-daily`).
+
+**Adding products later** is then fully in-browser: add them in Data Entry →
+**Save to cloud** → **Resolve ids** → **Sync catalog**. Done.
 
 The derivation is the unit-tested core in `scripts/cardmarket-lib.mjs`
-(`tests/unit/cardmarket-lib.test.mjs` pins the numbers); both Edge Functions
-mirror the same math, so the daily values match what the read-only
-`cardmarket:spike` checks reported.
+(`tests/unit/cardmarket-lib.test.mjs` pins the numbers); all three Edge Functions
+mirror the same match/derive math, so the automated values match what the
+read-only `cardmarket:spike` checks reported.
