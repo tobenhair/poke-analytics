@@ -144,6 +144,24 @@ export function resolveIds(map, nonsinglesRecords) {
   return out;
 }
 
+// Group single-card idProducts by their expansion id. This is the data the
+// occasional catalog-sync precomputes and stores in Supabase
+// (cardmarket_expansion_singles), so the daily Edge Function can sum Set Value
+// without ever loading this large singles file itself. Returns
+// Map(String(idExpansion) → number[] of single idProducts).
+export function singlesByExpansion(singlesRecords) {
+  const byExp = new Map();
+  for (const r of singlesRecords) {
+    const exp = pick(r, FIELD_ALIASES.expansion);
+    const id = pick(r, FIELD_ALIASES.id);
+    if (exp == null || id == null) continue;
+    const key = String(exp);
+    if (!byExp.has(key)) byExp.set(key, []);
+    byExp.get(key).push(Number(id));
+  }
+  return byExp;
+}
+
 // Derive the values to store, per tracked product. Decisions baked in:
 //   • Set Value  = sum of `svField` (avg30) over every single in the expansion
 //                  — the all-cards EU singles sum.
@@ -161,14 +179,7 @@ export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords,
     const id = pick(r, FIELD_ALIASES.id);
     if (id != null) pgById.set(String(id), r);
   }
-  const singlesByExp = new Map();
-  for (const r of singlesRecords) {
-    const exp = pick(r, FIELD_ALIASES.expansion);
-    const id = pick(r, FIELD_ALIASES.id);
-    if (exp == null || id == null) continue;
-    if (!singlesByExp.has(String(exp))) singlesByExp.set(String(exp), []);
-    singlesByExp.get(String(exp)).push(String(id));
-  }
+  const singlesByExp = singlesByExpansion(singlesRecords);
   // Value of a record for a chosen field, falling back through the price aliases
   // when that field is empty (e.g. sealed products have no avg30).
   const valueOf = (rec, field) => {
@@ -207,7 +218,7 @@ export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords,
       let sum = 0;
       let counted = 0;
       for (const id of ids) {
-        const rec = pgById.get(id);
+        const rec = pgById.get(String(id));
         if (!rec) continue;
         const v = valueOf(rec, svField);
         if (Number.isFinite(v)) { sum += v; counted += 1; }

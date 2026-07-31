@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveIds, deriveProducts, norm, score } from '../../scripts/cardmarket-lib.mjs';
+import { resolveIds, deriveProducts, norm, score, singlesByExpansion } from '../../scripts/cardmarket-lib.mjs';
 
 // A tiny stand-in for cardmarket-map.json.
 const map = {
@@ -91,4 +91,14 @@ test('deriveProducts: lowLiquidity flags a thin box (trend vs avg ≥20% apart)'
   const d = deriveProducts(map, resolved, priceGuide, singles);
   assert.equal(d['Team Up Booster Box'].lowLiquidity, true); // 10100 vs 6300
   assert.equal(d['Evolving Skies Booster Box'].lowLiquidity, false); // 2000 vs 1800
+});
+
+test('singlesByExpansion groups single ids by expansion (the precomputed catalog)', () => {
+  const byExp = singlesByExpansion(singles);
+  // keyed by String(idExpansion); values are numeric single idProducts
+  assert.deepEqual(byExp.get('10'), [1001, 1002]);
+  assert.deepEqual(byExp.get('20'), [2001]);
+  assert.equal(byExp.has('99'), false);
+  // this is exactly the Edge Function's Set Value input: Σ avg30 over these ids
+  // for expansion 10 = 50 + 10 = 60, matching the deriveProducts assertion above.
 });

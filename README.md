@@ -114,12 +114,12 @@ Two are always visible; two appear only with cloud sync enabled and signed in.
 
 Add new products at any time from the Data Entry tab; the product name must match exactly between both sheets.
 
-**Or automate it (Supabase mode):** a scheduled job can write the daily
-snapshot for you from Cardmarket's official bulk files — Set Value from the
-set's singles, box price from the market trend — so you don't have to enter
-prices by hand. Thin-liquidity grails can be **price-locked** so the job leaves
-their price to your manual entry. See `SUPABASE.md` → *Automated Cardmarket
-ingestion*.
+**Or automate it (Supabase mode):** a daily **Supabase Edge Function** writes the
+snapshot for you from Cardmarket's official bulk files — Set Value from the set's
+singles, box price from the market trend — so you don't have to enter prices by
+hand. (A lightweight weekly GitHub job precomputes the per-set card lists it
+needs.) Thin-liquidity grails can be **price-locked** so the job leaves their
+price to your manual entry. See `SUPABASE.md` → *Automated Cardmarket ingestion*.
 
 The entry grid guards the numbers as you type: a large jump vs last month gets
 an inline warning (an implausible one asks for confirmation before saving), and

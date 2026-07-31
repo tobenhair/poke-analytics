@@ -12,25 +12,37 @@
 // by name. `cardmarket-map.json` is now just OVERRIDES (nameHint / priceOverride)
 // plus the offline allowlist used by --dry-run when there are no DB creds.
 //
-// Rules:
+// PRECOMPUTE half of the "precompute + Edge Function" split: in production the
+// DAILY snapshot is written by the Supabase Edge Function
+// (supabase/functions/cardmarket-daily), scheduled by pg_cron. This Node script's
+// primary scheduled role is the occasional, memory-heavy CATALOG SYNC
+// (--refresh-catalog): it reads the large singles bulk file and caches each
+// expansion's single-card ids into Supabase so the Edge Function never has to.
+// It can also still write a snapshot directly (manual/backfill fallback).
+//
+// Rules (shared with the Edge Function):
 //   • Set Value always auto-updates (avg30 all-cards singles sum).
 //   • Box Price = trend, UNLESS the product is `price_locked` (admin's manual
 //     value stands) — Set Value still updates.
 //   • Each snapshot carries the `low_liquidity` advisory flag.
 //   • Products are not created here; a tracked-but-absent product is skipped.
 //
-// Env (GitHub Action secrets): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+// Env (Action / local secrets): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 //
 // Usage:
+//   node scripts/cardmarket-ingest.mjs --refresh-catalog  # PRECOMPUTE: resolve
+//        # expansion ids + cache each expansion's single-card ids into Supabase
+//        # (run occasionally / when you add sets; the memory-heavy step)
+//   node scripts/cardmarket-ingest.mjs --backfill-ids  # write resolved product
+//        # ids onto every DB product that lacks one (one-time)
 //   node scripts/cardmarket-ingest.mjs               # write today's snapshot
+//        # (manual fallback; the daily write normally runs in the Edge Function)
 //   node scripts/cardmarket-ingest.mjs --dry-run     # derive + print, no write
-//   node scripts/cardmarket-ingest.mjs --backfill-ids  # write resolved ids onto
-//        # every DB product that lacks one (one-time, so the DB is self-sufficient)
 //   node scripts/cardmarket-ingest.mjs --date 2026-07-30 --refresh
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
-import { loadFile, toRecords, readMap, resolveIds, deriveProducts } from './cardmarket-lib.mjs';
+import { loadFile, toRecords, readMap, resolveIds, deriveProducts, singlesByExpansion } from './cardmarket-lib.mjs';
 
 const argv = process.argv.slice(2);
 const has = (f) => argv.includes(`--${f}`);
@@ -40,6 +52,7 @@ const opt = (f, dflt) => {
 };
 const DRY_RUN = has('dry-run');
 const BACKFILL_IDS = has('backfill-ids');
+const REFRESH_CATALOG = has('refresh-catalog');
 const REFRESH = has('refresh');
 const DATE = opt('date', new Date().toISOString().slice(0, 10));
 const log = (s) => process.stderr.write(s);
@@ -54,7 +67,7 @@ const supa = () => {
 async function main() {
   const overrides = readMap(); // cardmarket-map.json → overrides + offline allowlist
   const sb = supa();
-  if ((BACKFILL_IDS || !DRY_RUN) && !sb) {
+  if ((BACKFILL_IDS || REFRESH_CATALOG || !DRY_RUN) && !sb) {
     throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set (or use --dry-run).');
   }
 
@@ -92,8 +105,47 @@ async function main() {
     loadFile('singles', { refresh: REFRESH, log }),
   ]);
   const nsRecords = toRecords(nonsingles).records;
+  const singleRecs = toRecords(singles).records;
   const resolved = resolveIds(workingMap, nsRecords);
-  const derived = deriveProducts(workingMap, resolved, toRecords(priceGuide).records, toRecords(singles).records);
+
+  // ── Catalog sync (precompute): resolve each product's expansion id and cache
+  //    the expansion's single-card ids in Supabase, so the daily Edge Function
+  //    never loads the huge singles file. Also fills a missing product id. This
+  //    is the memory-heavy step (it reads the whole singles file) — run it here,
+  //    in a memory-rich environment, not in the ~256 MB Edge runtime.
+  if (REFRESH_CATALOG) {
+    const byExp = singlesByExpansion(singleRecs);
+    const expansionsInUse = new Set();
+    const unresolved = [];
+    let prodUpdates = 0;
+    for (const [name, info] of Object.entries(resolved)) {
+      const row = dbByName.get(name);
+      if (!row) continue;
+      if (!info.confident || info.idExpansion == null) { unresolved.push(`${name} (score ${info.score})`); continue; }
+      expansionsInUse.add(String(info.idExpansion));
+      const patch = { cardmarket_expansion_id: Number(info.idExpansion) };
+      if (row.cardmarket_product_id == null && info.idProduct != null) patch.cardmarket_product_id = Number(info.idProduct);
+      if (DRY_RUN) { prodUpdates += 1; console.log(`would set ${name} → expansion ${info.idExpansion}${patch.cardmarket_product_id ? `, product ${patch.cardmarket_product_id}` : ''}`); continue; }
+      const { error } = await sb.from('products').update(patch).eq('id', row.id);
+      if (error) throw new Error(`updating ${name}: ${error.message}`);
+      prodUpdates += 1;
+    }
+    const catalogRows = [...expansionsInUse].map((exp) => ({
+      id_expansion: Number(exp),
+      single_product_ids: byExp.get(exp) || [],
+      updated_at: new Date().toISOString(),
+    }));
+    if (!DRY_RUN && catalogRows.length) {
+      const { error } = await sb.from('cardmarket_expansion_singles').upsert(catalogRows, { onConflict: 'id_expansion' });
+      if (error) throw new Error(`upserting catalog: ${error.message}`);
+    }
+    const totalSingles = catalogRows.reduce((n, r) => n + r.single_product_ids.length, 0);
+    console.log(`\nCatalog sync${DRY_RUN ? ' (dry run)' : ''}: ${prodUpdates} product(s) updated, ${catalogRows.length} expansion(s) cached (${totalSingles} single ids).`);
+    if (unresolved.length) console.warn(`Could not resolve (enter a CM ID by hand): ${unresolved.join(', ')}`);
+    return;
+  }
+
+  const derived = deriveProducts(workingMap, resolved, toRecords(priceGuide).records, singleRecs);
 
   // ── Backfill: write each confidently-resolved idProduct onto the DB product
   //    that lacks one, so the DB becomes self-sufficient (no name-matching after).

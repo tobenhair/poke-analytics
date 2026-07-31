@@ -29,6 +29,12 @@ create table if not exists public.products (
   -- catalogue. Entered/edited by the admin in Data Entry. NULL → the job falls
   -- back to matching by name.
   cardmarket_product_id bigint,
+  -- Cardmarket expansion id (idExpansion) for the Set Value singles sum.
+  -- Precomputed by the occasional catalog-sync step (scripts/cardmarket-ingest
+  -- --refresh-catalog) from cardmarket_product_id, so the daily Edge Function
+  -- never has to load the huge singles bulk file to find it. NULL → Set Value is
+  -- skipped until the catalog sync runs.
+  cardmarket_expansion_id bigint,
   -- When true, the automated Cardmarket ingestion job leaves this product's
   -- Price alone (the admin sets it by hand in Data Entry) — the manual override
   -- for thin-liquidity products whose sales-based price is unreliable. Set Value
@@ -40,6 +46,7 @@ create table if not exists public.products (
 );
 -- Idempotent adds for deployments created before these columns existed.
 alter table public.products add column if not exists cardmarket_product_id bigint;
+alter table public.products add column if not exists cardmarket_expansion_id bigint;
 alter table public.products add column if not exists price_locked boolean not null default false;
 
 -- ── Snapshots: one Price / Set Value reading per product per date ──
@@ -62,6 +69,22 @@ create table if not exists public.snapshots (
 alter table public.snapshots add column if not exists low_liquidity boolean not null default false;
 
 create index if not exists snapshots_product_idx on public.snapshots (product_id);
+
+-- ── Cardmarket catalog cache: expansion → its single-card ids ──
+-- The precompute half of the "precompute + Edge Function" ingestion split. The
+-- occasional catalog-sync step (scripts/cardmarket-ingest --refresh-catalog,
+-- run in a memory-rich environment) reads Cardmarket's large products_singles
+-- bulk file once and stores, per tracked expansion, the list of single-card
+-- idProducts that make up its Set Value. The DAILY Supabase Edge Function then
+-- only needs the much smaller price_guide file: it reads these id lists from the
+-- DB and sums avg30 over them — so it never loads the huge singles file and
+-- stays inside the Edge runtime's ~256 MB memory limit. Written by the
+-- service-role catalog-sync job (bypasses RLS); the browser app never reads it.
+create table if not exists public.cardmarket_expansion_singles (
+  id_expansion       bigint primary key,
+  single_product_ids bigint[] not null,
+  updated_at         timestamptz not null default now()
+);
 
 -- ── Per-user settings ──
 create table if not exists public.user_settings (
@@ -157,6 +180,11 @@ alter table public.user_settings enable row level security;
 alter table public.holdings      enable row level security;
 alter table public.alerts        enable row level security;
 alter table public.client_errors enable row level security;
+alter table public.cardmarket_expansion_singles enable row level security;
+-- No client policy: the catalog cache is ingestion infrastructure written by the
+-- service-role catalog-sync job (which bypasses RLS) and read by the service-role
+-- daily Edge Function. With RLS on and no policy, no anon/authenticated client
+-- can touch it — exactly what we want.
 
 -- Shared-dataset model:
 --   * Product data (products + snapshots) is READ by any signed-in user, but
