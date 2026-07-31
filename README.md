@@ -117,11 +117,12 @@ Add new products at any time from the Data Entry tab; the product name must matc
 **Or automate it (Supabase mode):** a daily **Supabase Edge Function** writes the
 snapshot for you from Cardmarket's official bulk files — Set Value from the set's
 singles, box price from the market trend — so you don't have to enter prices by
-hand. You enter each product's Cardmarket **CM ID** and **Exp ID** once in Data
-Entry and click **Sync catalog** to cache the set's card list; a second Edge
-Function does that on demand (no GitHub needed). Thin-liquidity grails can be
-**price-locked** so the job leaves their price to your manual entry. See
-`SUPABASE.md` → *Automated Cardmarket ingestion*.
+hand. Adding products is hands-off: click **Resolve ids** to auto-fill each
+product's Cardmarket **CM ID** and **Exp ID** by name-matching, then **Sync
+catalog** to cache the set's card list — both are Edge Functions run from Data
+Entry (no GitHub needed). Thin-liquidity grails can be **price-locked** so the
+job leaves their price to your manual entry. See `SUPABASE.md` → *Automated
+Cardmarket ingestion*.
 
 The entry grid guards the numbers as you type: a large jump vs last month gets
 an inline warning (an implausible one asks for confirmation before saving), and
