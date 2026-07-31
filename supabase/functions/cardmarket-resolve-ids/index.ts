@@ -66,7 +66,17 @@ const score = (a: unknown, b: unknown): number => {
   return inter / (A.size + B.size - inter);
 };
 
+// Browser-invoked (from Data Entry) → cross-origin, so it must answer the CORS
+// preflight and echo the headers on every response, or the browser blocks the
+// call before it's sent.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-ingest-secret, x-supabase-api-version',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   try {
     const url = Deno.env.get('SUPABASE_URL');
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -165,5 +175,5 @@ Deno.serve(async (req) => {
 });
 
 function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...CORS } });
 }

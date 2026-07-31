@@ -2546,7 +2546,8 @@
             <tbody id="entry-tbody"></tbody>
           </table>
         </div>
-        <div style="padding: 14px 20px; border-top: 1px solid var(--border); display:flex; gap:10px; justify-content:flex-end;">
+        <div style="padding: 14px 20px; border-top: 1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; align-items:center; flex-wrap:wrap;">
+          <span id="entry-status" class="status-pill" role="status" style="display:none; margin-right:auto;"></span>
           <button class="export-btn sb-only admin-only" id="save-cloud-btn" style="width:auto; padding: 8px 20px; background:var(--accent3); color:var(--on-accent);">
             <svg class="icon" aria-hidden="true"><use href="#i-cloud-up"/></svg> Save to cloud
           </button>
@@ -3824,9 +3825,11 @@ function renderDataSourceBanner() {
     + ` nothing here reflects the real market. <span class="why">${dataSourceWhy}</span></span>`;
 }
 
-// Inline save/load status line. Each tab owns its own element (the Analysis
-// tab's pill isn't in the Portfolio pane and vice versa), so the caller names
-// the target: 'analysis-status' or 'portfolio-status'.
+// Inline save/load status line. Each tab owns its own element (a pill on one
+// pane isn't visible from another), so the caller names the target:
+// 'analysis-status', 'portfolio-status', or 'entry-status' (the Data Entry
+// footer — where Save to cloud / Resolve ids / Sync catalog report, so the
+// admin sees the result on the tab they clicked from).
 function setStatus(elId, msg, isError) {
   const el = document.getElementById(elId);
   if (!el) return;   // the Portfolio pill only exists when signed in
@@ -6179,14 +6182,14 @@ function renderDemo(groups) {
 // Write the current Data Entry state (new products, entered snapshot values,
 // Cardmarket links, age threshold) to Supabase, then reload from the cloud.
 async function saveToSupabase() {
-  if (!sbUser) { setStatus('analysis-status', 'Sign in to save to the cloud', true); return; }
+  if (!sbUser) { setStatus('entry-status', 'Sign in to save to the cloud', true); return; }
   if (!confirmSuspiciousEntries('Save to cloud')) return;
   if (!confirmIfIncomplete('Save to cloud')) return;
   const btn = document.getElementById('save-cloud-btn');
   const snapLabel = document.getElementById('snapshot-label').value.trim() || todayLabel();
   try {
     if (btn) btn.disabled = true;
-    setStatus('analysis-status', 'Saving to cloud…', false);
+    setStatus('entry-status', 'Saving to cloud…', false);
 
     // 1. Insert brand-new (pending) products, capturing their DB ids.
     const newOnes = pendingProducts.filter(p => !products.find(ep => ep.name === p.name));
@@ -6242,12 +6245,12 @@ async function saveToSupabase() {
     pendingProducts = [];
     await loadFromSupabase();
     renderEntryTable();
-    setStatus('analysis-status', '✓ Saved to cloud — ' + rows.length + ' value(s) for “' + snapLabel + '”'
+    setStatus('entry-status', '✓ Saved to cloud — ' + rows.length + ' value(s) for “' + snapLabel + '”'
                + (newOnes.length ? ', ' + newOnes.length + ' new product(s)' : ''), false);
   } catch (err) {
     console.error('Cloud save failed:', err);
     reportClientError({ message: 'Cloud save failed: ' + (err.message || err), stack: err.stack });
-    setStatus('analysis-status', '✕ Cloud save failed: ' + (err.message || err), true);
+    setStatus('entry-status', '✕ Cloud save failed: ' + (err.message || err), true);
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -6262,7 +6265,7 @@ async function saveToSupabase() {
 async function resolveCardmarketIds() {
   const btn = document.getElementById('resolve-ids-btn');
   if (btn) btn.disabled = true;
-  setStatus('analysis-status', 'Resolving Cardmarket ids…', false);
+  setStatus('entry-status', 'Resolving Cardmarket ids…', false);
   try {
     const { data, error } = await sbClient.functions.invoke('cardmarket-resolve-ids');
     if (error) throw error;
@@ -6272,11 +6275,11 @@ async function resolveCardmarketIds() {
     renderEntryTable();
     let msg = `✓ Resolved ${filled} id set(s)`;
     if (unresolved.length) msg += ` — ${unresolved.length} still unmatched: ${unresolved.map(u => u.name).join(', ')} (enter by hand)`;
-    setStatus('analysis-status', msg, unresolved.length > 0);
+    setStatus('entry-status', msg, unresolved.length > 0);
   } catch (err) {
     console.error('Resolve ids failed:', err);
     reportClientError({ message: 'Resolve ids failed: ' + (err.message || err), stack: err.stack });
-    setStatus('analysis-status', '✕ Resolve ids failed: ' + (err.message || err), true);
+    setStatus('entry-status', '✕ Resolve ids failed: ' + (err.message || err), true);
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -6292,17 +6295,17 @@ async function resolveCardmarketIds() {
 async function syncCatalog() {
   const btn = document.getElementById('sync-catalog-btn');
   if (btn) btn.disabled = true;
-  setStatus('analysis-status', 'Syncing catalog from Cardmarket… (this reads a large file, ~1 min)', false);
+  setStatus('entry-status', 'Syncing catalog from Cardmarket… (this reads a large file, ~1 min)', false);
   try {
     const { data, error } = await sbClient.functions.invoke('cardmarket-catalog-refresh');
     if (error) throw error;
     const n = data && data.expansions != null ? data.expansions : 0;
     const cards = data && data.cards != null ? data.cards : 0;
-    setStatus('analysis-status', `✓ Catalog synced — ${n} set(s), ${cards} card(s) cached`, false);
+    setStatus('entry-status', `✓ Catalog synced — ${n} set(s), ${cards} card(s) cached`, false);
   } catch (err) {
     console.error('Catalog sync failed:', err);
     reportClientError({ message: 'Catalog sync failed: ' + (err.message || err), stack: err.stack });
-    setStatus('analysis-status', '✕ Catalog sync failed: ' + (err.message || err), true);
+    setStatus('entry-status', '✕ Catalog sync failed: ' + (err.message || err), true);
   } finally {
     if (btn) btn.disabled = false;
   }
