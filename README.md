@@ -103,7 +103,7 @@ Two are always visible; two appear only with cloud sync enabled and signed in.
 | **Welcome** | always | A landing map: where each tab is, and the two shared explanations. |
 | **Analysis** | always | The decision view — ranked board with fair price and verdict, KPIs, price/value charts, buy signals, and the scenario explorer. |
 | **Portfolio** | signed in | Your private holdings and price alerts — unrealised P&L, concentration balancer, value over time. |
-| **Data Entry** | admin only | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs, and export the updated workbook. |
+| **Data Entry** | admin only | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs and product ids (the "CM ID" that drives automated ingestion), and export the updated workbook. |
 
 ## Monthly workflow
 
@@ -113,6 +113,15 @@ Two are always visible; two appear only with cloud sync enabled and signed in.
 4. Replace `pokemon_data.xlsx` in the repo and commit it — the next visit reflects the new data.
 
 Add new products at any time from the Data Entry tab; the product name must match exactly between both sheets.
+
+**Or automate it (Supabase mode):** a daily **Supabase Edge Function** writes the
+snapshot for you from Cardmarket's official bulk files — Set Value from the set's
+singles, box price from the market trend — so you don't have to enter prices by
+hand. You enter each product's Cardmarket **CM ID** and **Exp ID** once in Data
+Entry and click **Sync catalog** to cache the set's card list; a second Edge
+Function does that on demand (no GitHub needed). Thin-liquidity grails can be
+**price-locked** so the job leaves their price to your manual entry. See
+`SUPABASE.md` → *Automated Cardmarket ingestion*.
 
 The entry grid guards the numbers as you type: a large jump vs last month gets
 an inline warning (an implausible one asks for confirmation before saving), and

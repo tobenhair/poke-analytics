@@ -23,10 +23,31 @@ create table if not exists public.products (
   type           text not null check (type in ('BOX','ETB','BUNDLE')),
   release        date not null,
   cardmarket_url text,
+  -- Cardmarket catalogue product id (idProduct) for the automated ingestion job.
+  -- When set, the job resolves this product's price/Set Value directly from it
+  -- (no name matching); the expansion id for the singles sum is derived from the
+  -- catalogue. Entered/edited by the admin in Data Entry. NULL → the job falls
+  -- back to matching by name.
+  cardmarket_product_id bigint,
+  -- Cardmarket expansion id (idExpansion) for the Set Value singles sum.
+  -- Precomputed by the occasional catalog-sync step (scripts/cardmarket-ingest
+  -- --refresh-catalog) from cardmarket_product_id, so the daily Edge Function
+  -- never has to load the huge singles bulk file to find it. NULL → Set Value is
+  -- skipped until the catalog sync runs.
+  cardmarket_expansion_id bigint,
+  -- When true, the automated Cardmarket ingestion job leaves this product's
+  -- Price alone (the admin sets it by hand in Data Entry) — the manual override
+  -- for thin-liquidity products whose sales-based price is unreliable. Set Value
+  -- is still auto-updated. Written by the admin only (see RLS below).
+  price_locked   boolean not null default false,
   created_at     timestamptz not null default now(),
   -- product names are unique per user (matches the app's duplicate-name rule)
   unique (user_id, name)
 );
+-- Idempotent adds for deployments created before these columns existed.
+alter table public.products add column if not exists cardmarket_product_id bigint;
+alter table public.products add column if not exists cardmarket_expansion_id bigint;
+alter table public.products add column if not exists price_locked boolean not null default false;
 
 -- ── Snapshots: one Price / Set Value reading per product per date ──
 create table if not exists public.snapshots (
@@ -36,11 +57,34 @@ create table if not exists public.snapshots (
   snapshot_date date not null,
   price         numeric check (price is null or price >= 0),
   set_value     numeric check (set_value is null or set_value >= 0),
+  -- Advisory flag set by the ingestion job when the Cardmarket sales-based price
+  -- is unreliable (thin liquidity: the guide's trend and avg disagree sharply).
+  -- The client can badge it and the fair-price fit can down-weight it; never a
+  -- hard gate.
+  low_liquidity boolean not null default false,
   -- the app upserts on this pair (onConflict: 'product_id,snapshot_date')
   unique (product_id, snapshot_date)
 );
+-- Idempotent add for deployments created before low_liquidity existed.
+alter table public.snapshots add column if not exists low_liquidity boolean not null default false;
 
 create index if not exists snapshots_product_idx on public.snapshots (product_id);
+
+-- ── Cardmarket catalog cache: expansion → its single-card ids ──
+-- The precompute half of the "precompute + Edge Function" ingestion split. The
+-- occasional catalog-sync step (scripts/cardmarket-ingest --refresh-catalog,
+-- run in a memory-rich environment) reads Cardmarket's large products_singles
+-- bulk file once and stores, per tracked expansion, the list of single-card
+-- idProducts that make up its Set Value. The DAILY Supabase Edge Function then
+-- only needs the much smaller price_guide file: it reads these id lists from the
+-- DB and sums avg30 over them — so it never loads the huge singles file and
+-- stays inside the Edge runtime's ~256 MB memory limit. Written by the
+-- service-role catalog-sync job (bypasses RLS); the browser app never reads it.
+create table if not exists public.cardmarket_expansion_singles (
+  id_expansion       bigint primary key,
+  single_product_ids bigint[] not null,
+  updated_at         timestamptz not null default now()
+);
 
 -- ── Per-user settings ──
 create table if not exists public.user_settings (
@@ -136,6 +180,11 @@ alter table public.user_settings enable row level security;
 alter table public.holdings      enable row level security;
 alter table public.alerts        enable row level security;
 alter table public.client_errors enable row level security;
+alter table public.cardmarket_expansion_singles enable row level security;
+-- No client policy: the catalog cache is ingestion infrastructure written by the
+-- service-role catalog-sync job (which bypasses RLS) and read by the service-role
+-- daily Edge Function. With RLS on and no policy, no anon/authenticated client
+-- can touch it — exactly what we want.
 
 -- Shared-dataset model:
 --   * Product data (products + snapshots) is READ by any signed-in user, but
@@ -178,6 +227,11 @@ create policy "admin writes snapshots" on public.snapshots
   for all to authenticated
   using (public.is_admin())
   with check (public.is_admin());
+-- Note: the automated Cardmarket ingestion job writes products/snapshots with
+-- the SERVICE-ROLE key, which bypasses RLS — so it needs no policy here. It sets
+-- user_id to the admin UUID to keep every product row owned by the admin (what
+-- the shared-read policies above assume). `products.price_locked` is written by
+-- the admin through Data Entry, covered by "admin writes products" above.
 
 -- ── user_settings: each user reads/writes only their own row ──
 drop policy if exists "own settings" on public.user_settings;

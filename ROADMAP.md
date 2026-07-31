@@ -561,9 +561,37 @@ here is one item that no finding touched.
   changelog, a public "how the numbers work" methodology page (the trust
   document for a tool that claims to know what's fairly priced).
 
-## Automated ingestion — now viable (Cardmarket bulk files; Tradera + TCGdex as fallback)
+## Automated ingestion — BUILT (Cardmarket bulk files; Tradera + TCGdex as fallback)
 
-**New lead route (Jul 2026): Cardmarket's official bulk catalogue downloads.**
+**Shipped (Jul 2026).** The server-side ingestion now exists, **DB-driven** (the
+tracked set is the Supabase `products` table, seeded via Data Entry; each row's
+`cardmarket_product_id` pins the catalogue match) and split **precompute +
+Edge Function** so the daily job runs inside Supabase despite the Edge runtime's
+~256 MB memory limit:
+- **Daily snapshot** — `supabase/functions/cardmarket-daily` (Deno Edge Function,
+  scheduled by `pg_cron` via `supabase/cardmarket-cron.sql`). Reads the products
+  + precomputed catalog from the DB, fetches only the smaller `price_guide` file,
+  and upserts today's `snapshots` row with the service-role key.
+- **On-demand catalog refresh** — `supabase/functions/cardmarket-catalog-refresh`
+  (Edge Function, triggered from Data Entry's **Sync catalog** button). It
+  **streams** the large *singles* file (chunk by chunk, one record at a time, so
+  it fits the memory limit at any size) and caches each expansion's single-card
+  ids into `public.cardmarket_expansion_singles`, so the daily function never
+  loads it. The admin enters `cardmarket_product_id` (**CM ID**) and
+  `cardmarket_expansion_id` (**Exp ID**) by hand in Data Entry. No GitHub Action.
+
+Both Edge Functions derive via the same math as the unit-tested
+`scripts/cardmarket-lib.mjs`, writing Set Value = `avg30` all-cards singles sum
+and Box Price = `trend` (skipped when `products.price_locked`), flagging thin
+liquidity (`snapshots.low_liquidity`). `scripts/cardmarket-ingest.mjs` mirrors
+both halves on the command line (`--dry-run`, `--backfill-ids`,
+`--refresh-catalog`) as a local fallback. **Still to wire (fast follow):** the in-app **Data
+Entry price-lock toggle** (the schema column and jobs already honour it; the UI
+control that flips it is the remaining piece), and the box **rolling 30-day
+average** once ≥30 days of snapshots exist (interim: `trend`). Design detail
+below is retained as the record of why each choice was made.
+
+**Lead route: Cardmarket's official bulk catalogue downloads.**
 The maintainer located Cardmarket's published productCatalog files — served
 without auth from `downloads.s3.cardmarket.com` for idGame 6 (Pokémon):
 `products_nonsingles_6.json` (sealed products), `products_singles_6.json`
@@ -630,7 +658,14 @@ Results on `avg30`:
   hand-entered Set Values were sourced from the **US market**, whereas
   Cardmarket's sum is **EU/EUR**. Going forward the canonical Set Value is the
   Cardmarket EUR all-cards `avg30` sum (`sum of avg30 over every single sharing
-  the expansion`). One consequence to design for: adopting the EU basis puts a
+  the expansion`). **Basis validated** (`svcheck`, Jul 2026) against the
+  alternatives and `avg30` **confirmed**: `trend` ≈ `avg30` (median 1.20 vs 1.17×
+  the stored values — both carry the chase/graded-card pool, so `trend` is not a
+  middle ground), while `low` is the raw *floor* (median 0.58×, i.e. the single
+  cheapest copy of every card — it understates each set by ~half and is wrong for
+  "what your raw pulls are worth"). No price-guide field lands between the floor
+  and the average, so `avg30` (the typical raw-market price) is the defensible
+  basis; trimming outlier cards was considered and declined. One consequence to design for: adopting the EU basis puts a
   **one-time ~15–20% step-change** in the Set Value (and therefore SV/Booster)
   **time series** at the switchover — old US-basis snapshots vs new EU-basis
   ones. The bulk files are current-day only (no history to backfill), so the
