@@ -60,7 +60,16 @@ const toRecords = (json: unknown): Rec[] => {
   return [];
 };
 
+// Invoked server-side by pg_cron (no CORS needed there), but answer the preflight
+// and echo CORS headers anyway so a manual browser/dashboard invoke also works.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-ingest-secret, x-supabase-api-version',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   try {
     const secret = Deno.env.get('INGEST_SECRET');
     if (secret && req.headers.get('x-ingest-secret') !== secret) {
@@ -188,6 +197,6 @@ Deno.serve(async (req) => {
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
-    status, headers: { 'content-type': 'application/json' },
+    status, headers: { 'content-type': 'application/json', ...CORS },
   });
 }
