@@ -103,7 +103,7 @@ Two are always visible; two appear only with cloud sync enabled and signed in.
 | **Welcome** | always | A landing map: where each tab is, and the two shared explanations. |
 | **Analysis** | always | The decision view — ranked board with fair price and verdict, KPIs, price/value charts, buy signals, and the scenario explorer. |
 | **Portfolio** | signed in | Your private holdings and price alerts — unrealised P&L, concentration balancer, value over time. |
-| **Data Entry** | admin only | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs, and export the updated workbook. |
+| **Data Entry** | admin only | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs and product ids (the "CM ID" that drives automated ingestion), and export the updated workbook. |
 
 ## Monthly workflow
 

@@ -220,7 +220,7 @@ inputs live in the database:
 
 | Table | Purpose | Access | Key columns |
 |-------|---------|--------|-------------|
-| `products` | one row per tracked product | read: all signed-in · write: admin | `name`, `type`, `release`, `cardmarket_url`, `price_locked` |
+| `products` | one row per tracked product | read: all signed-in · write: admin | `name`, `type`, `release`, `cardmarket_url`, `cardmarket_product_id`, `price_locked` |
 | `snapshots` | one row per product per date | read: all signed-in · write: admin | `product_id`, `snapshot_date`, `price`, `set_value`, `low_liquidity` |
 | `user_settings` | per-user preferences | read/write: own row | `age_threshold`, `currency` |
 | `holdings` | per-user portfolio | read/write: own row | `product_id`, `quantity`, `cost_basis` |
@@ -252,6 +252,19 @@ See `ROADMAP.md` → *Automated ingestion* for the full rationale.
 - **`low_liquidity`** — an advisory flag set when the sales-based price is
   unreliable (the guide's `trend` and `avg` disagree by ≥20%, i.e. thin volume).
 
+**Which Cardmarket product each row maps to.** The job is **DB-driven**: the
+tracked set is your `products` table. Each product carries a
+**`cardmarket_product_id`** (the Cardmarket `idProduct`), entered in the Data
+Entry **"CM ID"** column and saved with **☁ Save to cloud**. When set, the job
+resolves that product's price and Set Value directly from the id — no
+name-matching — and derives the expansion for the singles sum from the
+catalogue. A product with no id falls back to matching by name. To fill them all
+in one go, run the **backfill** once (`backfill_ids` workflow input, or
+`npm run cardmarket:ingest -- --backfill-ids`): it writes the confident match
+onto every product that lacks an id, then stops. After that the daily run never
+name-matches. `cardmarket-map.json` is now only for overrides (`nameHint`,
+`priceOverride`) and the offline dry-run allowlist.
+
 **Manual control for thin-liquidity products.** Set `products.price_locked =
 true` (a per-product toggle in Data Entry) and the job never overwrites that
 product's price — you set it by hand — while Set Value still auto-updates. It's
@@ -259,8 +272,9 @@ the override for grails whose few sales make the automated price untrustworthy.
 
 **Setup:**
 
-1. Apply the schema (`supabase/schema.sql`) so `products.price_locked` and
-   `snapshots.low_liquidity` exist (both idempotent `add column if not exists`).
+1. Apply the schema (`supabase/schema.sql`) so `products.cardmarket_product_id`,
+   `products.price_locked` and `snapshots.low_liquidity` exist (all idempotent
+   `add column if not exists`).
 2. Add two repository secrets (Settings → Secrets and variables → Actions):
    - `SUPABASE_URL` — your project URL.
    - `SUPABASE_SERVICE_ROLE_KEY` — Settings → API → `service_role` key. **Secret,
@@ -268,7 +282,11 @@ the override for grails whose few sales make the automated price untrustworthy.
 3. Seed the `products` rows first (Data Entry → Save to cloud, or the workbook).
    The job writes snapshots for products that already exist; it warns and skips
    any tracked product missing from Supabase.
-4. The **Cardmarket ingest** workflow (`.github/workflows/cardmarket-ingest.yml`)
+4. Fill in each product's Cardmarket id: run the workflow once with the
+   **backfill ids** input on (or `npm run cardmarket:ingest -- --backfill-ids`),
+   then spot-check the results and enter any it couldn't resolve by hand in the
+   Data Entry "CM ID" column.
+5. The **Cardmarket ingest** workflow (`.github/workflows/cardmarket-ingest.yml`)
    then runs daily, and you can trigger it by hand — leave the **dry run** input
    on to preview (derive + print, writes nothing, needs no secrets), or turn it
    off to write. Locally: `npm run cardmarket:ingest -- --dry-run`.

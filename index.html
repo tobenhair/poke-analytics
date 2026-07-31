@@ -2530,6 +2530,7 @@
             <thead>
               <tr>
                 <th></th>
+                <th>CM ID</th>
                 <th>Product</th>
                 <th>Type</th>
                 <th>Last Price (€)</th>
@@ -2604,6 +2605,10 @@
               <div class="field-group">
                 <div class="field-label">Cardmarket URL <span style="color:var(--muted); font-size: var(--text-2xs);">(optional)</span></div>
                 <input class="field-input" id="new-product-url" type="url" placeholder="https://www.cardmarket.com/...">
+              </div>
+              <div class="field-group">
+                <div class="field-label">Cardmarket product ID <span style="color:var(--muted); font-size: var(--text-2xs);">(optional — for auto-ingestion)</span></div>
+                <input class="field-input" id="new-product-cmid" type="number" min="0" step="1" placeholder="e.g. 568765">
               </div>
               <div id="add-product-error" style="font-family:'DM Mono',monospace; font-size: var(--text-sm); color:var(--accent2); display:none;"></div>
               <button class="add-btn" id="add-product-btn">+ Add Product</button>
@@ -4730,6 +4735,9 @@ tabButtons.forEach(btn => {
 let entryData = {};
 // Cardmarket URLs: { productName -> url }
 let productUrls = {};
+// Cardmarket product ids (idProduct): { productName -> number } — used by the
+// automated ingestion job to fetch prices; edited in Data Entry, saved to cloud.
+let productCmIds = {};
 // Holds new products added this session (not yet in products array)
 let pendingProducts = [];
 
@@ -4935,6 +4943,12 @@ function renderEntryTable() {
                      cursor:pointer; font-family:'DM Mono',monospace; padding:2px 4px;
                      border-radius:4px; transition:color 0.15s;">+ link</button>`}
       </td>
+      <td style="width:90px;">
+        <input class="entry-input cmid-input" type="number" min="0" step="1" placeholder="id"
+          aria-label="${p.name} — Cardmarket product ID"
+          data-product="${p.name}"
+          value="${productCmIds[p.name] != null ? productCmIds[p.name] : ''}">
+      </td>
       <td class="entry-product-name" title="${p.name}">${p.name}</td>
       <td><span class="type-badge type-${p.type}">${p.type}</span></td>
       <td class="entry-last-price">${last.price != null ? '€' + last.price.toLocaleString('de-DE') : '—'}</td>
@@ -4964,8 +4978,9 @@ function renderEntryTable() {
     tbody.appendChild(tr);
   });
 
-  // Wire up input events
-  tbody.querySelectorAll('.entry-input').forEach(input => {
+  // Wire up input events (price / set value cells carry data-field; the CM ID
+  // cell is handled separately below).
+  tbody.querySelectorAll('.entry-input[data-field]').forEach(input => {
     input.addEventListener('input', e => {
       const name  = e.target.dataset.product;
       const field = e.target.dataset.field;
@@ -4991,6 +5006,17 @@ function renderEntryTable() {
     input.addEventListener('paste', e => bulkPasteColumn(e, input, tbody));
     // Reflect the warning for any value already present (e.g. loaded from cloud).
     applyEntryDeltaWarning(input);
+  });
+
+  // Cardmarket product ID cell — edits the productCmIds map (saved to cloud with
+  // the rest of Data Entry). Integer id or blank.
+  tbody.querySelectorAll('.cmid-input').forEach(input => {
+    input.addEventListener('input', e => {
+      const name = e.target.dataset.product;
+      const raw = e.target.value.trim();
+      if (raw === '') delete productCmIds[name];
+      else productCmIds[name] = parseInt(raw, 10);
+    });
   });
 
   // Wire up URL edit buttons ("+ link" and the ✎ edit affordance).
@@ -5191,11 +5217,16 @@ document.getElementById('add-product-btn').addEventListener('click', () => {
   const urlVal = document.getElementById('new-product-url').value.trim();
   if (urlVal) productUrls[name] = urlVal;
 
+  // Store Cardmarket product id if provided
+  const cmidVal = document.getElementById('new-product-cmid').value.trim();
+  if (cmidVal) productCmIds[name] = parseInt(cmidVal, 10);
+
   // Clear form
   document.getElementById('new-product-name').value  = '';
   document.getElementById('new-product-price').value = '';
   document.getElementById('new-product-sv').value    = '';
   document.getElementById('new-product-url').value   = '';
+  document.getElementById('new-product-cmid').value  = '';
 
   renderEntryTable();
 });
@@ -5939,10 +5970,12 @@ async function loadFromSupabase() {
   const newHistDates = [...new Set(snapList.map(s => s.snapshot_date))].sort();
 
   sbProductIds = {};
+  productCmIds = {};
   const newHistoricalData = {};
   const newLinks = {};
   const newProducts = productList.map(p => {
     sbProductIds[p.name] = p.id;
+    if (p.cardmarket_product_id != null) productCmIds[p.name] = p.cardmarket_product_id;
     const byDate = {};
     snapList.filter(s => s.product_id === p.id).forEach(r => { byDate[r.snapshot_date] = r; });
     newHistoricalData[p.name] = {
@@ -6117,19 +6150,24 @@ async function saveToSupabase() {
     const newOnes = pendingProducts.filter(p => !products.find(ep => ep.name === p.name));
     for (const p of newOnes) {
       const { data, error } = await sbClient.from('products')
-        .insert({ name: p.name, type: p.type, release: p.release, cardmarket_url: productUrls[p.name] || null })
+        .insert({ name: p.name, type: p.type, release: p.release,
+                  cardmarket_url: productUrls[p.name] || null,
+                  cardmarket_product_id: productCmIds[p.name] ?? null })
         .select('id').single();
       if (error) throw error;
       sbProductIds[p.name] = data.id;
     }
 
-    // 2. Update Cardmarket links on existing products.
-    for (const [name, url] of Object.entries(productUrls)) {
+    // 2. Update Cardmarket link + product id on existing products (whichever the
+    //    admin has touched). Names with an id but no url still get updated.
+    const metaNames = new Set([...Object.keys(productUrls), ...Object.keys(productCmIds)]);
+    for (const name of metaNames) {
       const id = sbProductIds[name];
-      if (id && !newOnes.find(p => p.name === name)) {
-        const { error } = await sbClient.from('products').update({ cardmarket_url: url }).eq('id', id);
-        if (error) throw error;
-      }
+      if (!id || newOnes.find(p => p.name === name)) continue;
+      const { error } = await sbClient.from('products')
+        .update({ cardmarket_url: productUrls[name] || null, cardmarket_product_id: productCmIds[name] ?? null })
+        .eq('id', id);
+      if (error) throw error;
     }
 
     // 3. Upsert this snapshot's entered values (one row per product per date).

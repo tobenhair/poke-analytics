@@ -20,6 +20,10 @@ on:
         description: 'Bypass the 12h fetch cache'
         type: boolean
         default: false
+      backfill_ids:
+        description: 'Backfill cardmarket_product_id onto DB products that lack one (one-time), then stop'
+        type: boolean
+        default: false
 
 concurrency:
   group: cardmarket-ingest
@@ -45,12 +49,14 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DRY_RUN: ${{ inputs.dry_run }}
           REFRESH: ${{ inputs.refresh }}
+          BACKFILL_IDS: ${{ inputs.backfill_ids }}
         run: |
           set -o pipefail
           ARGS=""
           # inputs.* are empty on the scheduled run → a real write.
           [ "$DRY_RUN" = "true" ] && ARGS="$ARGS --dry-run"
           [ "$REFRESH" = "true" ] && ARGS="$ARGS --refresh"
+          [ "$BACKFILL_IDS" = "true" ] && ARGS="$ARGS --backfill-ids"
           node scripts/cardmarket-ingest.mjs $ARGS 2>&1 | tee ingest-output.txt
       - name: Publish output to job summary
         if: always()

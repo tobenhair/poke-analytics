@@ -23,6 +23,12 @@ create table if not exists public.products (
   type           text not null check (type in ('BOX','ETB','BUNDLE')),
   release        date not null,
   cardmarket_url text,
+  -- Cardmarket catalogue product id (idProduct) for the automated ingestion job.
+  -- When set, the job resolves this product's price/Set Value directly from it
+  -- (no name matching); the expansion id for the singles sum is derived from the
+  -- catalogue. Entered/edited by the admin in Data Entry. NULL → the job falls
+  -- back to matching by name.
+  cardmarket_product_id bigint,
   -- When true, the automated Cardmarket ingestion job leaves this product's
   -- Price alone (the admin sets it by hand in Data Entry) — the manual override
   -- for thin-liquidity products whose sales-based price is unreliable. Set Value
@@ -32,7 +38,8 @@ create table if not exists public.products (
   -- product names are unique per user (matches the app's duplicate-name rule)
   unique (user_id, name)
 );
--- Idempotent add for deployments created before price_locked existed.
+-- Idempotent adds for deployments created before these columns existed.
+alter table public.products add column if not exists cardmarket_product_id bigint;
 alter table public.products add column if not exists price_locked boolean not null default false;
 
 -- ── Snapshots: one Price / Set Value reading per product per date ──
