@@ -140,6 +140,12 @@ Deno.serve(async (req) => {
         price = v != null && Number.isFinite(v) ? +v.toFixed(2) : null;
       }
 
+      // Reference prices (avg / low from the same guide row) — stored for the
+      // Data Entry low-liquidity review UI (display only).
+      const round2 = (v: number | null) => (v != null && Number.isFinite(v) ? +v.toFixed(2) : null);
+      const priceAvg = pgRec ? round2(numOrNull(pgRec.avg)) : null;
+      const priceLow = pgRec ? round2(numOrNull(pgRec.low)) : null;
+
       // low_liquidity: trend and avg disagree by ≥20%.
       let lowLiquidity = false;
       if (pgRec) {
@@ -171,6 +177,7 @@ Deno.serve(async (req) => {
       const base: Rec = {
         user_id: p.user_id, product_id: p.id, snapshot_date: date,
         set_value: setValue, low_liquidity: lowLiquidity,
+        price_avg: priceAvg, price_low: priceLow,
       };
       if (price == null) withoutPrice.push(base);
       else withPrice.push({ ...base, price });

@@ -171,7 +171,9 @@ export function singlesByExpansion(singlesRecords) {
 //   • lowLiquidity = the box's own trend and avg disagree by ≥ thinGap — the
 //                  sales-based price is unreliable (advisory flag).
 // Returns name → { idProduct, idExpansion, type, release, cardmarket_url,
-//                  price, priceSrc, setValue, nSingles, lowLiquidity }.
+//                  price, priceSrc, avgPrice, lowPrice, setValue, nSingles,
+//                  lowLiquidity }. avgPrice/lowPrice are the guide's avg/low,
+//                  stored for the Data Entry low-liquidity review (display only).
 export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords, opts = {}) {
   const { boxPriceField = 'trend', svField = 'avg30', thinGap = 0.2 } = opts;
   const pgById = new Map();
@@ -199,6 +201,12 @@ export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords,
     const rawPrice = override != null ? override : pgRec ? valueOf(pgRec, boxPriceField) : null;
     const price = rawPrice != null && Number.isFinite(rawPrice) ? +rawPrice.toFixed(2) : null;
     const priceSrc = override != null ? 'override' : boxPriceField;
+
+    // Reference prices (avg / low from the same guide row) — stored for the
+    // Data Entry review UI, and the basis for the low-liquidity flag.
+    const round2 = (v) => (v != null && Number.isFinite(v) ? +v.toFixed(2) : null);
+    const avgPrice = pgRec ? round2(numOrNull(pgRec.avg)) : null;
+    const lowPrice = pgRec ? round2(numOrNull(pgRec.low)) : null;
 
     let lowLiquidity = false;
     if (pgRec) {
@@ -234,6 +242,8 @@ export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords,
       cardmarket_url: entry.cardmarket_url ?? null,
       price,
       priceSrc,
+      avgPrice,
+      lowPrice,
       setValue,
       nSingles,
       lowLiquidity,

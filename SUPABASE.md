@@ -221,7 +221,7 @@ inputs live in the database:
 | Table | Purpose | Access | Key columns |
 |-------|---------|--------|-------------|
 | `products` | one row per tracked product | read: all signed-in · write: admin | `name`, `type`, `release`, `cardmarket_url`, `cardmarket_product_id`, `cardmarket_expansion_id`, `price_locked` |
-| `snapshots` | one row per product per date | read: all signed-in · write: admin | `product_id`, `snapshot_date`, `price`, `set_value`, `low_liquidity` |
+| `snapshots` | one row per product per date | read: all signed-in · write: admin | `product_id`, `snapshot_date`, `price`, `set_value`, `low_liquidity`, `price_avg`, `price_low` |
 | `cardmarket_expansion_singles` | ingestion cache: expansion → its single-card ids | service-role only (no client policy) | `id_expansion`, `single_product_ids` |
 | `user_settings` | per-user preferences | read/write: own row | `age_threshold`, `currency` |
 | `holdings` | per-user portfolio | read/write: own row | `product_id`, `quantity`, `cost_basis` |
@@ -294,10 +294,15 @@ enter by hand is never overwritten by Resolve ids. `cardmarket-map.json` is now
 only for overrides (`nameHint`, `priceOverride`) and the offline dry-run
 allowlist used by the local `scripts/cardmarket-ingest.mjs` fallback.
 
-**Manual control for thin-liquidity products.** Set `products.price_locked =
-true` (a per-product toggle in Data Entry) and the job never overwrites that
-product's price — you set it by hand — while Set Value still auto-updates. It's
-the override for grails whose few sales make the automated price untrustworthy.
+**Manual control for thin-liquidity products.** The daily job flags a snapshot
+`low_liquidity` when the guide's `trend` and `avg` diverge ≥20% (thin sales →
+unreliable price), and stores the reference prices (`snapshots.price_avg` /
+`price_low`) alongside. In **Data Entry** those flagged products are badged
+"⚠ thin" with the spread (`auto €trend · avg €… · low €…`) and listed in the
+advisory strip for review. Hit the row's **🔒 lock** (→ `products.price_locked =
+true`) and the job never overwrites that product's price — you set it by hand,
+and Set Value still auto-updates. It's the override for grails whose few sales
+make the automated price untrustworthy.
 
 **Setup:** every step is in the browser — no terminal required (deploy the
 functions via **Edge Functions → Deploy a new function → Via Editor**, pasting

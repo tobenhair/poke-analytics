@@ -205,7 +205,7 @@ async function main() {
   for (const p of usable) {
     const row = dbByName.get(p.name);
     if (!row) { missing.push(p.name); continue; }
-    const base = { user_id: row.user_id, product_id: row.id, snapshot_date: DATE, set_value: p.setValue, low_liquidity: p.lowLiquidity };
+    const base = { user_id: row.user_id, product_id: row.id, snapshot_date: DATE, set_value: p.setValue, low_liquidity: p.lowLiquidity, price_avg: p.avgPrice, price_low: p.lowPrice };
     if (row.price_locked || p.price == null) withoutPrice.push(base);
     else withPrice.push({ ...base, price: p.price });
   }

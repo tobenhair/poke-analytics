@@ -93,6 +93,16 @@ test('deriveProducts: lowLiquidity flags a thin box (trend vs avg ≥20% apart)'
   assert.equal(d['Evolving Skies Booster Box'].lowLiquidity, false); // 2000 vs 1800
 });
 
+test('deriveProducts: avgPrice / lowPrice carry the guide reference prices', () => {
+  const resolved = resolveIds(map, nonsingles);
+  const d = deriveProducts(map, resolved, priceGuide, singles);
+  // Team Up guide row: avg 10100, low 1849 — the spread shown for review.
+  assert.equal(d['Team Up Booster Box'].avgPrice, 10100);
+  assert.equal(d['Team Up Booster Box'].lowPrice, 1849);
+  // priceOverride doesn't touch the reference prices.
+  assert.equal(d['Team Up Booster Box'].price, 11000);
+});
+
 test('singlesByExpansion groups single ids by expansion (the precomputed catalog)', () => {
   const byExp = singlesByExpansion(singles);
   // keyed by String(idExpansion); values are numeric single idProducts
