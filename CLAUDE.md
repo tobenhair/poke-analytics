@@ -128,6 +128,14 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   product via Chart.js `onClick`/`onHover` (the age-fit line's points carry no
   `name`, so the line is inert). Any new product listing should keep this — open
   `openDrill(name)` from a real control.
+- **`openDrill()` shows the overlay *before* it builds the body.** Order matters:
+  it sets `#drill-title` (the accessible name focus lands on), calls
+  `openOverlay('drill-modal')`, then `renderDrill()`. The two `responsive`
+  Chart.js canvases must be created against a *visible* container — one built
+  while the dialog is still `display:none` measures 0×0, and from some entry
+  points (opening off the scatter's own canvas click) never gets a resize
+  callback, so it renders blank. Rendering after the overlay is visible sizes
+  every chart. Don't move the render back ahead of the open.
 - **The What-If sandbox lives in the drill-down**, always scoped to the product
   on screen — it is *not* an Analysis section. The markup (same ids: `sv-slider`,
   `price-slider`, `out-svb`/`out-score`/`out-signal`, `scenario-reset`, …) sits
