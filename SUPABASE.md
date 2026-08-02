@@ -275,8 +275,11 @@ as a local fallback, but production needs no GitHub.)
 
 - **Set Value** = the sum of every single in the set (`avg30`, the 30-day
   average) — the all-cards EU value.
-- **Box Price** = Cardmarket's `trend` — *unless* the product is **price-locked**
-  (see below), in which case the price is left to your manual entry.
+- **Box Price** = the midpoint of Cardmarket's `trend` and `avg` (a 50/50 blend).
+  For thin-liquidity boxes the true price sits between the smoothed `trend` and
+  the sales `avg`; for liquid boxes the two nearly coincide, so the blend ≈
+  `trend`. *Unless* the product is **price-locked** (see below), in which case
+  the price is left to your manual entry.
 - **`low_liquidity`** — an advisory flag set when the sales-based price is
   unreliable (the guide's `trend` and `avg` disagree by ≥20%, i.e. thin volume).
 

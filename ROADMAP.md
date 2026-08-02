@@ -586,7 +586,9 @@ Edge Function** so the daily job runs inside Supabase despite the Edge runtime's
 
 Both Edge Functions derive via the same math as the unit-tested
 `scripts/cardmarket-lib.mjs`, writing Set Value = `avg30` all-cards singles sum
-and Box Price = `trend` (skipped when `products.price_locked`), flagging thin
+and Box Price = `(trend + avg)/2` (the 50/50 blend — thin boxes' true price sits
+between Cardmarket's smoothed trend and the sales avg, confirmed against
+hand-tracked history; skipped when `products.price_locked`), flagging thin
 liquidity (`snapshots.low_liquidity`). `scripts/cardmarket-ingest.mjs` mirrors
 both halves on the command line (`--dry-run`, `--backfill-ids`,
 `--refresh-catalog`) as a local fallback. The in-app **Data Entry price-lock

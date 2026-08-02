@@ -116,7 +116,7 @@ Add new products at any time from the Data Entry tab; the product name must matc
 
 **Or automate it (Supabase mode):** a daily **Supabase Edge Function** writes the
 snapshot for you from Cardmarket's official bulk files — Set Value from the set's
-singles, box price from the market trend — so you don't have to enter prices by
+singles, box price from a blend of the market trend and sale average — so you don't have to enter prices by
 hand. Adding products is hands-off: click **Resolve ids** to auto-fill each
 product's Cardmarket **CM ID** and **Exp ID** by name-matching, then **Sync
 catalog** to cache the set's card list — both are Edge Functions run from Data
