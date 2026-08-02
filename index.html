@@ -881,6 +881,8 @@
   }
   .pick-item:last-child { border-bottom: none; }
   .pick-item:hover { background: rgba(244,198,81,0.03); padding-left: 28px; }
+  /* Top Picks rows open the drill-down on click (the whole item is the target). */
+  #top-picks-list .pick-item { cursor: pointer; }
   .pick-rank {
     font-family: 'Bebas Neue', sans-serif;
     font-size: var(--display-md);
@@ -3101,11 +3103,14 @@ function updateTopPicks() {
     div.innerHTML = `
       <div class="pick-rank ${rankClass}">${i + 1}</div>
       <div class="pick-info">
-        <div class="pick-name">${p.name}</div>
+        <div class="pick-name"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></div>
         <div class="pick-meta">${p.type} · €${fmt(p.price)} · Age ${fmt(p.age, 1)}yr</div>
       </div>
       <div class="pick-score">${fmt(p.score, 1)}</div>
     `;
+    // Whole item opens the drill for the mouse; the named button is the a11y target.
+    div.addEventListener('click', () => openDrill(p.name));
+    div.querySelector('.row-open').addEventListener('click', e => { e.stopPropagation(); openDrill(p.name); });
     el.appendChild(div);
   });
 }
@@ -5490,8 +5495,15 @@ function openDrill(name) {
   const p = products.find(pp => pp.name === name);
   if (!p) return;
   drillProduct = name;
-  renderDrill();               // fills #drill-title, the dialog's accessible name
-  openOverlay('drill-modal');  // …then show it and move focus in
+  // Set the accessible name first (focus moves in on open), then SHOW the modal,
+  // then build the body. The charts must be created against a *visible*
+  // container: a responsive Chart.js canvas built while the dialog is still
+  // display:none measures 0×0, and depending on the entry point (opening from
+  // the scatter's canvas click) never gets a resize callback — so it stays blank.
+  // Rendering after the overlay is visible sizes every chart correctly.
+  document.getElementById('drill-title').textContent = p.name;
+  openOverlay('drill-modal');  // show first…
+  renderDrill();               // …then fill it, with the charts sized to a visible box
 }
 function closeDrill() {
   closeOverlay('drill-modal');
