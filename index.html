@@ -4981,6 +4981,7 @@ function renderEntryTable() {
       : '';
     const tr = document.createElement('tr');
     if (locked) tr.classList.add('row-locked');
+    tr.innerHTML = `
       <td style="width:60px; text-align:center;" class="url-cell" data-product="${p.name}">
         ${url
           ? `<div style="display:flex; align-items:center; justify-content:center; gap:8px; line-height:1;">
