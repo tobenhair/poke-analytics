@@ -13,7 +13,7 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 - **Ranks every product** by an age-weighted value score so newer and older releases can be compared fairly.
 - **Surfaces buy signals** when a product's price drops while its set value holds steady — a possible mispricing.
 - **Charts price history, set-value-per-booster trends, and age-vs-value** across all tracked products, comparing either products or whole sets.
-- **Scenario explorer** — drag sliders for set value and price to see how the score would move.
+- **Scenario explorer** — open any product's drill-down and drag the set-value and price sliders to see how its score would move.
 - **Monthly data entry** — punch in the latest prices, add new releases, attach Cardmarket links, and export an updated `.xlsx` ready to commit back to the repo.
 - **With cloud sync enabled** (optional, see below): a private **portfolio** with unrealised P&L, concentration balancing and a value-over-time chart, plus **price alerts** on a fixed € target or on the fair price.
 
@@ -101,7 +101,7 @@ Two are always visible; two appear only with cloud sync enabled and signed in.
 | Tab | Shown | Purpose |
 | --- | --- | --- |
 | **Welcome** | always | A landing map: where each tab is, and the two shared explanations. |
-| **Analysis** | always | The decision view — ranked board with fair price and verdict, KPIs, price/value charts, buy signals, and the scenario explorer. |
+| **Analysis** | always | The decision view — ranked board with fair price and verdict, KPIs, price/value charts, and buy signals. Click any product (board, top picks, relative-value/momentum tables, or the age-vs-value scatter) to open its drill-down, which carries the full detail plus a what-if scenario sandbox. |
 | **Portfolio** | signed in | Your private holdings and price alerts — unrealised P&L, concentration balancer, value over time. |
 | **Data Entry** | admin only | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs and product ids (the "CM ID" that drives automated ingestion), review thin-liquidity flags and **lock** a manual price on products whose automated price is unreliable, and export the updated workbook. |
 

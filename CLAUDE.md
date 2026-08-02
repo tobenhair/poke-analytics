@@ -95,7 +95,7 @@ The pure math lives in **`metrics.js`** (imported by `index.html` and unit-teste
 
 ## UI architecture
 
-Four tabs (Welcome / Analysis / Portfolio / Data Entry) are `.tab-pane`s toggled by `.tab-btn[data-tab]` — Portfolio (`.sb-only`, signed-in) and Data Entry (`.admin-only`) are conditionally shown. The Analysis tab is a single vertically-stacked column of full-width sections, each introduced by a numbered `.section-eyebrow` (01–09) — on-screen title first, internal name second: **01 This Month's Standouts** (Top Picks), **02 The Board** (the All Products table), **03 Value Per Booster**, **04 Age vs Value** (the scatter, with a fitted "expected value for age" line), **05 Relative Value**, **06 Price History**, **07 Momentum & Drawdown**, **08 Trend Over Time**, **09 What If** (the Scenario Explorer). The Portfolio tab numbers its own sections independently (01–03: Your Portfolio, Value Over Time, Concentration & Rebalance).
+Four tabs (Welcome / Analysis / Portfolio / Data Entry) are `.tab-pane`s toggled by `.tab-btn[data-tab]` — Portfolio (`.sb-only`, signed-in) and Data Entry (`.admin-only`) are conditionally shown. The Analysis tab is a single vertically-stacked column of full-width sections, each introduced by a numbered `.section-eyebrow` (01–08) — on-screen title first, internal name second: **01 This Month's Standouts** (Top Picks), **02 The Board** (the All Products table), **03 Value Per Booster**, **04 Age vs Value** (the scatter, with a fitted "expected value for age" line), **05 Relative Value**, **06 Price History**, **07 Momentum & Drawdown**, **08 Trend Over Time**. The **What If / Scenario Explorer** is no longer a tab section — it lives inside the product drill-down (see below), always scoped to the product on screen. The Portfolio tab numbers its own sections independently (01–03: Your Portfolio, Value Over Time, Concentration & Rebalance).
 
 Rendering follows a **state + render-function** pattern: module-level state (`activeType` — the global BOX/ETB/BUNDLE filter, `sortKey`, `ageThreshold`, …) plus render functions (`updateTable`, `updateKPIs`, `updateTopPicks`, `renderScatterChart`, `renderRelativeValue`, `renderMomentum`, `initScenario`, …). Chart.js instances live in module-level vars and are **destroyed and recreated** on each re-render. Any new render function must be wired into both `INIT` and `applyNewData()` so it runs on first load and after a data file loads. The Price History (§06) and SV/Booster Trend (§08) comparison views are built by a shared `createCompareView()` controller (instances `cmpHist`/`cmpSvb`) — a Products⇄Sets mode toggle, a capped multi-series picker (chips + a legend that toggles series), with set roll-ups via `groupSets()`/`meanSeries()` in `metrics.js`; each instance is `init()`ed in `INIT` and `refresh()`ed in `applyNewData()` and on type-filter change. `activeType` scopes the board plus every analytical chart/comparison view via the `visibleProducts()` helper (`applyTypeFilter()`).
 
@@ -120,6 +120,26 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   nowrap flex line with `min-width: 0` — without it the cell's `text-overflow`
   cannot ellipsis *part* of an inline-block, and a long name beside a buy/alert flag
   disappears entirely.
+- **The drill-down opens from every product surface, not just the board.** Top
+  Picks (§01) and the Best-deals overview build the same `.row-open` button; the
+  Relative Value (§05) and Momentum (§07) tables now do too (whole row clickable
+  + the named button as the keyboard target, `#relval-tbody`/`#momentum-tbody`
+  carry `cursor: pointer`); the Age-vs-Value scatter (§04) opens a point's
+  product via Chart.js `onClick`/`onHover` (the age-fit line's points carry no
+  `name`, so the line is inert). Any new product listing should keep this — open
+  `openDrill(name)` from a real control.
+- **The What-If sandbox lives in the drill-down**, always scoped to the product
+  on screen — it is *not* an Analysis section. The markup (same ids: `sv-slider`,
+  `price-slider`, `out-svb`/`out-score`/`out-signal`, `scenario-reset`, …) sits
+  in a `.modal-section` of `#drill-modal`; `renderDrill()` sets `scenarioProduct
+  = p.name` then calls `initScenario()`. There is no product picker (the old
+  `#scenario-product-select` and `populateScenarioSelect()` are gone). The
+  `scenarioOutcome()` math in `metrics.js` is unchanged.
+- **The dialog's `.modal` is its own compositing layer (`transform:
+  translateZ(0)`).** The overlay behind it is `backdrop-filter`-blurred; without
+  the layer promotion the blurred backdrop re-samples on every scroll frame of
+  the scrollable `.modal`, which reads as the background flickering while you
+  scroll inside the dialog. Don't remove it.
 - **Every `.modal-overlay` is a real dialog.** Markup carries
   `role="dialog"`/`aria-modal`/`aria-labelledby`; behaviour comes from the shared
   `openOverlay(id, focusSelector)` / `closeOverlay(id)` helpers plus one global
