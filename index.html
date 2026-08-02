@@ -1126,6 +1126,14 @@
   .entry-product-name { font-weight: 500; font-size: var(--text-lg); white-space: nowrap; }
   .entry-last-price { font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--muted); }
   .entry-delta { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--accent); margin-top: 4px; letter-spacing: 0.02em; }
+  /* Thin-liquidity note under a flagged product's Last Price: the trend/avg/low spread */
+  .entry-thin { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--accent); margin-top: 4px; letter-spacing: 0.02em; white-space: nowrap; }
+  .entry-thin .thin-flag { color: var(--accent2); }
+  /* Price-lock toggle (per row) — set the price by hand, daily job leaves it alone */
+  .lock-btn { background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px; margin: -4px; border-radius: var(--radius-sm); line-height: 1; transition: color 0.15s; }
+  .lock-btn:hover { color: var(--text); }
+  .lock-btn.is-locked { color: var(--accent); }
+  .row-locked .entry-last-price { color: var(--accent); }
   /* Data-quality warnings strip (snapshot gaps, type outliers) — hidden when clean */
   .entry-quality { display: none; padding: 12px 20px 0; }
   .entry-quality.has-warnings { display: block; }
@@ -1563,6 +1571,7 @@
   <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v10.6M8 10.8l4 4 4-4"/><path d="M4.5 18.5v1.5h15v-1.5"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4v4h-4"/></symbol>
   <symbol id="i-wand" viewBox="0 0 24 24"><path d="M6 20 16 10"/><path d="M17 3l.9 2.1L20 6l-2.1.9L17 9l-.9-2.1L14 6l2.1-.9zM6 8l.6 1.4L8 10l-1.4.6L6 12l-.6-1.4L4 10l1.4-.6z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></symbol>
   <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="15" rx="2"/><path d="M3.5 10.2h17M8 3.5v4M16 3.5v4"/></symbol>
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5.2"/><circle cx="12" cy="8.1" r="0.9" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.5" fill="currentColor" stroke="none"/></symbol>
@@ -4760,6 +4769,14 @@ let productCmIds = {};
 // whose singles make up Set Value. The catalog-refresh Edge Function reads these
 // to know which expansions' card lists to cache. Edited in Data Entry, saved to cloud.
 let productExpIds = {};
+// Price lock: { productName -> true } — when locked, the automated Cardmarket
+// ingestion leaves this product's price alone (admin sets it by hand); the
+// manual override for thin-liquidity products. Persisted to products.price_locked.
+let productLocked = {};
+// Latest snapshot's advisory data per product, for the low-liquidity review:
+// { productName -> { lowLiq: bool, avg: number|null, low: number|null } }. Read
+// from the newest snapshot in loadFromSupabase; display only.
+let productPriceRef = {};
 // Holds new products added this session (not yet in products array)
 let pendingProducts = [];
 
@@ -4925,6 +4942,12 @@ function renderEntryQuality() {
   typeOutliers(products).forEach(o => {
     lines.push(`⚠ ${o.name}: SV/Booster ${fmt(o.svPerBooster, 1)}× vs ${fmt(o.peerMedian, 1)}× for its set — check its Type (${o.type})`);
   });
+  // Thin-liquidity prices that aren't already under manual control (price-locked):
+  // the automated price diverges from the market average, so it wants a look.
+  const thin = products.filter(p => productPriceRef[p.name]?.lowLiq && !productLocked[p.name]).map(p => p.name);
+  if (thin.length) {
+    lines.push(`⚠ ${thin.length} thin-liquidity price${thin.length > 1 ? 's' : ''} (trend far from the market average) — review, and lock a manual price if the automated one looks wrong: ${thin.join(', ')}`);
+  }
   box.innerHTML = lines.map(l => `<div class="q-line">${l}</div>`).join('');
   box.classList.toggle('has-warnings', lines.length > 0);
 }
@@ -4945,7 +4968,19 @@ function renderEntryTable() {
     const saved = entryData[p.name] || {};
 
     const url = productUrls[p.name] || '';
+    const isPending = !!pendingProducts.find(pp => pp.name === p.name);
+    const locked = !!productLocked[p.name];
+    const ref = productPriceRef[p.name];
+    // Thin-liquidity note: the automated price (trend, shown as Last Price) is
+    // unreliable when it diverges from the average. Show the spread so the admin
+    // can judge and, if needed, lock a manual price.
+    const thinNote = (ref && ref.lowLiq)
+      ? `<div class="entry-thin"><span class="thin-flag" role="img" aria-label="Thin liquidity: the automated price may be unreliable">⚠ thin</span>${
+          ref.avg != null ? ` · avg €${ref.avg.toLocaleString('de-DE')}` : ''}${
+          ref.low != null ? ` · low €${ref.low.toLocaleString('de-DE')}` : ''}</div>`
+      : '';
     const tr = document.createElement('tr');
+    if (locked) tr.classList.add('row-locked');
     tr.innerHTML = `
       <td style="width:60px; text-align:center;" class="url-cell" data-product="${p.name}">
         ${url
@@ -4979,7 +5014,7 @@ function renderEntryTable() {
       </td>
       <td class="entry-product-name" title="${p.name}">${p.name}</td>
       <td><span class="type-badge type-${p.type}">${p.type}</span></td>
-      <td class="entry-last-price">${last.price != null ? '€' + last.price.toLocaleString('de-DE') : '—'}</td>
+      <td class="entry-last-price">${last.price != null ? '€' + last.price.toLocaleString('de-DE') : '—'}${thinNote}</td>
       <td class="entry-last-price">${last.setVal != null ? '€' + last.setVal.toLocaleString('de-DE') : '—'}</td>
       <td>
         <input class="entry-input ${saved.price != null ? 'filled' : ''}"
@@ -4998,9 +5033,13 @@ function renderEntryTable() {
         <div class="entry-delta"></div>
       </td>
       <td>
-        ${pendingProducts.find(pp => pp.name === p.name)
+        ${isPending
           ? `<button class="remove-row-btn" type="button" data-product="${p.name}" title="Remove new product" aria-label="Remove the new product ${p.name}">✕</button>`
-          : ''}
+          : `<button class="lock-btn${locked ? ' is-locked' : ''}" type="button" data-product="${p.name}"
+              aria-pressed="${locked}"
+              title="${locked ? 'Price locked — the daily job won’t overwrite it; enter it by hand' : 'Lock this price — set it manually, and the daily job won’t overwrite it'}"
+              aria-label="${locked ? p.name + ' — price locked (manual); click to unlock' : p.name + ' — lock price for manual entry'}">
+              <svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg></button>`}
       </td>
     `;
     tbody.appendChild(tr);
@@ -5054,6 +5093,19 @@ function renderEntryTable() {
       const raw = e.target.value.trim();
       if (raw === '') delete productExpIds[name];
       else productExpIds[name] = parseInt(raw, 10);
+    });
+  });
+
+  // Price-lock toggle — when locked, the daily job leaves this product's price
+  // to the admin's manual entry. Buffered like the rest of Data Entry; the change
+  // is applied on Save to cloud.
+  tbody.querySelectorAll('.lock-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const name = e.currentTarget.dataset.product;
+      if (productLocked[name]) delete productLocked[name];
+      else productLocked[name] = true;
+      setStatus('entry-status', `${productLocked[name] ? '🔒 Locked' : '🔓 Unlocked'} ${name} — Save to cloud to apply`, false);
+      renderEntryTable();
     });
   });
 
@@ -6015,18 +6067,31 @@ async function loadFromSupabase() {
   sbProductIds = {};
   productCmIds = {};
   productExpIds = {};
+  productLocked = {};
+  productPriceRef = {};
   const newHistoricalData = {};
   const newLinks = {};
   const newProducts = productList.map(p => {
     sbProductIds[p.name] = p.id;
     if (p.cardmarket_product_id != null) productCmIds[p.name] = p.cardmarket_product_id;
     if (p.cardmarket_expansion_id != null) productExpIds[p.name] = p.cardmarket_expansion_id;
+    if (p.price_locked) productLocked[p.name] = true;
     const byDate = {};
     snapList.filter(s => s.product_id === p.id).forEach(r => { byDate[r.snapshot_date] = r; });
     newHistoricalData[p.name] = {
       price:  newHistDates.map(d => byDate[d]?.price ?? null),
       setVal: newHistDates.map(d => byDate[d]?.set_value ?? null),
     };
+    // Latest snapshot's advisory data (thin-liquidity flag + reference prices).
+    const lastDate = Object.keys(byDate).sort().at(-1);
+    if (lastDate) {
+      const r = byDate[lastDate];
+      productPriceRef[p.name] = {
+        lowLiq: !!r.low_liquidity,
+        avg: r.price_avg != null ? Number(r.price_avg) : null,
+        low: r.price_low != null ? Number(r.price_low) : null,
+      };
+    }
     if (p.cardmarket_url) newLinks[p.name] = p.cardmarket_url;
     return {
       name: p.name, type: String(p.type).toUpperCase(), release: p.release,
@@ -6198,22 +6263,24 @@ async function saveToSupabase() {
         .insert({ name: p.name, type: p.type, release: p.release,
                   cardmarket_url: productUrls[p.name] || null,
                   cardmarket_product_id: productCmIds[p.name] ?? null,
-                  cardmarket_expansion_id: productExpIds[p.name] ?? null })
+                  cardmarket_expansion_id: productExpIds[p.name] ?? null,
+                  price_locked: !!productLocked[p.name] })
         .select('id').single();
       if (error) throw error;
       sbProductIds[p.name] = data.id;
     }
 
-    // 2. Update Cardmarket link + product/expansion ids on existing products
-    //    (whichever the admin has touched). Any name with any of the three set.
-    const metaNames = new Set([...Object.keys(productUrls), ...Object.keys(productCmIds), ...Object.keys(productExpIds)]);
+    // 2. Update Cardmarket link + product/expansion ids + price-lock on existing
+    //    products (whichever the admin has touched).
+    const metaNames = new Set([...Object.keys(productUrls), ...Object.keys(productCmIds), ...Object.keys(productExpIds), ...Object.keys(productLocked)]);
     for (const name of metaNames) {
       const id = sbProductIds[name];
       if (!id || newOnes.find(p => p.name === name)) continue;
       const { error } = await sbClient.from('products')
         .update({ cardmarket_url: productUrls[name] || null,
                   cardmarket_product_id: productCmIds[name] ?? null,
-                  cardmarket_expansion_id: productExpIds[name] ?? null })
+                  cardmarket_expansion_id: productExpIds[name] ?? null,
+                  price_locked: !!productLocked[name] })
         .eq('id', id);
       if (error) throw error;
     }

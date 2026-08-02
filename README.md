@@ -103,7 +103,7 @@ Two are always visible; two appear only with cloud sync enabled and signed in.
 | **Welcome** | always | A landing map: where each tab is, and the two shared explanations. |
 | **Analysis** | always | The decision view — ranked board with fair price and verdict, KPIs, price/value charts, buy signals, and the scenario explorer. |
 | **Portfolio** | signed in | Your private holdings and price alerts — unrealised P&L, concentration balancer, value over time. |
-| **Data Entry** | admin only | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs and product ids (the "CM ID" that drives automated ingestion), and export the updated workbook. |
+| **Data Entry** | admin only | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs and product ids (the "CM ID" that drives automated ingestion), review thin-liquidity flags and **lock** a manual price on products whose automated price is unreliable, and export the updated workbook. |
 
 ## Monthly workflow
 
@@ -116,7 +116,7 @@ Add new products at any time from the Data Entry tab; the product name must matc
 
 **Or automate it (Supabase mode):** a daily **Supabase Edge Function** writes the
 snapshot for you from Cardmarket's official bulk files — Set Value from the set's
-singles, box price from the market trend — so you don't have to enter prices by
+singles, box price from a blend of the market trend and sale average — so you don't have to enter prices by
 hand. Adding products is hands-off: click **Resolve ids** to auto-fill each
 product's Cardmarket **CM ID** and **Exp ID** by name-matching, then **Sync
 catalog** to cache the set's card list — both are Edge Functions run from Data

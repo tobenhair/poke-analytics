@@ -66,17 +66,26 @@ const singles = [
   { idProduct: 2001, idExpansion: 20 },
 ];
 
-test('deriveProducts: box price = trend, Set Value = avg30 singles sum', () => {
+test('deriveProducts: box price = trend/avg blend, Set Value = avg30 singles sum', () => {
   const resolved = resolveIds(map, nonsingles);
   const d = deriveProducts(map, resolved, priceGuide, singles);
-  // Evolving Skies: price = trend 1800; SV = 50 + 10 = 60
-  assert.equal(d['Evolving Skies Booster Box'].price, 1800);
-  assert.equal(d['Evolving Skies Booster Box'].priceSrc, 'trend');
+  // Evolving Skies: price = (trend 1800 + avg 2000)/2 = 1900; SV = 50 + 10 = 60
+  assert.equal(d['Evolving Skies Booster Box'].price, 1900);
+  assert.equal(d['Evolving Skies Booster Box'].priceSrc, 'blend');
   assert.equal(d['Evolving Skies Booster Box'].setValue, 60);
   assert.equal(d['Evolving Skies Booster Box'].nSingles, 2);
-  // Mega: price = trend 250; SV = 30 (single 2001 in expansion 20)
-  assert.equal(d['Mega Evolutions Booster Box'].price, 250);
+  // Mega: price = (trend 250 + avg 260)/2 = 255; SV = 30 (single 2001 in exp 20)
+  assert.equal(d['Mega Evolutions Booster Box'].price, 255);
   assert.equal(d['Mega Evolutions Booster Box'].setValue, 30);
+});
+
+test('deriveProducts: box price falls back to the single value when avg is absent', () => {
+  const m = { products: { 'X Box': { type: 'BOX', release: '2020-01-01' } } };
+  const ns = [{ idProduct: 900, name: 'X Box', categoryName: 'Booster Box', idExpansion: 90 }];
+  const pg = [{ idProduct: 900, trend: 400 }]; // no avg
+  const d = deriveProducts(m, resolveIds(m, ns), pg, []);
+  assert.equal(d['X Box'].price, 400);
+  assert.equal(d['X Box'].priceSrc, 'trend');
 });
 
 test('deriveProducts: priceOverride wins for the box price; Set Value stays derived', () => {
@@ -91,6 +100,16 @@ test('deriveProducts: lowLiquidity flags a thin box (trend vs avg ≥20% apart)'
   const d = deriveProducts(map, resolved, priceGuide, singles);
   assert.equal(d['Team Up Booster Box'].lowLiquidity, true); // 10100 vs 6300
   assert.equal(d['Evolving Skies Booster Box'].lowLiquidity, false); // 2000 vs 1800
+});
+
+test('deriveProducts: avgPrice / lowPrice carry the guide reference prices', () => {
+  const resolved = resolveIds(map, nonsingles);
+  const d = deriveProducts(map, resolved, priceGuide, singles);
+  // Team Up guide row: avg 10100, low 1849 — the spread shown for review.
+  assert.equal(d['Team Up Booster Box'].avgPrice, 10100);
+  assert.equal(d['Team Up Booster Box'].lowPrice, 1849);
+  // priceOverride doesn't touch the reference prices.
+  assert.equal(d['Team Up Booster Box'].price, 11000);
 });
 
 test('singlesByExpansion groups single ids by expansion (the precomputed catalog)', () => {

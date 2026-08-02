@@ -165,13 +165,18 @@ export function singlesByExpansion(singlesRecords) {
 // Derive the values to store, per tracked product. Decisions baked in:
 //   • Set Value  = sum of `svField` (avg30) over every single in the expansion
 //                  — the all-cards EU singles sum.
-//   • Box Price  = `boxPriceField` (trend; sealed products carry no avg30, so
-//                  avg30 would fall back to trend anyway), UNLESS the map pins a
-//                  `priceOverride`, which wins (the thin-liquidity manual lever).
+//   • Box Price  = the midpoint of `trend` and `avg` (50/50 blend). Thin boxes'
+//                  true price sits between Cardmarket's smoothed trend and the
+//                  sales avg; liquid boxes have trend ≈ avg so the blend ≈ trend.
+//                  Falls back to whichever single value exists; a map
+//                  `priceOverride` still wins (the manual lever). priceSrc is
+//                  'blend' | 'trend' | 'avg' | 'override' accordingly.
 //   • lowLiquidity = the box's own trend and avg disagree by ≥ thinGap — the
-//                  sales-based price is unreliable (advisory flag).
+//                  sales-based price is unreliable (advisory flag for review).
 // Returns name → { idProduct, idExpansion, type, release, cardmarket_url,
-//                  price, priceSrc, setValue, nSingles, lowLiquidity }.
+//                  price, priceSrc, avgPrice, lowPrice, setValue, nSingles,
+//                  lowLiquidity }. avgPrice/lowPrice are the guide's avg/low,
+//                  stored for the Data Entry low-liquidity review.
 export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords, opts = {}) {
   const { boxPriceField = 'trend', svField = 'avg30', thinGap = 0.2 } = opts;
   const pgById = new Map();
@@ -195,19 +200,34 @@ export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords,
     const idE = info.idExpansion ?? null;
     const pgRec = idP != null ? pgById.get(String(idP)) : null;
 
+    // Reference prices (avg / low from the same guide row) — stored for the
+    // Data Entry review UI, the low-liquidity flag, and (with trend) the blended
+    // Box Price below.
+    const round2 = (v) => (v != null && Number.isFinite(v) ? +v.toFixed(2) : null);
+    const t = pgRec ? numOrNull(pgRec.trend) : null;
+    const a = pgRec ? numOrNull(pgRec.avg) : null;
+    const avgPrice = round2(a);
+    const lowPrice = pgRec ? round2(numOrNull(pgRec.low)) : null;
+
+    // Box Price = the midpoint of trend and avg (50/50 blend). For thin-liquidity
+    // boxes the true price sits between Cardmarket's smoothed `trend` and the
+    // sales `avg` — confirmed against hand-tracked history (pure trend ran too low
+    // on grail boxes); for liquid boxes trend ≈ avg so the blend ≈ trend. Falls
+    // back to whichever single value exists; a map `priceOverride` still wins.
+    let basePrice, baseSrc;
+    if (t != null && a != null) { basePrice = (t + a) / 2; baseSrc = 'blend'; }
+    else if (t != null) { basePrice = t; baseSrc = 'trend'; }
+    else if (a != null) { basePrice = a; baseSrc = 'avg'; }
+    else { basePrice = pgRec ? valueOf(pgRec, boxPriceField) : null; baseSrc = boxPriceField; }
     const override = entry.priceOverride != null && entry.priceOverride !== '' ? Number(entry.priceOverride) : null;
-    const rawPrice = override != null ? override : pgRec ? valueOf(pgRec, boxPriceField) : null;
+    const rawPrice = override != null ? override : basePrice;
     const price = rawPrice != null && Number.isFinite(rawPrice) ? +rawPrice.toFixed(2) : null;
-    const priceSrc = override != null ? 'override' : boxPriceField;
+    const priceSrc = override != null ? 'override' : baseSrc;
 
     let lowLiquidity = false;
-    if (pgRec) {
-      const t = numOrNull(pgRec.trend);
-      const a = numOrNull(pgRec.avg);
-      if (t != null && a != null) {
-        const hi = Math.max(a, t);
-        if (hi > 0 && Math.abs(a - t) / hi >= thinGap) lowLiquidity = true;
-      }
+    if (t != null && a != null) {
+      const hi = Math.max(a, t);
+      if (hi > 0 && Math.abs(a - t) / hi >= thinGap) lowLiquidity = true;
     }
 
     let setValue = null;
@@ -234,6 +254,8 @@ export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords,
       cardmarket_url: entry.cardmarket_url ?? null,
       price,
       priceSrc,
+      avgPrice,
+      lowPrice,
       setValue,
       nSingles,
       lowLiquidity,

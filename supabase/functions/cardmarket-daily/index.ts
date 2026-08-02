@@ -15,7 +15,7 @@
 // singles) — bounding memory to the tracked set, not the whole catalogue.
 //
 // Derivation (identical to scripts/cardmarket-lib.mjs, pinned by its unit test):
-//   • Box Price = price_guide[idProduct].trend  (UNLESS products.price_locked)
+//   • Box Price = midpoint of trend and avg, (trend + avg) / 2  (UNLESS locked)
 //   • Set Value = Σ price_guide[single].avg30 over the expansion's singles
 //   • low_liquidity = |avg − trend| / max(avg, trend) ≥ 0.2  (thin-volume flag)
 //
@@ -133,22 +133,28 @@ Deno.serve(async (req) => {
       if (idP == null) { skipped.push(`${p.name} (no CM id)`); continue; }
       const pgRec = pgById.get(String(idP));
 
-      // Box Price (trend), left null when locked (admin keeps the manual value).
+      // Reference prices (avg / low) — stored for review, and (with trend) the
+      // basis for the blended Box Price.
+      const round2 = (v: number | null) => (v != null && Number.isFinite(v) ? +v.toFixed(2) : null);
+      const t = pgRec ? numOrNull(pgRec.trend) : null;
+      const a = pgRec ? numOrNull(pgRec.avg) : null;
+      const priceAvg = round2(a);
+      const priceLow = pgRec ? round2(numOrNull(pgRec.low)) : null;
+
+      // Box Price = midpoint of trend and avg (50/50 blend) — mirror of
+      // scripts/cardmarket-lib.mjs. Left null when locked (admin's manual value).
       let price: number | null = null;
-      if (!p.price_locked && pgRec) {
-        const v = valueOf(pgRec, 'trend');
-        price = v != null && Number.isFinite(v) ? +v.toFixed(2) : null;
+      if (!p.price_locked) {
+        if (t != null && a != null) price = round2((t + a) / 2);
+        else if (t != null) price = round2(t);
+        else if (a != null) price = round2(a);
       }
 
       // low_liquidity: trend and avg disagree by ≥20%.
       let lowLiquidity = false;
-      if (pgRec) {
-        const t = numOrNull(pgRec.trend);
-        const a = numOrNull(pgRec.avg);
-        if (t != null && a != null) {
-          const hi = Math.max(a, t);
-          if (hi > 0 && Math.abs(a - t) / hi >= 0.2) lowLiquidity = true;
-        }
+      if (t != null && a != null) {
+        const hi = Math.max(a, t);
+        if (hi > 0 && Math.abs(a - t) / hi >= 0.2) lowLiquidity = true;
       }
 
       // Set Value: Σ avg30 over the expansion's singles.
@@ -171,6 +177,7 @@ Deno.serve(async (req) => {
       const base: Rec = {
         user_id: p.user_id, product_id: p.id, snapshot_date: date,
         set_value: setValue, low_liquidity: lowLiquidity,
+        price_avg: priceAvg, price_low: priceLow,
       };
       if (price == null) withoutPrice.push(base);
       else withPrice.push({ ...base, price });

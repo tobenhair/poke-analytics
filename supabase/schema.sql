@@ -62,11 +62,20 @@ create table if not exists public.snapshots (
   -- The client can badge it and the fair-price fit can down-weight it; never a
   -- hard gate.
   low_liquidity boolean not null default false,
+  -- Reference prices from the same Cardmarket guide row the price (=trend) came
+  -- from: `avg` and `low`. Stored so Data Entry can show the spread on a
+  -- low-liquidity row (e.g. "auto €5,580 · avg €2,100 · low €1,850"), making the
+  -- manual-review / price-lock decision data-driven. Not used in any derived
+  -- metric — display only.
+  price_avg     numeric check (price_avg is null or price_avg >= 0),
+  price_low     numeric check (price_low is null or price_low >= 0),
   -- the app upserts on this pair (onConflict: 'product_id,snapshot_date')
   unique (product_id, snapshot_date)
 );
--- Idempotent add for deployments created before low_liquidity existed.
+-- Idempotent adds for deployments created before these columns existed.
 alter table public.snapshots add column if not exists low_liquidity boolean not null default false;
+alter table public.snapshots add column if not exists price_avg numeric check (price_avg is null or price_avg >= 0);
+alter table public.snapshots add column if not exists price_low numeric check (price_low is null or price_low >= 0);
 
 create index if not exists snapshots_product_idx on public.snapshots (product_id);
 
