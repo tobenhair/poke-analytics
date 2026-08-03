@@ -64,7 +64,9 @@ wrapper.
   `.panel-badge`) → body. Use `.table-wrap` for tables.
 - Tables: reuse `thead th`, `tbody td`, `.num` (right-aligned mono figures),
   `.product-name`, and value colouring `.val-excellent / .val-good / .val-poor`.
-- Product type: `.type-badge.type-BOX/.type-ETB/.type-BUNDLE`.
+- Product type: `.type-badge.type-BOX/.type-ETB/.type-BUNDLE/.type-PACK` (PACK
+  is a neutral token-based tint — the four accents are semantic). Render it via
+  `typeBadge(type)`, keyed by `typeCategory()`, not a hand-built span.
 - Chrome: the `header` (`.logo`/`.logo-mark`/gradient `h1`/`.subtitle`), the
   `.tab-bar`/`.tab-btn`, `.modal-overlay`/`.modal`, `.pill`.
 - Prose surfaces (the demo page, the Welcome tab): `.hero-title` for the one

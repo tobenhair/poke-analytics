@@ -11,9 +11,17 @@ convincingly. This skill guards that core.
 
 ## The fixed definitions (don't quietly change these)
 
-- **Boosters per type** — `boostersFromType()`: `BOX = 36`, `ETB = 9`,
-  `BUNDLE = 6`. These are physical facts about the products; changing one
-  silently reprices everything.
+- **Boosters per type** — `boostersFromType()`, read from the `PRODUCT_TYPES`
+  registry: `BOX = 36`, `ETB = 9`, `BUNDLE = 6`, plus the pack-count variants
+  `ETB10 = 10`, `ETB8 = 8`, `BUNDLEDISPLAY = 60`, `PACK = 1`. These are physical
+  facts about the products; changing one silently reprices everything. A new
+  product form is a new entry in `PRODUCT_TYPES` (booster count + a `category`),
+  not a new formula.
+- **Type vs category** — `typeCategory()` maps each type to its filter/colour
+  bucket (`BOX`/`ETB`/`BUNDLE`/`PACK`); several types share one (ETB/ETB10/ETB8
+  → ETB, BUNDLE/BUNDLEDISPLAY → BUNDLE). `activeType` is a *category*, so all
+  filtering and per-type chart colour goes through `typeCategory(p.type)`, never
+  a raw `p.type === 'BOX'` comparison. `typeLabel()` is the short badge text.
 - **Price / Booster** = price ÷ boosters.
 - **SV / Booster** = Set Value ÷ (Price / Booster) — the core value-density
   metric, higher is better. It is a value-for-money ×multiple, **not** a euro
@@ -57,8 +65,8 @@ versa. This is the single most common footgun when adding a metric view.
 
 ## Checklist before committing a metrics change
 
-1. **Constants intact?** Booster counts (36/9/6) unchanged unless that's the
-   explicit intent.
+1. **Constants intact?** Booster counts in `PRODUCT_TYPES` (36/9/10/8/6/60/1)
+   unchanged unless that's the explicit intent; a new type is a registry entry.
 2. **Formula in the shared helper?** Derivation lives in `deriveProducts()`,
    once — not duplicated per loader.
 3. **Recompute ordering?** If anything affects `ageWeight`/`score`, does

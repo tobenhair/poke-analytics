@@ -770,6 +770,9 @@
   .type-BOX { background: rgba(92,199,242,0.12); color: var(--accent3); border: 1px solid rgba(92,199,242,0.22); }
   .type-ETB { background: rgba(127,212,147,0.12); color: var(--accent4); border: 1px solid rgba(127,212,147,0.22); }
   .type-BUNDLE { background: rgba(244,198,81,0.1); color: var(--accent); border: 1px solid rgba(244,198,81,0.22); }
+  /* Single Pack has no semantic hue (the palette's four accents are spoken for) —
+     a neutral badge from the surface/border tokens, matching COLOR.muted in charts. */
+  .type-PACK { background: var(--bg3); color: var(--muted); border: 1px solid var(--border); }
 
   .num { font-family: 'DM Mono', monospace; font-size: var(--text-md); text-align: right; }
   /* Fair-price gap: a small second line under the fair price in the board cell */
@@ -1684,7 +1687,7 @@
         <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
         <tbody>
           <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Full product name — must also appear in Historical Data sheet</td></tr>
-          <tr><td>Type</td><td><span class="tag-req">required</span></td><td>Exactly one of: <b>BOX</b>, <b>ETB</b>, or <b>BUNDLE</b></td></tr>
+          <tr><td>Type</td><td><span class="tag-req">required</span></td><td>Exactly one of: <b>BOX</b> (36 packs), <b>ETB</b> (9), <b>ETB10</b> (10), <b>ETB8</b> (8), <b>BUNDLE</b> (6), <b>BUNDLEDISPLAY</b> (60), or <b>PACK</b> (1). The pack count sets the booster maths; the <b>ETB*</b> variants filter under Elite Trainer and the <b>BUNDLE*</b> under Bundle.</td></tr>
           <tr><td>Release Date</td><td><span class="tag-req">required</span></td><td>Date value or text in YYYY-MM-DD format</td></tr>
           <tr><td>Age (years)</td><td><span class="tag-req">required</span></td><td>Decimal number, e.g. 1.47</td></tr>
           <tr><td>Current Price (€)</td><td><span class="tag-req">required</span></td><td>Number in cents or euros — must be consistent across rows</td></tr>
@@ -1774,11 +1777,11 @@
           </tr>
           <tr>
             <th scope="row">Price / Booster</th>
-            <td>The product price ÷ the number of boosters inside (BOX = 36, ETB = 9, BUNDLE = 6). Puts a €58 bundle and a €400 box on the same footing.</td>
+            <td>The product price ÷ the number of boosters inside — set by Type (BOX = 36, ETB = 9, BUNDLE = 6, and the variants ETB10 = 10, ETB8 = 8, BUNDLEDISPLAY = 60, PACK = 1). Puts a €58 bundle and a €400 box on the same footing.</td>
           </tr>
           <tr>
             <th scope="row">SV / Booster</th>
-            <td>Set Value ÷ Price/Booster — how many times the price of a <em>single booster</em> the whole set is worth (a value-for-money <em>×</em> multiple, <strong>not</strong> a euro amount). The core comparability metric; works equally well across BOX, ETB and BUNDLE.</td>
+            <td>Set Value ÷ Price/Booster — how many times the price of a <em>single booster</em> the whole set is worth (a value-for-money <em>×</em> multiple, <strong>not</strong> a euro amount). The core comparability metric; works equally well across every product type, from a single pack to a booster box.</td>
           </tr>
           <tr>
             <th scope="row">Age Weight</th>
@@ -2168,7 +2171,7 @@
     <div class="kpi" style="--kpi-color: var(--accent)">
       <div class="kpi-label">Products Tracked</div>
       <div class="kpi-value" id="kpi-total">31</div>
-      <div class="kpi-sub">BOX · ETB · BUNDLE</div>
+      <div class="kpi-sub">Box · ETB · Bundle · Pack</div>
     </div>
     <div class="kpi" style="--kpi-color: var(--accent3)">
       <div class="kpi-label">Top Score (Age-Weighted)</div>
@@ -2209,6 +2212,7 @@
       <button class="pill" type="button" data-type="BOX" aria-pressed="false">Booster Box</button>
       <button class="pill" type="button" data-type="ETB" aria-pressed="false">Elite Trainer</button>
       <button class="pill" type="button" data-type="BUNDLE" aria-pressed="false">Bundle</button>
+      <button class="pill" type="button" data-type="PACK" aria-pressed="false">Single Pack</button>
     </div>
 
     <!-- Age weight threshold control -->
@@ -2378,7 +2382,7 @@
 
   <!-- ── Section: SV/Booster trend over time (full width) ── -->
   <h2 class="section-eyebrow">08 — Trend Over Time</h2>
-  <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> — add several products to compare, or switch to <em>Sets</em> to weigh whole releases head to head (a set's line is the average SV/Booster of its products). <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means the set is worth more relative to a booster's cost (better value); because it's a multiple of booster cost, BOX, ETB and BUNDLE are directly comparable. Click a legend entry to hide that line.</p>
+  <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> — add several products to compare, or switch to <em>Sets</em> to weigh whole releases head to head (a set's line is the average SV/Booster of its products). <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means the set is worth more relative to a booster's cost (better value); because it's a multiple of booster cost, every product type — box, ETB, bundle or single pack — is directly comparable. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
       <h3 class="panel-title">Set Value / Booster — Trend Over Time</h3>
@@ -2608,7 +2612,11 @@
                 <select class="field-select" id="new-product-type" aria-label="Product type">
                   <option value="BOX">BOX — Booster Box (36 packs)</option>
                   <option value="ETB">ETB — Elite Trainer Box (9 packs)</option>
+                  <option value="ETB10">ETB10 — Elite Trainer Box (10 packs)</option>
+                  <option value="ETB8">ETB8 — Elite Trainer Box (8 packs)</option>
                   <option value="BUNDLE">BUNDLE — Booster Bundle (6 packs)</option>
+                  <option value="BUNDLEDISPLAY">BUNDLEDISPLAY — Booster Bundle Display (10 bundles, 60 packs)</option>
+                  <option value="PACK">PACK — Booster Pack (single booster)</option>
                 </select>
               </div>
               <div class="field-group">
@@ -2665,7 +2673,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
+import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -2781,6 +2789,21 @@ const COLOR = {
   muted: token('--muted'),     // axis labels that name data (product, currency)
   axis:  token('--chart-axis'),// grid/tick chrome, a step below muted
 };
+// Per-category colour, shared by every chart that colours by product type and by
+// the .type-* badges. Keyed by the filter bucket (typeCategory), so an ETB10
+// draws green like an ETB. PACK has no semantic hue → neutral muted.
+const CATEGORY_COLOR = { BOX: COLOR.blue, ETB: COLOR.green, BUNDLE: COLOR.gold, PACK: COLOR.muted };
+const categoryColor = type => CATEGORY_COLOR[typeCategory(type)] || COLOR.muted;
+
+// One definition of the product-type badge, so every listing renders it the
+// same way: category tint (.type-BOX/ETB/BUNDLE/PACK) + the type's short label.
+// The four category codes are themselves valid type codes, so passing a bucket
+// (e.g. a rebalance suggestion's category) renders correctly too.
+function typeBadge(type) {
+  if (type == null || type === '' || type === '—') return '—';
+  const cat = typeCategory(type) || 'PACK';
+  return `<span class="type-badge type-${cat}">${typeLabel(type)}</span>`;
+}
 // Chart fills want the same hue at low alpha. #rrggbb → rgba(), so the fill can
 // never drift from the line it belongs to.
 const alpha = (hex, a) => {
@@ -2797,7 +2820,7 @@ function scoreColor(score) {
 }
 
 function getFiltered() {
-  let data = activeType === 'ALL' ? [...products] : products.filter(p => p.type === activeType);
+  let data = activeType === 'ALL' ? [...products] : products.filter(p => typeCategory(p.type) === activeType);
   const q = searchTerm.trim().toLowerCase();
   if (q) data = data.filter(p => p.name.toLowerCase().includes(q));
   if (verdictFilter !== 'all') data = data.filter(p => p.verdict && p.verdict.tone === verdictFilter);
@@ -2824,11 +2847,13 @@ function getFiltered() {
 }
 
 // The product pool the analytical charts and comparison views render — the
-// global BOX/ETB/BUNDLE type filter (the board pills) applied, without the
+// global type filter (the board pills, by category) applied, without the
 // board's search/verdict filters or sort. One source of "what's in scope" so
 // "show me only ETBs" holds across every chart, not just the board table.
+// activeType is a category (BOX/ETB/BUNDLE/PACK), so the ETB pill scopes to
+// every Elite Trainer Box variant.
 function visibleProducts() {
-  return activeType === 'ALL' ? products : products.filter(p => p.type === activeType);
+  return activeType === 'ALL' ? products : products.filter(p => typeCategory(p.type) === activeType);
 }
 
 
@@ -2963,7 +2988,7 @@ function renderOverview() {
     <div class="pick-item">
       <div class="pick-info">
         <div class="pick-name"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></div>
-        <div class="pick-meta">${p.type} · €${fmt(p.price)}${byGap ? ` · fair €${fmt(p.fairPrice)}` : ''}</div>
+        <div class="pick-meta">${typeLabel(p.type)} · €${fmt(p.price)}${byGap ? ` · fair €${fmt(p.fairPrice)}` : ''}</div>
         ${verdictLine(p)}
       </div>
       <div class="pick-gap">${byGap ? `${Math.abs(p.fairGap)}%<span class="unit"> under</span>`
@@ -3001,7 +3026,7 @@ function updateTable() {
         <span class="pn-head">${isBuySignal(p.name) ? '<span class="buy-flag" role="img" aria-label="Buy signal" title="Price dropped ≥5% but set value held steady — potential buy opportunity"><svg class="icon" aria-hidden="true"><use href="#i-deal"/></svg></span>' : ''}${alertFlag(p.name)}<button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></span>
         ${verdictLine(p)}
       </td>
-      <td class="col-detail"><span class="type-badge type-${p.type}">${p.type}</span></td>
+      <td class="col-detail">${typeBadge(p.type)}</td>
       <td class="num">${fmt(p.price)}</td>
       <td class="num">${fairPriceCell(p)}</td>
       <td class="num col-detail">${fmt(p.setVal)}</td>
@@ -3104,7 +3129,7 @@ function updateTopPicks() {
       <div class="pick-rank ${rankClass}">${i + 1}</div>
       <div class="pick-info">
         <div class="pick-name"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></div>
-        <div class="pick-meta">${p.type} · €${fmt(p.price)} · Age ${fmt(p.age, 1)}yr</div>
+        <div class="pick-meta">${typeLabel(p.type)} · €${fmt(p.price)} · Age ${fmt(p.age, 1)}yr</div>
       </div>
       <div class="pick-score">${fmt(p.score, 1)}</div>
     `;
@@ -3123,7 +3148,7 @@ function renderSVBChart() {
   const data = [...visibleProducts()].sort((a, b) => b.svPerBooster - a.svPerBooster).slice(0, 10);
   const labels = data.map(p => p.name.replace(' Booster Box', '').replace(' Booster Bundle', '').replace(' Elite Trainer Box', '').replace(' ETB', ''));
   const values = data.map(p => p.svPerBooster);
-  const colors = data.map(p => p.type === 'BOX' ? COLOR.blue : p.type === 'ETB' ? COLOR.green : COLOR.gold);
+  const colors = data.map(p => categoryColor(p.type));
 
   if (svbChart) svbChart.destroy();
   svbChart = new Chart(document.getElementById('svb-chart'), {
@@ -3385,17 +3410,18 @@ const cmpHist = createCompareView({
 // ============================================================
 let scatterChart = null;
 function renderScatterChart() {
-  const typeColors = { BOX: COLOR.blue, ETB: COLOR.green, BUNDLE: COLOR.gold };
   const pool = visibleProducts();
-  // Global type filter: show only the active type's series (all three when ALL).
-  const types = activeType === 'ALL' ? ['BOX', 'ETB', 'BUNDLE'] : [activeType];
-  const datasets = types.map(type => ({
-    label: type,
-    data: pool.filter(p => p.type === type).map(p => ({ x: p.age, y: p.svPerBooster, name: p.name })),
-    backgroundColor: typeColors[type] + 'bb',
+  // Global type filter, by category: one series per category (all four when ALL).
+  // Empty categories are dropped so a category with no products (e.g. PACK when
+  // none are tracked) doesn't add a lonely empty legend entry.
+  const cats = activeType === 'ALL' ? TYPE_CATEGORIES : [activeType];
+  const datasets = cats.map(cat => ({
+    label: cat,
+    data: pool.filter(p => typeCategory(p.type) === cat).map(p => ({ x: p.age, y: p.svPerBooster, name: p.name })),
+    backgroundColor: (CATEGORY_COLOR[cat] || COLOR.muted) + 'bb',
     pointRadius: 6,
     pointHoverRadius: 8
-  }));
+  })).filter(d => d.data.length);
 
   // Overlay the fitted "expected value for age" line (the whole-catalogue age
   // trend — kept global so it's a stable reference even when a type is filtered).
@@ -3636,9 +3662,9 @@ function parseXlsx(arrayBuffer) {
 
     // Type
     if (!type)
-      errors.push(`Summary ${label}: missing Type — must be BOX, ETB, or BUNDLE`);
-    else if (!['BOX','ETB','BUNDLE'].includes(String(type).toUpperCase()))
-      errors.push(`Summary ${label}: invalid Type "${type}" — must be exactly BOX, ETB, or BUNDLE`);
+      errors.push(`Summary ${label}: missing Type — must be one of ${PRODUCT_TYPE_CODES.join(', ')}`);
+    else if (!PRODUCT_TYPE_CODES.includes(String(type).toUpperCase()))
+      errors.push(`Summary ${label}: invalid Type "${type}" — must be exactly one of ${PRODUCT_TYPE_CODES.join(', ')}`);
 
     // Release date
     if (!rawRelease)
@@ -4028,7 +4054,7 @@ function renderPortfolio() {
   tbody.innerHTML = rows.length ? rows.map(r => `
     <tr>
       <td class="product-name" title="${r.name}">${r.name}</td>
-      <td>${r.type ? `<span class="type-badge type-${r.type}">${r.type}</span>` : '—'}</td>
+      <td>${typeBadge(r.type)}</td>
       <td class="num">${r.qty}</td>
       <td class="num">${money(r.cost)}</td>
       <td class="num">${r.now != null ? money(r.now) : '—'}</td>
@@ -4160,7 +4186,11 @@ function renderBalancer(portfolioRowsArg) {
       cost: r.costValue,
       setKey: p ? p.release : '—',
       era: p && p.release ? String(p.release).slice(0, 4) : '—',
-      type: r.type || (p ? p.type : '—'),
+      // Bucket by filter category, not raw type, so an ETB and an ETB10 count as
+      // the same "product type" for diversification (their pack count differs but
+      // their market doesn't). The four categories are valid type codes, so the
+      // badge in the rebalance list renders straight from this.
+      type: typeCategory(r.type || (p ? p.type : null)) || '—',
     };
   });
 
@@ -4197,14 +4227,14 @@ function renderBalancer(portfolioRowsArg) {
   const overTypes = new Set(byType.buckets.filter(b => b.over).map(b => b.bucket));
   const heldSets  = new Set(enriched.map(r => r.setKey));
   const suggestions = rebalanceSuggestions(
-    products.map(p => ({ name: p.name, type: p.type, setKey: p.release, fairGap: p.fairGap, fairTrusted: trusted })),
+    products.map(p => ({ name: p.name, type: typeCategory(p.type), setKey: p.release, fairGap: p.fairGap, fairTrusted: trusted })),
     { overSets, overTypes, heldSets, limit: 5 }
   );
 
   const suggestHtml = suggestions.length
     ? suggestions.map(s => `
         <div class="suggest-item">
-          <span class="type-badge type-${s.type}">${s.type}</span>
+          ${typeBadge(s.type)}
           <span class="suggest-name" title="${s.name}">${s.name}</span>
           <span class="suggest-set">${setNameFor(s.setKey)}${s.newSet ? ' · new set' : ''}</span>
           <span class="suggest-gap">${Math.abs(s.fairGap)}% under fair</span>
@@ -4421,7 +4451,7 @@ function renderAlerts() {
     return `
       <tr>
         <td class="product-name" title="${name}">${name}</td>
-        <td>${type ? `<span class="type-badge type-${type}">${type}</span>` : '—'}</td>
+        <td>${typeBadge(type)}</td>
         <td class="num">${s.price != null ? eur(s.price) : '—'}</td>
         <td class="num">${targetLabel}</td>
         <td>${status}</td>
@@ -4999,7 +5029,7 @@ function renderEntryTable() {
           value="${productExpIds[p.name] != null ? productExpIds[p.name] : ''}">
       </td>
       <td class="entry-product-name" title="${p.name}">${p.name}</td>
-      <td><span class="type-badge type-${p.type}">${p.type}</span></td>
+      <td>${typeBadge(p.type)}</td>
       <td class="entry-last-price">${last.price != null ? '€' + last.price.toLocaleString('de-DE') : '—'}${thinNote}</td>
       <td class="entry-last-price">${last.setVal != null ? '€' + last.setVal.toLocaleString('de-DE') : '—'}</td>
       <td>
@@ -5424,7 +5454,7 @@ function renderRelativeValue() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="product-name" title="${r.name}"><button type="button" class="row-open" aria-haspopup="dialog">${r.name}</button></td>
-      <td><span class="type-badge type-${r.type}">${r.type}</span></td>
+      <td>${typeBadge(r.type)}</td>
       <td class="num">${fmt(r.age, 1)}</td>
       <td class="num">${fmt(r.svb, 1)}×</td>
       <td class="num" style="color:var(--muted)">${fmt(r.expected, 1)}×</td>
@@ -5470,7 +5500,7 @@ function renderMomentum() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="product-name" title="${p.name}"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></td>
-      <td><span class="type-badge type-${p.type}">${p.type}</span></td>
+      <td>${typeBadge(p.type)}</td>
       <td class="num">${fmt(m.price)}</td>
       ${pctCell(m.last)}
       ${pctCell(m.sinceFirst)}
@@ -6210,7 +6240,7 @@ function renderDemo(groups) {
       const svClass = p.svPerBooster >= 150 ? 'val-excellent' : p.svPerBooster >= 80 ? 'val-good' : 'val-poor';
       return `<tr>
         <td class="product-name" title="${p.name}">${p.name}</td>
-        <td><span class="type-badge type-${p.type}">${p.type}</span></td>
+        <td>${typeBadge(p.type)}</td>
         <td class="num">${fmt(p.price)}</td>
         <td class="num">${fmt(p.setVal)}</td>
         <td class="num">${fmt(p.pricePerBooster, 1)}</td>

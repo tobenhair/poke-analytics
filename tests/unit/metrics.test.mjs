@@ -13,6 +13,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   boostersFromType,
+  typeCategory,
+  typeLabel,
+  PRODUCT_TYPE_CODES,
   calcAgeWeight,
   recomputeScores,
   deriveProducts,
@@ -50,13 +53,47 @@ import {
 test('boostersFromType returns the fixed booster counts', () => {
   assert.equal(boostersFromType('BOX'), 36);
   assert.equal(boostersFromType('ETB'), 9);
+  assert.equal(boostersFromType('ETB10'), 10);
+  assert.equal(boostersFromType('ETB8'), 8);
   assert.equal(boostersFromType('BUNDLE'), 6);
+  assert.equal(boostersFromType('BUNDLEDISPLAY'), 60);
+  assert.equal(boostersFromType('PACK'), 1);
 });
 
 test('boostersFromType returns null for an unknown type', () => {
   assert.equal(boostersFromType('SINGLE'), null);
   assert.equal(boostersFromType(''), null);
   assert.equal(boostersFromType(undefined), null);
+});
+
+// ── typeCategory: variants group under their filter/colour bucket ──
+test('typeCategory maps each type to its filter bucket', () => {
+  assert.equal(typeCategory('BOX'), 'BOX');
+  assert.equal(typeCategory('ETB'), 'ETB');
+  assert.equal(typeCategory('ETB10'), 'ETB');   // pack-count variants → ETB
+  assert.equal(typeCategory('ETB8'), 'ETB');
+  assert.equal(typeCategory('BUNDLE'), 'BUNDLE');
+  assert.equal(typeCategory('BUNDLEDISPLAY'), 'BUNDLE'); // display → BUNDLE
+  assert.equal(typeCategory('PACK'), 'PACK');
+  assert.equal(typeCategory('SINGLE'), null);
+});
+
+// The four category codes must themselves be valid types (typeBadge in
+// index.html renders a rebalance suggestion's category through the same path).
+test('every filter category is also a valid type code', () => {
+  for (const cat of ['BOX', 'ETB', 'BUNDLE', 'PACK']) {
+    assert.ok(PRODUCT_TYPE_CODES.includes(cat), `${cat} is a type code`);
+    assert.equal(typeCategory(cat), cat);
+  }
+});
+
+// ── typeLabel: short badge text, raw code when unknown ──
+test('typeLabel gives the short badge label', () => {
+  assert.equal(typeLabel('BOX'), 'BOX');
+  assert.equal(typeLabel('ETB10'), 'ETB·10');
+  assert.equal(typeLabel('BUNDLEDISPLAY'), 'DISPLAY');
+  assert.equal(typeLabel('PACK'), 'PACK');
+  assert.equal(typeLabel('SINGLE'), 'SINGLE'); // unknown → raw code
 });
 
 // ── calcAgeWeight: 0–1 youth penalty vs the threshold ───────────

@@ -19,7 +19,7 @@
 // ── The trap this must not fall into ──
 // Some names are ASSEMBLED AT RUNTIME and are invisible to any textual scan:
 //
-//   `type-${p.type}`            → .type-BOX / .type-ETB / .type-BUNDLE
+//   `type-${typeCategory(...)}` → .type-BOX / .type-ETB / .type-BUNDLE / .type-PACK
 //   'tab-' + btn.dataset.tab    → #tab-welcome / #tab-analysis / …
 //
 // Those are load-bearing (CLAUDE.md's "preserve these" list is exactly this
@@ -57,7 +57,7 @@ const markup = html
 // claim instead of trusting it. Keep this list short and justified — it is the
 // checker's blind spot by construction.
 const CONSTRUCTED = [
-  { pattern: /^type-(BOX|ETB|BUNDLE)$/, why: 'built as `type-${p.type}` in the board/entry/demo row templates' },
+  { pattern: /^type-(BOX|ETB|BUNDLE|PACK)$/, why: 'built as `type-${typeCategory(...)}` in typeBadge() and the row templates (PACK = the neutral single-pack tint)' },
   { pattern: /^tab-(welcome|analysis|portfolio|entry)$/, why: "built as `'tab-' + btn.dataset.tab` by the tab switcher" },
 ];
 const constructedReason = (name) => CONSTRUCTED.find((c) => c.pattern.test(name))?.why;

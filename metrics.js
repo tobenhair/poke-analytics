@@ -11,17 +11,61 @@
 // directly and index.html passes its live state in at the call site.
 //
 // The fixed definitions (see .claude/skills/metrics-review):
-//   Boosters per type   BOX = 36, ETB = 9, BUNDLE = 6
+//   Boosters per type   from PRODUCT_TYPES below (BOX = 36, ETB = 9, BUNDLE = 6,
+//                       plus the pack-count variants ETB10/ETB8/BUNDLEDISPLAY/PACK)
 //   Price / Booster     price ÷ boosters
 //   SV / Booster        Set Value ÷ (Price / Booster) — threshold-independent
 //   Age Weight          calcAgeWeight(age, threshold) — 0–1 youth penalty
 //   Wtd. Score          SV / Booster × Age Weight — the primary ranking metric
 
+// ── The tracked product types (the single registry) ──
+// Each Type code maps to:
+//   boosters  the physical pack count → drives Price/Booster and everything
+//             downstream. These are physical facts about the products.
+//   category  the filter/colour bucket it groups under (BOX/ETB/BUNDLE/PACK).
+//             Several types share one bucket on purpose — the Elite Trainer Box
+//             pack-count variants all filter and colour as ETB, the Bundle
+//             Display as BUNDLE — so distinguishing a variant for correct
+//             booster maths never adds a filter chip or a new hue.
+//   label     the short badge text. The three base types keep their familiar
+//             code; the variants add the disambiguating pack count / form.
+//   full      the human description (Data Entry dropdown + the Format Guide).
+export const PRODUCT_TYPES = {
+  BOX:           { boosters: 36, category: 'BOX',    label: 'BOX',     full: 'Booster Box (36 packs)' },
+  ETB:           { boosters: 9,  category: 'ETB',    label: 'ETB',     full: 'Elite Trainer Box (9 packs)' },
+  ETB10:         { boosters: 10, category: 'ETB',    label: 'ETB·10',  full: 'Elite Trainer Box (10 packs)' },
+  ETB8:          { boosters: 8,  category: 'ETB',    label: 'ETB·8',   full: 'Elite Trainer Box (8 packs)' },
+  BUNDLE:        { boosters: 6,  category: 'BUNDLE', label: 'BUNDLE',  full: 'Booster Bundle (6 packs)' },
+  BUNDLEDISPLAY: { boosters: 60, category: 'BUNDLE', label: 'DISPLAY', full: 'Booster Bundle Display (10 bundles, 60 packs)' },
+  PACK:          { boosters: 1,  category: 'PACK',   label: 'PACK',    full: 'Booster Pack (single booster)' },
+};
+
+// Valid Type codes in canonical order — the workbook/DB contract and the
+// Data Entry dropdown. Iterate this rather than re-listing the strings.
+export const PRODUCT_TYPE_CODES = Object.keys(PRODUCT_TYPES);
+
+// The filter/colour buckets in display order (the board's type pills). A bucket
+// may hold several types (ETB ← ETB/ETB10/ETB8, BUNDLE ← BUNDLE/BUNDLEDISPLAY).
+export const TYPE_CATEGORIES = ['BOX', 'ETB', 'BUNDLE', 'PACK'];
+
 export function boostersFromType(type) {
-  if (type === 'BOX')    return 36;
-  if (type === 'ETB')    return 9;
-  if (type === 'BUNDLE') return 6;
-  return null;
+  const t = PRODUCT_TYPES[type];
+  return t ? t.boosters : null;
+}
+
+// The filter/colour bucket a type groups under (null for an unknown type). The
+// board pills and the per-category chart colours treat a variant as its base
+// form, so an ETB10 filters under "Elite Trainer" and colours green like an ETB.
+export function typeCategory(type) {
+  const t = PRODUCT_TYPES[type];
+  return t ? t.category : null;
+}
+
+// The short badge label for a type (variants carry the disambiguating pack
+// count / form). Falls back to the raw code for an unknown type.
+export function typeLabel(type) {
+  const t = PRODUCT_TYPES[type];
+  return t ? t.label : (type != null ? String(type) : '');
 }
 
 // 0–1 penalty for products younger than `ageThreshold` years:
