@@ -506,6 +506,32 @@ here is one item that no finding touched.
   runs server-side via an Edge Function, never exposing a key client-side) —
   the first feature that adds real per-use cost, so it lands late and behind
   accounts.
+- **LLM weekly summary + news bulletin (RSS).** Two related, lighter-weight LLM
+  features that share the assistant's server-side plumbing but ship as
+  *scheduled digests*, not a live chat. **(a) Weekly summary** — a short,
+  plain-language recap the model writes each week over the same structured,
+  derived metrics the assistant reasons about: what moved (biggest fair-price
+  gap changes, new buy signals, notable drawdowns), which sets are trending, and
+  — signed in — how the reader's own portfolio shifted. Same honesty guardrails
+  as the assistant: it summarises numbers from `metrics.js`, never invents them,
+  and carries the "not financial advice" framing. Delivered where the existing
+  cadence already runs — a Supabase `pg_cron` job composing an email via Resend
+  (the proven staleness/alert/error-digest pattern), and/or an in-app "This
+  week" panel. **(b) News bulletin** — pull a Pokémon-TCG news feed (e.g.
+  Pokebeach.com's RSS) so set releases, reprints and market-moving announcements
+  sit beside the price data instead of in a separate tab of the reader's
+  browser. Two honest scoping decisions to settle: whether the LLM *summarises/
+  filters* headlines to the sealed-product-relevant ones (adds per-use cost and a
+  fabrication surface — must link the source article, never paraphrase a claim as
+  fact) or the feed is shown **raw** as a plain reverse-chronological list (zero
+  LLM cost, no hallucination risk — the cheaper first cut, and where this should
+  start); and where the fetch lives (an Edge Function / `pg_cron` job caching the
+  parsed feed server-side, never a client-side cross-origin fetch of a third-
+  party feed). Respect the feed's terms and `ttl`/polite-cadence, attribute the
+  source, and link out rather than republishing full articles. Sequenced after
+  the conversational assistant since it reuses that server-side model call, but
+  the raw-RSS bulletin (b, without the LLM filter) is independently shippable and
+  a good low-cost first step.
 - **Mobile app / installable experience.** For a price-checking tool used in
   shops, a home-screen presence and a native-feeling mobile experience are worth
   real weight — this is the "how do we ship mobile" bet. Its prerequisite, the
