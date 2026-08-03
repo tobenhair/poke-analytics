@@ -20,7 +20,7 @@ create table if not exists public.products (
   id             uuid primary key default gen_random_uuid(),
   user_id        uuid not null references auth.users(id) on delete cascade default auth.uid(),
   name           text not null,
-  type           text not null check (type in ('BOX','ETB','BUNDLE')),
+  type           text not null check (type in ('BOX','ETB','ETB10','ETB8','BUNDLE','BUNDLEDISPLAY','PACK')),
   release        date not null,
   cardmarket_url text,
   -- Cardmarket catalogue product id (idProduct) for the automated ingestion job.
@@ -48,6 +48,11 @@ create table if not exists public.products (
 alter table public.products add column if not exists cardmarket_product_id bigint;
 alter table public.products add column if not exists cardmarket_expansion_id bigint;
 alter table public.products add column if not exists price_locked boolean not null default false;
+-- Widen the Type check to the pack-count variants (ETB10/ETB8/BUNDLEDISPLAY/PACK)
+-- for deployments created before they existed. Drop + re-add so it's idempotent.
+alter table public.products drop constraint if exists products_type_check;
+alter table public.products add constraint products_type_check
+  check (type in ('BOX','ETB','ETB10','ETB8','BUNDLE','BUNDLEDISPLAY','PACK'));
 
 -- ── Snapshots: one Price / Set Value reading per product per date ──
 create table if not exists public.snapshots (

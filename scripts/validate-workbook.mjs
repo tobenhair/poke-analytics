@@ -19,7 +19,7 @@
 
 import * as XLSX from 'xlsx';
 import { readFileSync } from 'node:fs';
-import { boostersFromType, snapshotGaps, typeOutliers } from '../metrics.js';
+import { boostersFromType, snapshotGaps, typeOutliers, PRODUCT_TYPE_CODES } from '../metrics.js';
 
 const XLSX_PATH = process.argv[2] || 'pokemon_data.xlsx';
 
@@ -78,9 +78,9 @@ summaryRows.forEach((row, i) => {
   }
 
   if (!type) {
-    errors.push(`Summary ${label}: missing Type — must be BOX, ETB, or BUNDLE`);
-  } else if (!['BOX', 'ETB', 'BUNDLE'].includes(String(type).toUpperCase())) {
-    errors.push(`Summary ${label}: invalid Type "${type}" — must be exactly BOX, ETB, or BUNDLE`);
+    errors.push(`Summary ${label}: missing Type — must be one of ${PRODUCT_TYPE_CODES.join(', ')}`);
+  } else if (!PRODUCT_TYPE_CODES.includes(String(type).toUpperCase())) {
+    errors.push(`Summary ${label}: invalid Type "${type}" — must be exactly one of ${PRODUCT_TYPE_CODES.join(', ')}`);
   } else if (name) {
     productTypes.set(String(name).trim(), String(type).toUpperCase());
   }

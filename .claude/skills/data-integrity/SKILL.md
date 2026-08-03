@@ -40,9 +40,13 @@ Exact, case-sensitive sheet and column names. Keep the app, the in-app "Format
 Guide" modal, the README, and `scripts/validate-workbook.mjs` all in sync — if
 you change the contract in one, change it in all four.
 
-- **Sheet `Summary`** (one row per product): `Product`, `Type` (exactly
-  `BOX`/`ETB`/`BUNDLE`), `Release Date` (date or `YYYY-MM-DD`). Product names
-  must be unique.
+- **Sheet `Summary`** (one row per product): `Product`, `Type` (exactly one of
+  the `PRODUCT_TYPE_CODES` in `metrics.js` —
+  `BOX`/`ETB`/`ETB10`/`ETB8`/`BUNDLE`/`BUNDLEDISPLAY`/`PACK`), `Release Date`
+  (date or `YYYY-MM-DD`). Product names must be unique. The valid-type list is
+  the registry, so `parseXlsx()`, `validate-workbook.mjs`, the Data Entry
+  dropdown, the Format Guide and the Supabase `products.type` check must all
+  agree with it.
 - **Sheet `Historical Data`** (one row per product per snapshot): `Product`
   (must match Summary exactly), `Snapshot Date` (`YYYY-MM-DD`), `Price (€)`,
   `Set Value (€)`. Blank price/set-value is allowed (not yet tracked); if
