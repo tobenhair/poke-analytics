@@ -15,6 +15,7 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 - **Charts price history, set-value-per-booster trends, and age-vs-value** across all tracked products, comparing either products or whole sets.
 - **Scenario explorer** — open any product's drill-down and drag the set-value and price sliders to see how its score would move.
 - **Pick your currency** — a picker in the header shows every price on the dashboard (board, charts, drill-down, portfolio) in €, $, £ or kr, using one live exchange rate. It's display-only: the underlying data stays in euros, so the value rankings don't move when you switch. If the rate can't be fetched the page stays in € and says so.
+- **Installable (PWA)** — add it to your phone's home screen or your desktop and launch it like an app: its own icon, no browser chrome, and an offline shell so it still opens (with the last-loaded data) when you have no signal. On Chromium browsers an **Install app** button appears in the header when it's installable; on iOS use Share → *Add to Home Screen*.
 - **Monthly data entry** — punch in the latest prices, add new releases, attach Cardmarket links, and export an updated `.xlsx` ready to commit back to the repo.
 - **With cloud sync enabled** (optional, see below): a private **portfolio** with unrealised P&L, concentration balancing and a value-over-time chart, plus **price alerts** on a fixed € target or on the fair price.
 
@@ -171,6 +172,9 @@ index.html               Self-contained dashboard (markup, styles, and logic)
 metrics.js               The analytical core as pure functions (shared by the
                          page and the unit tests — one source of truth)
 pokemon_data.xlsx        Tracked data workbook
+manifest.webmanifest     Web app manifest (name, icons, colours) — makes it installable
+sw.js                    Service worker: offline shell (network-first app, cache-first libs)
+icons/                   PNG app icons (192/512/maskable), generated from the logo mark
 docs/ux-expert-review.md WCAG 2.2 + heuristic review — the authoritative UX doc
 docs/visual-design-review.md   Visual system audit: build vs documented tokens
 docs/ux-assessment.md    Earlier journey/density pass (superseded, kept for data)
@@ -185,6 +189,8 @@ scripts/gen-scale-fixture.mjs  Generates a large, contract-valid workbook for
                          performance measurement (deterministic, dev-only)
 scripts/measure-scale.mjs      Measures the board and charts at catalogue scale
                          (dev-only tool, deliberately not part of `npm test`)
+scripts/gen-pwa-icons.mjs      Rasterises the logo mark into the PWA PNG icons
+                         (dev-only tool; re-run and commit when the mark changes)
 tests/unit/metrics.test.mjs    Unit tests for every derived number in metrics.js
 tests/unit/repo-invariants.test.mjs  Checks facts that must agree across files
 tests/smoke.spec.mjs     Playwright test: page loads and every tab renders
@@ -192,6 +198,8 @@ tests/signed-in.spec.mjs Playwright test: the cloud/login surface, driven
 tests/fake-supabase-sdk.js     against an in-memory Supabase stand-in
 tests/fx-currency.spec.mjs     Playwright test: the global display-currency
                          picker and its fallback when live FX rates are unavailable
+tests/pwa.spec.mjs       Playwright test: the manifest, the service worker's
+                         register→activate→precache, and the install-button flow
 tests/a11y.spec.mjs      Playwright + axe test: no serious/critical WCAG
                          violations per tab, plus what axe can't see — keyboard
                          journeys (drill-down, focus trap, tab bar), 320px

@@ -16,6 +16,11 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',
+    // Block the service worker by default so its offline cache can't serve one
+    // spec stale content from another, and so it never sits between the page and
+    // Playwright's request routing. The dedicated PWA spec re-enables it with
+    // `test.use({ serviceWorkers: 'allow' })`.
+    serviceWorkers: 'block',
     // Optional escape hatch for environments that ship a pre-installed browser
     // instead of running `playwright install`. Unset in CI, where the workflow
     // installs the matching browser.
