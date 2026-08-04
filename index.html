@@ -5695,19 +5695,32 @@ function ensureSetLogos() {
 // Resolve the product's set to a TCGdex logo and show it in the drill header.
 // Async and guarded on drillProduct, so a slow fetch that resolves after the
 // user has moved to another product (or closed the dialog) is ignored.
+//
+// The set name is derived from the product's *own* name (SKU suffix stripped),
+// not from a release-date grouping: twin sets that share a release date (Black
+// Bolt / White Flare) would otherwise be merged into one mislabelled group and
+// match no logo. Any set whose name differs from TCGdex's — or that TCGdex
+// hasn't added yet — is pinned in SET_LOGO_ALIASES (normalised app set name →
+// normalised TCGdex set name), the one place to fix a future mismatch.
+const SET_LOGO_SKU_RE = /\s+(Elite Trainer Box|Booster Box|Booster Bundle|Booster Pack|Booster Display|ETB|Bundle|Display|Box|Pack)\s*$/i;
+const SET_LOGO_ALIASES = {
+  // 'appnormalisedsetname': 'tcgdexnormalisedsetname',
+};
+function setLogoKey(productName) {
+  const key = normSetName(productName.replace(SET_LOGO_SKU_RE, '').trim());
+  return SET_LOGO_ALIASES[key] || key;
+}
 function renderDrillLogo(p) {
   const img = document.getElementById('drill-logo');
   img.hidden = true;
   img.removeAttribute('src');
   ensureSetLogos().then(map => {
     if (drillProduct !== p.name) return;
-    const grp = groupSets(products).find(g => g.members.includes(p.name));
-    const label = grp ? grp.label : setLabel([p.name]);
-    const base = map[normSetName(label)];
+    const base = map[setLogoKey(p.name)];
     if (!base) return;                                   // unmatched → text fallback
     img.onload  = () => { if (drillProduct === p.name) img.hidden = false; };
     img.onerror = () => { img.hidden = true; };
-    img.alt = label + ' set logo';
+    img.alt = p.name.replace(SET_LOGO_SKU_RE, '').trim() + ' set logo';
     img.src = base + '.png';
   });
 }
