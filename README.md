@@ -67,8 +67,9 @@ The board shows **product · price · fair price** on a narrow screen, with the
 product name frozen in place so swiping sideways for the rest can't lose your
 row. The columns it leaves out — type, set value, per-booster price, SV/booster, age,
 score — are all in the product drill-down, one tap away. The drill-down also
-carries **Cardmarket** and **eBay** links for the product, so you can jump
-straight to the source to check listings or buy.
+shows the **set logo** (from the free [TCGdex](https://tcgdex.dev) API, for
+identification only) and carries **Cardmarket** and **eBay** links for the
+product, so you can jump straight to the source to check listings or buy.
 
 ### Keyboard and screen-reader use
 
@@ -268,4 +269,4 @@ Vanilla HTML/CSS/JavaScript with [Chart.js](https://www.chartjs.org/) for charts
 
 This is a free, unofficial fan-made tool provided "as is" for informational purposes only. **It is not financial advice** — prices and values may be inaccurate or out of date, and nothing here is a recommendation to buy or sell. Always do your own research.
 
-"Pokémon" and all related names are trademarks of Nintendo, Creatures Inc., GAME FREAK inc., and The Pokémon Company. This project is **not affiliated with, endorsed by, or sponsored by** any of them; product names are used for identification only.
+"Pokémon" and all related names, logos, and images are trademarks and copyrights of Nintendo, Creatures Inc., GAME FREAK inc., and The Pokémon Company. This is an independent analytics tool, **not affiliated with, endorsed by, or sponsored by** any of them — the product offered is the analysis tool, not the trading-card products it tracks. Product names, set logos, and images (set logos via the [TCGdex](https://tcgdex.dev) API) are used for identification and informational purposes only.

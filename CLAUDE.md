@@ -151,6 +151,19 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   points (opening off the scatter's own canvas click) never gets a resize
   callback, so it renders blank. Rendering after the overlay is visible sizes
   every chart. Don't move the render back ahead of the open.
+- **The drill-down header shows the set logo (TCGdex), best-effort.**
+  `ensureSetLogos()` fetches `api.tcgdex.net/v2/en/sets` once per session
+  (lazily, on the first drill-down), caches a normalised `set name → logo base
+  URL` map, and swallows every failure; `renderDrillLogo()` name-matches the
+  product's set (`groupSets()`/`setLabel()`), sets `#drill-logo`'s `src` to
+  `base + '.png'`, and un-hides it only on `onload` — guarded on `drillProduct`
+  so a late fetch can't paint onto another product. Any miss (offline, blocked,
+  CORS, unmatched set, 404) leaves the text title as the fallback — **never a
+  broken image**. Logos are **hotlinked, not re-hosted** (a deliberate licensing
+  choice); the footer carries the non-affiliation + TCGdex attribution notice.
+  Tests stub `api.tcgdex.net` → `[]` in `tests/local-cdn.mjs` (hermetic; the
+  smoke spec pins `#drill-logo` hidden). Sealed-product *photos* are a separate,
+  unbuilt problem — the card APIs don't carry them (see `IMPLEMENTATION.md` #9).
 - **The What-If sandbox lives in the drill-down**, always scoped to the product
   on screen — it is *not* an Analysis section. The markup (same ids: `sv-slider`,
   `price-slider`, `out-svb`/`out-score`/`out-signal`, `scenario-reset`, …) sits

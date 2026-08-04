@@ -62,14 +62,35 @@ walkthrough is ever wanted for signed-in users, it needs a different home.
 
 ### 9. Set logos & product images (drill-down first)
 
-Decision to make first: asset source. **TCGdex serves set logo assets** (the
-same API already planned for ingestion — one vendor, licensing terms to
-confirm in the spike). Store the logo URL per set at load time (sets are
-derived from release dates via `groupSets()` — a name→logo map fetched
-lazily), render in the drill-down header only (board rows later, if at all),
-with a text-only fallback when missing — never a broken image. Subordinate to
-the numbers per `design-review`. *Size: S/M. Depends on: TCGdex spike (item
-14b) confirming the asset source, else parked.*
+**Set logos — SHIPPED (TCGdex, drill-down).** `ensureSetLogos()` fetches the
+TCGdex set list (`api.tcgdex.net/v2/en/sets`) once, lazily, on the first
+drill-down and builds a normalised `set name → logo base URL` map;
+`renderDrillLogo()` name-matches the product's set (via `groupSets()`/
+`setLabel()`), sets `<img id="drill-logo">.src = base + '.png'`, and reveals it
+only on `onload` — guarded on `drillProduct` so a slow fetch can't paint onto
+the wrong product. Every failure path (offline, blocked egress, CORS, an
+unmatched set, a 404 image) falls back silently to the text title — never a
+broken image. Logos are **hotlinked** (not re-hosted). Tests stub
+`api.tcgdex.net` to `[]` (`tests/local-cdn.mjs`) so the suite stays hermetic and
+exercises the fallback; the smoke spec asserts `#drill-logo` stays hidden.
+*One live-unverified assumption:* that the list endpoint returns `{name, logo}`
+with `logo` a base URL you append `.png` to — confirmed against the API docs,
+to be eyeballed on the first real online load.
+
+**Licensing stance taken (2026-08).** Proceeding commercially on the motivation
+that **the product sold is the analysis tool, not the trading-card products it
+tracks** — the app is not reproducing or reselling Pokémon products — and that
+logos are shown for **identification / informational purposes only**, hotlinked,
+with a strengthened non-affiliation + attribution notice in the page footer
+(the Collectr-style disclaimer). This is a considered risk decision, not a
+licence; the investigation below records what that risk is.
+
+**Product photos — still parked.** *Sealed*-product photography (booster-box /
+ETB / bundle box art) has **no clean automated source**: the card-image APIs
+carry set logos and card scans, not sealed-product photos, and marketplaces
+restrict their listing images. So that half stays manual / unbuilt until a
+licensed source exists. *Board-row / set-grouping logos are a later, optional
+extension of the shipped drill-down work.*
 
 #### Licensing & rights — the real blocker (investigation, 2026-08)
 

@@ -463,6 +463,19 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   set tables scroll sideways on a phone with nothing focusable inside, so a
   keyboard user could not scroll them at all — caught by a new 320 px case rather
   than by inspection.
+- **Set logos (drill-down).** Each set now shows its expansion logo in the
+  product drill-down header — an identity aid, subordinate to the numbers, hidden
+  until the image loads (never a broken image; the text title is the fallback).
+  Sourced from the free **TCGdex** API (`ensureSetLogos()` fetches the set list
+  once, lazily, on the first drill-down and name-matches tracked sets;
+  `renderDrillLogo()` renders with a guard so a slow fetch can't paint onto the
+  wrong product). **Licensing stance:** the product sold is the *analysis tool*,
+  not the trading-card products it tracks; logos are shown for identification /
+  informational purposes only, hotlinked (not re-hosted), with a strengthened
+  non-affiliation + attribution notice in the page footer. **Residual, still
+  parked:** *sealed-product photos* (booster-box / ETB / bundle box art) have no
+  clean automated source — the card APIs don't carry them and marketplaces
+  restrict their images — so that half stays manual or unbuilt.
 
 ## Now — trustworthy numbers (stability & quality)
 
@@ -491,37 +504,20 @@ accessibility, the three phone/reflow defects, mobile column priority, the
 density work, the visual-system reconciliation (guarded by
 `npm run check:design-tokens`), the two trust gaps (an unexplained R² and a
 locked-out user with no way back), the overview-first restructure, and the
-demo-as-pitch rework with the Welcome tab reconciled against it. What remains
-here is one item that no finding touched.
+demo-as-pitch rework with the Welcome tab reconciled against it.
 
-- **Set logos & product images (drill-down first).** Give each set a visual
-  anchor: the expansion logo, at least on the product drill-down view where
-  there's room to frame a single product, and later a small mark on board rows
-  and set groupings. An identity and scannability aid only — it stays
-  subordinate to the numbers and honours the minimalist dark aesthetic
-  (`design-review`). Needs a licensing-clean asset source, a consistent
-  sizing/placement rule, and a graceful fallback when a set has no logo (never a
-  broken image).
-  - **Licensing is the gating question, not a detail — and it gets harder if we
-    commercialise.** The imagery touches *two* rights: **copyright** (the box
-    art / card artwork itself) and **trademark** (the "Pokémon" name, Poké Ball,
-    and set logos used as brands). Set logos are the riskiest category because
-    they're typically protected as *both*. A disclaimer does **not** grant any
-    right — it only helps on the trademark/good-faith side; permission has to
-    come from a licence, a legal exception (fair use / fair dealing, narrow), or
-    the content being unprotected. **The Pokémon Company International's own
-    [Media Usage Guidelines](https://press.pokemon.com/en/Assets-Use-Terms)
-    licence their assets for *non-commercial editorial/informational use only*,
-    forbid commercialising the content, forbid making a logo the prominent
-    feature, and forbid using their branding in a product/app/domain name** — so
-    a future paid tier would fall outside what they permit. How comparable apps
-    cope (see the investigation below) is **not a clean licence we can copy**:
-    they rely on non-enforcement, user-supplied photos, and marketplace data
-    feeds. **Because commercialisation is on the table, this item should stay
-    parked until the asset-source + rights question is resolved deliberately;**
-    the safe fallbacks are staying image-light (type badges, set-colour chips)
-    or user-supplied images. Full findings and open questions in
-    `IMPLEMENTATION.md` item 9.
+The **set-logo** half of the one remaining design item has now shipped (TCGdex,
+drill-down — see **Done** and `IMPLEMENTATION.md` item 9 for the licensing
+stance). What still stands unbuilt:
+
+- **Sealed-product photos (booster-box / ETB / bundle box art).** The card-image
+  APIs (TCGdex, pokemontcg.io) carry *set logos* and *card* images, not
+  photographs of the sealed products this app tracks; those live only on
+  marketplaces, whose terms restrict reuse. So there is **no clean automated
+  source** for this half — it stays parked (manual, or an image-light set
+  identity via colour chips + type badges) until a licensed source exists. The
+  full copyright/trademark investigation behind the decision is in
+  `IMPLEMENTATION.md` item 9.
 
 ## Later — reach & launch readiness
 
