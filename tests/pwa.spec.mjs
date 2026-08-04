@@ -83,6 +83,8 @@ test('the install button appears only when the browser offers it, then drives th
   // Hidden until the browser says the app is installable — so it never shows a
   // dead control (and never shows on iOS, which fires no such event).
   await expect(btn).toBeHidden();
+  // On this desktop-Chromium UA the iOS Share-sheet hint must stay hidden too.
+  await expect(page.locator('#ios-install-hint')).toBeHidden();
 
   // Synthesise the browser's beforeinstallprompt: a cancelable event carrying the
   // prompt()/userChoice API the handler replays. This is exactly the shape the
@@ -100,4 +102,20 @@ test('the install button appears only when the browser offers it, then drives th
   await expect.poll(() => page.evaluate(() => window.__installPrompted === true)).toBeTruthy();
   // A prompt is single-use, so the button retires after it's spent.
   await expect(btn).toBeHidden();
+});
+
+// iOS Safari never fires beforeinstallprompt, so the button can't help there.
+// The page detects iOS Safari and reveals a manual "Share → Add to Home Screen"
+// hint instead — otherwise an iPhone user sees no way to install at all.
+test.describe('on iOS Safari', () => {
+  test.use({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' });
+
+  test('the install button is replaced by the Share-sheet hint', async ({ page }) => {
+    await load(page);
+    // No programmatic install prompt exists on iOS, so no button…
+    await expect(page.locator('#install-btn')).toBeHidden();
+    // …but the manual route is surfaced instead.
+    await expect(page.locator('#ios-install-hint')).toBeVisible();
+    await expect(page.locator('#ios-install-hint')).toContainText(/Add to Home Screen/i);
+  });
 });

@@ -2032,6 +2032,13 @@
       <button class="auth-signout" id="install-btn" type="button" hidden style="margin-top:4px;">
         <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg> Install app
       </button>
+      <!-- iOS Safari can't fire beforeinstallprompt, so the button above never
+           shows there. Instead surface the manual route as a hint (revealed by
+           the PWA script only on iOS Safari, and not when already installed) —
+           otherwise iPhone users see no way to install at all. -->
+      <div class="last-update" id="ios-install-hint" hidden style="margin-top:4px;">
+        <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg> Install: tap Share, then “Add to Home Screen”
+      </div>
       <!-- Global display currency. Display-only: every price on the page is
            converted at render time, but € stays the canonical stored unit and
            every input the user types into stays €. Populated by
@@ -6752,6 +6759,21 @@ function wireAuthControls() {
     deferredPrompt = null;
     if (btn) btn.hidden = true;
   });
+
+  // 3) iOS fallback. iOS Safari never fires beforeinstallprompt (see above), so
+  //    without this an iPhone user sees no install affordance at all. Surface the
+  //    manual Share → Add to Home Screen route instead — but only on iOS Safari
+  //    (other iOS browsers don't offer that flow) and not when already running
+  //    installed (standalone), where the hint would be pointless.
+  var ua = navigator.userAgent || '';
+  var isIOS = /iP(hone|od|ad)/.test(ua) ||
+    // iPadOS 13+ reports a desktop-Mac UA, so fall back to touch-capable Mac.
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var isSafari = /safari/i.test(ua) && !/crios|fxios|edgios|opios|chrome|android/i.test(ua);
+  var standalone = window.navigator.standalone === true ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  var hint = document.getElementById('ios-install-hint');
+  if (hint && isIOS && isSafari && !standalone) hint.hidden = false;
 })();
 </script>
 </body>
