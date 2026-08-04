@@ -14,6 +14,7 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 - **Surfaces buy signals** when a product's price drops while its set value holds steady — a possible mispricing.
 - **Charts price history, set-value-per-booster trends, and age-vs-value** across all tracked products, comparing either products or whole sets.
 - **Scenario explorer** — open any product's drill-down and drag the set-value and price sliders to see how its score would move.
+- **Pick your currency** — a picker in the header shows every price on the dashboard (board, charts, drill-down, portfolio) in €, $, £ or kr, using one live exchange rate. It's display-only: the underlying data stays in euros, so the value rankings don't move when you switch. If the rate can't be fetched the page stays in € and says so.
 - **Monthly data entry** — punch in the latest prices, add new releases, attach Cardmarket links, and export an updated `.xlsx` ready to commit back to the repo.
 - **With cloud sync enabled** (optional, see below): a private **portfolio** with unrealised P&L, concentration balancing and a value-over-time chart, plus **price alerts** on a fixed € target or on the fair price.
 
@@ -63,7 +64,7 @@ expand any section whenever you want it.
 
 The board shows **product · price · fair price** on a narrow screen, with the
 product name frozen in place so swiping sideways for the rest can't lose your
-row. The columns it leaves out — type, set value, €/booster, SV/booster, age,
+row. The columns it leaves out — type, set value, per-booster price, SV/booster, age,
 score — are all in the product drill-down, one tap away. The drill-down also
 carries **Cardmarket** and **eBay** links for the product, so you can jump
 straight to the source to check listings or buy.
@@ -189,8 +190,8 @@ tests/unit/repo-invariants.test.mjs  Checks facts that must agree across files
 tests/smoke.spec.mjs     Playwright test: page loads and every tab renders
 tests/signed-in.spec.mjs Playwright test: the cloud/login surface, driven
 tests/fake-supabase-sdk.js     against an in-memory Supabase stand-in
-tests/fx-currency.spec.mjs     Playwright test: the Portfolio currency picker
-                         and its fallback when live FX rates are unavailable
+tests/fx-currency.spec.mjs     Playwright test: the global display-currency
+                         picker and its fallback when live FX rates are unavailable
 tests/a11y.spec.mjs      Playwright + axe test: no serious/critical WCAG
                          violations per tab, plus what axe can't see — keyboard
                          journeys (drill-down, focus trap, tab bar), 320px

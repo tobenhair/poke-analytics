@@ -49,9 +49,11 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   **alert emails** for fixed € targets (`supabase/alert-emails.sql` — fair
   alerts stay in-app since the fit is computed client-side); **board search &
   verdict filters**; **multi-series set/product comparison** with set roll-ups;
-  the global **type filter** across all views; and the signed-in portfolio's
-  **concentration balancer**, **value-over-time chart**, and **display
-  currency** (€ canonical, FX display-only).
+  the global **type filter** across all views; the signed-in portfolio's
+  **concentration balancer** and **value-over-time chart**; and a **global
+  display currency** — a header picker that shows every price on the page (board,
+  charts, drill-down, portfolio) in the chosen unit (€ canonical, FX
+  display-only; the ratio metrics stay put since a rate cancels out of them).
 - **Metrics extraction finished** — every derived number now lives in
   `metrics.js` as a pure, unit-tested function: momentum/drawdown (the verdict's
   ingredients), peer residuals, the board trend arrow and 💰 buy signal, the
@@ -797,8 +799,9 @@ acceptance that the workbook is a backup format, not a load path.
   so a SEK listing must be **converted to EUR at ingestion**, never stored as SEK.
   That adds an **FX dependency**: a rate source, a refresh cadence, and storing
   the rate used **with each snapshot** so historical prices stay reproducible
-  rather than silently re-based when SEK/EUR moves — the same discipline the
-  "User-configured portfolio currency" item already calls for. Feeds the
+  rather than silently re-based when SEK/EUR moves — a stricter discipline than
+  the shipped **display currency** needs (that converts live at render time and
+  stores nothing, so it never has to reproduce a historical rate). Feeds the
   same source-agnostic snapshot rows via a GitHub Action or Supabase Edge
   Function — never coupled into the static page. A live liquidity spot-check
   (Jul 2026) confirmed healthy active listings for mainstream sets (Evolving

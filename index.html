@@ -1855,7 +1855,7 @@
         <div class="drill-scn-sliders">
           <div>
             <div class="drill-scn-row">
-              <span class="drill-scn-lbl">Set Value (€)</span>
+              <span class="drill-scn-lbl">Set Value</span>
               <span id="sv-display" class="drill-scn-val" style="color:var(--accent3);">—</span>
             </div>
             <input type="range" id="sv-slider" min="0" max="10000" step="10" aria-label="Scenario set value in euros"
@@ -1868,7 +1868,7 @@
           </div>
           <div>
             <div class="drill-scn-row">
-              <span class="drill-scn-lbl">Product Price (€)</span>
+              <span class="drill-scn-lbl">Product Price</span>
               <span id="price-display" class="drill-scn-val" style="color:var(--accent);">—</span>
             </div>
             <input type="range" id="price-slider" min="0" max="5000" step="5" aria-label="Scenario product price in euros"
@@ -2013,7 +2013,17 @@
     </div>
     <div class="header-meta">
       <div class="last-update" id="last-update-wrap">Last updated: <span id="last-update-date">—</span><span class="stale-note" id="last-update-stale"></span></div>
-      <div class="last-update" style="margin-top:4px">Prices in <span>EUR</span></div>
+      <!-- Global display currency. Display-only: every price on the page is
+           converted at render time, but € stays the canonical stored unit and
+           every input the user types into stays €. Populated by
+           populateCurrencySelect(); offers € plus the currencies we hold a live
+           rate for (falls back to €-only if the FX fetch failed, and #fx-note
+           says why rather than leaving it a mystery). -->
+      <div class="header-currency" style="margin-top:4px; display:flex; align-items:center; gap:8px; justify-content:flex-end;">
+        <label class="cmp-empty" for="display-currency" style="margin:0;">Shown in</label>
+        <select class="trend-select" id="display-currency" style="max-width:120px;" aria-label="Display currency"></select>
+        <span class="cmp-empty" id="fx-note" style="display:none;"></span>
+      </div>
       <div class="sb-only" style="margin-top:8px; display:flex; align-items:center; gap:8px; justify-content:flex-end;">
         <span id="auth-user-email" style="font-family:'DM Mono',monospace; font-size: var(--text-xs); color:var(--muted);"></span>
         <button class="auth-signout" id="change-pw-btn" type="button">Change password</button>
@@ -2263,10 +2273,10 @@
           <tr>
             <th>Product <span class="th-hint"><svg class="icon" aria-hidden="true" style="color:var(--accent)"><use href="#i-deal"/></svg> = buy signal</span></th>
             <th class="col-detail">Type</th>
-            <th style="text-align:right">Price (€)</th>
-            <th style="text-align:right">Fair Price (€) <button type="button" id="fair-fit-note" class="fair-fit-note method-open" aria-haspopup="dialog"></button></th>
-            <th class="col-detail" style="text-align:right">Set Value (€)</th>
-            <th class="col-detail" style="text-align:right">€/Booster</th>
+            <th style="text-align:right">Price</th>
+            <th style="text-align:right">Fair Price <button type="button" id="fair-fit-note" class="fair-fit-note method-open" aria-haspopup="dialog"></button></th>
+            <th class="col-detail" style="text-align:right">Set Value</th>
+            <th class="col-detail" style="text-align:right">Per Booster</th>
             <th class="col-detail" style="text-align:right">SV/Booster</th>
             <th class="col-detail" style="text-align:right">Age (yr)</th>
             <th class="col-detail">Wtd. Score</th>
@@ -2368,7 +2378,7 @@
           <tr>
             <th>Product</th>
             <th>Type</th>
-            <th style="text-align:right">Price (€)</th>
+            <th style="text-align:right">Price</th>
             <th style="text-align:right">Δ last</th>
             <th style="text-align:right">Price since 1st</th>
             <th style="text-align:right">Set Val since 1st</th>
@@ -2413,13 +2423,9 @@
     <div class="panel">
       <div class="panel-header">
         <h3 class="panel-title">Portfolio</h3>
-        <div class="cmp-controls">
-          <label class="cmp-empty" for="portfolio-currency" style="margin:0;">Shown in</label>
-          <select class="trend-select" id="portfolio-currency" style="max-width:130px;" aria-label="Display currency"></select>
-          <!-- Explains a €-only picker instead of leaving it a mystery. Shown
-               by populateCurrencySelect() only when the FX fetch failed. -->
-          <span class="cmp-empty" id="fx-note" style="display:none;"></span>
-        </div>
+        <!-- The display-currency picker is global now — it lives in the page
+             header and drives every price on the page, this tab included. -->
+        <span class="panel-badge">Shown in your chosen currency</span>
       </div>
 
       <div class="portfolio-summary" id="portfolio-summary"></div>
@@ -2440,10 +2446,10 @@
               <th>Product</th>
               <th>Type</th>
               <th style="text-align:right">Qty</th>
-              <th style="text-align:right">Cost €/unit</th>
-              <th style="text-align:right">Now €/unit</th>
-              <th style="text-align:right">Value €</th>
-              <th style="text-align:right">P&amp;L €</th>
+              <th style="text-align:right">Cost / unit</th>
+              <th style="text-align:right">Now / unit</th>
+              <th style="text-align:right">Value</th>
+              <th style="text-align:right">P&amp;L</th>
               <th style="text-align:right">P&amp;L %</th>
               <th></th>
             </tr>
@@ -2494,8 +2500,8 @@
             <tr>
               <th>Product</th>
               <th>Type</th>
-              <th style="text-align:right">Now €/unit</th>
-              <th style="text-align:right">Target €</th>
+              <th style="text-align:right">Now / unit</th>
+              <th style="text-align:right">Target</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -2988,7 +2994,7 @@ function renderOverview() {
     <div class="pick-item">
       <div class="pick-info">
         <div class="pick-name"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></div>
-        <div class="pick-meta">${typeLabel(p.type)} · €${fmt(p.price)}${byGap ? ` · fair €${fmt(p.fairPrice)}` : ''}</div>
+        <div class="pick-meta">${typeLabel(p.type)} · ${money(p.price)}${byGap ? ` · fair ${money(p.fairPrice)}` : ''}</div>
         ${verdictLine(p)}
       </div>
       <div class="pick-gap">${byGap ? `${Math.abs(p.fairGap)}%<span class="unit"> under</span>`
@@ -3027,10 +3033,10 @@ function updateTable() {
         ${verdictLine(p)}
       </td>
       <td class="col-detail">${typeBadge(p.type)}</td>
-      <td class="num">${fmt(p.price)}</td>
+      <td class="num">${money(p.price)}</td>
       <td class="num">${fairPriceCell(p)}</td>
-      <td class="num col-detail">${fmt(p.setVal)}</td>
-      <td class="num col-detail">${fmt(p.pricePerBooster, 1)}</td>
+      <td class="num col-detail">${money(p.setVal)}</td>
+      <td class="num col-detail">${money(p.pricePerBooster, 1)}</td>
       <td class="num col-detail ${svClass}">${fmt(p.svPerBooster, 1)}×</td>
       <td class="num col-detail">${fmt(p.age, 1)}</td>
       <td class="col-detail">
@@ -3082,7 +3088,7 @@ function fairPriceCell(p) {
     const label = p.fairGap === 0 ? 'at fair' : `${Math.abs(p.fairGap)}% ${under ? 'under' : 'over'}`;
     gap = `<span class="fair-gap" style="color:${gapCol}">${arrow}${label}</span>`;
   }
-  return `<span style="color:${priceCol}"${title}>€${fmt(p.fairPrice)}</span>${gap}`;
+  return `<span style="color:${priceCol}"${title}>${money(p.fairPrice)}</span>${gap}`;
 }
 
 // Surface the fit confidence (R²) in the Fair Price column header, greyed when
@@ -3129,7 +3135,7 @@ function updateTopPicks() {
       <div class="pick-rank ${rankClass}">${i + 1}</div>
       <div class="pick-info">
         <div class="pick-name"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></div>
-        <div class="pick-meta">${typeLabel(p.type)} · €${fmt(p.price)} · Age ${fmt(p.age, 1)}yr</div>
+        <div class="pick-meta">${typeLabel(p.type)} · ${money(p.price)} · Age ${fmt(p.age, 1)}yr</div>
       </div>
       <div class="pick-score">${fmt(p.score, 1)}</div>
     `;
@@ -3356,39 +3362,44 @@ function createCompareView(cfg) {
   return { init, refresh };
 }
 
-// §06 Price History — raw € price per product; set mode rolls up as average
-// price-per-booster (a raw-€ average across a box and a bundle is meaningless).
+// §06 Price History — price per product, in the active display currency (set
+// mode rolls up as average price-per-booster, since a raw average across a box
+// and a bundle is meaningless). The line builders convert € → the active
+// currency; the axes/tooltip then label the already-converted values with
+// symFmt. refresh() re-runs the builders, so a currency switch re-converts.
 const cmpHist = createCompareView({
   canvasId: 'trend-chart', modeId: 'hist-mode', addId: 'hist-add', chipsId: 'hist-chips',
   defaultKey: 'Surging Sparks Booster Box',
-  productLine: name => { const h = historicalData[name]; return h ? h.price.slice() : []; },
+  productLine: name => { const h = historicalData[name]; const r = fxRate(); return h ? h.price.map(v => v != null ? v * r : null) : []; },
   setMemberLine: name => {
     const h = historicalData[name];
     const p = products.find(x => x.name === name);
     const b = p ? boostersFromType(p.type) : null;
     if (!h || !b) return [];
-    return h.price.map(v => v != null ? parseFloat((v / b).toFixed(2)) : null);
+    const r = fxRate();
+    return h.price.map(v => v != null ? parseFloat((v / b * r).toFixed(2)) : null);
   },
   productScale: hasExtra => ({
     y: {
       type: 'linear', position: 'left', grid: { color: 'rgba(255,255,255,0.05)' },
-      ticks: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
-      title: { display: true, text: hasExtra ? 'Product Price' : 'Price (€)', color: COLOR.muted, font: { family: 'DM Mono', size: 9 } }
+      ticks: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, callback: v => symFmt(v) },
+      title: { display: true, text: hasExtra ? 'Product Price' : 'Price', color: COLOR.muted, font: { family: 'DM Mono', size: 9 } }
     }
   }),
   setScale: () => ({
     y: {
       grid: { color: 'rgba(255,255,255,0.05)' },
-      ticks: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toFixed(1) },
-      title: { display: true, text: '€ / Booster', color: COLOR.muted, font: { family: 'DM Mono', size: 9 } }
+      ticks: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, callback: v => symFmt(v, 1) },
+      title: { display: true, text: `${curMeta().symbol || curMeta().suffix.trim()} / Booster`, color: COLOR.muted, font: { family: 'DM Mono', size: 9 } }
     }
   }),
   singleExtra: name => {
     const h = historicalData[name];
     if (!h) return null;
+    const r = fxRate();
     return {
       dataset: {
-        label: 'Set Value (€)', data: h.setVal.slice(),
+        label: 'Set Value', data: h.setVal.map(v => v != null ? v * r : null),
         borderColor: COLOR.gold, backgroundColor: alpha(COLOR.gold, 0.05),
         tension: 0.4, pointRadius: 3, borderWidth: 2, borderDash: [5, 4],
         fill: false, spanGaps: true, yAxisID: 'ySetVal'
@@ -3396,13 +3407,13 @@ const cmpHist = createCompareView({
       scale: {
         ySetVal: {
           type: 'linear', position: 'right', grid: { drawOnChartArea: false },
-          ticks: { color: COLOR.gold, font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') },
+          ticks: { color: COLOR.gold, font: { family: 'DM Mono', size: 10 }, callback: v => symFmt(v) },
           title: { display: true, text: 'Set Value', color: COLOR.gold, font: { family: 'DM Mono', size: 9 } }
         }
       }
     };
   },
-  tooltip: (ctx, mode) => ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? '€' + ctx.parsed.y.toLocaleString('de-DE') : '—'}${mode === 'set' && ctx.dataset.yAxisID === 'y' ? ' /booster' : ''}`
+  tooltip: (ctx, mode) => ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? symFmt(ctx.parsed.y) : '—'}${mode === 'set' && ctx.dataset.yAxisID === 'y' ? ' /booster' : ''}`
 });
 
 // ============================================================
@@ -3570,6 +3581,22 @@ function applyTypeFilter() {
   renderMomentum();
   cmpHist.refresh();
   cmpSvb.refresh();
+}
+
+// Re-render every view that shows a money figure, after a display-currency
+// switch. Deliberately excludes the ratio-only views (the SV/Booster scatter and
+// trend, Relative Value) — a currency change can't move a ratio of two € amounts,
+// so re-rendering them would be wasted work. Re-renders an open drill-down too
+// (harmless: the picker is in the header, unreachable while the modal traps focus).
+function renderCurrencySensitive() {
+  renderOverview();
+  updateTable();
+  updateTopPicks();
+  renderMomentum();
+  cmpHist.refresh();
+  renderPortfolio();
+  renderAlerts();
+  if (drillProduct) renderDrill();
 }
 
 document.getElementById('sort-select').addEventListener('change', e => {
@@ -3880,34 +3907,49 @@ function setStatus(elId, msg, isError) {
 // `holdings` (product name → { quantity, costBasis }) is the user's private
 // portfolio, loaded from Supabase. Unrealised P&L per holding is
 // (latest tracked price − cost basis) × quantity — derived here, never stored.
-const eur = v => '€' + Math.round(v).toLocaleString('de-DE');
 const pnlColor = v => v > 0 ? 'var(--accent4)' : v < 0 ? 'var(--accent2)' : 'var(--muted)';
 const withSign = (s, v) => (v > 0 ? '+' : v < 0 ? '−' : '') + s;
 const round2 = v => Math.round(v * 100) / 100;
 
-// ── Portfolio display currency (display-only; € stays the canonical unit) ──
+// ── Global display currency (display-only; € stays the canonical unit) ──
 // The user's chosen currency, the EUR→currency rates (fetched once from a free
-// key-less FX API), and a currency-aware money formatter. Conversion is confined
-// to the Portfolio tab — the shared catalogue, set values and all SV/Booster
-// maths stay in €, so the ranking metrics stay comparable across users. A single
-// current rate is used everywhere (including the history chart); if the FX fetch
-// fails we fall back to €-only, so the portfolio is never blocked on the network.
+// key-less FX API), and the currency-aware money formatters used everywhere a
+// price is shown. € is the only *stored* unit — the shared catalogue, set values
+// and every SV/Booster · Wtd-Score derivation stay in €; those ranking metrics
+// are ratios of two € amounts, so a single positive FX rate cancels out of them
+// and only the absolute-money figures (price, fair price, €/booster, set value,
+// P&L, targets) are converted, at *render* time. Every field the user types into
+// (Data Entry, cost basis, fixed alert target) also stays €. A single current
+// rate is used across the whole page (board, charts, drill-down, portfolio); if
+// the FX fetch fails we fall back to €-only, so the page is never blocked on the
+// network.
 const CURRENCY_META = {
   EUR: { symbol: '€',  suffix: '' },
   USD: { symbol: '$',  suffix: '' },
   GBP: { symbol: '£',  suffix: '' },
   SEK: { symbol: '',   suffix: ' kr' },
 };
-let portfolioCurrency = 'EUR';
+let displayCurrency = 'EUR';
 let fxRates = { EUR: 1 };   // EUR → currency multipliers; EUR always present
 
-// Format a canonical € amount in the active portfolio currency.
-function money(vEur) {
+// The live EUR→active-currency multiplier (1 when €, or the FX fetch failed).
+function fxRate() { return fxRates[displayCurrency] != null ? fxRates[displayCurrency] : 1; }
+function curMeta() { return CURRENCY_META[displayCurrency] || CURRENCY_META.EUR; }
+
+// Format an already-converted number with the active currency's symbol/suffix.
+// Use this in chart axis ticks and tooltips, where Chart.js hands back values
+// that are already in display-currency space (the plotted data was converted).
+function symFmt(n, dec = 0) {
+  if (n == null || isNaN(n)) return '—';
+  const meta = curMeta();
+  return `${meta.symbol}${fmt(n, dec)}${meta.suffix}`;
+}
+
+// Format a canonical € amount in the active display currency (converts + labels).
+// This is the everywhere formatter for money read out of the € data model.
+function money(vEur, dec = 0) {
   if (vEur == null || isNaN(vEur)) return '—';
-  const rate = fxRates[portfolioCurrency] != null ? fxRates[portfolioCurrency] : 1;
-  const meta = CURRENCY_META[portfolioCurrency] || CURRENCY_META.EUR;
-  const n = Math.round(vEur * rate).toLocaleString('de-DE');
-  return `${meta.symbol}${n}${meta.suffix}`;
+  return symFmt(vEur * fxRate(), dec);
 }
 
 // Where the rates come from (Frankfurter — ECB data, free, no API key), tried
@@ -3989,16 +4031,16 @@ function populatePortfolioSelect() {
   if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
 }
 
-// Populate the Portfolio currency picker with € plus any currencies we have a
-// live rate for (falls back to €-only if the FX fetch failed).
+// Populate the global display-currency picker with € plus any currencies we
+// have a live rate for (falls back to €-only if the FX fetch failed).
 function populateCurrencySelect() {
-  const sel = document.getElementById('portfolio-currency');
+  const sel = document.getElementById('display-currency');
   if (!sel) return;
-  if (!CURRENCY_META[portfolioCurrency]) portfolioCurrency = 'EUR';
+  if (!CURRENCY_META[displayCurrency]) displayCurrency = 'EUR';
   // € plus any currency we have a rate for — and always the active one, so a
   // saved currency stays selected even if the FX fetch hasn't resolved yet.
   const avail = Object.keys(CURRENCY_META).filter(c =>
-    c === 'EUR' || c === portfolioCurrency || fxRates[c] != null);
+    c === 'EUR' || c === displayCurrency || fxRates[c] != null);
   sel.innerHTML = '';
   avail.forEach(c => {
     const meta = CURRENCY_META[c];
@@ -4007,7 +4049,7 @@ function populateCurrencySelect() {
     opt.textContent = `${(meta.symbol || meta.suffix.trim())} ${c}`.trim();
     sel.appendChild(opt);
   });
-  sel.value = portfolioCurrency;
+  sel.value = displayCurrency;
 
   // Say why the picker is €-only, rather than letting a failed network call
   // look like a feature that was never built.
@@ -4025,7 +4067,7 @@ function populateCurrencySelect() {
 async function persistCurrency() {
   if (!sbUser) return;
   const { error } = await sbClient.from('user_settings')
-    .upsert({ user_id: sbUser.id, currency: portfolioCurrency }, { onConflict: 'user_id' });
+    .upsert({ user_id: sbUser.id, currency: displayCurrency }, { onConflict: 'user_id' });
   if (error) setStatus('portfolio-status', 'Currency not saved: ' + error.message, true);
 }
 
@@ -4092,7 +4134,7 @@ function renderPortfolioValueChart() {
   const canvas = document.getElementById('portfolio-value-chart');
   if (!wrap || !empty || !canvas) return;
 
-  const rate = fxRates[portfolioCurrency] != null ? fxRates[portfolioCurrency] : 1;
+  const rate = fxRate();
   const valuesEur = portfolioValueSeries(holdings, historicalData, histDates.length);
   const costTotalEur = Object.entries(holdings).reduce((s, [, h]) =>
     s + (Number(h.quantity) || 0) * (Number(h.costBasis) || 0), 0);
@@ -4400,7 +4442,7 @@ function alertFlag(name) {
   if (!s || !s.triggered) return '';
   const color = s.newlyCrossed ? 'var(--accent)' : 'var(--muted)';
   const kind = s.type === 'fair' ? ` (≥${s.pct}% below fair)` : '';
-  const title = `Alert: €${Math.round(s.price)} ≤ target €${Math.round(s.target)}${kind}${s.newlyCrossed ? ' (just crossed)' : ''}`;
+  const title = `Alert: ${money(s.price)} ≤ target ${money(s.target)}${kind}${s.newlyCrossed ? ' (just crossed)' : ''}`;
   return `<span class="buy-flag" role="img" aria-label="${title}" style="color:${color}" title="${title}"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg></span>`;
 }
 
@@ -4446,13 +4488,13 @@ function renderAlerts() {
       ? `<span style="color:var(--accent)"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg> ${s.newlyCrossed ? 'just hit' : 'at/below'}</span>`
       : `<span style="color:var(--muted)">watching</span>`;
     const targetLabel = s.type === 'fair'
-      ? `≥${s.pct}% below fair${s.target != null ? `<span style="color:var(--muted)"> · ${eur(s.target)}</span>` : `<span style="color:var(--muted)"> · —</span>`}`
-      : (s.target != null ? eur(s.target) : '—');
+      ? `≥${s.pct}% below fair${s.target != null ? `<span style="color:var(--muted)"> · ${money(s.target)}</span>` : `<span style="color:var(--muted)"> · —</span>`}`
+      : (s.target != null ? money(s.target) : '—');
     return `
       <tr>
         <td class="product-name" title="${name}">${name}</td>
         <td>${typeBadge(type)}</td>
-        <td class="num">${s.price != null ? eur(s.price) : '—'}</td>
+        <td class="num">${s.price != null ? money(s.price) : '—'}</td>
         <td class="num">${targetLabel}</td>
         <td>${status}</td>
         <td style="text-align:center"><button class="portfolio-remove-btn" data-alert="${name}" title="Remove alert">✕</button></td>
@@ -4652,12 +4694,12 @@ function initScenario() {
   svSlider.min = 0; svSlider.max = svMax; svSlider.value = p.setVal;
   priceSlider.min = 0; priceSlider.max = priceMax; priceSlider.value = p.price;
 
-  document.getElementById('sv-min-label').textContent = '€0';
-  document.getElementById('sv-max-label').textContent = '€' + svMax.toLocaleString('de-DE');
-  document.getElementById('sv-base-label').textContent = '€' + p.setVal.toLocaleString('de-DE') + ' (current)';
-  document.getElementById('price-min-label').textContent = '€0';
-  document.getElementById('price-max-label').textContent = '€' + priceMax.toLocaleString('de-DE');
-  document.getElementById('price-base-label').textContent = '€' + p.price.toLocaleString('de-DE') + ' (current)';
+  document.getElementById('sv-min-label').textContent = money(0);
+  document.getElementById('sv-max-label').textContent = money(svMax);
+  document.getElementById('sv-base-label').textContent = money(p.setVal) + ' (current)';
+  document.getElementById('price-min-label').textContent = money(0);
+  document.getElementById('price-max-label').textContent = money(priceMax);
+  document.getElementById('price-base-label').textContent = money(p.price) + ' (current)';
 
   updateScenario();
 }
@@ -4669,8 +4711,8 @@ function updateScenario() {
   const svVal    = parseFloat(document.getElementById('sv-slider').value);
   const priceVal = parseFloat(document.getElementById('price-slider').value);
 
-  document.getElementById('sv-display').textContent    = '€' + svVal.toLocaleString('de-DE');
-  document.getElementById('price-display').textContent = '€' + priceVal.toLocaleString('de-DE');
+  document.getElementById('sv-display').textContent    = money(svVal);
+  document.getElementById('price-display').textContent = money(priceVal);
 
   // The what-if math lives in metrics.js (scenarioOutcome) — same formulas as
   // deriveProducts, applied to the slider values.
@@ -5501,7 +5543,7 @@ function renderMomentum() {
     tr.innerHTML = `
       <td class="product-name" title="${p.name}"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></td>
       <td>${typeBadge(p.type)}</td>
-      <td class="num">${fmt(m.price)}</td>
+      <td class="num">${money(m.price)}</td>
       ${pctCell(m.last)}
       ${pctCell(m.sinceFirst)}
       ${pctCell(m.svSinceFirst)}
@@ -5569,8 +5611,8 @@ function renderDrill() {
   const stat = (k, v, s = '', vcol = 'var(--text)') =>
     `<div class="drill-stat"><div class="k">${k}</div><div class="v" style="color:${vcol}">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
   document.getElementById('drill-stats').innerHTML = [
-    stat('Live Price', p.price != null ? eur(p.price) : '—'),
-    stat('Fair Price', p.fairPrice != null ? eur(p.fairPrice) : '—', gapTxt + (trusted ? '' : ' · low fit'), gapCol),
+    stat('Live Price', p.price != null ? money(p.price) : '—'),
+    stat('Fair Price', p.fairPrice != null ? money(p.fairPrice) : '—', gapTxt + (trusted ? '' : ' · low fit'), gapCol),
     stat('SV / Booster', `${fmt(p.svPerBooster, 1)}×`, `set value ${pct(m?.svSinceFirst)}`),
     stat('Drawdown', m ? pct(m.drawdown) : '—', 'vs tracked peak', m && m.drawdown < -0.05 ? 'var(--accent2)' : 'var(--muted)'),
     stat('Price move', m ? pct(m.sinceFirst) : '—', 'since first snapshot'),
@@ -5619,13 +5661,16 @@ function renderDrillLinks(p) {
 function renderDrillPriceChart(p) {
   const h = historicalData[p.name] || { price: [], setVal: [] };
   const labels = histDates;
-  const priceData = labels.map((_, i) => h.price[i] ?? null);
-  const fair = p.fairPrice;
+  // Convert to the active display currency for plotting; the axis/tooltip below
+  // then label the already-converted values with symFmt (no second conversion).
+  const rate = fxRate();
+  const priceData = labels.map((_, i) => h.price[i] != null ? h.price[i] * rate : null);
+  const fair = p.fairPrice != null ? p.fairPrice * rate : null;
   const band = VERDICT.OVER_SOFT / 100; // the "fair — no edge" zone, ±this
   const flat = val => labels.map(() => val);
 
   const datasets = [{
-    label: 'Price (€)', data: priceData, spanGaps: true,
+    label: 'Price', data: priceData, spanGaps: true,
     borderColor: COLOR.gold, backgroundColor: alpha(COLOR.gold, 0.06),
     tension: 0.35, pointRadius: 3, pointBackgroundColor: COLOR.gold, fill: false, order: 0,
   }];
@@ -5647,11 +5692,11 @@ function renderDrillPriceChart(p) {
       plugins: {
         legend: { labels: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, boxWidth: 12,
           filter: item => !item.text.startsWith('__') } },
-        tooltip: { callbacks: { label: ctx => ctx.dataset.label.startsWith('__') ? null : ` ${ctx.dataset.label}: €${ctx.parsed.y.toLocaleString('de-DE')}` } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label.startsWith('__') ? null : ` ${ctx.dataset.label}: ${symFmt(ctx.parsed.y)}` } },
       },
       scales: {
         x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } },
-        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => '€' + v.toLocaleString('de-DE') } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => symFmt(v) } },
       },
     },
   });
@@ -5710,16 +5755,16 @@ function renderDrillHolding(p) {
   if (h) {
     const r = portfolioRows().find(x => x.name === p.name);
     const pnlCol = r && r.pnl != null ? (r.pnl >= 0 ? 'var(--accent4)' : 'var(--accent2)') : 'var(--muted)';
-    parts.push(`<div class="drill-ingredient"><span class="lbl">Holding</span><span>${fmt(r.qty)} × cost ${eur(r.cost)}</span></div>`);
-    parts.push(`<div class="drill-ingredient"><span class="lbl">Unrealised P&L</span><span style="color:${pnlCol}">${r.pnl != null ? (r.pnl >= 0 ? '+' : '') + eur(r.pnl) + ` (${r.pnlPct != null ? (r.pnlPct * 100).toFixed(1) + '%' : '—'})` : '—'}</span></div>`);
+    parts.push(`<div class="drill-ingredient"><span class="lbl">Holding</span><span>${fmt(r.qty)} × cost ${money(r.cost)}</span></div>`);
+    parts.push(`<div class="drill-ingredient"><span class="lbl">Unrealised P&L</span><span style="color:${pnlCol}">${r.pnl != null ? (r.pnl >= 0 ? '+' : '') + money(r.pnl) + ` (${r.pnlPct != null ? (r.pnlPct * 100).toFixed(1) + '%' : '—'})` : '—'}</span></div>`);
   }
   const a = alertEntry(p.name);
   if (a) {
     const s = alertState(p.name);
     const hit = s && s.triggered;
     const lbl = a.type === 'fair'
-      ? `≥${a.pct}% below fair${s && s.target != null ? ` (${eur(s.target)})` : ''}`
-      : `below ${eur(a.target)}`;
+      ? `≥${a.pct}% below fair${s && s.target != null ? ` (${money(s.target)})` : ''}`
+      : `below ${money(a.target)}`;
     parts.push(`<div class="drill-ingredient"><span class="lbl">Price alert</span><span style="color:${hit ? 'var(--accent)' : 'var(--muted)'}">${hit ? '<svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg> ' : ''}buy ${lbl}${hit ? ' · hit' : ''}</span></div>`);
   }
   box.innerHTML = parts.length ? parts.join('') : `<div class="portfolio-empty" style="padding:14px;">No holding or alert set for this product — add one in the Portfolio tab.</div>`;
@@ -5900,16 +5945,19 @@ initSectionDescriptions();   // static markup — runs once, not on data reload
 document.getElementById('sv-slider').addEventListener('input', updateScenario);
 document.getElementById('price-slider').addEventListener('input', updateScenario);
 document.getElementById('scenario-reset').addEventListener('click', initScenario);
-// Portfolio currency picker: re-render the (money-aware) portfolio and persist.
-document.getElementById('portfolio-currency').addEventListener('change', e => {
-  portfolioCurrency = e.target.value;
-  renderPortfolio();
+// Global display-currency picker: switch the unit every price on the page is
+// shown in, then persist the choice. Re-renders every money-bearing view (not
+// just the portfolio) — the ratio metrics (SV/Booster, Wtd. Score) are unchanged
+// by a currency switch, so their charts/tables are left alone.
+document.getElementById('display-currency').addEventListener('change', e => {
+  displayCurrency = e.target.value;
+  renderCurrencySensitive();
   persistCurrency();
 });
 // Fetch live FX rates once, then reveal the extra currencies and re-render with
 // real rates (the initial € view is correct meanwhile). Best-effort — a blocked
 // fetch just leaves the picker on €.
-fetchFxRates().then(() => { populateCurrencySelect(); renderPortfolio(); });
+fetchFxRates().then(() => { populateCurrencySelect(); renderCurrencySensitive(); });
 
 // ============================================================
 // AUTO-LOAD pokemon_data.xlsx FROM SAME DIRECTORY (if present)
@@ -6092,7 +6140,7 @@ async function loadFromSupabase() {
   }
   // Apply saved portfolio currency (tolerates a pre-migration DB with no column).
   if (setRes && !setRes.error && setRes.data && setRes.data.currency) {
-    portfolioCurrency = setRes.data.currency;
+    displayCurrency = setRes.data.currency;
     populateCurrencySelect();
   }
 
