@@ -60,7 +60,7 @@ dismissible tour: the demo page *is* the first-visit surface (only logged-out
 visitors see it), so a tour overlaid on it would explain the explanation. If a
 walkthrough is ever wanted for signed-in users, it needs a different home.
 
-### 9. Set logos (drill-down first)
+### 9. Set logos & product images (drill-down first)
 
 Decision to make first: asset source. **TCGdex serves set logo assets** (the
 same API already planned for ingestion — one vendor, licensing terms to
@@ -70,6 +70,82 @@ lazily), render in the drill-down header only (board rows later, if at all),
 with a text-only fallback when missing — never a broken image. Subordinate to
 the numbers per `design-review`. *Size: S/M. Depends on: TCGdex spike (item
 14b) confirming the asset source, else parked.*
+
+#### Licensing & rights — the real blocker (investigation, 2026-08)
+
+The technical work here is small; the **rights question is the item.** It is
+sharper now because **commercialisation is a stated future goal**, and that
+changes the answer. Findings so far:
+
+- **Two rights are in play, and set logos trip both.** *Copyright* protects the
+  box/card artwork; *trademark* protects the "Pokémon" name, Poké Ball, and set
+  logos used as brands. Set logos are the highest-risk asset class because
+  they're usually protected as **both** at once. Product photos are "only"
+  copyright — and if user- or seller-supplied, the photographer (not the
+  publisher) authored them, which is why marketplace feeds lean on them.
+- **A disclaimer is not a licence.** It cannot make reproduction lawful. It only
+  helps on the *trademark* side (rebutting implied endorsement) and as evidence
+  of good faith. Permission must come from a licence, a narrow legal exception
+  (US fair use / EU fair dealing — fact-specific, not something a disclaimer
+  secures), or the content being unprotected.
+- **TPCi's own terms rule out our commercial case.** Their [Media Usage
+  Guidelines](https://press.pokemon.com/en/Assets-Use-Terms) grant a limited
+  licence **"strictly to non-commercial uses"** (editorial/informational),
+  state **"in no event are you authorized to commercialize the Content...by...
+  charging a fee for access to it,"** forbid making a logo the most prominent
+  feature, and forbid using their branding **"in the name of your business,
+  product, service, app, domain name."** Their [support
+  page](https://support.pokemon.com/hc/en-us/articles/360000634094) adds that
+  they "are not in a position to review requests" and "ask that you not use it
+  ...in any way." So a paid tier hosting their artwork is outside what they
+  permit, full stop.
+- **How comparable apps cope — none of it is a clean licence we can copy:**
+  - *Bulbapedia* — runs on a **fair-use/editorial rationale + non-enforcement**,
+    low-res images, copyright templates crediting Nintendo/TPCi. Grey zone,
+    depends on TPCi's tolerance.
+  - *Cardmarket / TCGplayer / eBay* — **marketplaces**: first-sale/resale-
+    advertising rationale, largely **user-uploaded** listing photos, DMCA
+    machinery, legal budgets. We are analytics, not a marketplace, so that
+    rationale is weaker for us; and their ToS typically **prohibit
+    hotlinking/scraping** their images.
+  - *Collectr* — the closest comparable (**commercial, not a marketplace**).
+    Their [terms](https://www.getcollectr.com/terms-and-conditions.html) carry a
+    strong non-affiliation disclaimer, claim IP over "content...owned by
+    Collectr, **its licensors, or other providers**" (that phrase quietly admits
+    not all of it is theirs), lean heavily on **user-scanned** card photos, and
+    pair a **TCGplayer data partnership** (pricing) with catalogue images hosted
+    on their own CDN. Net: by TPCi's literal guidelines their *commercial* use
+    isn't authorised either — they rely on **non-enforcement + provenance cover
+    (user scans, marketplace feeds) + a disclaimer for the trademark half +
+    scale/legal budget**. A solo commercial project has the exposure without the
+    cover.
+- **Transferable *safe* tactics** (do regardless): a non-affiliation disclaimer;
+  keep "Pokémon" out of the product/app/domain name (Collectr is "Collectr,"
+  not "PokéCollectr"); prefer **user-supplied** or a **properly-licensed feed**
+  over hosting publisher artwork; stay image-light where a badge/colour-chip does
+  the job.
+
+**Open questions to resolve before building (investigate further):**
+1. **TCGdex asset terms** — does its licence actually permit redisplaying set
+   logos, and does it permit *commercial* redisplay? Confirm in the 14b spike
+   (and re-scope: the question is bigger than "one vendor's terms" — TPCi is the
+   upstream rights holder).
+2. **Any sublicensable image rights?** Does *any* reachable feed (TCGdex,
+   TCGplayer, Pokémon TCG API) grant redistribution/redisplay rights we can rely
+   on for a paid product — or only for non-commercial use?
+3. **Split the asset classes.** Are **product photos** (user/seller-supplied,
+   copyright-only) meaningfully safer than **set logos** (copyright + trademark)?
+   If so, phase 1 could be photos-only and logos stay parked.
+4. **Images-light alternative** — quantify the UX gain of real logos vs a
+   designed set-identity system (colour chip + type badge + set abbreviation)
+   that carries **zero** third-party rights. This may be the right answer for a
+   commercial launch even if logos are "nicer."
+5. **If we do want real fair prices/logos the honest way** — a direct licensing
+   enquiry to TPCi, or a paid asset licence, is the only path that survives
+   commercialisation; price that before committing.
+
+*Not legal advice — this is a research summary to scope the item; a real
+commercial launch with this imagery warrants a lawyer's review.*
 
 ## AUTOMATED INGESTION — spike first, then pipeline
 

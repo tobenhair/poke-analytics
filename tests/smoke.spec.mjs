@@ -68,7 +68,7 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   // Drill-down opens from a row, renders its stats and a real chart, then closes.
   await page.locator('#product-tbody tr').first().click();
   await expect(page.locator('#drill-modal')).toHaveClass(/open/);
-  await expect(page.locator('#drill-stats .drill-stat')).toHaveCount(6);
+  await expect(page.locator('#drill-stats .drill-stat')).toHaveCount(7);
   // Poll: Chart.js sizes the canvas on a frame *after* the dialog becomes
   // visible, so a single boundingBox() here can catch it at zero width.
   await expect
