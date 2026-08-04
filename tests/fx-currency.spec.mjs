@@ -1,5 +1,5 @@
 // ============================================================
-// Portfolio currency picker + FX fallback
+// Global display-currency picker + FX fallback
 // ============================================================
 // Regression cover for a reported bug: the picker offered only €, with nothing
 // anywhere saying why. The picker itself was fine — it lists € plus whatever
@@ -8,11 +8,12 @@
 //
 // These tests pin all three outcomes: the current endpoint answering, the
 // legacy host covering for it, and both failing (which must still leave a
-// working €-denominated portfolio, but now says so).
+// working €-denominated page, but now says so).
 //
-// The picker lives in the signed-in Portfolio tab, but populateCurrencySelect()
-// runs from INIT regardless of auth, so the static path exercises it without
-// the Supabase stack — which keeps this spec small.
+// The picker lives in the page header (it drives every price on the page, not
+// just the Portfolio tab). populateCurrencySelect() runs from INIT regardless of
+// auth, so the static path exercises it without the Supabase stack — which keeps
+// this spec small.
 // ============================================================
 
 import { test, expect } from '@playwright/test';
@@ -42,12 +43,12 @@ async function load(page, fxHandler) {
   return hosts;
 }
 
-const options = (page) => page.locator('#portfolio-currency option').allTextContents();
+const options = (page) => page.locator('#display-currency option').allTextContents();
 
-// The note lives in the Portfolio pane, which is display:none in static mode —
-// so Playwright's toBeVisible()/toBeHidden() report the *pane*, not the note,
-// and toBeHidden() would pass even if the code never hid anything. Assert on
-// the element's own inline display instead, which is what the code sets.
+// The note lives in the always-visible header now, but we still assert on the
+// element's own inline display (what the code actually sets) rather than
+// toBeVisible()/toBeHidden(): it's the precise signal, and it keeps this check
+// robust to any wrapper that might dim or hide the surrounding chrome.
 const noteShown = (page) =>
   page.locator('#fx-note').evaluate((el) => el.style.display !== 'none');
 
