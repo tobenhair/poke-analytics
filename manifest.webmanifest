@@ -1,6 +1,6 @@
 {
-  "name": "Sealed TCG Analytics",
-  "short_name": "TCG Analytics",
+  "name": "Sealed Analytics",
+  "short_name": "Sealed Analytics",
   "description": "Track sealed trading-card product prices and value over time, and see what's fairly priced.",
   "start_url": ".",
   "scope": ".",
