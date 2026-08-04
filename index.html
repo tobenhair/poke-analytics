@@ -825,6 +825,10 @@
     padding: 10px 14px; border-radius: 10px; border: 1px solid var(--hairline);
     border-left-width: 2px; background: var(--bg3); margin-bottom: 22px;
   }
+  /* Set logo in the drill-down header — an identity aid, subordinate to the
+     numbers. Height-capped, hidden until the image actually loads (never a
+     broken image; text title is the fallback). Sourced from TCGdex; see footer. */
+  .drill-logo { height: 42px; width: auto; max-width: 200px; object-fit: contain; display: block; margin: 0 0 14px; }
   .drill-stats {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 12px; margin-bottom: 30px;
@@ -1871,6 +1875,7 @@
 <div class="modal-overlay" id="drill-modal">
   <div class="modal" style="max-width:820px;" role="dialog" aria-modal="true" aria-labelledby="drill-title" tabindex="-1">
     <button class="modal-close" id="drill-close" type="button" aria-label="Close product details">✕</button>
+    <img id="drill-logo" class="drill-logo" alt="" hidden>
     <h2 id="drill-title">Product</h2>
     <div id="drill-verdict" class="drill-verdict"></div>
     <div id="drill-stats" class="drill-stats"></div>
@@ -2734,12 +2739,12 @@
   </main>
 
   <footer>
-    <p style="margin:0 0 10px;">Data sourced from Cardmarket, Tradera &amp; PriceCharting · Updated manually · Always do your own research</p>
+    <p style="margin:0 0 10px;">Price data from Cardmarket, Tradera &amp; PriceCharting · Set logos from TCGdex · Always do your own research</p>
     <p style="margin:0 auto; max-width:70ch; line-height:1.7; text-transform:none; letter-spacing:normal;">
       <strong>Not financial advice.</strong> This is a free, unofficial fan-made tool provided “as is” for informational purposes only. Prices and values may be inaccurate or out of date; nothing here is a recommendation to buy or sell. Do your own research before making any purchase.
     </p>
     <p style="margin:12px auto 0; max-width:70ch; line-height:1.7; text-transform:none; letter-spacing:normal;">
-      “Pokémon” and all related names are trademarks of Nintendo, Creatures Inc., GAME FREAK inc., and The Pokémon Company. This project is <strong>not affiliated with, endorsed by, or sponsored by</strong> any of them. All product names are used for identification purposes only.
+      “Pokémon” and all related names, logos, and images are trademarks and copyrights of Nintendo, Creatures Inc., GAME FREAK inc., and The Pokémon Company. This is an independent analytics tool, <strong>not affiliated with, endorsed by, or sponsored by</strong> any of them — the product offered is the analysis tool, not the trading-card products it tracks. Product names, set logos, and images (set logos via the TCGdex API) are used for identification and informational purposes only.
     </p>
   </footer>
 </div>
@@ -5657,6 +5662,56 @@ function closeDrill() {
 
 const toneColor = t => t === 'good' ? 'var(--accent4)' : t === 'bad' ? 'var(--accent2)' : 'var(--muted)';
 
+// ── Set logos (TCGdex) ──
+// A name→logo-base-URL map, fetched once (lazily, on the first drill-down) from
+// the free TCGdex API and cached for the session. Best-effort: any failure —
+// offline, blocked egress, CORS, an unmatched set — falls back silently to the
+// text title (never a broken image). Logos are shown for identification /
+// informational purposes only; attribution + the non-affiliation notice live in
+// the page footer.
+const TCGDEX_SETS_URL = 'https://api.tcgdex.net/v2/en/sets';
+const normSetName = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+let setLogoMap = null;      // normalised set name → logo base URL (append .png)
+let setLogoPromise = null;
+function ensureSetLogos() {
+  if (setLogoMap) return Promise.resolve(setLogoMap);
+  if (setLogoPromise) return setLogoPromise;
+  setLogoPromise = (async () => {
+    const map = {};
+    try {
+      const res = await fetch(TCGDEX_SETS_URL, { headers: { Accept: 'application/json' } });
+      if (res.ok) {
+        for (const s of await res.json()) {
+          if (s && s.name && s.logo) map[normSetName(s.name)] = s.logo;
+        }
+      }
+    } catch (_) { /* offline / blocked / CORS — text title is the fallback */ }
+    setLogoMap = map;
+    return map;
+  })();
+  return setLogoPromise;
+}
+
+// Resolve the product's set to a TCGdex logo and show it in the drill header.
+// Async and guarded on drillProduct, so a slow fetch that resolves after the
+// user has moved to another product (or closed the dialog) is ignored.
+function renderDrillLogo(p) {
+  const img = document.getElementById('drill-logo');
+  img.hidden = true;
+  img.removeAttribute('src');
+  ensureSetLogos().then(map => {
+    if (drillProduct !== p.name) return;
+    const grp = groupSets(products).find(g => g.members.includes(p.name));
+    const label = grp ? grp.label : setLabel([p.name]);
+    const base = map[normSetName(label)];
+    if (!base) return;                                   // unmatched → text fallback
+    img.onload  = () => { if (drillProduct === p.name) img.hidden = false; };
+    img.onerror = () => { img.hidden = true; };
+    img.alt = label + ' set logo';
+    img.src = base + '.png';
+  });
+}
+
 function renderDrill() {
   const p = products.find(pp => pp.name === drillProduct);
   if (!p) return;
@@ -5664,6 +5719,7 @@ function renderDrill() {
   const v = p.verdict;
 
   document.getElementById('drill-title').textContent = p.name;
+  renderDrillLogo(p);
 
   // Verdict banner
   const vb = document.getElementById('drill-verdict');

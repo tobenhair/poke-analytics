@@ -89,4 +89,7 @@ export async function routeLocalLibs(page) {
   await page.route('**fonts.googleapis.com/**', (r) => r.fulfill({ contentType: 'text/css', body: '' }));
   await page.route('**fonts.gstatic.com/**', (r) => r.abort());
   await page.route('**frankfurter**', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(FX_RATES) }));
+  // TCGdex set-logo API: stub to an empty catalogue so specs stay hermetic and
+  // the drill-down exercises the no-logo (text-title) fallback deterministically.
+  await page.route('**api.tcgdex.net/**', (r) => r.fulfill({ contentType: 'application/json', body: '[]' }));
 }

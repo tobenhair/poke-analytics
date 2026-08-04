@@ -69,6 +69,9 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   await page.locator('#product-tbody tr').first().click();
   await expect(page.locator('#drill-modal')).toHaveClass(/open/);
   await expect(page.locator('#drill-stats .drill-stat')).toHaveCount(7);
+  // Set logo is best-effort: with the TCGdex API stubbed empty it stays hidden
+  // (text title is the fallback) — the page must not show a broken image.
+  await expect(page.locator('#drill-logo')).toBeHidden();
   // Poll: Chart.js sizes the canvas on a frame *after* the dialog becomes
   // visible, so a single boundingBox() here can catch it at zero width.
   await expect
