@@ -5679,6 +5679,8 @@ function renderDrill() {
     : `${Math.abs(p.fairGap)}% ${p.fairGap < 0 ? 'under' : 'over'}`;
   const gapCol = p.fairGap == null || !trusted ? 'var(--muted)' : p.fairGap < 0 ? 'var(--accent4)' : 'var(--accent2)';
   const pct = (val, dp = 1) => val == null ? '—' : `${val > 0 ? '+' : ''}${fmt(val, dp)}%`;
+  const relTxt = p.release ? new Date(p.release).toLocaleDateString('en-SE', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+  const ageTxt = p.age == null ? '' : p.age < 0 ? 'upcoming' : `${fmt(p.age, 1)} yr old`;
   const stat = (k, v, s = '', vcol = 'var(--text)') =>
     `<div class="drill-stat"><div class="k">${k}</div><div class="v" style="color:${vcol}">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
   document.getElementById('drill-stats').innerHTML = [
@@ -5688,6 +5690,7 @@ function renderDrill() {
     stat('Drawdown', m ? pct(m.drawdown) : '—', 'vs tracked peak', m && m.drawdown < -0.05 ? 'var(--accent2)' : 'var(--muted)'),
     stat('Price move', m ? pct(m.sinceFirst) : '—', 'since first snapshot'),
     stat('Wtd. Score', fmt(p.score, 1), `age weight ${fmt(p.ageWeight, 2)}`),
+    stat('Released', relTxt, ageTxt),
   ].join('');
 
   renderDrillLinks(p);
