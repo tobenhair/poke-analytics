@@ -558,6 +558,19 @@ here is one item that no finding touched.
   **native/React-Native rewrite** only if a real platform capability demands it —
   it abandons the deliberate no-build, single-file model and doubles the surface
   to maintain, so it needs a concrete reason beyond "native is nicer."
+- **Custom app icon / brand mark.** The installed PWA, the browser-tab favicon
+  and any future store listing currently wear the app's three-bar chart logo —
+  clean and on-brand, but generic. A bespoke mark would give the product a
+  stronger, recognisable identity where it matters most: a home-screen icon and a
+  tab. Constraints that make it real work rather than a quick swap: it must
+  survive the **maskable safe zone** (the OS circle/squircle crop — ~10% inset
+  each side), stay legible from **16 px** (favicon) to **512 px**, sit on the
+  dark `#0a0b0f` background, and honour the minimalist aesthetic
+  (`design-review`) — no fine detail that muddies at small sizes. Keep the three
+  surfaces in sync: regenerate the PNGs via `scripts/gen-pwa-icons.mjs` (or
+  replace it if the new mark isn't cleanly SVG-buildable) **and** update the
+  inline SVG favicon in `index.html`. Must be an **original, licensing-clean**
+  mark — never a Pokémon / TPCi asset, since this is an unaffiliated fan project.
 - **Privacy-friendly analytics** — know which views are actually used before
   investing further in them.
 - **Legal/compliance for launch** — privacy policy, GDPR basics, cookie consent
