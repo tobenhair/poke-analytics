@@ -161,6 +161,51 @@ test('signing in lands on the answer, and Welcome shares the demo page explanati
   expect(pageErrors).toEqual([]);
 });
 
+test('the account actions live in a profile menu that keeps the phone header from overflowing', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 780 }); // an iPhone-ish width
+  const pageErrors = await boot(page);
+  await signIn(page, 'user@test.local');
+
+  const trigger = page.locator('#profile-btn');
+  const menu = page.locator('#profile-menu');
+  const changePw = page.locator('#change-pw-btn');
+  const signOut = page.locator('#auth-signout-btn');
+
+  // The header fits the viewport — the reason this menu exists (the email + two
+  // buttons used to overflow to the right and clip).
+  const overflow = await page.evaluate(() =>
+    document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow, 'header (or page) scrolls horizontally on a phone').toBeLessThanOrEqual(0);
+
+  // Collapsed by default: the trigger shows, the actions are tucked away.
+  await expect(trigger).toBeVisible();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  await expect(menu).toBeHidden();
+  await expect(changePw).toBeHidden();
+
+  // Open it: the actions and the signed-in email appear, focus moves inside.
+  await trigger.click();
+  await expect(menu).toBeVisible();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(changePw).toBeVisible();
+  await expect(signOut).toBeVisible();
+  await expect(page.locator('#auth-user-email')).toHaveText('user@test.local');
+  await expect(changePw).toBeFocused();
+
+  // Escape closes it and returns focus to the trigger (it's a disclosure).
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(trigger).toBeFocused();
+
+  // Choosing an action opens its overlay and closes the menu.
+  await trigger.click();
+  await changePw.click();
+  await expect(menu).toBeHidden();
+  await expect(page.locator('#account-overlay')).toHaveClass(/open/);
+
+  expect(pageErrors).toEqual([]);
+});
+
 test('a regular user gets portfolio + alerts but not Data Entry, and edits auto-save', async ({ page }) => {
   const pageErrors = await boot(page);
   await signIn(page, 'user@test.local');

@@ -113,6 +113,20 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   the Welcome tab reuse `.tab-btn` for styling, have no `data-tab`, and merely
   forward a click — the old unscoped listener threw on them and blanked the tab
   state.
+- **Account actions live in a profile menu** (`#profile-btn` → `#profile-menu`),
+  not spread across the header — the signed-in email + *Change password* +
+  *Sign out* row overflowed a phone (clipped off the right edge). It's a
+  **disclosure, not a modal**: `wireProfileMenu()` (inside `wireAuthControls()`)
+  toggles `aria-expanded`, moves focus into the menu on open, and closes on
+  Escape (focus returns to the trigger) / an outside click / choosing an item.
+  The email span and both action buttons keep their ids (`#auth-user-email`,
+  `#change-pw-btn`, `#auth-signout-btn`), so their existing wiring is untouched.
+  **Load-bearing z-index:** `.fade-in` ends on `transform: translateY(0)` (fill
+  `both`), so the header is a persistent stacking context; it carries
+  `z-index: 60` **so the menu can drop over the sticky `.tab-bar` (z-index 50)**
+  instead of painting behind it. Don't remove it. `tests/signed-in.spec.mjs`
+  pins the open/close/focus behaviour and that the phone header no longer scrolls
+  sideways.
 - **Board rows open the drill-down from a real `<button>`** (`.row-open`, wrapped
   in `.pn-head` inside the product-name cell), not from `tabindex` on the `<tr>`:
   `role="button"` on a row would strip the table's row semantics. The row's own
