@@ -65,10 +65,13 @@ walkthrough is ever wanted for signed-in users, it needs a different home.
 **Set logos — SHIPPED (TCGdex, drill-down).** `ensureSetLogos()` fetches the
 TCGdex set list (`api.tcgdex.net/v2/en/sets`) once, lazily, on the first
 drill-down and builds a normalised `set name → logo base URL` map;
-`renderDrillLogo()` name-matches the product's set (via `groupSets()`/
-`setLabel()`), sets `<img id="drill-logo">.src = base + '.png'`, and reveals it
-only on `onload` — guarded on `drillProduct` so a slow fetch can't paint onto
-the wrong product. Every failure path (offline, blocked egress, CORS, an
+`renderDrillLogo()` derives the set name from the product's *own* name
+(`setLogoKey()` strips the SKU suffix — not a release-date grouping, which merges
+twin sets sharing a date like Black Bolt / White Flare and mislabels them), sets
+`<img id="drill-logo">.src = base + '.png'`, and reveals it only on `onload` —
+guarded on `drillProduct` so a slow fetch can't paint onto the wrong product. A
+set whose name differs from TCGdex's, or that TCGdex hasn't listed yet, is pinned
+in `SET_LOGO_ALIASES` (normalised app name → normalised TCGdex name). Every failure path (offline, blocked egress, CORS, an
 unmatched set, a 404 image) falls back silently to the text title — never a
 broken image. Logos are **hotlinked** (not re-hosted). Tests stub
 `api.tcgdex.net` to `[]` (`tests/local-cdn.mjs`) so the suite stays hermetic and

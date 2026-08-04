@@ -154,12 +154,17 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
 - **The drill-down header shows the set logo (TCGdex), best-effort.**
   `ensureSetLogos()` fetches `api.tcgdex.net/v2/en/sets` once per session
   (lazily, on the first drill-down), caches a normalised `set name → logo base
-  URL` map, and swallows every failure; `renderDrillLogo()` name-matches the
-  product's set (`groupSets()`/`setLabel()`), sets `#drill-logo`'s `src` to
-  `base + '.png'`, and un-hides it only on `onload` — guarded on `drillProduct`
-  so a late fetch can't paint onto another product. Any miss (offline, blocked,
-  CORS, unmatched set, 404) leaves the text title as the fallback — **never a
-  broken image**. Logos are **hotlinked, not re-hosted** (a deliberate licensing
+  URL` map, and swallows every failure; `renderDrillLogo()` derives the set name
+  from the **product's own name** (`setLogoKey()` strips the SKU suffix — *not* a
+  release-date grouping, which would merge twin sets sharing a date like **Black
+  Bolt / White Flare** into one mislabelled group matching no logo), looks it up,
+  sets `#drill-logo`'s `src` to `base + '.png'`, and un-hides it only on `onload`
+  — guarded on `drillProduct` so a late fetch can't paint onto another product.
+  A set whose app name differs from TCGdex's (or that TCGdex hasn't added yet) is
+  pinned in **`SET_LOGO_ALIASES`** (normalised app name → normalised TCGdex name)
+  — the one place to fix a future mismatch. Any miss (offline, blocked, CORS,
+  unmatched set, 404) leaves the text title as the fallback — **never a broken
+  image**. Logos are **hotlinked, not re-hosted** (a deliberate licensing
   choice); the footer carries the non-affiliation + TCGdex attribution notice.
   Tests stub `api.tcgdex.net` → `[]` in `tests/local-cdn.mjs` (hermetic; the
   smoke spec pins `#drill-logo` hidden). Sealed-product *photos* are a separate,
