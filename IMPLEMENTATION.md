@@ -128,9 +128,11 @@ sanity-checking thin Tradera weeks. Not part of the core loop.
   scraped text and never invents a price. Gate behind sign-in; per-use cost
   means it lands last. Prerequisite: none technically, but product-wise wait
   for the fair-price surfaces to stabilise post-UX-restructure.
-- **PWA / installable.** After mobile optimisation: `manifest.json`, icons,
-  a minimal service worker (cache-first shell, network-first workbook),
-  installability audit via Lighthouse. Revisit wrappers/native only if the
+- **PWA / installable.** *Shipped — see `CLAUDE.md` → Installable app (PWA) and
+  ROADMAP → Done.* Delivered as `manifest.webmanifest` + `icons/`
+  (`scripts/gen-pwa-icons.mjs`) + `sw.js` (network-first app shell, cache-first
+  CDN libs, Supabase/FX bypassed) + a header install button, pinned by
+  `tests/pwa.spec.mjs`. Wrappers/native (Later, steps 2–3) stay unbuilt until the
   PWA falls short of a concrete need.
 - **Privacy-friendly analytics.** Decision first: Plausible/GoatCounter-class
   hosted script vs a self-rolled Supabase page-view counter (no new vendor,

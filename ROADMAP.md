@@ -54,6 +54,18 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   display currency** — a header picker that shows every price on the page (board,
   charts, drill-down, portfolio) in the chosen unit (€ canonical, FX
   display-only; the ratio metrics stay put since a rate cancels out of them).
+- **Installable (PWA)** — the page is now installable to a home screen / desktop
+  and works offline. Three static files, no build step: `manifest.webmanifest`
+  (name, colours, icons), `icons/` (PNGs rasterised from the logo mark by
+  `scripts/gen-pwa-icons.mjs`), and `sw.js` — a service worker that is
+  **network-first for the same-origin app** (so an online visitor always gets
+  fresh code — a single frequently-edited file must never be served stale),
+  **cache-first for the immutable CDN libs/fonts** (what makes charts render
+  offline), and **bypasses Supabase + the FX API** (dynamic, per-user, never
+  cached). A header **Install app** button appears only when the browser offers
+  an install. `serviceWorkers: 'block'` keeps the SW out of every spec but the
+  new `tests/pwa.spec.mjs`, which pins the manifest, the lifecycle and the
+  install flow. (Roadmap step 1 of the *Mobile app* bet, under **Later**.)
 - **Metrics extraction finished** — every derived number now lives in
   `metrics.js` as a pure, unit-tested function: momentum/drawdown (the verdict's
   ingredients), peer residuals, the board trend arrow and 💰 buy signal, the
@@ -536,19 +548,16 @@ here is one item that no finding touched.
   a good low-cost first step.
 - **Mobile app / installable experience.** For a price-checking tool used in
   shops, a home-screen presence and a native-feeling mobile experience are worth
-  real weight — this is the "how do we ship mobile" bet. Its prerequisite, the
-  **Mobile optimisation** work, has now shipped (see *Done*), so the remaining
-  dependency is the density work under "Then" — no point wrapping a page that
-  still costs 10.7 screenfuls to read. Sequenced cheapest-first: (1) a **PWA** — installable, an
-  app icon, offline shell, splash — is the natural fit for a single static
-  `index.html` and buys most of the "feels like an app" value for the least
-  work and no app-store overhead; (2) a thin **wrapper** (e.g. Capacitor) around
-  the same page if an actual App Store / Play Store listing is wanted, reusing
-  the web codebase; (3) a **native/React-Native rewrite** only if a real
-  platform capability demands it — it abandons the deliberate no-build,
-  single-file model and doubles the surface to maintain, so it needs a
-  concrete reason beyond "native is nicer." Recommendation: PWA first, revisit
-  the heavier options only if it falls short.
+  real weight — this is the "how do we ship mobile" bet. Sequenced cheapest-first:
+  (1) a **PWA** — installable, app icon, offline shell — **shipped** (see *Done*):
+  it was the natural fit for a single static `index.html` and bought most of the
+  "feels like an app" value for the least work and no app-store overhead. What
+  remains are the heavier options, to revisit only if the PWA falls short: (2) a
+  thin **wrapper** (e.g. Capacitor) around the same page if an actual App Store /
+  Play Store listing is wanted, reusing the web codebase; (3) a
+  **native/React-Native rewrite** only if a real platform capability demands it —
+  it abandons the deliberate no-build, single-file model and doubles the surface
+  to maintain, so it needs a concrete reason beyond "native is nicer."
 - **Privacy-friendly analytics** — know which views are actually used before
   investing further in them.
 - **Legal/compliance for launch** — privacy policy, GDPR basics, cookie consent

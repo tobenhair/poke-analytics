@@ -16,6 +16,17 @@
 <meta name="twitter:description" content="Free dashboard for tracking sealed trading-card product prices and value over time. Currently tracks Pokémon TCG products. An unofficial fan project — not financial advice.">
 <!-- Inline SVG favicon (no extra request, no CDN dependency) -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a0b0f'/%3E%3Crect x='16' y='34' width='7' height='16' rx='2' fill='%235cc7f2'/%3E%3Crect x='28' y='24' width='7' height='26' rx='2' fill='%23f4c651'/%3E%3Crect x='40' y='16' width='7' height='34' rx='2' fill='%237fd493'/%3E%3C/svg%3E">
+<!-- Installable (PWA): the manifest + PNG icons let the page be added to a
+     home screen and launched standalone; the service worker (registered near
+     the end of <body>) gives it an offline shell. apple-* metas cover iOS,
+     which reads them instead of the manifest's display/name. -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TCG Analytics">
+<meta name="application-name" content="TCG Analytics">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -2013,6 +2024,14 @@
     </div>
     <div class="header-meta">
       <div class="last-update" id="last-update-wrap">Last updated: <span id="last-update-date">—</span><span class="stale-note" id="last-update-stale"></span></div>
+      <!-- Install (PWA) button. Hidden until the browser fires
+           `beforeinstallprompt` (Android/desktop Chromium) and this isn't
+           already running installed — so it only ever appears when it's
+           actionable. iOS never fires the event; those users install from the
+           Share sheet, so no button is shown there by design. -->
+      <button class="auth-signout" id="install-btn" type="button" hidden style="margin-top:4px;">
+        <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg> Install app
+      </button>
       <!-- Global display currency. Display-only: every price on the page is
            converted at render time, but € stays the canonical stored unit and
            every input the user types into stays €. Populated by
@@ -6685,6 +6704,53 @@ function wireAuthControls() {
       var pane = document.getElementById('tab-' + btn.dataset.tab);
       if (pane) reveal(pane);
     });
+  });
+})();
+</script>
+
+<!-- ═══════════════ Installable app (PWA) ═══════════════
+     Kept a plain, standalone <script> — separate from the app's ES module — so
+     it's dependency-free and a registration failure can never take the app down
+     with it. Two jobs: register the service worker (the offline shell), and wire
+     the header "Install app" button to the browser's install prompt. -->
+<script>
+(function () {
+  // 1) Offline shell. Register on load so it never competes with first paint;
+  //    only where supported and over a secure context (https / localhost).
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function (err) {
+        // Best-effort: the app works fine without it, just not offline.
+        console.warn('Service worker registration failed:', err);
+      });
+    });
+  }
+
+  // 2) Install affordance. The browser fires beforeinstallprompt when the app is
+  //    installable; we stash it, reveal the button, and replay it on click.
+  //    (Chromium only — iOS installs via the Share sheet and never fires this,
+  //    so the button simply stays hidden there.)
+  var deferredPrompt = null;
+  var btn = document.getElementById('install-btn');
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();          // keep our own affordance instead of the mini-infobar
+    deferredPrompt = e;
+    if (btn) btn.hidden = false;
+  });
+  if (btn) {
+    btn.addEventListener('click', function () {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.finally(function () {
+        deferredPrompt = null;   // a prompt can only be used once
+        btn.hidden = true;
+      });
+    });
+  }
+  // Once installed, there's nothing left to offer.
+  window.addEventListener('appinstalled', function () {
+    deferredPrompt = null;
+    if (btn) btn.hidden = true;
   });
 })();
 </script>
