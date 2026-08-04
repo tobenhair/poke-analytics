@@ -494,13 +494,34 @@ locked-out user with no way back), the overview-first restructure, and the
 demo-as-pitch rework with the Welcome tab reconciled against it. What remains
 here is one item that no finding touched.
 
-- **Set logos (drill-down first).** Give each set a visual anchor: the
-  expansion logo, at least on the product drill-down view where there's room to
-  frame a single product, and later a small mark on board rows and set
-  groupings. An identity and scannability aid only — it stays subordinate to the
-  numbers and honours the minimalist dark aesthetic (`design-review`). Needs a
-  licensing-clean asset source, a consistent sizing/placement rule, and a
-  graceful fallback when a set has no logo (never a broken image).
+- **Set logos & product images (drill-down first).** Give each set a visual
+  anchor: the expansion logo, at least on the product drill-down view where
+  there's room to frame a single product, and later a small mark on board rows
+  and set groupings. An identity and scannability aid only — it stays
+  subordinate to the numbers and honours the minimalist dark aesthetic
+  (`design-review`). Needs a licensing-clean asset source, a consistent
+  sizing/placement rule, and a graceful fallback when a set has no logo (never a
+  broken image).
+  - **Licensing is the gating question, not a detail — and it gets harder if we
+    commercialise.** The imagery touches *two* rights: **copyright** (the box
+    art / card artwork itself) and **trademark** (the "Pokémon" name, Poké Ball,
+    and set logos used as brands). Set logos are the riskiest category because
+    they're typically protected as *both*. A disclaimer does **not** grant any
+    right — it only helps on the trademark/good-faith side; permission has to
+    come from a licence, a legal exception (fair use / fair dealing, narrow), or
+    the content being unprotected. **The Pokémon Company International's own
+    [Media Usage Guidelines](https://press.pokemon.com/en/Assets-Use-Terms)
+    licence their assets for *non-commercial editorial/informational use only*,
+    forbid commercialising the content, forbid making a logo the prominent
+    feature, and forbid using their branding in a product/app/domain name** — so
+    a future paid tier would fall outside what they permit. How comparable apps
+    cope (see the investigation below) is **not a clean licence we can copy**:
+    they rely on non-enforcement, user-supplied photos, and marketplace data
+    feeds. **Because commercialisation is on the table, this item should stay
+    parked until the asset-source + rights question is resolved deliberately;**
+    the safe fallbacks are staying image-light (type badges, set-colour chips)
+    or user-supplied images. Full findings and open questions in
+    `IMPLEMENTATION.md` item 9.
 
 ## Later — reach & launch readiness
 
