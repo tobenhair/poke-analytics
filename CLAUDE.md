@@ -341,6 +341,22 @@ component can otherwise stay visible while claiming to be hidden.
 The word is a button opening `#method-modal` — the method has to be reachable
 without a hover, which a `title` never is on touch.
 
+**Data maturity — the per-product companion, and where we stop.** `fitConfidence`
+is a *global* signal (one age fit for the whole catalogue); it says nothing about
+whether *this* product's own inputs have settled. A new release's set value is
+typically elevated just after launch and drifts down until the set leaves print,
+so its fair price is both less settled and biased a little high — and until now
+nothing flagged that. The **`dataMaturity(hist, dates)`** pure helper reports the
+raw facts a buyer needs — snapshot depth, tracked span, and the peak-to-trough
+**swing** of price and set value (peak-to-trough, not net, so a value that ran up
+and back still reads as unsettled) — rendered by `renderDrillMaturity()` in the
+drill-down's *"How settled is this data?"* section. **The deliberate design
+decision: this informs, it does not adjust.** It never feeds the verdict or the
+fair price (unlike the weak-fit path, which does neutralise the verdict) — the
+call on how much risk a young product carries is the buyer's, so we give the true
+data and let them make it. A directional maturity haircut on the fair price was
+considered and explicitly deferred for that reason.
+
 ### Passwords: two ways into one form
 
 `openPasswordForm(isRecovery)` is module-level because it has two callers: the

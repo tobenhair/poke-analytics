@@ -302,6 +302,41 @@ export function buySignal(hist) {
          priceMove <= BUY_SIGNAL_PRICE_DROP && svMove >= BUY_SIGNAL_SV_HOLD;
 }
 
+// ── Data maturity: the raw "how settled is this?" facts (the buyer judges risk) ──
+// A new release's set value is typically elevated just after launch and drifts
+// down until the set leaves print, and thin history means less certainty — so a
+// young product's fair price is both less settled and biased a little high. Rather
+// than have the app take a view (it deliberately does NOT touch the verdict or the
+// fair price), this surfaces the facts a buyer needs to make that call themselves:
+//   snapshots     count of tracked prices (depth of evidence)
+//   spanDays      days from the first to the last tracked snapshot (null with <2)
+//   priceSwingPct price peak-to-trough range as % of its mean (how unsettled)
+//   svSwingPct    same for set value
+// A "swing" is deliberately peak-to-trough, not a net change: a value that ran up
+// and back gives ~0 net but a large swing, which is exactly the instability a
+// buyer weighing a young product cares about. `dates` is the shared ISO date axis
+// aligned to hist.price/hist.setVal. Returns null when nothing is tracked.
+export function dataMaturity(hist, dates) {
+  if (!hist) return null;
+  const prices = hist.price || [];
+  const idx = prices.map((v, i) => (v != null ? i : -1)).filter(i => i >= 0);
+  const snapshots = idx.length;
+  if (!snapshots) return null;
+  let spanDays = null;
+  if (dates && snapshots >= 2) {
+    const ms = new Date(dates[idx[snapshots - 1]]) - new Date(dates[idx[0]]);
+    if (isFinite(ms)) spanDays = Math.round(ms / 86400000);
+  }
+  const swing = arr => {
+    const xs = tracked(arr);
+    if (xs.length < 2) return null;
+    const min = Math.min(...xs), max = Math.max(...xs);
+    const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
+    return mean > 0 ? parseFloat(((max - min) / mean * 100).toFixed(1)) : null;
+  };
+  return { snapshots, spanDays, priceSwingPct: swing(prices), svSwingPct: swing(hist.setVal) };
+}
+
 // ── Relative value: each product's SV/Booster vs the age-fit expectation ──
 // The §05 ranking: residual = actual − expected-for-age, sorted best first.
 // Without a fit every expectation defaults to the product's own value

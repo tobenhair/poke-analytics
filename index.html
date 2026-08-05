@@ -1896,6 +1896,12 @@
       <div id="drill-ingredients" class="drill-ingredients"></div>
     </div>
 
+    <div class="modal-section" id="drill-maturity-sec">
+      <h3>How settled is this data?</h3>
+      <p class="drill-scn-intro">A new release's set value usually drifts down after launch until the set leaves print, and thin history means less certainty — so a young product's fair price is less settled. These are the raw facts; the risk call is yours.</p>
+      <div id="drill-maturity" class="drill-ingredients"></div>
+    </div>
+
     <div class="modal-section">
       <h3>What if</h3>
       <p class="drill-scn-intro">Drag Set Value and Price to see how this product's SV/Booster and Weighted Score respond — a sandbox that never changes your saved data.</p>
@@ -2754,7 +2760,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
+import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -5827,6 +5833,7 @@ function renderDrill() {
   renderDrillPriceChart(p);
   renderDrillSvbChart(p);
   renderDrillIngredients(p, m);
+  renderDrillMaturity(p);
   renderDrillHolding(p);
 
   // The what-if sandbox is scoped to the product on screen: point it at this
@@ -5967,6 +5974,36 @@ function renderDrillIngredients(p, m) {
     row('Set-value trend', m && m.svSinceFirst != null ? `${m.svSinceFirst > 0 ? '+' : ''}${fmt(m.svSinceFirst, 1)}% since first snapshot` : '—',
         m && m.svSinceFirst != null ? (m.svSinceFirst >= VERDICT.SV_MOVE ? 'var(--accent4)' : m.svSinceFirst <= -VERDICT.SV_MOVE ? 'var(--accent2)' : 'var(--muted)') : 'var(--muted)'),
     row('Age-fit confidence', fitTxt, 'var(--muted)'),
+  ].join('');
+}
+
+// The "how settled is this data?" readout: raw stability facts (age, how much
+// history we have, and how much price/set value have swung) so a buyer can judge
+// a young product's risk for themselves. Deliberately does NOT feed the verdict or
+// the fair price — it only reports. Hidden entirely when there's no history to
+// characterise. Swings are %, so no currency conversion; counts/days are units.
+function renderDrillMaturity(p) {
+  const sec = document.getElementById('drill-maturity-sec');
+  const dm = dataMaturity(historicalData[p.name], histDates);
+  if (!dm) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  const row = (lbl, val, col = 'var(--text)') =>
+    `<div class="drill-ingredient"><span class="lbl">${lbl}</span><span style="color:${col}">${val}</span></div>`;
+  const span = dm.spanDays == null ? ''
+    : dm.spanDays >= 60 ? ` over ${Math.round(dm.spanDays / 30)} mo`
+    : ` over ${dm.spanDays} d`;
+  const ageTxt = p.age == null ? '—' : p.age < 0 ? 'upcoming' : `${fmt(p.age, 1)} yr since release`;
+  const swingTxt = v => v == null ? '—' : `${fmt(v, 0)}% peak-to-trough`;
+  // A young product (below the age-weight threshold) is the risky case the note
+  // is about — surface the age in the accent used elsewhere for "watch", not as a
+  // verdict, just to draw the eye to what makes it unsettled.
+  const young = p.age != null && p.age >= 0 && p.age < ageThreshold;
+  document.getElementById('drill-maturity').innerHTML = [
+    row('Age', ageTxt, young ? 'var(--accent)' : 'var(--muted)'),
+    row('Tracked history', `${dm.snapshots} snapshot${dm.snapshots === 1 ? '' : 's'}${span}`,
+        dm.snapshots < 3 ? 'var(--accent)' : 'var(--muted)'),
+    row('Set-value swing', swingTxt(dm.svSwingPct), 'var(--muted)'),
+    row('Price swing', swingTxt(dm.priceSwingPct), 'var(--muted)'),
   ].join('');
 }
 

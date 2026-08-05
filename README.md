@@ -167,6 +167,7 @@ The in-app **File Format Guide** (the **Format Guide** button on the **Analysis*
 - **Age Weight** — 0–1 multiplier. Products under a year old are penalised; ≥3 years = 1.0.
 - **Wtd. Score** — SV / Booster × Age Weight. The headline ranking metric.
 - **Buy Signal** — flagged when price dropped ≥5% in the last snapshot while set value held within ±5%.
+- **Data maturity** — the drill-down's *"How settled is this data?"* readout: age, how much history is tracked, and the peak-to-trough swing of price and set value. A new release's set value is usually elevated at launch and drifts down until the set leaves print, so its fair price is less settled — these facts let you judge that risk yourself. They are shown only; they never change the fair price or the verdict.
 
 ## Project layout
 
