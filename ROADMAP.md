@@ -535,6 +535,45 @@ stance). What still stands unbuilt:
   full copyright/trademark investigation behind the decision is in
   `IMPLEMENTATION.md` item 9.
 
+- **Navigation & overview at catalogue scale (breadth — the UX side).**
+  *(Feature; approach decided later.)* The board is a flat list, so as coverage
+  grows (see **Coverage growth** and the ingestion work under **Later**) scanning
+  it means reading every row. "A lot of data" is really **two axes**, and they
+  want different fixes — this item is the *usability* half of **breadth** (row
+  count). Its *performance* half is **Board performance fixes** and its *payload*
+  half is **Data volume at scale**, both under **Later**. Several ways to make many
+  products navigable were investigated; **we'll pick a mix later**:
+  - **Hierarchical roll-up (Era → Set → Product), collapsed by default — the
+    recommended lead.** An aggregate headline row at each level — **set averages
+    and era averages** (mean SV/Booster, mean gap-to-fair, count, mean price and
+    €/booster, newest release) — so the overview is legible before a product row
+    is opened; expand downward to the existing per-product row (and its
+    drill-down) as the leaf. Doubles as a set/era **filter/section** for the board
+    and analytical views (reuse the `activeType` → `visibleProducts()` /
+    `applyTypeFilter()` plumbing), **and** as a perf win: a collapsed group renders
+    one header row instead of its members — cheap virtualisation without the scroll
+    math. Builds on `groupSets()` / `setLabel()` / `meanSeries()` in `metrics.js`,
+    already used for the §06/§08 comparison and the demo. **Era needs a definition
+    first** — a cheap release-year bucket (no new data) or a curated TCG-series map
+    (SWSH / SV / …, more meaningful but a new per-product field).
+  - **Scoped-by-default board.** Open on a meaningful slice — in-print / recent
+    releases, or (signed in) portfolio + watchlist — with an explicit "show full
+    catalogue" toggle, flagged like the `#data-source-banner` so the scope is
+    never hidden. Cheapest win; most users never need all N rows at once.
+  - **Faceted filtering with live counts + saved views.** Combinable facets (era,
+    set, type, verdict, price/age range), each showing a count. Power-user
+    efficient; more chrome to keep minimal per `design-review`.
+  - **Top-N + "show all".** Generalise the Overview's best-deals pattern to the
+    board. Trivial; weakest for genuine browsing.
+  - *Constraints for any of these.* Aggregates ship as pure, unit-tested helpers
+    (e.g. `setAverages()` / `eraAverages()`) over the `analysisProducts()` pool
+    (loose packs excluded), and must be **currency-correct** — only absolute-€
+    means convert; ratio metrics (SV/Booster, Wtd. Score) stay put. Keep it inside
+    the existing dark table system — a group header is `thead`/`.panel`-weight, not
+    a new component — and preserve the phone column-priority rules (`.col-detail`).
+    The efficient source for the headline rows is server-side aggregation (a
+    Supabase view/RPC) — see **Data volume at scale**.
+
 ## Later — reach & launch readiness
 
 - **LLM assistant — data & portfolio assessment, reasoning, dialogue.** A
@@ -624,6 +663,35 @@ stance). What still stands unbuilt:
   - **Split the type filter's re-render.** It synchronously rebuilds the board
     *and* four charts (239 ms at 400, 329 ms at 400 × 365) — the charts could
     update off the critical path.
+- **Data volume at scale (depth — snapshot history).** *(Fix/Feature; approach
+  decided later; the companion to Board performance fixes above.)* That item is
+  **breadth** (row count / per-render cost); this is **depth** — history grows
+  forever with daily ingestion, and `loadFromSupabase()` currently does
+  `snapshots.select('*')`, pulling *every* snapshot for *every* product and
+  pivoting client-side. The scale harness already caught the tail of it: the
+  400 × 365 fallback workbook takes **4.2 s** to load, and the cloud path has the
+  same O(N×M) shape. Options investigated to bound it:
+  - **Latest-only board load + lazy full history on drill-down — the biggest
+    lever.** The board and every ranking need only each product's *newest*
+    snapshot; fetch the full series only when a drill-down opens. Turns load from
+    O(N×M) to ≈O(N). Wants a Supabase **`latest_snapshots`** view (one row per
+    product) plus a per-product history query.
+  - **Downsample old history** — daily for recent months, weekly/monthly beyond a
+    cut-off, bounding both chart points and payload.
+  - **Date-windowed history queries** — the drill chart requests a range, with
+    "load full history" on demand.
+  - **Server-side aggregates** — a `set_aggregates` / `era_aggregates` view or RPC
+    so the roll-up headlines (see **Navigation & overview at catalogue scale**
+    under **Then**) don't pull every row; index
+    `snapshots(product_id, snapshot_date desc)`; keep RLS and the demo's
+    `demo_product_ids()` scoping.
+  - *Sequencing note (to decide later).* The cheap, high-impact start is **Phase
+    1** — scoped-default board + debounced/fragment render (from **Board
+    performance fixes**) + latest-only load — which removes both the keystroke lag
+    and the load cliff before any hierarchy or virtualisation is built. **Phase 2**
+    is the hierarchical overview with server-side aggregates; **Phase 3** is
+    virtualisation, and only if a fresh `measure-scale.mjs` run says so — numbers,
+    not a guess, consistent with how the scale work was originally filed.
 - **Coverage growth** — more sets and eras first (same model, more rows), then
   consider multi-currency/multi-region pricing and, much later, singles — each
   multiplies data-entry cost, so each waits on the ingestion question below.
