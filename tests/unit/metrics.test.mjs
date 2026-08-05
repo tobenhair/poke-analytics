@@ -27,6 +27,7 @@ import {
   momentum,
   trendDirection,
   buySignal,
+  dataMaturity,
   BUY_SIGNAL_PRICE_DROP,
   BUY_SIGNAL_SV_HOLD,
   peerResiduals,
@@ -503,6 +504,43 @@ test('momentum is null without at least two tracked prices', () => {
 test('momentum drawdown is 0 at the peak and negative below it', () => {
   assert.equal(momentum({ price: [80, 100], setVal: [] }).drawdown, 0);
   assert.equal(momentum({ price: [100, 75], setVal: [] }).drawdown, -25);
+});
+
+// ── dataMaturity: the raw "how settled is this?" facts ───────────
+// Surfaced in the drill-down so a buyer can judge a young product's risk; it must
+// never feed the verdict or the fair price, so its job is only to report facts.
+test('dataMaturity reports snapshot depth, span, and peak-to-trough swings', () => {
+  const dm = dataMaturity(
+    { price: [100, 150, 120], setVal: [1000, 900, 800] },
+    ['2026-01-01', '2026-02-01', '2026-03-01'],
+  );
+  assert.equal(dm.snapshots, 3);
+  assert.equal(dm.spanDays, 59);                     // Jan 1 → Mar 1
+  assert.equal(dm.priceSwingPct, 40.5);              // (150−100)/123.33 mean
+  assert.equal(dm.svSwingPct, 22.2);                 // (1000−800)/900 mean
+});
+
+test('dataMaturity swing is peak-to-trough, not net — a round trip still swings', () => {
+  // Price ran up and came back: net change ~0, but the instability is real.
+  const dm = dataMaturity({ price: [100, 200, 100], setVal: [] }, null);
+  assert.equal(dm.priceSwingPct, 75);                // (200−100)/133.33 mean
+  assert.equal(dm.svSwingPct, null);                 // no tracked set values
+  assert.equal(dm.spanDays, null);                   // no dates supplied
+});
+
+test('dataMaturity counts only tracked snapshots and needs two for a span/swing', () => {
+  const dm = dataMaturity(
+    { price: [null, 100, null], setVal: [null, 500, null] },
+    ['2026-01-01', '2026-02-01', '2026-03-01'],
+  );
+  assert.equal(dm.snapshots, 1);
+  assert.equal(dm.spanDays, null);                   // <2 tracked → no span
+  assert.equal(dm.priceSwingPct, null);              // <2 tracked → no swing
+});
+
+test('dataMaturity is null when nothing is tracked', () => {
+  assert.equal(dataMaturity(null, []), null);
+  assert.equal(dataMaturity({ price: [null, null], setVal: [] }, []), null);
 });
 
 // ── trendDirection: the board's ▲/▼ arrow ────────────────────────

@@ -61,6 +61,15 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   pack price** in the drill-down of the sealed products of the same set (matched by
   set name), with the sealed-vs-loose premium per booster. Exclusion runs through
   one `analysisProducts()` helper; the pairing through `loosePackFor()`.
+- **Data-maturity readout (young-product risk)** — the age weight penalises a new
+  release's *score*, but nothing signalled that its *fair price* is unsettled: set
+  value is typically elevated at launch and drifts down until the set leaves print,
+  so the fair anchor is biased high and moves. The drill-down now carries a *"How
+  settled is this data?"* section (`dataMaturity()` → `renderDrillMaturity()`):
+  age, tracked history depth, and the peak-to-trough swing of price and set value.
+  A deliberate choice — it **reports, it does not adjust**: the verdict and fair
+  price are untouched, and the risk call is the buyer's. (A directional fair-price
+  haircut for young products was considered and deferred.)
 - **Installable (PWA)** — the page is now installable to a home screen / desktop
   and works offline. Three static files, no build step: `manifest.webmanifest`
   (name, colours, icons), `icons/` (PNGs rasterised from the logo mark by
