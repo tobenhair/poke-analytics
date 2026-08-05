@@ -100,6 +100,31 @@ Four tabs (Welcome / Analysis / Portfolio / Data Entry) are `.tab-pane`s toggled
 
 Rendering follows a **state + render-function** pattern: module-level state (`activeType` — the global type filter, a *category* (`BOX`/`ETB`/`BUNDLE`/`PACK`, or `ALL`) so an ETB pill scopes to every ETB variant, `sortKey`, `ageThreshold`, …) plus render functions (`updateTable`, `updateKPIs`, `updateTopPicks`, `renderScatterChart`, `renderRelativeValue`, `renderMomentum`, `initScenario`, …). Chart.js instances live in module-level vars and are **destroyed and recreated** on each re-render. Any new render function must be wired into both `INIT` and `applyNewData()` so it runs on first load and after a data file loads. The Price History (§06) and SV/Booster Trend (§08) comparison views are built by a shared `createCompareView()` controller (instances `cmpHist`/`cmpSvb`) — a Products⇄Sets mode toggle, a capped multi-series picker (chips + a legend that toggles series), with set roll-ups via `groupSets()`/`meanSeries()` in `metrics.js`; each instance is `init()`ed in `INIT` and `refresh()`ed in `applyNewData()` and on type-filter change. `activeType` scopes the board plus every analytical chart/comparison view via the `visibleProducts()` helper (`applyTypeFilter()`).
 
+### Loose packs are reference, not ranked
+
+Loose single boosters are tracked per set as **`PACK`** products (one per set,
+Cardmarket-ingested like everything else — see the DB, ~32 of them), but they are
+deliberately kept **out of the analysis**. A loose pack carries none of a sealed
+box's premium, so on **SV/Booster** it beats every box and would always top the
+rankings ("always the recommended purchase") — a real concern that motivated this.
+So every analytical pool derives from **`analysisProducts()`** (`products` minus
+the `PACK` category): the board (`getFiltered()`), the charts/overview/relval/
+momentum/comparison (`visibleProducts()`), `updateKPIs()`, `updateTopPicks()`, the
+age fit (`recomputeFit()` — packs would wreck the fit, so they get no fair
+price/verdict stamped), the `kpi-total` count, the rebalance shortlist, the alert
+and portfolio product pickers, and the demo. The board's **Single Pack** filter
+pill was removed with them. Packs stay in `products`/`historicalData` (so they
+round-trip through the same load/save path and appear in Data Entry for
+management), and they surface in exactly one place: **`loosePackFor(p)`** finds the
+`PACK` of a sealed product's set (by `setLogoKey()` — the SKU suffix stripped, so
+twin sets like Black Bolt / White Flare stay distinct) and `renderDrill()` shows
+its latest price as a **Loose pack price** stat tile (with the per-booster
+sealed-vs-loose %), plus a **Sealed premium** tile — the absolute € a buyer pays
+to go sealed vs the same booster count bought loose (`price − loose × boosters`;
+negative = sealed cheaper than the loose equivalent, highlighted green). Reference
+only — never a ranked buy. Nothing in `metrics.js` changed; the exclusion is
+purely presentational.
+
 ### Accessibility structure (don't undo it)
 
 The July 2026 conformance pass made the page operable without a mouse; the

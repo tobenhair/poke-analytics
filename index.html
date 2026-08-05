@@ -1736,7 +1736,7 @@
         <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
         <tbody>
           <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Full product name — must also appear in Historical Data sheet</td></tr>
-          <tr><td>Type</td><td><span class="tag-req">required</span></td><td>Exactly one of: <b>BOX</b> (36 packs), <b>ETB</b> (9), <b>ETB10</b> (10), <b>ETB8</b> (8), <b>BUNDLE</b> (6), <b>BUNDLEDISPLAY</b> (60), or <b>PACK</b> (1). The pack count sets the booster maths; the <b>ETB*</b> variants filter under Elite Trainer and the <b>BUNDLE*</b> under Bundle.</td></tr>
+          <tr><td>Type</td><td><span class="tag-req">required</span></td><td>Exactly one of: <b>BOX</b> (36 packs), <b>ETB</b> (9), <b>ETB10</b> (10), <b>ETB8</b> (8), <b>BUNDLE</b> (6), <b>BUNDLEDISPLAY</b> (60), or <b>PACK</b> (1). The pack count sets the booster maths; the <b>ETB*</b> variants filter under Elite Trainer and the <b>BUNDLE*</b> under Bundle. A <b>PACK</b> (a loose single booster) is reference-only: it is kept out of the rankings and charts and shown as the <em>Loose pack price</em> in the drill-down of the same set's sealed products.</td></tr>
           <tr><td>Release Date</td><td><span class="tag-req">required</span></td><td>Date value or text in YYYY-MM-DD format</td></tr>
           <tr><td>Age (years)</td><td><span class="tag-req">required</span></td><td>Decimal number, e.g. 1.47</td></tr>
           <tr><td>Current Price (€)</td><td><span class="tag-req">required</span></td><td>Number in cents or euros — must be consistent across rows</td></tr>
@@ -2298,7 +2298,6 @@
       <button class="pill" type="button" data-type="BOX" aria-pressed="false">Booster Box</button>
       <button class="pill" type="button" data-type="ETB" aria-pressed="false">Elite Trainer</button>
       <button class="pill" type="button" data-type="BUNDLE" aria-pressed="false">Bundle</button>
-      <button class="pill" type="button" data-type="PACK" aria-pressed="false">Single Pack</button>
     </div>
 
     <!-- Age weight threshold control -->
@@ -2901,8 +2900,34 @@ function scoreColor(score) {
   return COLOR.red;
 }
 
+// Loose booster packs (type PACK, one per set) are tracked as products so their
+// price and history round-trip through the same load/save path as everything
+// else — but they are deliberately kept OUT of the analysis. A single loose pack
+// carries no sealed-box premium, so on SV/Booster it beats every box and would
+// always rank first ("always the recommended purchase"). They are reference data
+// only, surfaced as the drill-down's "Loose pack price" (see loosePackFor). Every
+// analytical pool (board, KPIs, charts, age-fit, top picks, alerts, demo) derives
+// from this helper, so a pack can never leak into a ranking or chart.
+function analysisProducts() {
+  return products.filter(p => typeCategory(p.type) !== 'PACK');
+}
+
+// The loose single-pack reference price for a sealed product: the PACK-type
+// product of the same set (matched by set key — the SKU suffix stripped, the same
+// keying the set logo uses, so twin sets sharing a release date stay distinct),
+// at its latest tracked price. Lets the drill-down show the sealed-vs-loose
+// premium without the pack ever ranking as a purchase. Returns { price, name } or
+// null (no matching pack, or it has no usable price yet).
+function loosePackFor(p) {
+  if (!p || typeCategory(p.type) === 'PACK') return null;
+  const key = setLogoKey(p.name);
+  const pack = products.find(q => typeCategory(q.type) === 'PACK' && setLogoKey(q.name) === key);
+  return pack && pack.price != null ? { price: pack.price, name: pack.name } : null;
+}
+
 function getFiltered() {
-  let data = activeType === 'ALL' ? [...products] : products.filter(p => typeCategory(p.type) === activeType);
+  const base = analysisProducts();
+  let data = activeType === 'ALL' ? [...base] : base.filter(p => typeCategory(p.type) === activeType);
   const q = searchTerm.trim().toLowerCase();
   if (q) data = data.filter(p => p.name.toLowerCase().includes(q));
   if (verdictFilter !== 'all') data = data.filter(p => p.verdict && p.verdict.tone === verdictFilter);
@@ -2935,7 +2960,8 @@ function getFiltered() {
 // activeType is a category (BOX/ETB/BUNDLE/PACK), so the ETB pill scopes to
 // every Elite Trainer Box variant.
 function visibleProducts() {
-  return activeType === 'ALL' ? products : products.filter(p => typeCategory(p.type) === activeType);
+  const base = analysisProducts();
+  return activeType === 'ALL' ? base : base.filter(p => typeCategory(p.type) === activeType);
 }
 
 
@@ -2976,8 +3002,12 @@ function formatISO(d) {
 // data load (INIT and applyNewData), before the first render, alongside
 // recomputeScores(). Reads: products[].age/svPerBooster/setVal/boosters/price.
 function recomputeFit() {
-  ageFit = linearFit(products.map(p => ({ x: p.age, y: p.svPerBooster })));
-  products.forEach(p => {
+  // Fit over sealed products only — a loose pack's SV/Booster is an order of
+  // magnitude higher (no box premium) and would wreck the age fit. Packs are
+  // reference data, so they get no fair price / verdict stamped either.
+  const pool = analysisProducts();
+  ageFit = linearFit(pool.map(p => ({ x: p.age, y: p.svPerBooster })));
+  pool.forEach(p => {
     // The workbook path stamps p.boosters via deriveProducts(); the hardcoded
     // fallback array omits it. Booster count is a pure function of type, so fill
     // it here to keep fair price working identically across both data sources.
@@ -3007,16 +3037,19 @@ function fairPriceTrusted() {
 // KPIs
 // ============================================================
 function updateKPIs() {
-  const sorted = [...products].sort((a, b) => b.score - a.score);
+  // Sealed products only — loose packs are excluded from every ranking.
+  const pool = analysisProducts();
+  if (!pool.length) return;
+  const sorted = [...pool].sort((a, b) => b.score - a.score);
   const topScore = sorted[0];
   document.getElementById('kpi-top').textContent = fmt(topScore.score, 1);
   document.getElementById('kpi-top-name').textContent = topScore.name;
 
-  const bestVal = [...products].sort((a, b) => b.svPerBooster - a.svPerBooster)[0];
+  const bestVal = [...pool].sort((a, b) => b.svPerBooster - a.svPerBooster)[0];
   document.getElementById('kpi-best-val').textContent = fmt(bestVal.svPerBooster, 0) + '×';
   document.getElementById('kpi-best-val-name').textContent = bestVal.name;
 
-  const newest = [...products].sort((a, b) => new Date(b.release) - new Date(a.release))[0];
+  const newest = [...pool].sort((a, b) => new Date(b.release) - new Date(a.release))[0];
   document.getElementById('kpi-newest').textContent = new Date(newest.release).toLocaleDateString('en-SE', { month: 'short', day: 'numeric' });
   document.getElementById('kpi-newest-name').textContent = newest.name;
 }
@@ -3200,7 +3233,7 @@ function isBuySignal(name) {
 // TOP PICKS
 // ============================================================
 function updateTopPicks() {
-  const sorted = [...products].sort((a, b) => b.score - a.score).slice(0, 5);
+  const sorted = [...analysisProducts()].sort((a, b) => b.score - a.score).slice(0, 5);
   const el = document.getElementById('top-picks-list');
   el.innerHTML = '';
   sorted.forEach((p, i) => {
@@ -3930,7 +3963,8 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   // Header "last updated" reflects the newest snapshot date (data freshness),
   // not when the page happened to load.
   updateLastUpdated();
-  document.getElementById('kpi-total').textContent = products.length;
+  // Count sealed products only — loose packs are reference data, not ranked.
+  document.getElementById('kpi-total').textContent = analysisProducts().length;
 }
 
 // ============================================================
@@ -4099,7 +4133,8 @@ function populatePortfolioSelect() {
   if (!sel) return;
   const prev = sel.value;
   sel.innerHTML = '';
-  products.forEach(p => {
+  // Holdings are sealed products; loose packs are reference-only.
+  analysisProducts().forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.name; opt.textContent = p.name;
     sel.appendChild(opt);
@@ -4345,7 +4380,7 @@ function renderBalancer(portfolioRowsArg) {
   const overTypes = new Set(byType.buckets.filter(b => b.over).map(b => b.bucket));
   const heldSets  = new Set(enriched.map(r => r.setKey));
   const suggestions = rebalanceSuggestions(
-    products.map(p => ({ name: p.name, type: typeCategory(p.type), setKey: p.release, fairGap: p.fairGap, fairTrusted: trusted })),
+    analysisProducts().map(p => ({ name: p.name, type: typeCategory(p.type), setKey: p.release, fairGap: p.fairGap, fairTrusted: trusted })),
     { overSets, overTypes, heldSets, limit: 5 }
   );
 
@@ -4527,7 +4562,8 @@ function populateAlertSelect() {
   if (!sel) return;
   const prev = sel.value;
   sel.innerHTML = '';
-  products.forEach(p => {
+  // Alerts are for buyable sealed products; loose packs are reference-only.
+  analysisProducts().forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.name; opt.textContent = p.name;
     sel.appendChild(opt);
@@ -5752,7 +5788,7 @@ function renderDrill() {
   const ageTxt = p.age == null ? '' : p.age < 0 ? 'upcoming' : `${fmt(p.age, 1)} yr old`;
   const stat = (k, v, s = '', vcol = 'var(--text)') =>
     `<div class="drill-stat"><div class="k">${k}</div><div class="v" style="color:${vcol}">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
-  document.getElementById('drill-stats').innerHTML = [
+  const tiles = [
     stat('Live Price', p.price != null ? money(p.price) : '—'),
     stat('Fair Price', p.fairPrice != null ? money(p.fairPrice) : '—', gapTxt + (trusted ? '' : ' · low fit'), gapCol),
     stat('SV / Booster', `${fmt(p.svPerBooster, 1)}×`, `set value ${pct(m?.svSinceFirst)}`),
@@ -5760,7 +5796,32 @@ function renderDrill() {
     stat('Price move', m ? pct(m.sinceFirst) : '—', 'since first snapshot'),
     stat('Wtd. Score', fmt(p.score, 1), `age weight ${fmt(p.ageWeight, 2)}`),
     stat('Released', relTxt, ageTxt),
-  ].join('');
+  ];
+  // Loose pack price: reference only. Show the market price of a single booster
+  // bought loose, and the premium a buyer pays per booster to buy sealed instead
+  // (positive = sealed dearer per pack; negative = sealed cheaper in bulk). It is
+  // never a ranked purchase — a loose pack has no sealed-box premium and would
+  // otherwise top every list.
+  const loose = loosePackFor(p);
+  if (loose) {
+    const boosters = p.boosters || boostersFromType(p.type);
+    const prem = (loose.price > 0 && p.pricePerBooster != null)
+      ? ((p.pricePerBooster - loose.price) / loose.price) * 100 : null;
+    const premTxt = prem == null ? 'per single booster'
+      : `sealed ${prem >= 0 ? '+' : '−'}${fmt(Math.abs(prem), 0)}% / booster`;
+    tiles.push(stat('Loose pack price', money(loose.price), premTxt, 'var(--muted)'));
+    // Sealed premium: the € you pay to buy sealed vs the same booster count bought
+    // loose (price − loose × boosters). Positive = the premium for a sealed box;
+    // negative = sealed is cheaper than the loose equivalent (a bulk discount,
+    // highlighted green as the notable case).
+    if (p.price != null && boosters) {
+      const premEur = p.price - loose.price * boosters;
+      const premEurTxt = `${premEur >= 0 ? '+' : '−'}${money(Math.abs(premEur))}`;
+      tiles.push(stat('Sealed premium', premEurTxt, `vs ${boosters} loose packs`,
+        premEur < 0 ? 'var(--accent4)' : 'var(--text)'));
+    }
+  }
+  document.getElementById('drill-stats').innerHTML = tiles.join('');
 
   renderDrillLinks(p);
   renderDrillPriceChart(p);
@@ -6398,7 +6459,9 @@ async function loadDemo() {
     };
   });
   deriveProducts(demoProducts, hist);
-  const usable = demoProducts.filter(p => p.price != null && p.setVal != null);
+  // Loose packs (type PACK) are reference data, not ranked products — keep them
+  // out of the demo's set tables just as the full app keeps them out of analysis.
+  const usable = demoProducts.filter(p => p.price != null && p.setVal != null && typeCategory(p.type) !== 'PACK');
 
   // Group by release date, newest first, keep the 3 most recent dates.
   const dates = [...new Set(usable.map(p => p.release))].sort().reverse().slice(0, 3);
