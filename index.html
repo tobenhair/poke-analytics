@@ -5804,11 +5804,22 @@ function renderDrill() {
   // otherwise top every list.
   const loose = loosePackFor(p);
   if (loose) {
+    const boosters = p.boosters || boostersFromType(p.type);
     const prem = (loose.price > 0 && p.pricePerBooster != null)
       ? ((p.pricePerBooster - loose.price) / loose.price) * 100 : null;
     const premTxt = prem == null ? 'per single booster'
       : `sealed ${prem >= 0 ? '+' : '−'}${fmt(Math.abs(prem), 0)}% / booster`;
     tiles.push(stat('Loose pack price', money(loose.price), premTxt, 'var(--muted)'));
+    // Sealed premium: the € you pay to buy sealed vs the same booster count bought
+    // loose (price − loose × boosters). Positive = the premium for a sealed box;
+    // negative = sealed is cheaper than the loose equivalent (a bulk discount,
+    // highlighted green as the notable case).
+    if (p.price != null && boosters) {
+      const premEur = p.price - loose.price * boosters;
+      const premEurTxt = `${premEur >= 0 ? '+' : '−'}${money(Math.abs(premEur))}`;
+      tiles.push(stat('Sealed premium', premEurTxt, `vs ${boosters} loose packs`,
+        premEur < 0 ? 'var(--accent4)' : 'var(--text)'));
+    }
   }
   document.getElementById('drill-stats').innerHTML = tiles.join('');
 

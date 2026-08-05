@@ -118,9 +118,12 @@ round-trip through the same load/save path and appear in Data Entry for
 management), and they surface in exactly one place: **`loosePackFor(p)`** finds the
 `PACK` of a sealed product's set (by `setLogoKey()` — the SKU suffix stripped, so
 twin sets like Black Bolt / White Flare stay distinct) and `renderDrill()` shows
-its latest price as a **Loose pack price** stat tile, with the sealed-vs-loose
-premium per booster. Reference only — never a ranked buy. Nothing in `metrics.js`
-changed; the exclusion is purely presentational.
+its latest price as a **Loose pack price** stat tile (with the per-booster
+sealed-vs-loose %), plus a **Sealed premium** tile — the absolute € a buyer pays
+to go sealed vs the same booster count bought loose (`price − loose × boosters`;
+negative = sealed cheaper than the loose equivalent, highlighted green). Reference
+only — never a ranked buy. Nothing in `metrics.js` changed; the exclusion is
+purely presentational.
 
 ### Accessibility structure (don't undo it)
 
