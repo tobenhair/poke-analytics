@@ -371,17 +371,18 @@ test('section explainers start collapsed at every width and remember the choice'
   await page.locator('#desc-toggle-all').click();
   expect(await shown(), 'the global control hides every explainer').toBe(0);
 
-  // From all-collapsed it shows every one. (Eight numbered sections' .section-desc
-  // plus the KPI intro — the What-If explainer moved into the drill-down with §09.)
+  // From all-collapsed it shows every one. (Seven numbered sections' .section-desc
+  // plus the KPI intro — §01 "Top Picks" was retired into the Where-to-start block,
+  // and the What-If explainer moved into the drill-down.)
   await expect(page.locator('#desc-toggle-all')).toHaveText('Show explanations');
   await page.locator('#desc-toggle-all').click();
-  expect(await shown()).toBe(9);
+  expect(await shown()).toBe(8);
 
   // The choice survives a reload — the whole point of persisting it.
   await page.reload();
   await expect(page.locator('#product-tbody tr').first()).toBeAttached();
   await openTab(page, 'analysis');
-  expect(await shown(), 'expanded state should persist').toBe(9);
+  expect(await shown(), 'expanded state should persist').toBe(8);
 
   // A desktop visitor with nothing stored gets the same condensed page — the
   // default is width-independent, so the first view is the numbers.

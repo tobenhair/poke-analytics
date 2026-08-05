@@ -43,8 +43,8 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
     { message: 'product table should have rows', timeout: 10_000 },
   ).toBeGreaterThan(0);
 
-  // Top Picks populated.
-  await expect(page.locator('#top-picks-list')).not.toBeEmpty();
+  // The "Where to start" shortlist populated.
+  await expect(page.locator('#overview-deals .pick-item').first()).toBeVisible();
 
   // Fair Price column derived: the header states the fit's confidence in words
   // (the R² itself lives in the drill-down) and at least one board row shows a
