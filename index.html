@@ -907,7 +907,6 @@
   .pick-item:last-child { border-bottom: none; }
   .pick-item:hover { background: rgba(244,198,81,0.03); padding-left: 28px; }
   /* Top Picks rows open the drill-down on click (the whole item is the target). */
-  #top-picks-list .pick-item { cursor: pointer; }
   .pick-rank {
     font-family: 'Bebas Neue', sans-serif;
     font-size: var(--display-md);
@@ -921,7 +920,17 @@
   .pick-info { flex: 1; min-width: 0; }
   .pick-name { font-size: var(--text-lg); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pick-meta { font-size: var(--text-xs); color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 3px; }
-  .pick-score { font-family: 'Bebas Neue', sans-serif; font-size: var(--display-md); color: var(--accent); }
+  .pick-score { font-family: 'Bebas Neue', sans-serif; font-size: var(--display-md); color: var(--accent); white-space: nowrap; }
+  .pick-score .unit { font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--muted); }
+  /* The three-metric line under a pick — all three signals, active lens lit. */
+  .pick-metrics { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px;
+    font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted); }
+  .pick-metric.active { color: var(--text); }
+  /* A new set (age weight < 1) gets a subtle accent rule + a per-card age-weight
+     flag, so it's scannable wherever the active lens ranks it. */
+  .pick-item.is-new { box-shadow: inset 3px 0 0 var(--accent); }
+  .pick-flag { margin-top: 5px; font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--accent); }
+  #overview-deals .pick-item, #overview-unproven .pick-item { cursor: pointer; }
 
   /* ── Charts ── */
   .chart-panel { padding: 24px 26px; }
@@ -1644,7 +1653,6 @@
   <symbol id="i-entry" viewBox="0 0 24 24"><path d="M4 20h4L18 10a2.83 2.83 0 0 0-4-4L4 16z"/><path d="M13.5 6.5 17.5 10.5"/></symbol>
   <symbol id="i-deal" viewBox="0 0 24 24"><path d="M4 4h7.2l8.8 8.8-7.2 7.2L4 11.2z"/><circle cx="8.2" cy="8.2" r="1.3"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 15.5V10a6 6 0 0 0-12 0v5.5L4.5 18h15z"/><path d="M10 20.3a2 2 0 0 0 4 0"/></symbol>
-  <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M7 4h10v4.8a5 5 0 0 1-10 0z"/><path d="M7 5.6H4.4v1.2a3.6 3.6 0 0 0 3 3.5"/><path d="M17 5.6h2.6v1.2a3.6 3.6 0 0 1-3 3.5"/><path d="M12 13.8v3.7M8.4 20h7.2"/></symbol>
   <symbol id="i-guide" viewBox="0 0 24 24"><path d="M6 3.5h7.2L18.5 8.8V20.5H6z"/><path d="M13 3.5v5.5h5.5"/><path d="M9 13h6M9 16.5h6"/></symbol>
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10.6 13.4a3.6 3.6 0 0 0 5.1 0l2.9-2.9a3.6 3.6 0 0 0-5.1-5.1l-1.5 1.5"/><path d="M13.4 10.6a3.6 3.6 0 0 0-5.1 0l-2.9 2.9a3.6 3.6 0 0 0 5.1 5.1l1.5-1.5"/></symbol>
   <symbol id="i-cloud-up" viewBox="0 0 24 24"><path d="M7.2 19h9.6a3.9 3.9 0 0 0 .3-7.8A5.7 5.7 0 0 0 6.5 11.4 3.9 3.9 0 0 0 7.2 19z"/><path d="M12 17v-5M9.8 14 12 11.8 14.2 14"/></symbol>
@@ -2250,11 +2258,16 @@
   <h2 class="section-eyebrow">Right now</h2>
   <div class="panel">
     <div class="panel-header">
-      <h3 class="panel-title">Best deals right now</h3>
-      <div class="panel-badge" id="overview-badge">—</div>
+      <h3 class="panel-title">Where to start</h3>
+      <div class="pill-group" id="start-lens" role="group" aria-label="Rank the shortlist by">
+        <button class="pill active" type="button" data-lens="safe" aria-pressed="true">Safe pick</button>
+        <button class="pill" type="button" data-lens="deal" aria-pressed="false">Best deal</button>
+        <button class="pill" type="button" data-lens="value" aria-pressed="false">Best value</button>
+      </div>
     </div>
     <p class="overview-lead" id="overview-lead"></p>
     <div id="overview-deals"></div>
+    <div id="overview-unproven"></div>
   </div>
 
   <!-- KPIs -->
@@ -2282,16 +2295,6 @@
     </div>
   </div>
 
-  <!-- ── Section: top picks (full width) — the shortlist leads ── -->
-  <h2 class="section-eyebrow">01 — This Month's Standouts</h2>
-  <p class="section-desc"><strong>What:</strong> the top-ranked products right now by <em>Weighted Score</em> (SV/Booster × age weight). <strong>How to read:</strong> these are the best value-for-money buys this month — a higher score means more set value per euro, with brand-new releases discounted so they don't dominate unfairly.</p>
-  <div class="panel top-picks">
-    <div class="panel-header">
-      <h3 class="panel-title"><svg class="icon icon-lg" aria-hidden="true"><use href="#i-trophy"/></svg> Top Picks This Month</h3>
-      <div class="panel-badge">By Score</div>
-    </div>
-    <div id="top-picks-list"></div>
-  </div>
 
   <!-- Filters -->
   <div class="filters fade-in" style="animation-delay:0.1s">
@@ -2340,7 +2343,7 @@
   </div>
 
   <!-- ── Section: product table (full width) ── -->
-  <h2 class="section-eyebrow">02 — The Board</h2>
+  <h2 class="section-eyebrow">01 — The Board</h2>
   <p class="section-desc"><strong>What:</strong> every tracked product, ranked. <strong>How to read:</strong> the line under each name is the <em>verdict</em> — the plain-language answer, synthesising the gap to fair price, the drawdown from peak and the set-value trend. <em>Fair Price</em> is what this product would cost if it traded like its same-age peers; the confidence word beside that column says how much to trust it, and explains the method when you tap it. A <svg class="icon" aria-hidden="true" style="color:var(--accent)"><use href="#i-deal"/></svg> marks a possible buy signal — price fell while set value held. Filter with the Type pills, reorder with the Sort menu. <em>SV/Booster</em> and the other column terms are defined in section 03 below, and on the Welcome tab.</p>
   <div class="panel">
     <div class="panel-header">
@@ -2369,7 +2372,7 @@
   </div>
 
   <!-- ── Section: set value / booster (full width) ── -->
-  <h2 class="section-eyebrow">03 — Value Per Booster</h2>
+  <h2 class="section-eyebrow">02 — Value Per Booster</h2>
   <p class="section-desc"><strong>What:</strong> the ten products with the highest <em>SV/Booster</em> — Set Value ÷ the price of one booster. <strong>How to read:</strong> a taller bar means the set is worth more times what a single pack costs (e.g. 185× = the set is worth ~185 boosters' price), independent of product type — the fairest way to compare a Booster Box against an ETB or Bundle. It's a value-for-money ratio, not a euro amount.</p>
   <div class="panel">
     <div class="panel-header">
@@ -2382,7 +2385,7 @@
   </div>
 
   <!-- ── Section: age vs value scatter (full width) ── -->
-  <h2 class="section-eyebrow">04 — Age vs Value</h2>
+  <h2 class="section-eyebrow">03 — Age vs Value</h2>
   <p class="section-desc"><strong>What:</strong> every product plotted by <em>age</em> (horizontal) against <em>SV/Booster</em> (vertical — Set Value as a multiple of one booster's cost, higher = better value). The dashed line is the expected value for a given age. <strong>How to read:</strong> points <span class="up">above</span> the line are better value than typical for their age; points <span class="down">below</span> are worse — the higher above the line, the better the bargain.</p>
   <div class="panel">
     <div class="panel-header">
@@ -2395,7 +2398,7 @@
   </div>
 
   <!-- ── Section: relative value vs the age curve (full width) ── -->
-  <h2 class="section-eyebrow">05 — Relative Value</h2>
+  <h2 class="section-eyebrow">04 — Relative Value</h2>
   <p class="section-desc"><strong>What:</strong> products ranked by how far their SV/Booster sits above or below the expected-for-age line from section 04. <strong>KPI:</strong> <em>Δ vs peers</em> — the gap to that expectation (<span class="up">▲ better</span> · <span class="down">▼ worse</span>); the badge shows the fit quality (R²). <strong>How to read:</strong> the top of the list is the best value relative to same-age peers.</p>
   <div class="panel">
     <div class="panel-header">
@@ -2425,7 +2428,7 @@
   </div>
 
   <!-- ── Section: price history (full width) ── -->
-  <h2 class="section-eyebrow">06 — Price History</h2>
+  <h2 class="section-eyebrow">05 — Price History</h2>
   <p class="section-desc"><strong>What:</strong> tracked <em>price over time</em> — add several products, or switch to <em>Sets</em> to compare whole releases (a set's line is the average price per booster of its products). <strong>How to read:</strong> a falling line means it's getting cheaper; with a single product the set value is overlaid too, so you can pair a price dip with a steady set value to spot a buying window. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
@@ -2445,7 +2448,7 @@
   </div>
 
   <!-- ── Section: momentum & drawdown (full width) ── -->
-  <h2 class="section-eyebrow">07 — Momentum &amp; Drawdown</h2>
+  <h2 class="section-eyebrow">06 — Momentum &amp; Drawdown</h2>
   <p class="section-desc"><strong>What:</strong> recent price action per product. <strong>KPIs:</strong> <em>Δ last</em> (change since the previous snapshot), <em>since 1st</em> (change across all tracked history), and <em>vs Peak / Drawdown</em> (how far below its highest tracked price it is now). <strong>How to read:</strong> a deep drawdown (<span class="down">▼</span>) while set value holds steady can flag a buying opportunity. Sorted by deepest dip.</p>
   <div class="panel">
     <div class="panel-header">
@@ -2472,7 +2475,7 @@
   </div>
 
   <!-- ── Section: SV/Booster trend over time (full width) ── -->
-  <h2 class="section-eyebrow">08 — Trend Over Time</h2>
+  <h2 class="section-eyebrow">07 — Trend Over Time</h2>
   <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> — add several products to compare, or switch to <em>Sets</em> to weigh whole releases head to head (a set's line is the average SV/Booster of its products). <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means the set is worth more relative to a booster's cost (better value); because it's a multiple of booster cost, every product type — box, ETB, bundle or single pack — is directly comparable. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
@@ -3071,55 +3074,115 @@ function updateKPIs() {
 // ignores the fair price — so this must not rank by it either. It falls back to
 // the weighted score and says why, rather than presenting a ranking built on a
 // number the rest of the page is disregarding.
-const OVERVIEW_COUNT = 3;
+// The lead "Where to start" block: one shortlist with three lenses instead of
+// the old two competing top-lists. Safe pick (age-weighted score) is the default
+// and the conservative recommendation; Best deal (fair-price gap) and Best value
+// (SV/Booster) are the raw signals, shown on every card so you can see where they
+// agree. Age-penalised newcomers (ageWeight < 1) are pulled into a "high raw
+// value, but new" group so a shiny unsettled set can't masquerade as the top pick
+// — the divergence the age weight exists to create is shown, not hidden.
+let startLens = 'safe';        // 'safe' | 'deal' | 'value'
+const START_COUNT = 5;
+const START_LENS = {
+  safe:  { sort: (a, b) => b.score - a.score },
+  deal:  { sort: (a, b) => (a.fairGap ?? 1e9) - (b.fairGap ?? 1e9) },
+  value: { sort: (a, b) => b.svPerBooster - a.svPerBooster },
+};
+
+function syncLensPills(activeLens) {
+  document.querySelectorAll('#start-lens .pill').forEach(p => {
+    const on = p.dataset.lens === activeLens;
+    p.classList.toggle('active', on);
+    p.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+// One card's three-metric line, the active lens emphasised.
+function startMetrics(p, lens) {
+  const gap = p.fairGap == null ? '—'
+    : p.fairGap === 0 ? 'at fair'
+    : `${Math.abs(p.fairGap)}% ${p.fairGap < 0 ? 'under' : 'over'}`;
+  const m = [['safe', `score ${fmt(p.score, 0)}`], ['value', `${fmt(p.svPerBooster, 0)}× value`], ['deal', gap]];
+  return `<div class="pick-metrics">${m.map(([k, t]) =>
+    `<span class="pick-metric${k === lens ? ' active' : ''}">${t}</span>`).join('')}</div>`;
+}
+
+// The big right-hand figure — the active lens's headline number.
+function startPrimary(p, lens) {
+  if (lens === 'deal') {
+    if (p.fairGap == null) return `<div class="pick-gap">—</div>`;
+    const under = p.fairGap < 0;
+    return `<div class="pick-gap"${under ? '' : ' style="color:var(--muted)"'}>${Math.abs(p.fairGap)}%<span class="unit"> ${under ? 'under' : 'over'}</span></div>`;
+  }
+  if (lens === 'value') return `<div class="pick-score">${fmt(p.svPerBooster, 0)}×<span class="unit"> value</span></div>`;
+  return `<div class="pick-score">${fmt(p.score, 0)}<span class="unit"> score</span></div>`;
+}
+
+function startCard(p, lens, rank) {
+  const rankHtml = `<div class="pick-rank ${rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : ''}">${rank}</div>`;
+  // A young set (age weight < 1) is flagged in place: under Value it can top the
+  // list, under Safe the same weight sinks it — the flag shows why it moved.
+  const young = p.ageWeight != null && p.ageWeight < 1;
+  const flag = young
+    ? `<div class="pick-flag">⚠ new set · age weight ${fmt(p.ageWeight, 2)} → score ${fmt(p.score, 0)}</div>` : '';
+  return `
+    <div class="pick-item${young ? ' is-new' : ''}">
+      ${rankHtml}
+      <div class="pick-info">
+        <div class="pick-name"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></div>
+        <div class="pick-meta">${typeLabel(p.type)} · ${money(p.price)}</div>
+        ${startMetrics(p, lens)}
+        ${flag}
+      </div>
+      ${startPrimary(p, lens)}
+    </div>`;
+}
+
+function wirePicks(container, picks) {
+  [...container.querySelectorAll('.row-open')].forEach((btn, i) => {
+    btn.addEventListener('click', () => openDrill(picks[i].name));
+  });
+}
 
 function renderOverview() {
   const lead = document.getElementById('overview-lead');
   const list = document.getElementById('overview-deals');
-  const badge = document.getElementById('overview-badge');
-  if (!lead || !list || !badge) return;
+  const unprovenEl = document.getElementById('overview-unproven');
+  if (!lead || !list) return;
 
-  const data = visibleProducts();
+  const pool = visibleProducts();   // pack-excluded and scoped to the global type filter
   const trusted = fairPriceTrusted();
-  const under = data.filter(p => p.fairGap != null && p.fairGap < 0);
 
-  let picks, byGap;
-  if (trusted && under.length) {
-    picks = [...under].sort((a, b) => a.fairGap - b.fairGap).slice(0, OVERVIEW_COUNT);
-    byGap = true;
-    badge.textContent = 'By gap to fair price';
-    lead.innerHTML = `<strong>${under.length} of ${data.length}</strong> tracked products are `
-      + `currently priced under what they'd cost at the value expected for their age.`;
-  } else {
-    picks = [...data].sort((a, b) => b.score - a.score).slice(0, OVERVIEW_COUNT);
-    byGap = false;
-    badge.textContent = 'By weighted score';
-    lead.innerHTML = trusted
-      ? `Nothing is under its fair price right now — these are the strongest on value density instead.`
-      : `The age fit is too weak to price against right now, so these are ranked by `
-        + `<strong>weighted score</strong> instead of by gap to fair price.`;
+  // The Deal lens leans on the fair price; when the fit is weak it isn't
+  // trustworthy, so fall back to the safe pick and say so.
+  let lens = startLens, fitNote = '';
+  if (lens === 'deal' && !trusted) {
+    lens = 'safe';
+    fitNote = ' The age fit is too weak to price against right now, so this falls back to the safe pick.';
   }
+  syncLensPills(lens);
 
-  if (!picks.length) {
+  // Every lens ranks the same pool; the metric decides. Safe uses the
+  // age-weighted score, so a new set only reaches this list if it is strong
+  // enough to survive its own penalty — which is exactly the point of the
+  // penalty — and it's flagged ⚠ when it does. Deal ranks by gap to fair price
+  // (headline %), Value by raw SV/Booster (headline ×), both showing the new
+  // sets they naturally rank higher.
+  lead.innerHTML = {
+    safe:  `Ranked by <strong>age-weighted score</strong> — value adjusted for how settled a set is. A brand-new release earns a place here only if it's strong enough to survive the age penalty (marked ⚠ when it does).`,
+    deal:  `Ranked by <strong>gap to fair price</strong> — the cheapest right now for their age. New sets are marked ⚠.`,
+    value: `Ranked by <strong>value per booster</strong> — the most set value per booster, before any age adjustment. New sets are marked ⚠.`,
+  }[lens] + fitNote;
+
+  const ranked = [...pool].sort(START_LENS[lens].sort).slice(0, START_COUNT);
+  if (unprovenEl) unprovenEl.innerHTML = '';   // (kept for layout; the group is now inline)
+
+  if (!ranked.length) {
     list.innerHTML = `<div class="overview-empty">No products to rank — clear the type filter, or add data in Data Entry.</div>`;
     return;
   }
-
-  list.innerHTML = picks.map(p => `
-    <div class="pick-item">
-      <div class="pick-info">
-        <div class="pick-name"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></div>
-        <div class="pick-meta">${typeLabel(p.type)} · ${money(p.price)}${byGap ? ` · fair ${money(p.fairPrice)}` : ''}</div>
-        ${verdictLine(p)}
-      </div>
-      <div class="pick-gap">${byGap ? `${Math.abs(p.fairGap)}%<span class="unit"> under</span>`
-                                    : `${fmt(p.score, 1)}<span class="unit"> score</span>`}</div>
-    </div>`).join('');
-
-  // Same affordance as the board: the name opens the product's drill-down.
-  [...list.querySelectorAll('.row-open')].forEach((btn, i) => {
-    btn.addEventListener('click', () => openDrill(picks[i].name));
-  });
+  list.innerHTML = ranked.map((p, i) => startCard(p, lens, i + 1)).join('');
+  wirePicks(list, ranked);
 }
 
 // ============================================================
@@ -3233,32 +3296,6 @@ function getTrend(name) {
 
 function isBuySignal(name) {
   return buySignal(historicalData[name]);
-}
-
-// ============================================================
-// TOP PICKS
-// ============================================================
-function updateTopPicks() {
-  const sorted = [...analysisProducts()].sort((a, b) => b.score - a.score).slice(0, 5);
-  const el = document.getElementById('top-picks-list');
-  el.innerHTML = '';
-  sorted.forEach((p, i) => {
-    const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
-    const div = document.createElement('div');
-    div.className = 'pick-item';
-    div.innerHTML = `
-      <div class="pick-rank ${rankClass}">${i + 1}</div>
-      <div class="pick-info">
-        <div class="pick-name"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></div>
-        <div class="pick-meta">${typeLabel(p.type)} · ${money(p.price)} · Age ${fmt(p.age, 1)}yr</div>
-      </div>
-      <div class="pick-score">${fmt(p.score, 1)}</div>
-    `;
-    // Whole item opens the drill for the mouse; the named button is the a11y target.
-    div.addEventListener('click', () => openDrill(p.name));
-    div.querySelector('.row-open').addEventListener('click', e => { e.stopPropagation(); openDrill(p.name); });
-    el.appendChild(div);
-  });
 }
 
 // ============================================================
@@ -3685,6 +3722,16 @@ document.querySelectorAll('#type-filters .pill').forEach(pill => {
   });
 });
 
+// The "Where to start" lens toggle (Safe / Deal / Value) re-ranks the lead
+// shortlist without touching anything else. syncLensPills() reflects the
+// effective lens (Deal falls back to Safe on a weak fit).
+document.querySelectorAll('#start-lens .pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    startLens = pill.dataset.lens;
+    renderOverview();
+  });
+});
+
 // Re-render everything the global type filter scopes: the board plus the
 // analytical charts/tables and the comparison views.
 function applyTypeFilter() {
@@ -3706,7 +3753,6 @@ function applyTypeFilter() {
 function renderCurrencySensitive() {
   renderOverview();
   updateTable();
-  updateTopPicks();
   renderMomentum();
   cmpHist.refresh();
   renderPortfolio();
@@ -3735,7 +3781,6 @@ document.getElementById('age-threshold-slider').addEventListener('input', e => {
   recomputeScores(products, ageThreshold);
   updateKPIs();
   updateTable();
-  updateTopPicks();
   renderSVBChart();
 });
 
@@ -3954,7 +3999,6 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   updateKPIs();
   renderOverview();
   updateTable();
-  updateTopPicks();
   renderSVBChart();
   cmpHist.refresh();
   renderScatterChart();
@@ -6190,7 +6234,6 @@ recomputeFit();                          // age-fit line + per-product fair pric
 updateKPIs();
 renderOverview();
 updateTable();
-updateTopPicks();
 renderSVBChart();
 cmpHist.init();
 renderScatterChart();

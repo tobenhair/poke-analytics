@@ -54,7 +54,7 @@ flowchart TB
 
   subgraph views["Render functions — each wired into BOTH INIT and applyNewData()"]
     direction LR
-    vAnalysis["📊 <b>Analysis</b> — lands here on sign-in<br/>renderOverview · 01–09<br/>updateKPIs · updateTable · updateTopPicks<br/>renderSVBChart · renderScatterChart<br/>renderRelativeValue · renderMomentum<br/>cmpHist / cmpSvb · initScenario"]:::view
+    vAnalysis["📊 <b>Analysis</b> — lands here on sign-in<br/>renderOverview (Where to start · Safe/Deal/Value) · 01–07<br/>updateKPIs · updateTable<br/>renderSVBChart · renderScatterChart<br/>renderRelativeValue · renderMomentum<br/>cmpHist / cmpSvb · initScenario"]:::view
     vPortfolio["💼 <b>Portfolio</b> 01–03 · signed in<br/>renderPortfolio · renderAlerts<br/>renderPortfolioValueChart · renderBalancer"]:::view
     vEntry["✏️ <b>Data Entry</b> · admin only<br/>renderEntryTable · renderEntryQuality<br/><i>writes back: ☁ Save to cloud → Supabase<br/>(UI gating only — the real boundary is<br/>RLS is_admin()) · ⬇ Export → .xlsx</i>"]:::view
     vWelcome["👋 <b>Welcome</b><br/>signed-in landing — where to go +<br/>the shared #method-modal / #glossary-modal"]:::view

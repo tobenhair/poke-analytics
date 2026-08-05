@@ -574,6 +574,30 @@ stance). What still stands unbuilt:
     The efficient source for the headline rows is server-side aggregation (a
     Supabase view/RPC) — see **Data volume at scale**.
 
+- **"Where to start" teaser on the demo + summary-strip relocation.** *(Feature;
+  design decided, build deferred.)* The signed-in Analysis tab now opens on the
+  **Where to start** shortlist (Safe pick / Best deal / Best value — `renderOverview`,
+  `startLens`). Two follow-ups pull that value onto the logged-out landing without
+  breaking the demo's honesty rules:
+  - **Demo teaser — value-live, two lenses locked.** Put the same three-lens block
+    on `#demo-page`, but honouring the rule that **the demo must not show a fair
+    price or a verdict** (the anon RLS scope is 3 release dates; an age-fit over
+    that slice would contradict the signed-in board). So **Best value** (SV/Booster,
+    fit-independent) renders for real, while **Safe pick** and **Best deal** show a
+    **locked "sign in to rank by…" state** — the concrete answer to "why make an
+    account", reinforcing the demo's existing *what sign-in buys* framing rather
+    than duplicating the tool. Reuses the block; the locked lenses are a demo-only
+    render path.
+  - **Relocate the KPI summary strip.** The Analysis KPI row (Products Tracked ·
+    Top Score · Best Value/Booster · Newest Release) is now a *dataset teaser*, and
+    two tiles (Top Score age-weighted, Best Value/Booster) merely restate the
+    block's Safe/Value #1. Move it to the demo / Welcome landing as an orientation
+    banner (the demo drops the age-weighted **Top Score** tile — it needs the full
+    fit); on Analysis, drop it or keep a slimmed, non-redundant version **below**
+    the answer — never above it, so the tab keeps opening on the answer, not the
+    dataset. Keep the shared-explanation rule (`.method-open` / `.glossary-open`);
+    don't grow a second pitch on the Welcome tab.
+
 ## Later — reach & launch readiness
 
 - **LLM assistant — data & portfolio assessment, reasoning, dialogue.** A

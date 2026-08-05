@@ -371,17 +371,18 @@ test('section explainers start collapsed at every width and remember the choice'
   await page.locator('#desc-toggle-all').click();
   expect(await shown(), 'the global control hides every explainer').toBe(0);
 
-  // From all-collapsed it shows every one. (Eight numbered sections' .section-desc
-  // plus the KPI intro — the What-If explainer moved into the drill-down with §09.)
+  // From all-collapsed it shows every one. (Seven numbered sections' .section-desc
+  // plus the KPI intro — §01 "Top Picks" was retired into the Where-to-start block,
+  // and the What-If explainer moved into the drill-down.)
   await expect(page.locator('#desc-toggle-all')).toHaveText('Show explanations');
   await page.locator('#desc-toggle-all').click();
-  expect(await shown()).toBe(9);
+  expect(await shown()).toBe(8);
 
   // The choice survives a reload — the whole point of persisting it.
   await page.reload();
   await expect(page.locator('#product-tbody tr').first()).toBeAttached();
   await openTab(page, 'analysis');
-  expect(await shown(), 'expanded state should persist').toBe(9);
+  expect(await shown(), 'expanded state should persist').toBe(8);
 
   // A desktop visitor with nothing stored gets the same condensed page — the
   // default is width-independent, so the first view is the numbers.
@@ -441,23 +442,21 @@ test('the Analysis tab opens on the answer, not on the dataset', async ({ page }
   expect(y, 'the overview should be above the fold').toBeLessThan(700);
 
   const rows = page.locator('#overview-deals .pick-item');
-  await expect(rows).toHaveCount(3);
+  await expect(rows).toHaveCount(5);
 
-  const badge = await page.locator('#overview-badge').textContent();
-  const gaps = await page.locator('#overview-deals .pick-gap').allTextContents();
+  // The lead "Where to start" block leads with the safe (age-weighted) ranking
+  // by default, and its headline figure is the score — not the raw deal — so a
+  // first-time user sees the risk-adjusted pick first, not the shiniest new set.
+  await expect(page.locator('#start-lens .pill.active')).toHaveText('Safe pick');
+  await expect(page.locator('#overview-lead')).toContainText('age-weighted score');
+  const primaries = await page.locator('#overview-deals .pick-score').allTextContents();
+  expect(primaries.length).toBe(5);
+  expect(primaries.every((s) => s.includes('score'))).toBe(true);
 
-  if (badge.includes('fair price')) {
-    // Ranked by gap: every row must actually be under fair, best deal first.
-    expect(gaps.every((g) => g.includes('under'))).toBe(true);
-    const pct = gaps.map((g) => parseInt(g, 10));
-    expect([...pct].sort((a, b) => b - a), 'deals should be ordered best-first').toEqual(pct);
-    await expect(page.locator('#overview-lead')).toContainText('under what they');
-  } else {
-    // The honesty rule: when the age fit is too weak the verdict ignores the
-    // fair price, so the overview must not rank by it either — and must say so.
-    expect(gaps.every((g) => g.includes('score'))).toBe(true);
-    await expect(page.locator('#overview-lead')).toContainText('weighted score');
-  }
+  // Every card also carries all three signals, so the lenses can be compared in
+  // place rather than across separate lists.
+  const metrics = await rows.first().locator('.pick-metric').allTextContents();
+  expect(metrics.length).toBe(3);
 
   // The product name is the same affordance as on the board.
   await rows.first().locator('.row-open').click();
@@ -479,9 +478,9 @@ test('the Analysis tab opens on the answer, not on the dataset', async ({ page }
   await expect
     .poll(async () => {
       const metas = await page.locator('#overview-deals .pick-meta').allTextContents();
-      return metas.map((m) => m.split(' ')[0]).join(',');
+      return metas.length > 0 && metas.every((m) => m.startsWith('ETB'));
     }, { message: 'overview must respect the type filter' })
-    .toBe('ETB,ETB,ETB');
+    .toBe(true);
 });
 
 test('the signed-in surface (portfolio + demo page) has no serious or critical violations', async ({ page }) => {
