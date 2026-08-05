@@ -5887,6 +5887,27 @@ function renderDrillPriceChart(p) {
         borderDash: [6, 5], borderWidth: 1.5, pointRadius: 0, fill: false, order: 2 },
     );
   }
+  // Loose-equivalent line: what this product's boosters would cost bought as
+  // single loose packs (loose pack price × boosters), on the same € axis as the
+  // sealed Price — the gap between the two lines is the sealed premium over time.
+  // The loose pack accrues its own daily snapshots, so this fills in as the
+  // tracked history grows. Only added when the set has a PACK with price history.
+  const loose = loosePackFor(p);
+  if (loose) {
+    const lp = historicalData[loose.name];
+    const lb = p.boosters || boostersFromType(p.type);
+    if (lp && lp.price && lb) {
+      const looseData = labels.map((_, i) => lp.price[i] != null ? lp.price[i] * lb * rate : null);
+      if (looseData.some(v => v != null)) {
+        datasets.push({
+          label: `Loose equivalent (${lb}×)`, data: looseData, spanGaps: true,
+          borderColor: COLOR.blue, backgroundColor: alpha(COLOR.blue, 0.06),
+          borderDash: [4, 4], tension: 0.35, pointRadius: 3, pointBackgroundColor: COLOR.blue,
+          fill: false, order: 1,
+        });
+      }
+    }
+  }
   if (drillPriceChart) drillPriceChart.destroy();
   drillPriceChart = new Chart(document.getElementById('drill-price-chart'), {
     type: 'line',

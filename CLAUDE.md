@@ -121,9 +121,12 @@ twin sets like Black Bolt / White Flare stay distinct) and `renderDrill()` shows
 its latest price as a **Loose pack price** stat tile (with the per-booster
 sealed-vs-loose %), plus a **Sealed premium** tile — the absolute € a buyer pays
 to go sealed vs the same booster count bought loose (`price − loose × boosters`;
-negative = sealed cheaper than the loose equivalent, highlighted green). Reference
-only — never a ranked buy. Nothing in `metrics.js` changed; the exclusion is
-purely presentational.
+negative = sealed cheaper than the loose equivalent, highlighted green). The
+drill-down **price chart** also overlays a dashed **Loose equivalent (N×)** line —
+the loose pack's own price history × boosters, on the same € axis as the sealed
+Price, so the gap between the two lines is the sealed premium over time (it fills
+in as the pack accrues daily snapshots). Reference only — never a ranked buy.
+Nothing in `metrics.js` changed; the exclusion is purely presentational.
 
 ### Accessibility structure (don't undo it)
 
