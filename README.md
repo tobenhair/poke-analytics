@@ -149,7 +149,9 @@ frontend on GitHub Pages. This is off unless you fill in `SUPABASE_CONFIG` in
 
 `Product` · `Type` · `Release Date` · `Age (years)` · `Current Price (€)` · `Set Value (€)` · `Price / Booster (€)` · `SV / Booster` · `Age Weight` · `Wtd. Score`
 
-`Type` is one of: `BOX` (36 packs) · `ETB` (9) · `ETB10` (10) · `ETB8` (8) · `BUNDLE` (6) · `BUNDLEDISPLAY` (60) · `PACK` (1). The pack count drives the booster maths; the Elite Trainer Box variants (`ETB`/`ETB10`/`ETB8`) filter together under **Elite Trainer**, and the Bundle variants (`BUNDLE`/`BUNDLEDISPLAY`) under **Bundle**. A single `PACK` filters on its own **Single Pack** chip.
+`Type` is one of: `BOX` (36 packs) · `ETB` (9) · `ETB10` (10) · `ETB8` (8) · `BUNDLE` (6) · `BUNDLEDISPLAY` (60) · `PACK` (1). The pack count drives the booster maths; the Elite Trainer Box variants (`ETB`/`ETB10`/`ETB8`) filter together under **Elite Trainer**, and the Bundle variants (`BUNDLE`/`BUNDLEDISPLAY`) under **Bundle**.
+
+A `PACK` is a **loose single booster** and is treated as *reference data, not a ranked product*: a loose pack carries none of a sealed box's premium, so on value density it beats every box and would always top the rankings. `PACK` rows are therefore kept out of the board, the charts and the KPIs, and instead surface as **Loose pack price** in the drill-down of the sealed products of the same set (matched by set name) — so you can see the sealed-vs-loose premium per booster without a loose pack ever being flagged as the recommended buy.
 
 ### Sheet 2 — `Historical Data` (one row per product per snapshot)
 

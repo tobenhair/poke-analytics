@@ -54,6 +54,13 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   display currency** — a header picker that shows every price on the page (board,
   charts, drill-down, portfolio) in the chosen unit (€ canonical, FX
   display-only; the ratio metrics stay put since a rate cancels out of them).
+- **Loose pack price (reference)** — loose single boosters are tracked per set as
+  `PACK` products (Cardmarket-ingested like the rest), but held *out* of every
+  ranking, chart and KPI: with no sealed-box premium they beat every box on value
+  density and would always be "the recommended buy". They surface only as **Loose
+  pack price** in the drill-down of the sealed products of the same set (matched by
+  set name), with the sealed-vs-loose premium per booster. Exclusion runs through
+  one `analysisProducts()` helper; the pairing through `loosePackFor()`.
 - **Installable (PWA)** — the page is now installable to a home screen / desktop
   and works offline. Three static files, no build step: `manifest.webmanifest`
   (name, colours, icons), `icons/` (PNGs rasterised from the logo mark by
