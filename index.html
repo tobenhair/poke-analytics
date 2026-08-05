@@ -921,7 +921,17 @@
   .pick-info { flex: 1; min-width: 0; }
   .pick-name { font-size: var(--text-lg); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pick-meta { font-size: var(--text-xs); color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 3px; }
-  .pick-score { font-family: 'Bebas Neue', sans-serif; font-size: var(--display-md); color: var(--accent); }
+  .pick-score { font-family: 'Bebas Neue', sans-serif; font-size: var(--display-md); color: var(--accent); white-space: nowrap; }
+  .pick-score .unit { font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--muted); }
+  /* The three-metric line under a pick — all three signals, active lens lit. */
+  .pick-metrics { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px;
+    font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted); }
+  .pick-metric.active { color: var(--text); }
+  /* A new set (age weight < 1) gets a subtle accent rule + a per-card age-weight
+     flag, so it's scannable wherever the active lens ranks it. */
+  .pick-item.is-new { box-shadow: inset 3px 0 0 var(--accent); }
+  .pick-flag { margin-top: 5px; font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--accent); }
+  #overview-deals .pick-item, #overview-unproven .pick-item { cursor: pointer; }
 
   /* ── Charts ── */
   .chart-panel { padding: 24px 26px; }
@@ -2250,11 +2260,16 @@
   <h2 class="section-eyebrow">Right now</h2>
   <div class="panel">
     <div class="panel-header">
-      <h3 class="panel-title">Best deals right now</h3>
-      <div class="panel-badge" id="overview-badge">—</div>
+      <h3 class="panel-title">Where to start</h3>
+      <div class="pill-group" id="start-lens" role="group" aria-label="Rank the shortlist by">
+        <button class="pill active" type="button" data-lens="safe" aria-pressed="true">Safe pick</button>
+        <button class="pill" type="button" data-lens="deal" aria-pressed="false">Best deal</button>
+        <button class="pill" type="button" data-lens="value" aria-pressed="false">Best value</button>
+      </div>
     </div>
     <p class="overview-lead" id="overview-lead"></p>
     <div id="overview-deals"></div>
+    <div id="overview-unproven"></div>
   </div>
 
   <!-- KPIs -->
@@ -3071,55 +3086,115 @@ function updateKPIs() {
 // ignores the fair price — so this must not rank by it either. It falls back to
 // the weighted score and says why, rather than presenting a ranking built on a
 // number the rest of the page is disregarding.
-const OVERVIEW_COUNT = 3;
+// The lead "Where to start" block: one shortlist with three lenses instead of
+// the old two competing top-lists. Safe pick (age-weighted score) is the default
+// and the conservative recommendation; Best deal (fair-price gap) and Best value
+// (SV/Booster) are the raw signals, shown on every card so you can see where they
+// agree. Age-penalised newcomers (ageWeight < 1) are pulled into a "high raw
+// value, but new" group so a shiny unsettled set can't masquerade as the top pick
+// — the divergence the age weight exists to create is shown, not hidden.
+let startLens = 'safe';        // 'safe' | 'deal' | 'value'
+const START_COUNT = 5;
+const START_LENS = {
+  safe:  { sort: (a, b) => b.score - a.score },
+  deal:  { sort: (a, b) => (a.fairGap ?? 1e9) - (b.fairGap ?? 1e9) },
+  value: { sort: (a, b) => b.svPerBooster - a.svPerBooster },
+};
+
+function syncLensPills(activeLens) {
+  document.querySelectorAll('#start-lens .pill').forEach(p => {
+    const on = p.dataset.lens === activeLens;
+    p.classList.toggle('active', on);
+    p.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+// One card's three-metric line, the active lens emphasised.
+function startMetrics(p, lens) {
+  const gap = p.fairGap == null ? '—'
+    : p.fairGap === 0 ? 'at fair'
+    : `${Math.abs(p.fairGap)}% ${p.fairGap < 0 ? 'under' : 'over'}`;
+  const m = [['safe', `score ${fmt(p.score, 0)}`], ['value', `${fmt(p.svPerBooster, 0)}× value`], ['deal', gap]];
+  return `<div class="pick-metrics">${m.map(([k, t]) =>
+    `<span class="pick-metric${k === lens ? ' active' : ''}">${t}</span>`).join('')}</div>`;
+}
+
+// The big right-hand figure — the active lens's headline number.
+function startPrimary(p, lens) {
+  if (lens === 'deal') {
+    if (p.fairGap == null) return `<div class="pick-gap">—</div>`;
+    const under = p.fairGap < 0;
+    return `<div class="pick-gap"${under ? '' : ' style="color:var(--muted)"'}>${Math.abs(p.fairGap)}%<span class="unit"> ${under ? 'under' : 'over'}</span></div>`;
+  }
+  if (lens === 'value') return `<div class="pick-score">${fmt(p.svPerBooster, 0)}×<span class="unit"> value</span></div>`;
+  return `<div class="pick-score">${fmt(p.score, 0)}<span class="unit"> score</span></div>`;
+}
+
+function startCard(p, lens, rank) {
+  const rankHtml = `<div class="pick-rank ${rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : ''}">${rank}</div>`;
+  // A young set (age weight < 1) is flagged in place: under Value it can top the
+  // list, under Safe the same weight sinks it — the flag shows why it moved.
+  const young = p.ageWeight != null && p.ageWeight < 1;
+  const flag = young
+    ? `<div class="pick-flag">⚠ new set · age weight ${fmt(p.ageWeight, 2)} → score ${fmt(p.score, 0)}</div>` : '';
+  return `
+    <div class="pick-item${young ? ' is-new' : ''}">
+      ${rankHtml}
+      <div class="pick-info">
+        <div class="pick-name"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></div>
+        <div class="pick-meta">${typeLabel(p.type)} · ${money(p.price)}</div>
+        ${startMetrics(p, lens)}
+        ${flag}
+      </div>
+      ${startPrimary(p, lens)}
+    </div>`;
+}
+
+function wirePicks(container, picks) {
+  [...container.querySelectorAll('.row-open')].forEach((btn, i) => {
+    btn.addEventListener('click', () => openDrill(picks[i].name));
+  });
+}
 
 function renderOverview() {
   const lead = document.getElementById('overview-lead');
   const list = document.getElementById('overview-deals');
-  const badge = document.getElementById('overview-badge');
-  if (!lead || !list || !badge) return;
+  const unprovenEl = document.getElementById('overview-unproven');
+  if (!lead || !list) return;
 
-  const data = visibleProducts();
+  const pool = visibleProducts();   // pack-excluded and scoped to the global type filter
   const trusted = fairPriceTrusted();
-  const under = data.filter(p => p.fairGap != null && p.fairGap < 0);
 
-  let picks, byGap;
-  if (trusted && under.length) {
-    picks = [...under].sort((a, b) => a.fairGap - b.fairGap).slice(0, OVERVIEW_COUNT);
-    byGap = true;
-    badge.textContent = 'By gap to fair price';
-    lead.innerHTML = `<strong>${under.length} of ${data.length}</strong> tracked products are `
-      + `currently priced under what they'd cost at the value expected for their age.`;
-  } else {
-    picks = [...data].sort((a, b) => b.score - a.score).slice(0, OVERVIEW_COUNT);
-    byGap = false;
-    badge.textContent = 'By weighted score';
-    lead.innerHTML = trusted
-      ? `Nothing is under its fair price right now — these are the strongest on value density instead.`
-      : `The age fit is too weak to price against right now, so these are ranked by `
-        + `<strong>weighted score</strong> instead of by gap to fair price.`;
+  // The Deal lens leans on the fair price; when the fit is weak it isn't
+  // trustworthy, so fall back to the safe pick and say so.
+  let lens = startLens, fitNote = '';
+  if (lens === 'deal' && !trusted) {
+    lens = 'safe';
+    fitNote = ' The age fit is too weak to price against right now, so this falls back to the safe pick.';
   }
+  syncLensPills(lens);
 
-  if (!picks.length) {
+  // Every lens ranks the same pool; the metric decides. Safe uses the
+  // age-weighted score, so a new set only reaches this list if it is strong
+  // enough to survive its own penalty — which is exactly the point of the
+  // penalty — and it's flagged ⚠ when it does. Deal ranks by gap to fair price
+  // (headline %), Value by raw SV/Booster (headline ×), both showing the new
+  // sets they naturally rank higher.
+  lead.innerHTML = {
+    safe:  `Ranked by <strong>age-weighted score</strong> — value adjusted for how settled a set is. A brand-new release earns a place here only if it's strong enough to survive the age penalty (marked ⚠ when it does).`,
+    deal:  `Ranked by <strong>gap to fair price</strong> — the cheapest right now for their age. New sets are marked ⚠.`,
+    value: `Ranked by <strong>value per booster</strong> — the most set value per booster, before any age adjustment. New sets are marked ⚠.`,
+  }[lens] + fitNote;
+
+  const ranked = [...pool].sort(START_LENS[lens].sort).slice(0, START_COUNT);
+  if (unprovenEl) unprovenEl.innerHTML = '';   // (kept for layout; the group is now inline)
+
+  if (!ranked.length) {
     list.innerHTML = `<div class="overview-empty">No products to rank — clear the type filter, or add data in Data Entry.</div>`;
     return;
   }
-
-  list.innerHTML = picks.map(p => `
-    <div class="pick-item">
-      <div class="pick-info">
-        <div class="pick-name"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></div>
-        <div class="pick-meta">${typeLabel(p.type)} · ${money(p.price)}${byGap ? ` · fair ${money(p.fairPrice)}` : ''}</div>
-        ${verdictLine(p)}
-      </div>
-      <div class="pick-gap">${byGap ? `${Math.abs(p.fairGap)}%<span class="unit"> under</span>`
-                                    : `${fmt(p.score, 1)}<span class="unit"> score</span>`}</div>
-    </div>`).join('');
-
-  // Same affordance as the board: the name opens the product's drill-down.
-  [...list.querySelectorAll('.row-open')].forEach((btn, i) => {
-    btn.addEventListener('click', () => openDrill(picks[i].name));
-  });
+  list.innerHTML = ranked.map((p, i) => startCard(p, lens, i + 1)).join('');
+  wirePicks(list, ranked);
 }
 
 // ============================================================
@@ -3682,6 +3757,16 @@ document.querySelectorAll('#type-filters .pill').forEach(pill => {
     pill.setAttribute('aria-pressed', 'true');
     activeType = pill.dataset.type;
     applyTypeFilter();
+  });
+});
+
+// The "Where to start" lens toggle (Safe / Deal / Value) re-ranks the lead
+// shortlist without touching anything else. syncLensPills() reflects the
+// effective lens (Deal falls back to Safe on a weak fit).
+document.querySelectorAll('#start-lens .pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    startLens = pill.dataset.lens;
+    renderOverview();
   });
 });
 
