@@ -535,6 +535,35 @@ stance). What still stands unbuilt:
   full copyright/trademark investigation behind the decision is in
   `IMPLEMENTATION.md` item 9.
 
+- **Hierarchical set / era overview (top-down grouping in the board).**
+  *(Feature)* The board is a flat list of products, so scanning it means reading
+  every row. Add a **roll-up view that starts at the highest level and expands
+  downward — Era → Set → Product** — with an aggregate headline row at each level:
+  **set averages and era averages** (mean SV/Booster, mean gap-to-fair, product
+  count, mean price and €/booster, newest release) so the overview is legible
+  before a single product row is opened. Collapsed at the top level by default;
+  expand an era to reveal its sets, expand a set to reveal its products, with the
+  existing per-product row (and its drill-down) as the leaf. It doubles as
+  **filtering / sections / headlines**: choosing an era or a set scopes the board
+  *and* the analytical views, reusing the `activeType` plumbing
+  (`visibleProducts()` / `applyTypeFilter()`) with a set/era scope added alongside
+  the type filter.
+  - *Builds on what exists.* `groupSets()` / `setLabel()` / `meanSeries()` in
+    `metrics.js` already roll products up to **set** level for the §06/§08
+    comparison views and the demo, so set-level aggregates are a short step.
+    **Era is the new grouping and needs a definition first** — a cheap
+    release-year bucket (no new data) or a curated TCG-series map
+    (SWSH / SV / …, more meaningful but a new per-product field). Decide that
+    before building.
+  - *Constraints.* Aggregates ship as pure, unit-tested helpers (e.g.
+    `setAverages()` / `eraAverages()`) over the `analysisProducts()` pool (loose
+    packs stay excluded), and must be **currency-correct** — only absolute-€ means
+    convert; the ratio metrics (SV/Booster, Wtd. Score) stay put. Keep it inside
+    the existing dark table system — a group header is `thead`/`.panel`-weight, not
+    a new component — and preserve the phone column-priority rules
+    (`.col-detail`). The payoff: the data table becomes an overview you read
+    top-down, not a wall you scan.
+
 ## Later — reach & launch readiness
 
 - **LLM assistant — data & portfolio assessment, reasoning, dialogue.** A
