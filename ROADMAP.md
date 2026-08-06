@@ -720,6 +720,24 @@ stance). What still stands unbuilt:
   consider multi-currency/multi-region pricing and, much later, singles — each
   multiplies data-entry cost, so each waits on the ingestion question below.
   Past ~200 products the board performance fixes above come due with it.
+  - **Backfill to the XY era (the next concrete coverage step).**
+    *(Data/curation, not code.)* Extend the catalogue **backward to include every
+    set up to and including the XY era** (≈2014–2016: XY, Flashfire, Furious
+    Fists, Phantom Forces, Primal Clash, Roaring Skies *(already tracked)*, Ancient
+    Origins, BREAKthrough, BREAKpoint, Fates Collide, Steam Siege, Evolutions),
+    closing the gap between today's coverage and its current oldest rows. Per set,
+    add each product form that exists — **Booster Box / ETB / (loose) Pack**; the
+    modern **Booster Bundle** SKU doesn't exist for older sets and **ETB**s only
+    begin ~2013, so older sets carry fewer forms. The pipeline already handles the
+    rest: add rows in **Data Entry** (name / type / release), click **Resolve ids**
+    (Cardmarket name-match fills each CM ID / Exp ID) → **Sync catalog** (caches the
+    expansion's singles for Set Value), and the daily job prices them. Worth
+    knowing: (a) these sets are >3yr old, so **age weight = 1** — they rank on raw
+    SV/Booster with no youth penalty; (b) this is the natural moment to **decide the
+    "era" grouping** (XY / SM / SWSH / SV) that the hierarchical overview needs —
+    see **Navigation & overview at catalogue scale** under **Then**; (c) it pushes
+    the row count toward the **~200-product** mark where **Board performance fixes**
+    and **Data volume at scale** come due, so sequence those alongside.
 - **Backup & restore** — *deferred from "Now" by maintainer decision (Jul
   2026)*. Formalise beyond the manual xlsx export: scheduled Supabase backups
   plus a periodic automated xlsx snapshot, and — the part that actually matters
