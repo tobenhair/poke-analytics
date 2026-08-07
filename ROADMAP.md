@@ -502,9 +502,40 @@ on the page and every failure mode around it.
 Items are tagged **Bug** (something is wrong today), **Fix** (something is
 right but poorly built) or **Feature** (something new).
 
-_Nothing open in this theme — the remaining work is under **Then** and
-**Later**. The **Backup & restore** item that used to live here is deferred by
-maintainer decision; see **Later**._
+- **Non-linear fair-price curve — investigate the age fit's shape.**
+  *(Investigate → Fix.)* The fair price inverts a **linear** OLS fit of
+  SV/Booster vs age (`linearFit` → `expectedSvPerBooster` → `fairPrice` in
+  `metrics.js`). But a new release usually carries an **initial-hype premium** —
+  set value is elevated at launch and decays until the set leaves print — so the
+  true SV/Booster-vs-age relationship is probably **curved early, flatter later**;
+  a straight line splits the difference, biased for the youngest sets (and it
+  floors awkwardly for the oldest). Investigate whether a non-linear model fits
+  materially better. **Leading hypothesis: piecewise — a curved/decaying segment
+  before an age threshold (≈ the age-weight knot, ~1 yr), linear after** — model
+  the hype decay explicitly, then the settled linear tail. Compare against today's
+  line: segmented/piecewise regression (knot at the threshold), a smooth form
+  (log / power / exponential-decay-to-asymptote), or a robust local fit (LOESS).
+  - **Judge it honestly, don't just chase R².** Compare **out-of-sample /
+    cross-validated** error and residual structure, not in-sample R² — with ~37
+    sealed products (growing as coverage backfills) a bendier model overfits
+    easily. Adopt the non-linear form only if it **beats linear out-of-sample**,
+    and keep a **fallback to linear** when data is thin or the gain isn't real.
+  - **Keep the invariants.** Stays pure and unit-tested in `metrics.js` (no derived
+    number without a test); the result must remain **invertible to a fair price**
+    and sensibly floored; `fitConfidence()` / `fairPriceTrusted()` (the R² → band
+    honesty gate) still apply — extend them to whatever goodness-of-fit the new
+    model reports.
+  - **Watch the interaction with the age weight.** The age weight already discounts
+    a young set's *score*; if the *fair-price curve* also bends down for young
+    sets, the two risk double-counting the youth adjustment — decide deliberately
+    how they compose. This is the principled alternative to the **directional
+    fair-price haircut for young products** that was considered and deferred
+    (see the data-maturity work): a curved fit earns the correction from the data
+    instead of imposing it.
+
+_Otherwise nothing open in this theme — the rest is under **Then** and **Later**.
+The **Backup & restore** item that used to live here is deferred by maintainer
+decision; see **Later**._
 
 ## Then — design & usability at product level
 
