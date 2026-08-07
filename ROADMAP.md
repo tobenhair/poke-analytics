@@ -54,6 +54,10 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   display currency** — a header picker that shows every price on the page (board,
   charts, drill-down, portfolio) in the chosen unit (€ canonical, FX
   display-only; the ratio metrics stay put since a rate cancels out of them).
+  **⟳ Reopened (Aug 2026):** the surrounding features shipped, but the fair price's
+  core assumption — a **linear** age fit — is back under review; the fair-price
+  topic is **not done**. See **Non-linear fair-price curve** under **Now —
+  trustworthy numbers**.
 - **Loose pack price (reference)** — loose single boosters are tracked per set as
   `PACK` products (Cardmarket-ingested like the rest), but held *out* of every
   ranking, chart and KPI: with no sealed-box premium they beat every box on value
