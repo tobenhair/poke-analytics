@@ -18,7 +18,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { routeLocalLibs } from './local-cdn.mjs';
+import { routeLocalLibs, expandBoard } from './local-cdn.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fakeSdk = readFileSync(join(here, 'fake-supabase-sdk.js'), 'utf8');
@@ -215,8 +215,11 @@ test('a regular user gets portfolio + alerts but not Data Entry, and edits auto-
   await expect(page.locator('.tab-btn[data-tab="entry"]')).toBeHidden();
 
   // Full catalogue via the snapshot pivot — including the demo-gated product.
+  // The board opens collapsed to eras; expand to reveal the four product rows
+  // (Alpha SM · Beta SV · Gamma/Delta ME).
   await page.locator('.tab-btn[data-tab="analysis"]').click();
-  await expect(page.locator('#product-tbody tr')).toHaveCount(4);
+  await expandBoard(page);
+  await expect(page.locator('#product-tbody tr.grp-product')).toHaveCount(4);
   await expect(page.locator('#product-tbody')).toContainText('Alpha Booster Box');
 
   // The fixture alert (Gamma below €100, latest price €80) flags the board.

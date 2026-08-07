@@ -438,6 +438,51 @@ export function meanSeries(seriesList) {
   return out;
 }
 
+// ── Eras: contiguous release-date ranges → a named TCG era ──
+// The grouped board nests Era → Set → Product. Era is *derived* from a product's
+// release date (no stored field, nothing to hand-maintain), each era starting at
+// its first set's release. Listed newest-first so the boundary search returns the
+// first era whose start is on/before the date.
+export const ERAS = [
+  { key: 'ME',   label: 'Mega Evolution',   from: '2025-09-26' },
+  { key: 'SV',   label: 'Scarlet & Violet', from: '2023-03-31' },
+  { key: 'SWSH', label: 'Sword & Shield',   from: '2020-02-07' },
+  { key: 'SM',   label: 'Sun & Moon',       from: '2017-02-03' },
+  { key: 'XY',   label: 'XY',               from: '2014-02-05' },
+];
+
+// The era a release date falls in, or null with no date. Dates before the XY era
+// fall back to the oldest era we track (XY) — we have nothing earlier, and a
+// separate pre-XY bucket would be a lone mislabelled row until such data exists.
+export function eraForRelease(release) {
+  if (!release) return null;
+  const d = String(release).slice(0, 10);
+  return ERAS.find(e => d >= e.from) || ERAS[ERAS.length - 1];
+}
+
+// Aggregate stats for a group of products (one era or one set) — the numbers on
+// the grouped board's collapsible headline rows, so the overview is legible
+// before you expand. Pure; the caller passes the already-scoped product list.
+//   count        number of products
+//   meanSvb      mean SV/Booster (a ratio — currency-independent, safe to average)
+//   meanFairGap  mean fair-price gap over products that have one (signed %)
+//   underFair    how many are under fair price (fairGap < 0)
+//   minPrice/maxPrice  € price range (absolute — the caller converts for display)
+export function groupStats(products) {
+  const svb    = products.map(p => p.svPerBooster).filter(v => v != null && isFinite(v));
+  const gaps   = products.map(p => p.fairGap).filter(v => v != null);
+  const prices = products.map(p => p.price).filter(v => v != null);
+  const mean = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
+  return {
+    count:       products.length,
+    meanSvb:     svb.length  ? parseFloat(mean(svb).toFixed(1))  : null,
+    meanFairGap: gaps.length ? parseFloat(mean(gaps).toFixed(0)) : null,
+    underFair:   products.filter(p => p.fairGap != null && p.fairGap < 0).length,
+    minPrice:    prices.length ? Math.min(...prices) : null,
+    maxPrice:    prices.length ? Math.max(...prices) : null,
+  };
+}
+
 // ── Data-quality guards (Data Entry + the workbook validator) ──
 // Best-effort plausibility checks on the hand-entered data. They warn, never
 // block: the maintainer decides. Mirrored as non-fatal warnings in

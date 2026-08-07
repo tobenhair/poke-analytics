@@ -74,6 +74,18 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   A deliberate choice — it **reports, it does not adjust**: the verdict and fair
   price are untouched, and the risk call is the buyer's. (A directional fair-price
   haircut for young products was considered and deferred.)
+- **Grouped board — Era → Set → Product.** The flat All-Products board became a
+  collapsible tree: it opens as a **pure era overview** (~5 era headline rows) and
+  you expand an era → its sets → the product rows, so a catalogue that now spans
+  XY → Mega Evolution reads as an overview instead of a wall. Era is **derived from
+  release date** (`eraForRelease` + the `ERAS` boundary table in `metrics.js` — no
+  new column), settling the "how to define an era" question; era/set headline rows
+  show `groupStats()` aggregates (count · mean SV/Booster · N under fair · price
+  range), currency-correct; sets group by `setLogoKey()` so twin sets stay
+  distinct. `getFiltered()` still drives filter/sort; a live search force-expands.
+  Pure helpers unit-tested; the smoke/a11y/signed-in specs expand via `expandBoard`
+  and the phone spec pins the era rows wrapping so the overview never side-scrolls.
+  Follow-ons (era/set-level charts, era/set as a scope filter) stay under **Then**.
 - **XY + Sun & Moon backfill** — the catalogue now reaches back through the **XY
   era** (2014): every XY and Sun & Moon main-expansion product (**Booster Box /
   ETB / loose Pack** per set) plus the era's ETB-tracked special sets (Hidden
@@ -588,19 +600,15 @@ stance). What still stands unbuilt:
   count). Its *performance* half is **Board performance fixes** and its *payload*
   half is **Data volume at scale**, both under **Later**. Several ways to make many
   products navigable were investigated; **we'll pick a mix later**:
-  - **Hierarchical roll-up (Era → Set → Product), collapsed by default — the
-    recommended lead.** An aggregate headline row at each level — **set averages
-    and era averages** (mean SV/Booster, mean gap-to-fair, count, mean price and
-    €/booster, newest release) — so the overview is legible before a product row
-    is opened; expand downward to the existing per-product row (and its
-    drill-down) as the leaf. Doubles as a set/era **filter/section** for the board
-    and analytical views (reuse the `activeType` → `visibleProducts()` /
-    `applyTypeFilter()` plumbing), **and** as a perf win: a collapsed group renders
-    one header row instead of its members — cheap virtualisation without the scroll
-    math. Builds on `groupSets()` / `setLabel()` / `meanSeries()` in `metrics.js`,
-    already used for the §06/§08 comparison and the demo. **Era needs a definition
-    first** — a cheap release-year bucket (no new data) or a curated TCG-series map
-    (SWSH / SV / …, more meaningful but a new per-product field).
+  - **Hierarchical roll-up (Era → Set → Product) — ✅ SHIPPED for the board
+    table** (see **Done**). The board is now the collapsible tree with era/set
+    headline aggregates (`eraForRelease` / `groupStats` in `metrics.js`), opening
+    as a pure era overview. Era was **derived from release date** (the `ERAS`
+    boundary table — no new field), resolving the open "era definition" question.
+    *Still open here:* rolling the same grouping into the **charts / analytical
+    views** (era/set-level series), and using an era/set as a **scope filter** for
+    those views (today it only nests the board), plus its **perf win** (a collapsed
+    group renders one row — cheap virtualisation) is realised for the board only.
   - **Scoped-by-default board.** Open on a meaningful slice — in-print / recent
     releases, or (signed in) portfolio + watchlist — with an explicit "show full
     catalogue" toggle, flagged like the `#data-source-banner` so the scope is

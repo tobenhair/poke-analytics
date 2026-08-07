@@ -28,6 +28,9 @@ import {
   trendDirection,
   buySignal,
   dataMaturity,
+  ERAS,
+  eraForRelease,
+  groupStats,
   BUY_SIGNAL_PRICE_DROP,
   BUY_SIGNAL_SV_HOLD,
   peerResiduals,
@@ -541,6 +544,49 @@ test('dataMaturity counts only tracked snapshots and needs two for a span/swing'
 test('dataMaturity is null when nothing is tracked', () => {
   assert.equal(dataMaturity(null, []), null);
   assert.equal(dataMaturity({ price: [null, null], setVal: [] }, []), null);
+});
+
+// ── eras: release date → named TCG era (grouped board) ───────────
+test('eraForRelease maps a release date to its era by boundary', () => {
+  assert.equal(eraForRelease('2014-02-05').key, 'XY');    // first XY set
+  assert.equal(eraForRelease('2016-11-02').key, 'XY');    // Evolutions, still XY
+  assert.equal(eraForRelease('2017-02-03').key, 'SM');    // Sun & Moon base
+  assert.equal(eraForRelease('2019-11-01').key, 'SM');    // Cosmic Eclipse
+  assert.equal(eraForRelease('2020-02-07').key, 'SWSH');  // Sword & Shield
+  assert.equal(eraForRelease('2023-03-31').key, 'SV');    // Scarlet & Violet
+  assert.equal(eraForRelease('2025-09-26').key, 'ME');    // Mega Evolutions
+  assert.equal(eraForRelease('2026-05-22').key, 'ME');    // later ME set
+});
+
+test('eraForRelease boundaries are half-open [from, next) — the day itself is the new era', () => {
+  assert.equal(eraForRelease('2025-09-25').key, 'SV');    // day before ME → still SV
+  assert.equal(eraForRelease('2025-09-26').key, 'ME');    // ME starts on its date
+  assert.equal(eraForRelease(null), null);
+  assert.equal(eraForRelease('2013-01-01').key, 'XY');    // pre-XY falls back to oldest
+});
+
+// ── groupStats: the era/set headline aggregates ──────────────────
+test('groupStats aggregates count, mean SV/Booster, fair gap, under-fair and price range', () => {
+  const g = groupStats([
+    { svPerBooster: 100, fairGap: -20, price: 200 },
+    { svPerBooster: 200, fairGap:  10, price: 400 },
+    { svPerBooster: 150, fairGap: null, price: 300 }, // no fair gap → excluded from mean
+  ]);
+  assert.equal(g.count, 3);
+  assert.equal(g.meanSvb, 150);        // (100+200+150)/3
+  assert.equal(g.meanFairGap, -5);     // (-20+10)/2, gap-less product ignored
+  assert.equal(g.underFair, 1);        // only the -20
+  assert.equal(g.minPrice, 200);
+  assert.equal(g.maxPrice, 400);
+});
+
+test('groupStats is null-safe on an empty or metric-less group', () => {
+  const g = groupStats([]);
+  assert.equal(g.count, 0);
+  assert.equal(g.meanSvb, null);
+  assert.equal(g.meanFairGap, null);
+  assert.equal(g.underFair, 0);
+  assert.equal(g.minPrice, null);
 });
 
 // ── trendDirection: the board's ▲/▼ arrow ────────────────────────
