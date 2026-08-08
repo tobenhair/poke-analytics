@@ -59,6 +59,7 @@ const markup = html
 const CONSTRUCTED = [
   { pattern: /^type-(BOX|ETB|BUNDLE|PACK)$/, why: 'built as `type-${typeCategory(...)}` in typeBadge() and the row templates (PACK = the neutral single-pack tint)' },
   { pattern: /^tab-(welcome|analysis|portfolio|entry)$/, why: "built as `'tab-' + btn.dataset.tab` by the tab switcher" },
+  { pattern: /^grp-(era|set)$/, why: 'built as `grp-${level}` in groupRow() for the grouped board’s Era/Set headline rows' },
 ];
 const constructedReason = (name) => CONSTRUCTED.find((c) => c.pattern.test(name))?.why;
 

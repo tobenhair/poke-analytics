@@ -232,11 +232,43 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   a control — it animates the ring's width from 0, so the indicator arrives
   ~250 ms late.
 
+### The board is a grouped Era → Set → Product tree
+
+`updateTable()` renders §01 The Board as a **collapsible Era → Set → Product
+tree**, not a flat list — as coverage grew (XY → present) a flat board became a
+wall to scan. `getFiltered()` still does the type/search/verdict filtering and the
+sort; the tree only nests the result. It opens as a **pure era overview** (every
+era collapsed — `expandedEras`/`expandedSets` start empty), so the page leads with
+~5 era headline rows; expand an era to its sets, a set to its product rows.
+
+- **Era is derived, not stored.** `eraForRelease(release)` (in `metrics.js`) maps
+  a release date to a named era via the `ERAS` boundary table (Mega Evolution /
+  Scarlet & Violet / Sword & Shield / Sun & Moon / XY, newest first) — no column,
+  nothing to hand-maintain. A new era is one `ERAS` entry.
+- **Headline rows show `groupStats()`** (pure, in `metrics.js`): count, mean
+  SV/Booster, how many are under fair, price range — currency-correct (only the
+  €-absolute range converts; the SV/Booster mean is a ratio and stays put). Sets
+  group by `setLogoKey()` (SKU suffix stripped, so twin sets like Black Bolt /
+  White Flare stay distinct) via `boardSets()`, newest release first; products
+  keep `getFiltered()`'s sort order within a set.
+- **Group rows are real disclosures.** `groupRow()` builds a `<button
+  class="grp-toggle" aria-expanded>` in a colspan cell; the whole row toggles for
+  the mouse, the button is the keyboard/AT target, and toggling re-renders
+  (destroy-recreate, like the charts). Product rows (`productRowTr()`, class
+  `grp-product`) are the unchanged nine-column leaf and open the drill-down. The
+  `.grp-era`/`.grp-set` classes are built as `grp-${level}` (in the dead-code
+  `CONSTRUCTED` allowlist). Tests reveal product rows with `expandBoard()` in
+  `tests/local-cdn.mjs`.
+- **A live search force-expands every group** so matches are visible, then returns
+  to the collapsed state when cleared.
+
 ### The board on a phone (column priority)
 
 Below 680px the All Products table drops its six **`.col-detail`** columns
 (Type, Set Value, €/Booster, SV/Booster, Age, Wtd. Score), freezes the product
-name (`position: sticky; left: 0`), and shows a `.scroll-hint` line. Reasons a
+name (`position: sticky; left: 0`), and shows a `.scroll-hint` line. The grouped
+**Era/Set headline rows wrap** on a phone (`.grp-stats` becomes a block) so even
+the collapsed era overview never forces a two-dimensional swipe. Reasons a
 future change should preserve:
 
 - The measurement it fixes: 9 columns are **1,098px wide in a 356px window**, so

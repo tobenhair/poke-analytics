@@ -18,7 +18,7 @@
 
 import { test, expect } from '@playwright/test';
 // forceStaticMode lives in local-cdn.mjs so the a11y spec can share it.
-import { routeLocalLibs, forceStaticMode } from './local-cdn.mjs';
+import { routeLocalLibs, forceStaticMode, expandBoard } from './local-cdn.mjs';
 
 test('page loads and renders all tabs without runtime errors', async ({ page }) => {
   const pageErrors = [];
@@ -37,36 +37,40 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   await page.locator('.tab-btn[data-tab="analysis"]').click();
   await expect(page.locator('#tab-analysis')).toBeVisible();
 
-  // Product table populated (would be empty if data failed to render).
+  // Board renders as the grouped Era overview (collapsed to era headline rows) —
+  // empty if data failed to render.
   await expect.poll(
-    () => page.locator('#product-tbody tr').count(),
-    { message: 'product table should have rows', timeout: 10_000 },
+    () => page.locator('#product-tbody .grp-era').count(),
+    { message: 'board should show era rows', timeout: 10_000 },
   ).toBeGreaterThan(0);
 
   // The "Where to start" shortlist populated.
   await expect(page.locator('#overview-deals .pick-item').first()).toBeVisible();
 
-  // Fair Price column derived: the header states the fit's confidence in words
-  // (the R² itself lives in the drill-down) and at least one board row shows a
-  // computed fair price in euros — together these guard recomputeFit() running
-  // before the first render, and the age-fit → fair-price inversion.
+  // Expand the tree to reveal product rows, then check the derived columns. Fair
+  // Price column derived: the header states the fit's confidence in words (the R²
+  // itself lives in the drill-down) and at least one product row shows a computed
+  // fair price in euros — together these guard recomputeFit() running before the
+  // first render, and the age-fit → fair-price inversion.
+  await expandBoard(page);
   await expect(page.locator('#fair-fit-note')).toHaveText(/strong fit|moderate fit|rough estimate/);
   await expect.poll(
-    () => page.locator('#product-tbody td:nth-child(4)')
+    () => page.locator('#product-tbody tr.grp-product td:nth-child(4)')
             .filter({ hasText: '€' }).count(),
     { message: 'board should show at least one fair price', timeout: 10_000 },
   ).toBeGreaterThan(0);
 
   // Verdict line renders under product names, and board search narrows the table.
   await expect(page.locator('#product-tbody .verdict-line').first()).toBeVisible();
-  const allRows = await page.locator('#product-tbody tr').count();
+  const productRows = await page.locator('#product-tbody tr.grp-product').count();
   await page.fill('#board-search', 'zzzznomatch');
   await expect(page.locator('#product-tbody')).toContainText('No products match');
   await page.fill('#board-search', '');
-  await expect.poll(() => page.locator('#product-tbody tr').count()).toBe(allRows);
+  // Clearing restores the pre-search expanded state (the groups stay expanded).
+  await expect.poll(() => page.locator('#product-tbody tr.grp-product').count()).toBe(productRows);
 
-  // Drill-down opens from a row, renders its stats and a real chart, then closes.
-  await page.locator('#product-tbody tr').first().click();
+  // Drill-down opens from a product row, renders its stats and a real chart.
+  await page.locator('#product-tbody tr.grp-product').first().click();
   await expect(page.locator('#drill-modal')).toHaveClass(/open/);
   await expect(page.locator('#drill-stats .drill-stat')).toHaveCount(7);
   // Set logo is best-effort: with the TCGdex API stubbed empty it stays hidden

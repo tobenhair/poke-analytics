@@ -93,3 +93,15 @@ export async function routeLocalLibs(page) {
   // the drill-down exercises the no-logo (text-title) fallback deterministically.
   await page.route('**api.tcgdex.net/**', (r) => r.fulfill({ contentType: 'application/json', body: '[]' }));
 }
+
+// The board is a collapsible Era → Set → Product tree that opens collapsed to
+// eras. Reveal every product row by clicking the first still-collapsed group
+// repeatedly — each click re-renders the tbody, so re-query rather than cache —
+// until nothing is collapsed. Finite (one click per era + set) and deterministic.
+export async function expandBoard(page) {
+  for (let i = 0; i < 300; i++) {
+    const collapsed = page.locator('#product-tbody .grp-toggle[aria-expanded="false"]').first();
+    if ((await collapsed.count()) === 0) break;
+    await collapsed.click();
+  }
+}

@@ -31,7 +31,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { routeLocalLibs, forceStaticMode } from './local-cdn.mjs';
+import { routeLocalLibs, forceStaticMode, expandBoard } from './local-cdn.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fakeSdk = readFileSync(join(here, 'fake-supabase-sdk.js'), 'utf8');
@@ -113,10 +113,12 @@ test('the drill-down opens from the keyboard, traps focus, and gives it back', a
   await bootStatic(page);
   await openTab(page, 'analysis');
 
-  // F1: the board's answer surface must be reachable without a mouse. The row
+  // F1: the board's answer surface must be reachable without a mouse. The board
+  // opens collapsed to eras, so expand to reveal product rows first; the row
   // affordance is a real button, so focusing and pressing Enter is the whole
   // keyboard contract.
-  const firstRowButton = page.locator('#product-tbody tr').first().locator('.row-open');
+  await expandBoard(page);
+  const firstRowButton = page.locator('#product-tbody tr.grp-product').first().locator('.row-open');
   await firstRowButton.focus();
   const productName = (await firstRowButton.textContent()).trim();
   await page.keyboard.press('Enter');
@@ -262,8 +264,11 @@ test('no interactive control is under the 24px target minimum (WCAG 2.5.8)', asy
   await bootStatic(page);
   await openTab(page, 'analysis');
   // Dialog controls only have a box while a dialog is open, so measure with the
-  // drill-down up — that is where the worst offender lived (an 11×15 ✕).
-  await page.locator('#product-tbody tr').first().locator('.row-open').click();
+  // drill-down up — that is where the worst offender lived (an 11×15 ✕). Expand
+  // the grouped board first so a product row's opener exists (the group toggles
+  // themselves are also measured here — they must clear 24px too).
+  await expandBoard(page);
+  await page.locator('#product-tbody tr.grp-product').first().locator('.row-open').click();
   await expect(page.locator('#drill-modal')).toBeVisible();
 
   const undersized = await page.evaluate(() => {
@@ -288,28 +293,38 @@ test('the board gives a phone the answer: column priority, a frozen name, a hint
   await openTab(page, 'analysis');
 
   const board = page.locator('#tab-analysis .table-wrap').first();
-  const phone = await board.evaluate((wrap) => ({
-    scrollW: wrap.scrollWidth,
-    clientW: wrap.clientWidth,
-    detailShown: [...wrap.querySelectorAll('.col-detail')].some((c) => getComputedStyle(c).display !== 'none'),
-    firstColSticky: getComputedStyle(wrap.querySelector('tbody td')).position,
-  }));
 
-  // Measured before this change: 1,098px of columns in a 356px window, with
-  // Fair Price — the north-star answer — starting at x=392. The six detail
-  // columns are dropped on a phone (all of them are in the drill-down), which
-  // brings the swipe down to a fraction of a screen.
+  // The board opens as a pure era overview. Its headline rows wrap on a phone, so
+  // even collapsed the board must not force a two-dimensional swipe; the hint is
+  // shown (it matters once you expand to products, which do have hidden columns).
+  const overview = await board.evaluate((wrap) => ({
+    scrollW: wrap.scrollWidth, clientW: wrap.clientWidth,
+    eraRows: wrap.querySelectorAll('.grp-era').length,
+  }));
+  expect(overview.eraRows, 'era headline rows render').toBeGreaterThan(0);
+  expect(overview.scrollW, 'era overview scroll width on a phone').toBeLessThan(overview.clientW * 1.4);
+  await expect(page.locator('#tab-analysis .scroll-hint').first()).toBeVisible();
+
+  // Expand to product rows. Measured before column priority existed: 1,098px of
+  // columns in a 356px window, with Fair Price — the north-star answer — starting
+  // at x=392. The six detail columns drop on a phone (all in the drill-down), so
+  // the swipe is a fraction of a screen and the product name stays frozen.
+  await expandBoard(page);
+  const phone = await board.evaluate((wrap) => ({
+    scrollW: wrap.scrollWidth, clientW: wrap.clientWidth,
+    detailShown: [...wrap.querySelectorAll('tr.grp-product .col-detail')].some((c) => getComputedStyle(c).display !== 'none'),
+    firstColSticky: getComputedStyle(wrap.querySelector('tr.grp-product td')).position,
+  }));
   expect(phone.detailShown, 'detail columns must be hidden on a phone').toBe(false);
   expect(phone.scrollW, 'board scroll width on a phone').toBeLessThan(phone.clientW * 1.4);
-  // …and the product name stays put while swiping, so a row can't be lost.
   expect(phone.firstColSticky).toBe('sticky');
-  await expect(page.locator('#tab-analysis .scroll-hint').first()).toBeVisible();
 
   // Fair Price is reachable, and reading it does not cost the row's identity.
   await board.evaluate((wrap) => { wrap.scrollLeft = wrap.scrollWidth; });
   const afterSwipe = await board.evaluate((wrap) => {
-    const cell = wrap.querySelector('tbody td');
-    const fair = wrap.querySelector('tbody td:nth-child(4)');   // Fair Price
+    const row = wrap.querySelector('tr.grp-product');
+    const cell = row.querySelector('td');                       // product name
+    const fair = row.querySelector('td:nth-child(4)');          // Fair Price
     const box = wrap.getBoundingClientRect();
     const inView = (el) => {
       const r = el.getBoundingClientRect();
@@ -325,6 +340,7 @@ test('the desktop board keeps every column', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await bootStatic(page);
   await openTab(page, 'analysis');
+  await expandBoard(page);   // reveal product rows so there are detail columns to check
   // Column priority is a phone concession, not a feature — nothing is hidden
   // where there is room for it.
   const hidden = await page.evaluate(() =>

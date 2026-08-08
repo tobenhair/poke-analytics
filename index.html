@@ -692,6 +692,22 @@
   /* Cap the All Products list height and let it scroll on its own, so the
      sticky header below can stay pinned while scrolling a long table. */
   .table-wrap { overflow: auto; max-height: 70vh; }
+  /* ── Grouped board: collapsible Era → Set → Product headline rows ── */
+  .grp-row { cursor: pointer; }
+  .grp-row > td { padding: 0; }
+  .grp-era > td { background: var(--bg3); border-top: 1px solid var(--border); }
+  .grp-set > td { background: rgba(255,255,255,0.02); padding-left: 16px; }
+  .grp-era:hover > td, .grp-set:hover > td { background: rgba(244,198,81,0.04); }
+  .grp-toggle {
+    background: none; border: none; cursor: pointer; color: var(--text);
+    font-family: 'DM Mono', monospace; padding: 11px 14px 11px 8px;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .grp-caret { color: var(--muted); width: 12px; display: inline-block; text-align: center; }
+  .grp-era .grp-name { font-size: var(--text-md); text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
+  .grp-set .grp-name { font-size: var(--text-sm); color: var(--text); }
+  .grp-stats { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted); }
+  .grp-product .product-name { padding-left: 28px; }
   /* Phone-only affordance. A table that scrolls sideways gives no sign that it
      does, which is why the off-screen Fair Price column read as missing rather
      than as one swipe away. Shown only at widths where the table actually
@@ -1391,6 +1407,10 @@
        states its type ("… Booster Box" / "… ETB" / "… Bundle"), so the Type
        badge is the one that costs nothing to drop. */
     .table-wrap .col-detail { display: none; }
+    /* Grouped-board headline rows wrap on a phone so the long era/set summary
+       line can't force the table wider than the screen. */
+    .grp-row > td { white-space: normal; }
+    .grp-stats { display: block; padding: 2px 14px 10px 30px; }
     .table-wrap thead th:first-child,
     .table-wrap tbody td:first-child {
       position: sticky;
@@ -2763,7 +2783,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
+import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -2840,6 +2860,13 @@ let activeType = "ALL";
 let sortKey = "score";
 let searchTerm = "";      // Board name/set search (case-insensitive substring)
 let verdictFilter = "all"; // Board filter by verdict tone: all | good | neutral | bad
+// The board is a collapsible Era → Set → Product tree. Default: a pure era
+// overview — every era collapsed, so the page opens on ~5 era headline rows and
+// you expand down to sets then products. These hold the *expanded* keys (era key,
+// and `${eraKey}::${setKey}`); a live search force-expands everything so matches
+// are visible.
+let expandedEras = new Set();
+let expandedSets = new Set();
 let ageThreshold = 1; // years until age weight reaches 1.0 (default)
 // The age-fit line (SV/Booster ~ age) with its R², recomputed once per data
 // load by recomputeFit(). Shared by the board's fair price, the scatter overlay
@@ -3188,10 +3215,14 @@ function renderOverview() {
 // ============================================================
 // TABLE
 // ============================================================
+// The board is a collapsible Era → Set → Product tree. getFiltered() still does
+// the type/search/verdict filtering and the sort; the tree just nests the result
+// so a long catalogue reads as an overview (era + set headline rows) before you
+// drill into products. Eras render newest-first (ERAS order), sets newest-release
+// first, products in getFiltered's sort order. A live search opens every group.
 function updateTable() {
   const data = getFiltered();
-  const maxScore = Math.max(...data.map(p => p.score));
-  document.getElementById('count-badge').textContent = `${data.length} products`;
+  document.getElementById('count-badge').textContent = `${data.length} product${data.length === 1 ? '' : 's'}`;
   updateFairFitNote();
   const tbody = document.getElementById('product-tbody');
   tbody.innerHTML = '';
@@ -3199,44 +3230,114 @@ function updateTable() {
     tbody.innerHTML = `<tr><td colspan="9"><div class="portfolio-empty">No products match — clear the search or verdict filter.</div></td></tr>`;
     return;
   }
-  data.forEach((p, i) => {
-    const tr = document.createElement('tr');
-    const svClass = p.svPerBooster >= 150 ? 'val-excellent' : p.svPerBooster >= 80 ? 'val-good' : 'val-poor';
-    const scoreW = Math.round((p.score / maxScore) * 100);
-    const color = scoreColor(p.score);
-    const trend = getTrend(p.name);
-    tr.innerHTML = `
-      <td class="product-name" title="${p.name}">
-        <span class="pn-head">${isBuySignal(p.name) ? '<span class="buy-flag" role="img" aria-label="Buy signal" title="Price dropped ≥5% but set value held steady — potential buy opportunity"><svg class="icon" aria-hidden="true"><use href="#i-deal"/></svg></span>' : ''}${alertFlag(p.name)}<button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></span>
-        ${verdictLine(p)}
-      </td>
-      <td class="col-detail">${typeBadge(p.type)}</td>
-      <td class="num">${money(p.price)}</td>
-      <td class="num">${fairPriceCell(p)}</td>
-      <td class="num col-detail">${money(p.setVal)}</td>
-      <td class="num col-detail">${money(p.pricePerBooster, 1)}</td>
-      <td class="num col-detail ${svClass}">${fmt(p.svPerBooster, 1)}×</td>
-      <td class="num col-detail">${fmt(p.age, 1)}</td>
-      <td class="col-detail">
-        <div class="score-bar-wrap">
-          <div class="score-bar-bg"><div class="score-bar-fill" style="width:${scoreW}%;background:${color}"></div></div>
-          <div class="score-val" style="color:${color}">${fmt(p.score, 1)}</div>
-          <span class="${trend > 0 ? 'trend-up' : trend < 0 ? 'trend-down' : 'trend-neutral'}" aria-hidden="true">${trend > 0 ? '▲' : trend < 0 ? '▼' : '—'}</span><span class="sr-only">${trend > 0 ? 'trending up' : trend < 0 ? 'trending down' : 'flat'}</span>
-        </div>
-      </td>
-    `;
-    // The whole row stays clickable for the mouse, but the keyboard/screen-
-    // reader affordance is a real button around the product name: giving the
-    // <tr> itself role="button" would strip the table's row semantics, and a
-    // bare tabindex would announce no action. stopPropagation keeps the two
-    // paths from both firing (which would rebuild the drill charts twice).
-    tr.addEventListener('click', () => openDrill(p.name));
-    tr.querySelector('.row-open').addEventListener('click', e => {
-      e.stopPropagation();
-      openDrill(p.name);
-    });
-    tbody.appendChild(tr);
-  });
+  const maxScore = Math.max(...data.map(p => p.score));
+  const searching = searchTerm.trim() !== '';
+
+  const byEra = new Map();
+  for (const p of data) {
+    const era = eraForRelease(p.release) || { key: '—', label: 'Unknown era' };
+    if (!byEra.has(era.key)) byEra.set(era.key, { era, products: [] });
+    byEra.get(era.key).products.push(p);
+  }
+  for (const key of [...ERAS.map(e => e.key), '—']) {
+    const grp = byEra.get(key);
+    if (!grp) continue;
+    const eraOpen = searching || expandedEras.has(key);
+    tbody.appendChild(groupRow('era', key, grp.era.label, groupStats(grp.products), eraOpen, eraSummaryTail(grp.products)));
+    if (!eraOpen) continue;
+    for (const set of boardSets(grp.products)) {
+      const setKey = `${key}::${set.key}`;
+      const setOpen = searching || expandedSets.has(setKey);
+      tbody.appendChild(groupRow('set', setKey, set.label, groupStats(set.products), setOpen, null));
+      if (!setOpen) continue;
+      for (const p of set.products) tbody.appendChild(productRowTr(p, maxScore));
+    }
+  }
+}
+
+// Group a product list into sets by set key (the SKU suffix stripped, so twin
+// sets sharing a release date — Black Bolt / White Flare — stay distinct),
+// newest release first; products keep their incoming (sorted) order within a set.
+function boardSets(products) {
+  const map = new Map();
+  for (const p of products) {
+    const k = setLogoKey(p.name);
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push(p);
+  }
+  return [...map.entries()].map(([key, ps]) => ({
+    key, products: ps,
+    label: setLabel(ps.map(p => p.name)),
+    release: ps.reduce((m, p) => (p.release > m ? p.release : m), ps[0].release),
+  })).sort((a, b) => (a.release < b.release ? 1 : a.release > b.release ? -1 : 0));
+}
+
+// The trailing "newest <set>" clause on an era headline row.
+function eraSummaryTail(products) {
+  const sets = boardSets(products);
+  return sets.length ? `newest ${sets[0].label}` : '';
+}
+
+// A collapsible Era or Set headline row (spans the board), with a real <button>
+// disclosure + aria-expanded and the group's aggregate stats. The whole row
+// toggles for the mouse; the button is the keyboard/AT target.
+function groupRow(level, key, label, st, open, tail) {
+  const tr = document.createElement('tr');
+  tr.className = `grp-row grp-${level}`;
+  const svb   = st.meanSvb != null ? ` · avg ${fmt(st.meanSvb, 0)}×` : '';
+  const gap   = st.meanFairGap != null ? ` · ${st.underFair} under fair` : '';
+  const price = st.minPrice != null ? ` · ${money(st.minPrice)}–${money(st.maxPrice)}` : '';
+  const stats = `${st.count} product${st.count === 1 ? '' : 's'}${svb}${gap}${price}${tail ? ' · ' + tail : ''}`;
+  tr.innerHTML = `<td colspan="9">
+    <button type="button" class="grp-toggle" aria-expanded="${open}">
+      <span class="grp-caret" aria-hidden="true">${open ? '▾' : '▸'}</span>
+      <span class="grp-name">${label}</span>
+    </button><span class="grp-stats">${stats}</span>
+  </td>`;
+  const toggle = () => {
+    const set = level === 'era' ? expandedEras : expandedSets;
+    if (set.has(key)) set.delete(key); else set.add(key);
+    updateTable();
+  };
+  tr.addEventListener('click', toggle);
+  tr.querySelector('.grp-toggle').addEventListener('click', e => { e.stopPropagation(); toggle(); });
+  return tr;
+}
+
+// One product row — the board's leaf, the same nine columns as the flat board.
+// The whole row opens the drill-down for the mouse; the named button is the
+// keyboard/AT target (a bare tabindex/role on the <tr> would strip row semantics),
+// and stopPropagation keeps the two handlers from firing twice.
+function productRowTr(p, maxScore) {
+  const tr = document.createElement('tr');
+  tr.className = 'grp-product';
+  const svClass = p.svPerBooster >= 150 ? 'val-excellent' : p.svPerBooster >= 80 ? 'val-good' : 'val-poor';
+  const scoreW = maxScore > 0 ? Math.round((p.score / maxScore) * 100) : 0;
+  const color = scoreColor(p.score);
+  const trend = getTrend(p.name);
+  tr.innerHTML = `
+    <td class="product-name" title="${p.name}">
+      <span class="pn-head">${isBuySignal(p.name) ? '<span class="buy-flag" role="img" aria-label="Buy signal" title="Price dropped ≥5% but set value held steady — potential buy opportunity"><svg class="icon" aria-hidden="true"><use href="#i-deal"/></svg></span>' : ''}${alertFlag(p.name)}<button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></span>
+      ${verdictLine(p)}
+    </td>
+    <td class="col-detail">${typeBadge(p.type)}</td>
+    <td class="num">${money(p.price)}</td>
+    <td class="num">${fairPriceCell(p)}</td>
+    <td class="num col-detail">${money(p.setVal)}</td>
+    <td class="num col-detail">${money(p.pricePerBooster, 1)}</td>
+    <td class="num col-detail ${svClass}">${fmt(p.svPerBooster, 1)}×</td>
+    <td class="num col-detail">${fmt(p.age, 1)}</td>
+    <td class="col-detail">
+      <div class="score-bar-wrap">
+        <div class="score-bar-bg"><div class="score-bar-fill" style="width:${scoreW}%;background:${color}"></div></div>
+        <div class="score-val" style="color:${color}">${fmt(p.score, 1)}</div>
+        <span class="${trend > 0 ? 'trend-up' : trend < 0 ? 'trend-down' : 'trend-neutral'}" aria-hidden="true">${trend > 0 ? '▲' : trend < 0 ? '▼' : '—'}</span><span class="sr-only">${trend > 0 ? 'trending up' : trend < 0 ? 'trending down' : 'flat'}</span>
+      </div>
+    </td>
+  `;
+  tr.addEventListener('click', () => openDrill(p.name));
+  tr.querySelector('.row-open').addEventListener('click', e => { e.stopPropagation(); openDrill(p.name); });
+  return tr;
 }
 
 // The verdict shown as a small line under the product name — the row's plain-
