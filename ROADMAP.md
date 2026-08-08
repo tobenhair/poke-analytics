@@ -74,18 +74,23 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   A deliberate choice — it **reports, it does not adjust**: the verdict and fair
   price are untouched, and the risk call is the buyer's. (A directional fair-price
   haircut for young products was considered and deferred.)
-- **Grouped board — Era → Set → Product.** The flat All-Products board became a
-  collapsible tree: it opens as a **pure era overview** (~5 era headline rows) and
-  you expand an era → its sets → the product rows, so a catalogue that now spans
-  XY → Mega Evolution reads as an overview instead of a wall. Era is **derived from
-  release date** (`eraForRelease` + the `ERAS` boundary table in `metrics.js` — no
-  new column), settling the "how to define an era" question; era/set headline rows
-  show `groupStats()` aggregates (count · mean SV/Booster · N under fair · price
-  range), currency-correct; sets group by `setLogoKey()` so twin sets stay
-  distinct. `getFiltered()` still drives filter/sort; a live search force-expands.
-  Pure helpers unit-tested; the smoke/a11y/signed-in specs expand via `expandBoard`
+- **Grouped board + analytical tables — Era → Set → Product.** The flat
+  All-Products board became a collapsible tree: it opens as a **pure era overview**
+  (~5 era headline rows) and you expand an era → its sets → the product rows, so a
+  catalogue that now spans XY → Mega Evolution reads as an overview instead of a
+  wall. Era is **derived from release date** (`eraForRelease` + the `ERAS` boundary
+  table in `metrics.js` — no new column), settling the "how to define an era"
+  question; era/set headline rows show `groupStats()` aggregates (count · mean
+  SV/Booster · N under fair · price range), currency-correct; sets group by
+  `setLogoKey()` so twin sets stay distinct. `getFiltered()` still drives
+  filter/sort; a live search force-expands. The **§04 Relative Value and §06
+  Momentum tables** now use the **same tree** — a shared `renderGroupTree(tbody,
+  products, ctx)` helper, each table with its own independent expand state, each
+  keeping its own ranking (residual desc / deepest-dip) *within* a set. Pure
+  helpers unit-tested; the smoke/a11y/signed-in specs expand via `expandBoard`
   and the phone spec pins the era rows wrapping so the overview never side-scrolls.
-  Follow-ons (era/set-level charts, era/set as a scope filter) stay under **Then**.
+  Follow-ons (era/set-level *chart series*, era/set as a scope filter) stay under
+  **Then**.
 - **XY + Sun & Moon backfill** — the catalogue now reaches back through the **XY
   era** (2014): every XY and Sun & Moon main-expansion product (**Booster Box /
   ETB / loose Pack** per set) plus the era's ETB-tracked special sets (Hidden
@@ -601,14 +606,17 @@ stance). What still stands unbuilt:
   half is **Data volume at scale**, both under **Later**. Several ways to make many
   products navigable were investigated; **we'll pick a mix later**:
   - **Hierarchical roll-up (Era → Set → Product) — ✅ SHIPPED for the board
-    table** (see **Done**). The board is now the collapsible tree with era/set
-    headline aggregates (`eraForRelease` / `groupStats` in `metrics.js`), opening
-    as a pure era overview. Era was **derived from release date** (the `ERAS`
-    boundary table — no new field), resolving the open "era definition" question.
-    *Still open here:* rolling the same grouping into the **charts / analytical
-    views** (era/set-level series), and using an era/set as a **scope filter** for
-    those views (today it only nests the board), plus its **perf win** (a collapsed
-    group renders one row — cheap virtualisation) is realised for the board only.
+    and the analytical tables** (see **Done**). The board and the §04 Relative
+    Value / §06 Momentum tables are now the collapsible tree with era/set headline
+    aggregates (`eraForRelease` / `groupStats` in `metrics.js`, via the shared
+    `renderGroupTree()`), opening as a pure era overview. Era was **derived from
+    release date** (the `ERAS` boundary table — no new field), resolving the open
+    "era definition" question. *Still open here:* rolling the same grouping into
+    the **charts** proper (era/set-level *series* in the Price-History / SV-trend
+    comparison views), and using an era/set as a **scope filter** for those views
+    (today the grouping only nests the three tables), plus its **perf win** (a
+    collapsed group renders one row — cheap virtualisation) is realised for those
+    tables only.
   - **Scoped-by-default board.** Open on a meaningful slice — in-print / recent
     releases, or (signed in) portfolio + watchlist — with an explicit "show full
     catalogue" toggle, flagged like the `#data-source-banner` so the scope is
