@@ -261,6 +261,33 @@ era collapsed — `expandedEras`/`expandedSets` start empty), so the page leads 
   `tests/local-cdn.mjs`.
 - **A live search force-expands every group** so matches are visible, then returns
   to the collapsed state when cleared.
+- **The grouping is a shared helper, not the board's alone.**
+  `renderGroupTree(tbody, products, ctx)` does the era→set→product nesting and
+  headline rows; `updateTable()` and the two analytical tables (below) all call
+  it. `ctx` carries everything table-specific: the headline `colspan`, the pair
+  of expand-state `Set`s, the `rerender` to run on toggle, whether a live
+  `searching` forces every group open, an optional era `tail` summariser, and the
+  `leaf` builder for a product row. `groupRow()` reads its colspan/state/rerender
+  off `ctx` too. Products passed in must carry `release`/`svPerBooster`/`fairGap`/
+  `price` — `groupStats()` reads them for the headline aggregates.
+
+### §04 Relative Value and §06 Momentum reuse the same tree
+
+`renderRelativeValue()` (`#relval-tbody`, colspan 6) and `renderMomentum()`
+(`#momentum-tbody`, colspan 7) render their rankings through the same
+`renderGroupTree()` as the board, each with its own independent expand state
+(`relvalExpandedEras`/`relvalExpandedSets`, `momentumExpandedEras`/
+`momentumExpandedSets`), also opening as a pure era overview. Both feed the tree
+**product objects** (so `groupStats()`/`boardSets()` work unchanged) and a `leaf`
+builder that renders the ranking row: `relvalRowTr()` / `momentumRowTr()`. The
+sort each table already computed is preserved *within* a set — for Relative Value,
+`peerResiduals()` returns bare `{name,…}` objects with no release, so they're
+mapped back to their products for grouping via a name→product map and a
+name→residual lookup keys the leaf; Momentum's rows already carry the product, so
+a name→momentum map keys its leaf. Neither table has a search box, so `searching`
+is always `false` (no force-expand). Both are already wired into `INIT`,
+`applyNewData()` and `applyTypeFilter()`; their group toggles re-render via
+`ctx.rerender`.
 
 ### The board on a phone (column priority)
 

@@ -104,7 +104,7 @@ Two are always visible; two appear only with cloud sync enabled and signed in.
 | Tab | Shown | Purpose |
 | --- | --- | --- |
 | **Welcome** | always | A landing map: where each tab is, and the two shared explanations. |
-| **Analysis** | always | The decision view — a board **grouped Era → Set → Product** (collapsible; opens as an era overview with per-era/-set averages, expand down to the ranked products) with fair price and verdict, KPIs, price/value charts, and buy signals. Click any product (board, top picks, relative-value/momentum tables, or the age-vs-value scatter) to open its drill-down, which carries the full detail plus a what-if scenario sandbox. |
+| **Analysis** | always | The decision view — a board **grouped Era → Set → Product** (collapsible; opens as an era overview with per-era/-set averages, expand down to the ranked products) with fair price and verdict, KPIs, price/value charts, and buy signals. The **Relative Value** and **Momentum** tables share the same collapsible grouping. Click any product (board, top picks, relative-value/momentum tables, or the age-vs-value scatter) to open its drill-down, which carries the full detail plus a what-if scenario sandbox. |
 | **Portfolio** | signed in | Your private holdings and price alerts — unrealised P&L, concentration balancer, value over time. |
 | **Data Entry** | admin only | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs and product ids (the "CM ID" that drives automated ingestion), review thin-liquidity flags and **lock** a manual price on products whose automated price is unreliable, and export the updated workbook. |
 

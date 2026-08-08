@@ -2867,6 +2867,13 @@ let verdictFilter = "all"; // Board filter by verdict tone: all | good | neutral
 // are visible.
 let expandedEras = new Set();
 let expandedSets = new Set();
+// The §04 Relative Value and §06 Momentum tables reuse the same Era → Set →
+// Product tree (renderGroupTree) and so keep their own independent expand state,
+// also opening as a pure era overview.
+let relvalExpandedEras   = new Set();
+let relvalExpandedSets   = new Set();
+let momentumExpandedEras = new Set();
+let momentumExpandedSets = new Set();
 let ageThreshold = 1; // years until age weight reaches 1.0 (default)
 // The age-fit line (SV/Booster ~ age) with its R², recomputed once per data
 // load by recomputeFit(). Shared by the board's fair price, the scatter overlay
@@ -3233,8 +3240,28 @@ function updateTable() {
   const maxScore = Math.max(...data.map(p => p.score));
   const searching = searchTerm.trim() !== '';
 
+  renderGroupTree(tbody, data, {
+    colspan: 9,
+    expandedEras, expandedSets,
+    rerender: updateTable,
+    searching,
+    tail: eraSummaryTail,
+    leaf: p => productRowTr(p, maxScore),
+  });
+}
+
+// Generic Era → Set → Product tree, shared by the board (§01) and the
+// analytical tables (§04 Relative Value, §06 Momentum). It groups `products`
+// by era (newest era first, ERAS order) then set (newest release first), and
+// appends collapsible headline rows plus, where open, each product's leaf row.
+// `ctx` carries everything table-specific: the headline `colspan`, the two
+// expand-state Sets, the `rerender` to run on toggle, whether a live search
+// forces every group open, an optional era `tail` summariser, and the `leaf`
+// builder for a product row. Products must carry `release`/`svPerBooster`/
+// `fairGap`/`price` — groupStats() reads them for the headline aggregates.
+function renderGroupTree(tbody, products, ctx) {
   const byEra = new Map();
-  for (const p of data) {
+  for (const p of products) {
     const era = eraForRelease(p.release) || { key: '—', label: 'Unknown era' };
     if (!byEra.has(era.key)) byEra.set(era.key, { era, products: [] });
     byEra.get(era.key).products.push(p);
@@ -3242,15 +3269,15 @@ function updateTable() {
   for (const key of [...ERAS.map(e => e.key), '—']) {
     const grp = byEra.get(key);
     if (!grp) continue;
-    const eraOpen = searching || expandedEras.has(key);
-    tbody.appendChild(groupRow('era', key, grp.era.label, groupStats(grp.products), eraOpen, eraSummaryTail(grp.products)));
+    const eraOpen = ctx.searching || ctx.expandedEras.has(key);
+    tbody.appendChild(groupRow('era', key, grp.era.label, groupStats(grp.products), eraOpen, ctx.tail ? ctx.tail(grp.products) : null, ctx));
     if (!eraOpen) continue;
     for (const set of boardSets(grp.products)) {
       const setKey = `${key}::${set.key}`;
-      const setOpen = searching || expandedSets.has(setKey);
-      tbody.appendChild(groupRow('set', setKey, set.label, groupStats(set.products), setOpen, null));
+      const setOpen = ctx.searching || ctx.expandedSets.has(setKey);
+      tbody.appendChild(groupRow('set', setKey, set.label, groupStats(set.products), setOpen, null, ctx));
       if (!setOpen) continue;
-      for (const p of set.products) tbody.appendChild(productRowTr(p, maxScore));
+      for (const p of set.products) tbody.appendChild(ctx.leaf(p));
     }
   }
 }
@@ -3281,23 +3308,23 @@ function eraSummaryTail(products) {
 // A collapsible Era or Set headline row (spans the board), with a real <button>
 // disclosure + aria-expanded and the group's aggregate stats. The whole row
 // toggles for the mouse; the button is the keyboard/AT target.
-function groupRow(level, key, label, st, open, tail) {
+function groupRow(level, key, label, st, open, tail, ctx) {
   const tr = document.createElement('tr');
   tr.className = `grp-row grp-${level}`;
   const svb   = st.meanSvb != null ? ` · avg ${fmt(st.meanSvb, 0)}×` : '';
   const gap   = st.meanFairGap != null ? ` · ${st.underFair} under fair` : '';
   const price = st.minPrice != null ? ` · ${money(st.minPrice)}–${money(st.maxPrice)}` : '';
   const stats = `${st.count} product${st.count === 1 ? '' : 's'}${svb}${gap}${price}${tail ? ' · ' + tail : ''}`;
-  tr.innerHTML = `<td colspan="9">
+  tr.innerHTML = `<td colspan="${ctx.colspan}">
     <button type="button" class="grp-toggle" aria-expanded="${open}">
       <span class="grp-caret" aria-hidden="true">${open ? '▾' : '▸'}</span>
       <span class="grp-name">${label}</span>
     </button><span class="grp-stats">${stats}</span>
   </td>`;
   const toggle = () => {
-    const set = level === 'era' ? expandedEras : expandedSets;
+    const set = level === 'era' ? ctx.expandedEras : ctx.expandedSets;
     if (set.has(key)) set.delete(key); else set.add(key);
-    updateTable();
+    ctx.rerender();
   };
   tr.addEventListener('click', toggle);
   tr.querySelector('.grp-toggle').addEventListener('click', e => { e.stopPropagation(); toggle(); });
@@ -5750,28 +5777,50 @@ function renderRelativeValue() {
     ? `age trend ${fit.b >= 0 ? '+' : ''}${fit.b.toFixed(1)}/yr · R² ${fit.r2.toFixed(2)}`
     : 'flat';
 
-  const rows = peerResiduals(visibleProducts(), fit);
+  const pool = visibleProducts();
+  const rows = peerResiduals(pool, fit);   // sorted by residual desc
 
   tbody.innerHTML = '';
-  rows.forEach(r => {
-    const good = r.residual >= 0;
-    const color = good ? 'var(--accent4)' : 'var(--accent2)';
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="product-name" title="${r.name}"><button type="button" class="row-open" aria-haspopup="dialog">${r.name}</button></td>
-      <td>${typeBadge(r.type)}</td>
-      <td class="num">${fmt(r.age, 1)}</td>
-      <td class="num">${fmt(r.svb, 1)}×</td>
-      <td class="num" style="color:var(--muted)">${fmt(r.expected, 1)}×</td>
-      <td class="num" style="color:${color}">${good ? '▲ +' : '▼ '}${fmt(r.residual, 1)}×</td>
-    `;
-    // Same affordance as the board: whole row clickable for the mouse, the named
-    // button as the keyboard/screen-reader target (stopPropagation avoids a
-    // double-open).
-    tr.addEventListener('click', () => openDrill(r.name));
-    tr.querySelector('.row-open').addEventListener('click', e => { e.stopPropagation(); openDrill(r.name); });
-    tbody.appendChild(tr);
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="portfolio-empty">No products to compare — clear the type filter.</div></td></tr>`;
+    return;
+  }
+  // Nest the residual ranking under the same Era → Set → Product tree as the
+  // board. peerResiduals() returns bare {name,…} objects (no release), so map
+  // each back to its product for grouping and keep a name→residual lookup for
+  // the leaf; products stay in residual order within a set.
+  const byName = new Map(pool.map(p => [p.name, p]));
+  const resByName = new Map(rows.map(r => [r.name, r]));
+  const ordered = rows.map(r => byName.get(r.name)).filter(Boolean);
+  renderGroupTree(tbody, ordered, {
+    colspan: 6,
+    expandedEras: relvalExpandedEras,
+    expandedSets: relvalExpandedSets,
+    rerender: renderRelativeValue,
+    searching: false,
+    leaf: p => relvalRowTr(resByName.get(p.name)),
   });
+}
+
+// One Relative Value leaf row (the six-column residual line). Same open-drill
+// affordance as the board: whole row for the mouse, the named button as the
+// keyboard/screen-reader target (stopPropagation avoids a double-open).
+function relvalRowTr(r) {
+  const good = r.residual >= 0;
+  const color = good ? 'var(--accent4)' : 'var(--accent2)';
+  const tr = document.createElement('tr');
+  tr.className = 'grp-product';
+  tr.innerHTML = `
+    <td class="product-name" title="${r.name}"><button type="button" class="row-open" aria-haspopup="dialog">${r.name}</button></td>
+    <td>${typeBadge(r.type)}</td>
+    <td class="num">${fmt(r.age, 1)}</td>
+    <td class="num">${fmt(r.svb, 1)}×</td>
+    <td class="num" style="color:var(--muted)">${fmt(r.expected, 1)}×</td>
+    <td class="num" style="color:${color}">${good ? '▲ +' : '▼ '}${fmt(r.residual, 1)}×</td>
+  `;
+  tr.addEventListener('click', () => openDrill(r.name));
+  tr.querySelector('.row-open').addEventListener('click', e => { e.stopPropagation(); openDrill(r.name); });
+  return tr;
 }
 
 // ============================================================
@@ -5785,6 +5834,31 @@ function computeMomentum(name) {
 function renderMomentum() {
   const tbody = document.getElementById('momentum-tbody');
   if (!tbody) return;
+  const rows = visibleProducts().map(p => ({ p, m: computeMomentum(p.name) }))
+    .filter(r => r.m)
+    .sort((a, b) => (a.m.drawdown ?? 0) - (b.m.drawdown ?? 0)); // deepest dip first
+
+  tbody.innerHTML = '';
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="portfolio-empty">No products with price history — clear the type filter.</div></td></tr>`;
+    return;
+  }
+  // Same Era → Set → Product tree as the board; products stay in deepest-dip
+  // order within a set, keyed back to their computed momentum for the leaf.
+  const mByName = new Map(rows.map(r => [r.p.name, r.m]));
+  const ordered = rows.map(r => r.p);
+  renderGroupTree(tbody, ordered, {
+    colspan: 7,
+    expandedEras: momentumExpandedEras,
+    expandedSets: momentumExpandedSets,
+    rerender: renderMomentum,
+    searching: false,
+    leaf: p => momentumRowTr(p, mByName.get(p.name)),
+  });
+}
+
+// One Momentum leaf row (the seven-column change/drawdown line).
+function momentumRowTr(p, m) {
   const pctCell = v => {
     if (v == null) return `<td class="num" style="color:var(--muted)">—</td>`;
     const c = v > 0.05 ? 'var(--accent4)' : v < -0.05 ? 'var(--accent2)' : 'var(--muted)';
@@ -5796,27 +5870,21 @@ function renderMomentum() {
     const c = v < -0.05 ? 'var(--accent2)' : 'var(--muted)';
     return `<td class="num" style="color:${c}">${fmt(v, 1)}%</td>`;
   };
-  const rows = visibleProducts().map(p => ({ p, m: computeMomentum(p.name) }))
-    .filter(r => r.m)
-    .sort((a, b) => (a.m.drawdown ?? 0) - (b.m.drawdown ?? 0)); // deepest dip first
-
-  tbody.innerHTML = '';
-  rows.forEach(({ p, m }) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="product-name" title="${p.name}"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></td>
-      <td>${typeBadge(p.type)}</td>
-      <td class="num">${money(m.price)}</td>
-      ${pctCell(m.last)}
-      ${pctCell(m.sinceFirst)}
-      ${pctCell(m.svSinceFirst)}
-      ${ddCell(m.drawdown)}
-    `;
-    // Whole row opens the drill for the mouse; the named button is the a11y target.
-    tr.addEventListener('click', () => openDrill(p.name));
-    tr.querySelector('.row-open').addEventListener('click', e => { e.stopPropagation(); openDrill(p.name); });
-    tbody.appendChild(tr);
-  });
+  const tr = document.createElement('tr');
+  tr.className = 'grp-product';
+  tr.innerHTML = `
+    <td class="product-name" title="${p.name}"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></td>
+    <td>${typeBadge(p.type)}</td>
+    <td class="num">${money(m.price)}</td>
+    ${pctCell(m.last)}
+    ${pctCell(m.sinceFirst)}
+    ${pctCell(m.svSinceFirst)}
+    ${ddCell(m.drawdown)}
+  `;
+  // Whole row opens the drill for the mouse; the named button is the a11y target.
+  tr.addEventListener('click', () => openDrill(p.name));
+  tr.querySelector('.row-open').addEventListener('click', e => { e.stopPropagation(); openDrill(p.name); });
+  return tr;
 }
 
 // ============================================================
