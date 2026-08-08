@@ -617,6 +617,22 @@ stance). What still stands unbuilt:
     (today the grouping only nests the three tables), plus its **perf win** (a
     collapsed group renders one row — cheap virtualisation) is realised for those
     tables only.
+    - *Decided: era/set stay **derived**, not stored on the product row.* Era is a
+      pure function of `release` (the `ERAS` boundary ranges), so a stored `era`
+      column could only ever *duplicate* the date and drift from it — a silent
+      wrong-group vector — while adding per-product data entry and load-path
+      surface (schema/RLS, Data Entry, `parseXlsx`/`exportXlsx`, the hardcoded
+      fallback) for zero correctness gain; a new era stays one `ERAS` entry that
+      re-derives the whole catalogue. **Set** is the more fragile derivation
+      (`setLogoKey()` parses the product *name*, so two products in one set with
+      slightly different name stems could split), but the fix — *if* a real
+      misgroup ever appears — is a proper **`sets` table** (`id` · `name` ·
+      `release_date` · `cardmarket_expansion_id` · logo-alias, `products.set_id`
+      FK) that would collapse three current name-heuristic paths (`setLogoKey()`/
+      `setLabel()`, per-product `release`/`cardmarket_expansion_id`,
+      `SET_LOGO_ALIASES`) into one authority — **not** a free-text `set` column,
+      which reintroduces the same drift. Defer until a concrete misgroup (a set
+      splitting in the tree, or a logo miss) motivates the full table.
   - **Scoped-by-default board.** Open on a meaningful slice — in-print / recent
     releases, or (signed in) portfolio + watchlist — with an explicit "show full
     catalogue" toggle, flagged like the `#data-source-banner` so the scope is
