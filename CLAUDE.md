@@ -289,6 +289,23 @@ is always `false` (no force-expand). Both are already wired into `INIT`,
 `applyNewData()` and `applyTypeFilter()`; their group toggles re-render via
 `ctx.rerender`.
 
+**Momentum's columns are date-windowed, not position-windowed.** The table shows
+`Price · 7d · 30d · Set Val since 1st · vs Peak`, where **7d/30d** are the price
+change over the trailing 7 / 30 **calendar days** — `momentum(hist, dates)`'s
+`change7d`/`change30d` (in `metrics.js`), which `computeMomentum()` feeds the
+shared `histDates`. This has to be date-aware because the snapshot history mixes
+a **monthly** XY/SM backfill with the **daily** Cardmarket ingest: a positional
+"7 snapshots back" would be 7 days in the daily region and 7 months in the
+backfilled one. `pctChangeOverDays()` picks the tracked snapshot (not the
+endpoint) nearest to `latest − Nd` and accepts it only within `N/2` days, so a
+monthly-only product shows `—` for 7d rather than a mislabelled month-long
+change; a window renders `—` until enough history accrues. The old positional
+`Δ last` (change vs the previous snapshot) and the `sinceFirst` price column were
+retired — a 1-day tick is noise under daily ingest. The drill-down carries the
+same pair as one **30d change** tile (7d in its subtext). `momentum()` still
+returns `sinceFirst` (unused in the UI now) and remains the source of `drawdown`
++ `svSinceFirst`, two of the three Board-verdict ingredients.
+
 ### The board on a phone (column priority)
 
 Below 680px the All Products table drops its six **`.col-detail`** columns

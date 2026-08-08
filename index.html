@@ -2469,7 +2469,7 @@
 
   <!-- ── Section: momentum & drawdown (full width) ── -->
   <h2 class="section-eyebrow">06 — Momentum &amp; Drawdown</h2>
-  <p class="section-desc"><strong>What:</strong> recent price action per product. <strong>KPIs:</strong> <em>Δ last</em> (change since the previous snapshot), <em>since 1st</em> (change across all tracked history), and <em>vs Peak / Drawdown</em> (how far below its highest tracked price it is now). <strong>How to read:</strong> a deep drawdown (<span class="down">▼</span>) while set value holds steady can flag a buying opportunity. Sorted by deepest dip.</p>
+  <p class="section-desc"><strong>What:</strong> recent price action per product. <strong>KPIs:</strong> <em>7d</em> and <em>30d</em> (price change over the trailing 7 / 30 calendar days — blank until enough history has accrued), <em>Set Val since 1st</em> (set-value change across all tracked history), and <em>vs Peak / Drawdown</em> (how far below its highest tracked price it is now). <strong>How to read:</strong> a deep drawdown (<span class="down">▼</span>) while set value holds steady can flag a buying opportunity. Sorted by deepest dip.</p>
   <div class="panel">
     <div class="panel-header">
       <h3 class="panel-title">Momentum &amp; Drawdown</h3>
@@ -2483,8 +2483,8 @@
             <th>Product</th>
             <th>Type</th>
             <th style="text-align:right">Price</th>
-            <th style="text-align:right">Δ last</th>
-            <th style="text-align:right">Price since 1st</th>
+            <th style="text-align:right">7d</th>
+            <th style="text-align:right">30d</th>
             <th style="text-align:right">Set Val since 1st</th>
             <th style="text-align:right">vs Peak</th>
           </tr>
@@ -5829,7 +5829,7 @@ function relvalRowTr(r) {
 // The math lives in metrics.js (momentum()); this wrapper just resolves the
 // product's history from the app state.
 function computeMomentum(name) {
-  return momentum(historicalData[name]);
+  return momentum(historicalData[name], histDates);
 }
 function renderMomentum() {
   const tbody = document.getElementById('momentum-tbody');
@@ -5876,8 +5876,8 @@ function momentumRowTr(p, m) {
     <td class="product-name" title="${p.name}"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></td>
     <td>${typeBadge(p.type)}</td>
     <td class="num">${money(m.price)}</td>
-    ${pctCell(m.last)}
-    ${pctCell(m.sinceFirst)}
+    ${pctCell(m.change7d)}
+    ${pctCell(m.change30d)}
     ${pctCell(m.svSinceFirst)}
     ${ddCell(m.drawdown)}
   `;
@@ -6003,6 +6003,7 @@ function renderDrill() {
     : `${Math.abs(p.fairGap)}% ${p.fairGap < 0 ? 'under' : 'over'}`;
   const gapCol = p.fairGap == null || !trusted ? 'var(--muted)' : p.fairGap < 0 ? 'var(--accent4)' : 'var(--accent2)';
   const pct = (val, dp = 1) => val == null ? '—' : `${val > 0 ? '+' : ''}${fmt(val, dp)}%`;
+  const chCol = val => val == null ? 'var(--muted)' : val > 0.05 ? 'var(--accent4)' : val < -0.05 ? 'var(--accent2)' : 'var(--muted)';
   const relTxt = p.release ? new Date(p.release).toLocaleDateString('en-SE', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
   const ageTxt = p.age == null ? '' : p.age < 0 ? 'upcoming' : `${fmt(p.age, 1)} yr old`;
   const stat = (k, v, s = '', vcol = 'var(--text)') =>
@@ -6012,7 +6013,7 @@ function renderDrill() {
     stat('Fair Price', p.fairPrice != null ? money(p.fairPrice) : '—', gapTxt + (trusted ? '' : ' · low fit'), gapCol),
     stat('SV / Booster', `${fmt(p.svPerBooster, 1)}×`, `set value ${pct(m?.svSinceFirst)}`),
     stat('Drawdown', m ? pct(m.drawdown) : '—', 'vs tracked peak', m && m.drawdown < -0.05 ? 'var(--accent2)' : 'var(--muted)'),
-    stat('Price move', m ? pct(m.sinceFirst) : '—', 'since first snapshot'),
+    stat('30d change', m ? pct(m.change30d) : '—', `7d ${m && m.change7d != null ? pct(m.change7d) : '—'}`, chCol(m?.change30d)),
     stat('Wtd. Score', fmt(p.score, 1), `age weight ${fmt(p.ageWeight, 2)}`),
     stat('Released', relTxt, ageTxt),
   ];

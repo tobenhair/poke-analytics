@@ -255,23 +255,62 @@ function pctChange(from, to) {
   return (to - from) / from * 100;
 }
 
-// Momentum & drawdown for one product (§07, the drill-down KPIs, and — via
+const DAY_MS = 86400000;
+
+// % price change over the trailing `days`-day window, measured by *calendar
+// date*, not snapshot position. `series` is the tracked price history as
+// ascending [{ t: epoch-ms, price }]. The baseline is the tracked snapshot
+// (excluding the endpoint) whose date is nearest to (latest − days); it is
+// accepted only when that snapshot is within `days`/2 of the target, so the
+// window can't silently span far more time than its label claims — a
+// monthly-only history returns null for 7d rather than a mislabelled
+// month-long change. This date-awareness is why momentum() needs the snapshot
+// dates: the history mixes a monthly XY/SM backfill with the daily Cardmarket
+// ingest, so a positional look-back would be 7 days in one region and 7 months
+// in another.
+function pctChangeOverDays(series, days) {
+  if (!series || series.length < 2) return null;
+  const end = series[series.length - 1];
+  const targetT = end.t - days * DAY_MS;
+  let base = null, bestDiff = Infinity;
+  for (let i = 0; i < series.length - 1; i++) {          // exclude the endpoint
+    const diff = Math.abs(series[i].t - targetT);
+    if (diff < bestDiff) { bestDiff = diff; base = series[i]; }
+  }
+  if (!base || bestDiff > (days / 2) * DAY_MS) return null; // no snapshot near the target
+  return pctChange(base.price, end.price);
+}
+
+// Momentum & drawdown for one product (§06, the drill-down KPIs, and — via
 // drawdown/svSinceFirst — two of the three Board-verdict ingredients):
-//   last         % price change since the previous tracked snapshot
+//   change7d     % price change over the trailing 7 calendar days
+//   change30d    % price change over the trailing 30 calendar days
 //   sinceFirst   % price change across the whole tracked history
 //   svSinceFirst % set-value change across the whole tracked history
 //   drawdown     % below the tracked peak price (0 at the peak, negative below)
+// `dates` aligns positionally with hist.price (the shared snapshot date axis);
+// it drives the fixed windows and may be omitted (both come back null).
 // Returns null with fewer than two tracked prices — no movement to measure.
-export function momentum(hist) {
+export function momentum(hist, dates) {
   if (!hist) return null;
   const p  = tracked(hist.price);
   const sv = tracked(hist.setVal);
   if (p.length < 2) return null;
   const last = p[p.length - 1];
   const peak = Math.max(...p);
+  // Pair each snapshot date with its price, then drop null prices — so the
+  // date-based windows survive the mixed monthly/daily cadence and gaps.
+  let series = null;
+  if (Array.isArray(dates) && hist.price && dates.length === hist.price.length) {
+    series = [];
+    for (let i = 0; i < hist.price.length; i++) {
+      if (hist.price[i] != null) series.push({ t: Date.parse(dates[i]), price: hist.price[i] });
+    }
+  }
   return {
     price: last,
-    last: pctChange(p[p.length - 2], last),
+    change7d:  pctChangeOverDays(series, 7),
+    change30d: pctChangeOverDays(series, 30),
     sinceFirst: pctChange(p[0], last),
     svSinceFirst: sv.length >= 2 ? pctChange(sv[0], sv[sv.length - 1]) : null,
     drawdown: peak > 0 ? (last - peak) / peak * 100 : null,
