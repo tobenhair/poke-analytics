@@ -478,13 +478,12 @@ test('portfolioValueSeries returns [] when nothing is valuable', () => {
   assert.deepEqual(portfolioValueSeries({ A: { quantity: 1 } }, { A: { price: [null] } }, 1), []);
 });
 
-// ── momentum: Δ last / since-first / SV trend / drawdown ─────────
+// ── momentum: 7d / 30d windows / since-first / SV trend / drawdown ──
 // Two of these (drawdown, svSinceFirst) are Board-verdict ingredients, so this
 // math being right is part of the verdict being right.
-test('momentum computes last, since-first, SV trend and drawdown', () => {
+test('momentum computes since-first, SV trend and drawdown', () => {
   const m = momentum({ price: [100, 120, 90], setVal: [200, 210, 220] });
   assert.equal(m.price, 90);
-  assert.equal(m.last, -25);                       // 120 → 90
   assert.equal(m.sinceFirst, -10);                 // 100 → 90
   assert.equal(m.svSinceFirst, 10);                // 200 → 220
   assert.equal(m.drawdown, -25);                   // peak 120 → 90
@@ -492,7 +491,6 @@ test('momentum computes last, since-first, SV trend and drawdown', () => {
 
 test('momentum ignores null gaps — only tracked values count', () => {
   const m = momentum({ price: [null, 100, null, 110], setVal: [null, 50, null, null] });
-  assert.equal(m.last, 10);                        // 100 → 110, nulls skipped
   assert.equal(m.sinceFirst, 10);
   assert.equal(m.svSinceFirst, null);              // only one tracked set value
   assert.equal(m.drawdown, 0);                     // at the tracked peak
@@ -507,6 +505,45 @@ test('momentum is null without at least two tracked prices', () => {
 test('momentum drawdown is 0 at the peak and negative below it', () => {
   assert.equal(momentum({ price: [80, 100], setVal: [] }).drawdown, 0);
   assert.equal(momentum({ price: [100, 75], setVal: [] }).drawdown, -25);
+});
+
+// ── the 7d / 30d windows are measured by calendar date, not snapshot index ──
+test('momentum 7d/30d change use date-based look-back over daily snapshots', () => {
+  // 31 daily snapshots; price 100 → 131 (+1/day). Latest is day 30.
+  const dates = [], price = [];
+  for (let i = 0; i <= 30; i++) {
+    dates.push(`2026-03-${String(i + 1).padStart(2, '0')}`);   // 2026-03-01 … 2026-03-31
+    price.push(100 + i);
+  }
+  const m = momentum({ price, setVal: [] }, dates);
+  // 7 days before 2026-03-31 is 2026-03-24 (price 123); 130 vs 123.
+  assert.ok(Math.abs(m.change7d - ((130 - 123) / 123) * 100) < 1e-9);
+  // 30 days before is 2026-03-01 (price 100); 130 vs 100 = +30%.
+  assert.equal(m.change30d, 30);
+});
+
+test('momentum windows are null without dates, and blank until covered', () => {
+  const bare = momentum({ price: [100, 130], setVal: [] });     // no dates passed
+  assert.equal(bare.change7d, null);
+  assert.equal(bare.change30d, null);
+  // A short daily history covers 7d but not yet 30d.
+  const dates = [], price = [];
+  for (let i = 0; i <= 9; i++) { dates.push(`2026-03-${String(i + 1).padStart(2, '0')}`); price.push(100 + i); }
+  const m = momentum({ price, setVal: [] }, dates);
+  assert.ok(m.change7d != null);
+  assert.equal(m.change30d, null);                 // window predates all history
+});
+
+test('momentum will not report a short window that actually spans a long gap', () => {
+  // Monthly-only history: a "7d change" has no baseline within a week, so it is
+  // null rather than a mislabelled month-long change — but 30d is legit.
+  const dates = ['2026-01-31', '2026-02-28', '2026-03-31'];
+  const price = [100, 110, 120];
+  const m = momentum({ price, setVal: [] }, dates);
+  assert.equal(m.change7d, null);                  // nearest baseline is ~31 days back
+  // 30 days before 2026-03-31 is 2026-03-01; nearest snapshot on/before is
+  // 2026-02-28 (price 110), within the 30-day grace → 120 vs 110.
+  assert.ok(Math.abs(m.change30d - ((120 - 110) / 110) * 100) < 1e-9);
 });
 
 // ── dataMaturity: the raw "how settled is this?" facts ───────────
