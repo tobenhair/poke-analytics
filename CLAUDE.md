@@ -215,9 +215,24 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   `openOverlay(id, focusSelector)` / `closeOverlay(id)` helpers plus one global
   keydown handler that traps Tab in the topmost open overlay and dismisses it on
   Escape. `OVERLAY_CLOSERS` maps an overlay to a closer that does more than drop
-  the class (the drill-down destroys its charts). Open an overlay through the
-  helpers, never with a bare `classList.add('open')` — that skips focus-in,
-  the trap and focus return.
+  the class (the drill-down destroys its charts; `chart-zoom-modal` destroys its
+  cloned chart). Open an overlay through the helpers, never with a bare
+  `classList.add('open')` — that skips focus-in, the trap and focus return.
+- **Charts expand to a full-screen dialog on a phone.** The dense §03 scatter
+  and the §05/§07 comparison charts are unreadable at phone width, so each panel
+  header carries a `.chart-expand-btn` (the `#i-expand` sprite) that is
+  `display:none` on desktop and shown only ≤680px. `openChartZoom(key)`
+  (`ZOOM_SOURCES` maps `scatter`/`hist`/`svb` → the live Chart.js instance —
+  `scatterChart` directly, the compare views via the new `getChart()` on
+  `createCompareView`'s return) builds a **read-only clone** into
+  `#chart-zoom-modal`: same `type`, the labels reused and each dataset
+  shallow-copied (so the two charts' per-chart `_meta` can't collide, while the
+  read-only data arrays are shared), `maintainAspectRatio:false` so it fills the
+  70vh `.chart-zoom-body`, and `onClick`/`onHover` stripped so the enlarged chart
+  never opens a nested overlay. `.chart-zoom-body canvas { max-height:none }`
+  escapes the global 220px canvas cap. Build the clone *after* `openOverlay`
+  (same visible-container rule as the drill-down charts). `tests/smoke.spec.mjs`
+  pins the phone open→tall-canvas→Escape-close flow.
 - **Headings and landmarks.** `.section-eyebrow` is an `<h2>`, `.panel-title` an
   `<h3>`, and the panes sit inside one `<main>`. The classes still carry the
   whole look (they reset the UA `font-weight`/`margin`), so keep using the class
@@ -334,6 +349,15 @@ future change should preserve:
   pointer` and hover highlight that implied one are gone, and the board's
   explainer no longer promises it. Sorting is `#sort-select`. If you add header
   sorting, restore both affordances with it.
+- **Two more phone tweaks live in the `≤460px` block.** (1) The type scale's two
+  smallest steps are lifted a notch by *redefining the tokens*
+  (`:root { --text-2xs; --text-xs }`) — the ~10px mono stat/eyebrow labels were
+  below comfortable reading; redefining the tokens (not per-element `font-size`)
+  keeps everything on-scale and past `check:design-tokens`. (2) The Where-to-start
+  pick name is let to **wrap** instead of truncating — the `.row-open` button
+  carries its own `white-space:nowrap`/ellipsis (right for the board), so the
+  override is scoped to `.pick-name .row-open`, and the competing rank/score
+  numbers drop a step so the name wins the row.
 
 ### The "Where to start" block leads the Analysis tab
 
