@@ -24,16 +24,23 @@ const root = join(here, '..');
 
 export const chartJs = readFileSync(join(root, 'node_modules/chart.js/dist/chart.umd.js'), 'utf8');
 export const xlsxJs = readFileSync(join(root, 'node_modules/xlsx/dist/xlsx.full.min.js'), 'utf8');
+// Hammer must be defined (window.Hammer) before the zoom plugin's UMD registers,
+// so its route/copy is served like the others. Both power the full-screen
+// chart's pinch/pan/wheel zoom.
+export const hammerJs = readFileSync(join(root, 'node_modules/hammerjs/hammer.min.js'), 'utf8');
+export const zoomJs = readFileSync(join(root, 'node_modules/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.min.js'), 'utf8');
 
 // Guard the pin: the served copy must be the version index.html asks for.
 const indexHtml = readFileSync(join(root, 'index.html'), 'utf8');
-for (const [label, pattern] of [
-  ['Chart.js', /Chart\.js\/([0-9.]+)\/chart\.umd\.min\.js/],
-  ['xlsx', /xlsx\/([0-9.]+)\/xlsx\.full\.min\.js/],
+for (const [label, pkg, pattern] of [
+  ['Chart.js', 'chart.js', /Chart\.js\/([0-9.]+)\/chart\.umd\.min\.js/],
+  ['xlsx', 'xlsx', /xlsx\/([0-9.]+)\/xlsx\.full\.min\.js/],
+  ['hammer.js', 'hammerjs', /hammer\.js\/([0-9.]+)\/hammer\.min\.js/],
+  ['chartjs-plugin-zoom', 'chartjs-plugin-zoom', /chartjs-plugin-zoom\/([0-9.]+)\/chartjs-plugin-zoom\.min\.js/],
 ]) {
   const wanted = indexHtml.match(pattern)?.[1];
   const installed = JSON.parse(
-    readFileSync(join(root, `node_modules/${label === 'Chart.js' ? 'chart.js' : 'xlsx'}/package.json`), 'utf8'),
+    readFileSync(join(root, `node_modules/${pkg}/package.json`), 'utf8'),
   ).version;
   if (wanted && wanted !== installed) {
     throw new Error(
@@ -86,6 +93,8 @@ export async function forceStaticMode(page) {
 export async function routeLocalLibs(page) {
   await page.route('**cdnjs.cloudflare.com/**Chart.js**', (r) => r.fulfill(js(chartJs)));
   await page.route('**cdnjs.cloudflare.com/**xlsx**', (r) => r.fulfill(js(xlsxJs)));
+  await page.route('**cdnjs.cloudflare.com/**hammer**', (r) => r.fulfill(js(hammerJs)));
+  await page.route('**cdnjs.cloudflare.com/**chartjs-plugin-zoom**', (r) => r.fulfill(js(zoomJs)));
   await page.route('**fonts.googleapis.com/**', (r) => r.fulfill({ contentType: 'text/css', body: '' }));
   await page.route('**fonts.gstatic.com/**', (r) => r.abort());
   await page.route('**frankfurter**', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(FX_RATES) }));

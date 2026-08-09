@@ -35,7 +35,7 @@ const SHELL = [
 
 // Cross-origin hosts whose responses are safe to cache (immutable, versioned).
 const CACHEABLE_HOSTS = new Set([
-  'cdnjs.cloudflare.com',   // Chart.js, SheetJS
+  'cdnjs.cloudflare.com',   // Chart.js, SheetJS, chartjs-plugin-zoom, Hammer.js
   'fonts.googleapis.com',   // Google Fonts CSS
   'fonts.gstatic.com',      // Google Fonts files
 ]);
