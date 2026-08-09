@@ -1470,6 +1470,10 @@
     /* Let the tables scroll horizontally on their own without trapping page scroll */
     .table-wrap { -webkit-overflow-scrolling: touch; }
     thead th, tbody td { padding: 12px 12px; }
+    /* Modals are effectively full-screen on a phone; the Bebas title at
+       --display-lg wrapped to two oversized lines (the drill-down and chart-zoom
+       headings especially). One step down reads as a heading, not a billboard. */
+    .modal h2 { font-size: var(--display-md); }
   }
   @media (max-width: 460px) {
     /* Lift the two smallest steps a notch on a phone — at ~10px the mono
@@ -1485,6 +1489,10 @@
        competing rank/score numbers a step so the name wins the row. */
     .pick-name, .pick-name .row-open { white-space: normal; overflow: visible; text-overflow: clip; }
     .pick-rank, .pick-score, .pick-gap { font-size: var(--display-sm); }
+    /* The two biggest Bebas headings dominate a phone at --display-xl/-lg —
+       step them down one so they read as headings, not billboards. */
+    h1 { font-size: var(--display-md); }
+    .hero-title { font-size: var(--display-lg); }
   }
 
   .fade-in { animation: fadeIn 0.6s var(--ease) both; }

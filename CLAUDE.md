@@ -358,6 +358,12 @@ future change should preserve:
   carries its own `white-space:nowrap`/ellipsis (right for the board), so the
   override is scoped to `.pick-name .row-open`, and the competing rank/score
   numbers drop a step so the name wins the row.
+- **The biggest display headings step down on a phone** so they read as headings,
+  not billboards: `.modal h2` (drill-down + chart-zoom + the info dialogs) goes to
+  `--display-md` at ≤680px — modals are effectively full-screen there — and the
+  header `h1` and demo `.hero-title` each drop a step at ≤460px (the hero then
+  fits on one line). Only the largest Bebas headings were touched; body/label
+  type is unchanged.
 
 ### The "Where to start" block leads the Analysis tab
 
