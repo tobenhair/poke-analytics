@@ -2783,7 +2783,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
+import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -4372,10 +4372,21 @@ function renderPortfolio() {
   const totalPnl  = totalNow - totalCost;
   const totalPct  = totalCost > 0 ? totalPnl / totalCost : null;
 
+  // Trailing 7d/30d change of the whole basket's value, date-windowed like the
+  // momentum table (percentages are FX-neutral, so no currency conversion).
+  const valChg = portfolioValueChange(holdings, historicalData, histDates);
+  const chgSpan = v => v == null
+    ? '<span style="color:var(--muted)">—</span>'
+    : `<span style="color:${pnlColor(v)}">${withSign(fmt(Math.abs(v), 1) + '%', v)}</span>`;
+
   summaryEl.style.display = rows.length ? '' : 'none';
   summaryEl.innerHTML = rows.length ? `
     <div class="portfolio-tile"><div class="lbl">Cost basis</div><div class="val">${money(totalCost)}</div></div>
-    <div class="portfolio-tile"><div class="lbl">Current value</div><div class="val">${money(totalNow)}</div></div>
+    <div class="portfolio-tile">
+      <div class="lbl">Current value</div>
+      <div class="val">${money(totalNow)}</div>
+      <div class="sub" style="color:var(--muted)">7d ${chgSpan(valChg.change7d)} · 30d ${chgSpan(valChg.change30d)}</div>
+    </div>
     <div class="portfolio-tile">
       <div class="lbl">Unrealised P&L</div>
       <div class="val" style="color:${pnlColor(totalPnl)}">${withSign(money(Math.abs(totalPnl)), totalPnl)}</div>

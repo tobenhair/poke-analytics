@@ -49,6 +49,7 @@ import {
   rebalanceSuggestions,
   OVER_EXPOSED_SHARE,
   portfolioValueSeries,
+  portfolioValueChange,
   fitConfidence,
   FIT_BANDS,
 } from '../../metrics.js';
@@ -476,6 +477,34 @@ test('portfolioValueSeries returns [] when nothing is valuable', () => {
   assert.deepEqual(portfolioValueSeries({}, {}, 3), []);
   assert.deepEqual(portfolioValueSeries({ A: { quantity: 0 } }, { A: { price: [1] } }, 1), []);
   assert.deepEqual(portfolioValueSeries({ A: { quantity: 1 } }, { A: { price: [null] } }, 1), []);
+});
+
+// ── portfolioValueChange: trailing 7d/30d change of the basket value ──
+test('portfolioValueChange measures the basket value change by calendar date', () => {
+  // 31 daily snapshots; one holding of qty 2 whose price runs 100 → 130.
+  const dates = [], price = [];
+  for (let i = 0; i <= 30; i++) {
+    dates.push(`2026-03-${String(i + 1).padStart(2, '0')}`);
+    price.push(100 + i);
+  }
+  const holdings = { A: { quantity: 2 } };
+  const hist = { A: { price, setVal: [] } };
+  const c = portfolioValueChange(holdings, hist, dates);
+  // Value tracks price (qty is a constant factor), so % change == price % change:
+  // 30d: 130 vs 100 = +30%; 7d: 130 vs 123 (2026-03-24).
+  assert.equal(c.change30d, 30);
+  assert.ok(Math.abs(c.change7d - ((130 - 123) / 123) * 100) < 1e-9);
+});
+
+test('portfolioValueChange is null with no holdings, no dates, or an uncovered window', () => {
+  const dates = ['2026-03-01', '2026-03-08'];
+  assert.deepEqual(portfolioValueChange({}, {}, dates), { change7d: null, change30d: null });
+  assert.deepEqual(portfolioValueChange({ A: { quantity: 1 } }, { A: { price: [1, 2] } }, null),
+    { change7d: null, change30d: null });
+  // 7 days of history covers 7d but not 30d.
+  const c = portfolioValueChange({ A: { quantity: 1 } }, { A: { price: [1, 2] } }, dates);
+  assert.ok(c.change7d != null);
+  assert.equal(c.change30d, null);
 });
 
 // ── momentum: 7d / 30d windows / since-first / SV trend / drawdown ──
