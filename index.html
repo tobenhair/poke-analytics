@@ -154,7 +154,11 @@
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  html { scroll-behavior: smooth; }
+  /* Disable mobile text auto-inflation: iOS/Android otherwise "boost" a long run
+     of text in a wide block (the era/set headline stats line sits in a full-table-
+     width cell that scrolls past the viewport), rendering it far larger than its
+     --text-xs size while short labels beside it stay normal. 100% = honour the CSS. */
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
   body {
     background: var(--bg);
