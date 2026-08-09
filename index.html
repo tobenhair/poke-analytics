@@ -950,6 +950,28 @@
 
   /* ── Charts ── */
   .chart-panel { padding: 24px 26px; }
+  /* Expand-to-fullscreen affordance — surfaced only where charts get cramped
+     (a phone), so desktop headers stay uncluttered. margin-left:auto right-
+     aligns it after the title/badge/controls. */
+  .chart-expand-btn {
+    display: none;
+    margin-left: auto;
+    align-items: center; justify-content: center;
+    width: 34px; height: 34px; padding: 0;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .chart-expand-btn:hover { color: var(--text); border-color: var(--hairline); }
+  @media (max-width: 680px) { .chart-expand-btn { display: inline-flex; } }
+  /* The enlarged chart lives in a wide dialog; the body gives the responsive
+     canvas real height (it fills the parent with maintainAspectRatio:false). */
+  #chart-zoom-modal .modal { max-width: 960px; width: 100%; }
+  .chart-zoom-body { position: relative; width: 100%; height: 70vh; margin-top: 14px; }
+  /* Escape the global canvas max-height cap so the enlarged chart fills the body. */
+  .chart-zoom-body canvas { max-height: none; }
   canvas { max-height: 220px; }
   /* Ten labelled rows need height per row, not a ratio — see the chart's
      options. The height has to sit on a *wrapper*: with maintainAspectRatio
@@ -1448,12 +1470,29 @@
     /* Let the tables scroll horizontally on their own without trapping page scroll */
     .table-wrap { -webkit-overflow-scrolling: touch; }
     thead th, tbody td { padding: 12px 12px; }
+    /* Modals are effectively full-screen on a phone; the Bebas title at
+       --display-lg wrapped to two oversized lines (the drill-down and chart-zoom
+       headings especially). One step down reads as a heading, not a billboard. */
+    .modal h2 { font-size: var(--display-md); }
   }
   @media (max-width: 460px) {
+    /* Lift the two smallest steps a notch on a phone — at ~10px the mono
+       stat/eyebrow labels were below comfortable reading. Redefining the
+       tokens keeps everything on-scale (no per-element font-size overrides). */
+    :root { --text-2xs: 0.68rem; --text-xs: 0.72rem; }
     .kpi-row { grid-template-columns: 1fr; }
     .tab-btn { padding: 8px 12px; font-size: var(--text-xs); letter-spacing: 0.03em; }
     .panel-title { font-size: var(--display-xs); }
     .section-desc, .kpi-intro { font-size: var(--text-md); }
+    /* Where-to-start card: let the product name use the full width and wrap
+       instead of truncating ("Prismatic Evolutions Boo…"), and shrink the
+       competing rank/score numbers a step so the name wins the row. */
+    .pick-name, .pick-name .row-open { white-space: normal; overflow: visible; text-overflow: clip; }
+    .pick-rank, .pick-score, .pick-gap { font-size: var(--display-sm); }
+    /* The two biggest Bebas headings dominate a phone at --display-xl/-lg —
+       step them down one so they read as headings, not billboards. */
+    h1 { font-size: var(--display-md); }
+    .hero-title { font-size: var(--display-lg); }
   }
 
   .fade-in { animation: fadeIn 0.6s var(--ease) both; }
@@ -1685,6 +1724,7 @@
   <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="15" rx="2"/><path d="M3.5 10.2h17M8 3.5v4M16 3.5v4"/></symbol>
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5.2"/><circle cx="12" cy="8.1" r="0.9" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.5" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
 </svg>
 
 <!-- ═══════════ AUTH / SIGN-IN OVERLAY (Supabase) ═══════════
@@ -1891,6 +1931,18 @@
     <div class="modal-note">
       Every figure is in EUR and comes from prices entered by hand, one snapshot at a time. Nothing here is financial advice.
     </div>
+  </div>
+</div>
+
+<!-- ═══════════ CHART ZOOM ═══════════
+     A larger, read-only copy of an analytical chart for small screens, built by
+     openChartZoom() from the source Chart.js config. Interaction is stripped
+     from the copy so it never opens a nested overlay. Direct child of <body>. -->
+<div class="modal-overlay" id="chart-zoom-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="chart-zoom-title" tabindex="-1">
+    <button class="modal-close" id="chart-zoom-close" type="button" aria-label="Close enlarged chart">✕</button>
+    <h2 id="chart-zoom-title">Chart</h2>
+    <div class="chart-zoom-body"><canvas id="chart-zoom-canvas"></canvas></div>
   </div>
 </div>
 
@@ -2411,6 +2463,7 @@
     <div class="panel-header">
       <h3 class="panel-title">Age vs Set Value / Booster</h3>
       <div class="panel-badge">All products</div>
+      <button type="button" class="chart-expand-btn" data-chart="scatter" aria-label="Expand chart to full screen"><svg class="icon" aria-hidden="true"><use href="#i-expand"/></svg></button>
     </div>
     <div class="chart-panel">
       <canvas id="scatter-chart"></canvas>
@@ -2460,6 +2513,7 @@
         </div>
         <select class="trend-select" id="hist-add" style="max-width:220px" aria-label="Add a series to the price history chart"></select>
       </div>
+      <button type="button" class="chart-expand-btn" data-chart="hist" aria-label="Expand chart to full screen"><svg class="icon" aria-hidden="true"><use href="#i-expand"/></svg></button>
     </div>
     <div class="cmp-chips" id="hist-chips"></div>
     <div class="chart-panel">
@@ -2507,6 +2561,7 @@
         </div>
         <select class="trend-select" id="svb-add" style="max-width:220px" aria-label="Add a series to the SV/Booster trend chart"></select>
       </div>
+      <button type="button" class="chart-expand-btn" data-chart="svb" aria-label="Expand chart to full screen"><svg class="icon" aria-hidden="true"><use href="#i-expand"/></svg></button>
     </div>
     <div class="cmp-chips" id="svb-chips"></div>
     <div class="chart-panel" style="padding: 20px 24px;">
@@ -2783,7 +2838,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries } from './metrics.js';
+import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -3639,7 +3694,7 @@ function createCompareView(cfg) {
     refresh();
   }
 
-  return { init, refresh };
+  return { init, refresh, getChart: () => chart };
 }
 
 // §06 Price History — price per product, in the active display currency (set
@@ -4372,10 +4427,21 @@ function renderPortfolio() {
   const totalPnl  = totalNow - totalCost;
   const totalPct  = totalCost > 0 ? totalPnl / totalCost : null;
 
+  // Trailing 7d/30d change of the whole basket's value, date-windowed like the
+  // momentum table (percentages are FX-neutral, so no currency conversion).
+  const valChg = portfolioValueChange(holdings, historicalData, histDates);
+  const chgSpan = v => v == null
+    ? '<span style="color:var(--muted)">—</span>'
+    : `<span style="color:${pnlColor(v)}">${withSign(fmt(Math.abs(v), 1) + '%', v)}</span>`;
+
   summaryEl.style.display = rows.length ? '' : 'none';
   summaryEl.innerHTML = rows.length ? `
     <div class="portfolio-tile"><div class="lbl">Cost basis</div><div class="val">${money(totalCost)}</div></div>
-    <div class="portfolio-tile"><div class="lbl">Current value</div><div class="val">${money(totalNow)}</div></div>
+    <div class="portfolio-tile">
+      <div class="lbl">Current value</div>
+      <div class="val">${money(totalNow)}</div>
+      <div class="sub" style="color:var(--muted)">7d ${chgSpan(valChg.change7d)} · 30d ${chgSpan(valChg.change30d)}</div>
+    </div>
     <div class="portfolio-tile">
       <div class="lbl">Unrealised P&L</div>
       <div class="val" style="color:${pnlColor(totalPnl)}">${withSign(money(Math.abs(totalPnl)), totalPnl)}</div>
@@ -4904,8 +4970,45 @@ function closeOverlay(id) {
 }
 
 // Overlays that need more than a class removed on close.
-const OVERLAY_CLOSERS = { 'drill-modal': () => closeDrill() };
+const OVERLAY_CLOSERS = { 'drill-modal': () => closeDrill(), 'chart-zoom-modal': () => closeChartZoom() };
 const topOverlay = () => [...document.querySelectorAll('.modal-overlay.open')].pop() || null;
+
+// ── Chart zoom: a larger, read-only copy of an analytical chart ──
+// Small screens can't read the dense scatter / comparison lines, so the expand
+// button (surfaced only ≤680px) clones the source Chart.js config into a full-
+// screen dialog. The copy shares the read-only data but takes its own dataset
+// objects so the two charts' per-chart metadata can't collide, and its
+// interaction handlers are stripped so tapping the enlarged chart never opens a
+// nested overlay.
+let zoomChart = null;
+const ZOOM_SOURCES = {
+  scatter: { chart: () => scatterChart,      title: 'Age vs Set Value / Booster' },
+  hist:    { chart: () => cmpHist.getChart(), title: 'Price History' },
+  svb:     { chart: () => cmpSvb.getChart(),  title: 'Set Value / Booster — Trend Over Time' },
+};
+function openChartZoom(key) {
+  const src = ZOOM_SOURCES[key];
+  const chart = src && src.chart();
+  if (!chart) return;
+  document.getElementById('chart-zoom-title').textContent = src.title;
+  openOverlay('chart-zoom-modal');
+  if (zoomChart) { zoomChart.destroy(); zoomChart = null; }
+  const cfg = chart.config;
+  const options = { ...cfg.options, maintainAspectRatio: false, onClick: null, onHover: null };
+  zoomChart = new Chart(document.getElementById('chart-zoom-canvas').getContext('2d'), {
+    type: cfg.type,
+    data: { labels: cfg.data.labels, datasets: cfg.data.datasets.map(d => ({ ...d })) },
+    options,
+  });
+}
+function closeChartZoom() {
+  if (zoomChart) { zoomChart.destroy(); zoomChart = null; }
+  closeOverlay('chart-zoom-modal');
+}
+document.querySelectorAll('.chart-expand-btn').forEach(btn => {
+  btn.addEventListener('click', () => openChartZoom(btn.dataset.chart));
+});
+document.getElementById('chart-zoom-close').addEventListener('click', closeChartZoom);
 
 function dismissTopOverlay() {
   const top = topOverlay();

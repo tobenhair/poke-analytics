@@ -116,6 +116,36 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   expect(pageErrors, `uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([]);
 });
 
+test('on a phone, an analytical chart expands to a full-screen dialog', async ({ page }) => {
+  // The dense scatter / comparison charts are unreadable at phone width, so an
+  // expand button (surfaced only ≤680px) opens a larger read-only copy. Proves
+  // the affordance shows, opens the dialog, renders a real (tall) canvas, and
+  // closes from the keyboard like every other overlay.
+  await page.setViewportSize({ width: 390, height: 820 });
+  await routeLocalLibs(page);
+  await forceStaticMode(page);
+  await page.goto('/');
+  await page.locator('.tab-btn[data-tab="analysis"]').click();
+  await expect(page.locator('#tab-analysis')).toBeVisible();
+
+  const expand = page.locator('.chart-expand-btn[data-chart="scatter"]');
+  // Centre it in the viewport first — scrollIntoViewIfNeeded can leave it under
+  // the sticky tab-bar, which would swallow the click (a harness artifact, not a
+  // real-user one: nobody taps a control tucked behind the sticky header).
+  await expand.evaluate(el => el.scrollIntoView({ block: 'center' }));
+  await expect(expand).toBeVisible();
+  await expand.click();
+
+  await expect(page.locator('#chart-zoom-modal')).toHaveClass(/open/);
+  // The enlarged canvas fills the tall dialog body (it escapes the 220px cap).
+  await expect
+    .poll(async () => (await page.locator('#chart-zoom-canvas').boundingBox())?.height ?? 0,
+          { message: 'zoomed chart should be tall' })
+    .toBeGreaterThan(300);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#chart-zoom-modal')).not.toHaveClass(/open/);
+});
+
 test('a missing workbook says so instead of passing sample data off as real', async ({ page }) => {
   // The dangerous failure: the page boots with a small hardcoded dataset so
   // nothing is blank, and until now a 404 left those numbers on screen looking
