@@ -30,6 +30,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Pan/zoom for the full-screen chart view only (enabled per-chart in
+     openChartZoom, so inline charts never hijack page scroll). Hammer must load
+     before the zoom plugin — it powers touch pinch/pan; the plugin UMD then
+     auto-registers itself against the global Chart. Pinned like Chart.js/xlsx;
+     tests/local-cdn.mjs asserts these versions match the installed copies. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
 <script>
   // ── Supabase config (optional cloud sync + per-user auth) ──
   // Leave BOTH fields blank to keep the app in its original static mode:
@@ -954,11 +961,11 @@
 
   /* ── Charts ── */
   .chart-panel { padding: 24px 26px; }
-  /* Expand-to-fullscreen affordance — surfaced only where charts get cramped
-     (a phone), so desktop headers stay uncluttered. margin-left:auto right-
-     aligns it after the title/badge/controls. */
+  /* Expand-to-fullscreen affordance — offered at every width (the enlarged view
+     is zoomable/pannable, useful on desktop too). margin-left:auto right-aligns
+     it after the title/badge/controls. */
   .chart-expand-btn {
-    display: none;
+    display: inline-flex;
     margin-left: auto;
     align-items: center; justify-content: center;
     width: 34px; height: 34px; padding: 0;
@@ -969,13 +976,16 @@
     cursor: pointer;
   }
   .chart-expand-btn:hover { color: var(--text); border-color: var(--hairline); }
-  @media (max-width: 680px) { .chart-expand-btn { display: inline-flex; } }
   /* The enlarged chart lives in a wide dialog; the body gives the responsive
      canvas real height (it fills the parent with maintainAspectRatio:false). */
   #chart-zoom-modal .modal { max-width: 960px; width: 100%; }
-  .chart-zoom-body { position: relative; width: 100%; height: 70vh; margin-top: 14px; }
+  .chart-zoom-body { position: relative; width: 100%; height: 70vh; margin-top: 14px;
+    touch-action: none; /* let the zoom plugin own pinch/pan instead of the page */ }
   /* Escape the global canvas max-height cap so the enlarged chart fills the body. */
   .chart-zoom-body canvas { max-height: none; }
+  .chart-zoom-foot { display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+  .chart-zoom-hint { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted); }
   canvas { max-height: 220px; }
   /* Ten labelled rows need height per row, not a ratio — see the chart's
      options. The height has to sit on a *wrapper*: with maintainAspectRatio
@@ -1947,6 +1957,10 @@
     <button class="modal-close" id="chart-zoom-close" type="button" aria-label="Close enlarged chart">✕</button>
     <h2 id="chart-zoom-title">Chart</h2>
     <div class="chart-zoom-body"><canvas id="chart-zoom-canvas"></canvas></div>
+    <div class="chart-zoom-foot">
+      <span class="chart-zoom-hint">Scroll or pinch to zoom · drag to pan</span>
+      <button type="button" id="chart-zoom-reset" class="pill">Reset zoom</button>
+    </div>
   </div>
 </div>
 
@@ -3827,7 +3841,7 @@ function renderScatterChart() {
       },
       scales: {
         x: { title: { display: true, text: 'Age (years)', color: COLOR.axis, font: { family: 'DM Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } },
-        y: { title: { display: true, text: 'SV / Booster (× booster cost)', color: COLOR.axis, font: { family: 'DM Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } }
+        y: { title: { display: true, text: 'SV / Booster (× booster cost)', color: COLOR.axis, font: { family: 'DM Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => Math.round(v) + '×' } }
       }
     }
   });
@@ -4977,13 +4991,15 @@ function closeOverlay(id) {
 const OVERLAY_CLOSERS = { 'drill-modal': () => closeDrill(), 'chart-zoom-modal': () => closeChartZoom() };
 const topOverlay = () => [...document.querySelectorAll('.modal-overlay.open')].pop() || null;
 
-// ── Chart zoom: a larger, read-only copy of an analytical chart ──
-// Small screens can't read the dense scatter / comparison lines, so the expand
-// button (surfaced only ≤680px) clones the source Chart.js config into a full-
-// screen dialog. The copy shares the read-only data but takes its own dataset
-// objects so the two charts' per-chart metadata can't collide, and its
-// interaction handlers are stripped so tapping the enlarged chart never opens a
-// nested overlay.
+// ── Chart zoom: a larger, interactive copy of an analytical chart ──
+// The dense scatter / comparison lines are hard to read inline (worst on a
+// phone, but the expand button is offered at every width). openChartZoom()
+// clones the source Chart.js config into a full-screen dialog and turns on
+// pan/zoom *there only* — pinch/wheel to zoom, drag to pan (chartjs-plugin-zoom
+// + Hammer), with a Reset control — so inline charts never hijack page scroll.
+// The clone shares the read-only data but takes its own dataset objects so the
+// two charts' per-chart metadata can't collide, and its click/hover handlers are
+// stripped so the enlarged chart never opens a nested overlay.
 let zoomChart = null;
 const ZOOM_SOURCES = {
   scatter: { chart: () => scatterChart,      title: 'Age vs Set Value / Booster' },
@@ -4998,7 +5014,18 @@ function openChartZoom(key) {
   openOverlay('chart-zoom-modal');
   if (zoomChart) { zoomChart.destroy(); zoomChart = null; }
   const cfg = chart.config;
-  const options = { ...cfg.options, maintainAspectRatio: false, onClick: null, onHover: null };
+  const options = {
+    ...cfg.options,
+    maintainAspectRatio: false,
+    onClick: null, onHover: null,
+    plugins: {
+      ...cfg.options.plugins,
+      zoom: {
+        zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' },
+        pan:  { enabled: true, mode: 'xy' },
+      },
+    },
+  };
   zoomChart = new Chart(document.getElementById('chart-zoom-canvas').getContext('2d'), {
     type: cfg.type,
     data: { labels: cfg.data.labels, datasets: cfg.data.datasets.map(d => ({ ...d })) },
@@ -5013,6 +5040,7 @@ document.querySelectorAll('.chart-expand-btn').forEach(btn => {
   btn.addEventListener('click', () => openChartZoom(btn.dataset.chart));
 });
 document.getElementById('chart-zoom-close').addEventListener('click', closeChartZoom);
+document.getElementById('chart-zoom-reset').addEventListener('click', () => { if (zoomChart) zoomChart.resetZoom(); });
 
 function dismissTopOverlay() {
   const top = topOverlay();

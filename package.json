@@ -1,7 +1,7 @@
 {
   "name": "poke-analytics",
   "version": "1.0.0",
-  "description": "CI tooling for the Pok\u00e9mon TCG sealed-product dashboard (the app itself is the framework-free index.html).",
+  "description": "CI tooling for the Pokémon TCG sealed-product dashboard (the app itself is the framework-free index.html).",
   "private": true,
   "type": "module",
   "scripts": {
@@ -21,6 +21,8 @@
     "@playwright/test": "^1.49.0",
     "@supabase/supabase-js": "^2.45.0",
     "chart.js": "4.4.1",
+    "chartjs-plugin-zoom": "2.2.0",
+    "hammerjs": "2.0.8",
     "xlsx": "^0.18.5"
   }
 }

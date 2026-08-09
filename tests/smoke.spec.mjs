@@ -116,11 +116,13 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   expect(pageErrors, `uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([]);
 });
 
-test('on a phone, an analytical chart expands to a full-screen dialog', async ({ page }) => {
-  // The dense scatter / comparison charts are unreadable at phone width, so an
-  // expand button (surfaced only ≤680px) opens a larger read-only copy. Proves
-  // the affordance shows, opens the dialog, renders a real (tall) canvas, and
-  // closes from the keyboard like every other overlay.
+test('an analytical chart expands to a full-screen, zoomable dialog', async ({ page }) => {
+  // The dense scatter / comparison charts are hard to read inline, so an expand
+  // button (offered at every width) opens a larger copy with pan/zoom. Proves the
+  // affordance shows, opens the dialog, renders a real (tall) canvas, that the
+  // zoom plugin is registered and actually changes the view, and that it closes
+  // from the keyboard like every other overlay. Phone viewport so it also covers
+  // the ≤680 layout.
   await page.setViewportSize({ width: 390, height: 820 });
   await routeLocalLibs(page);
   await forceStaticMode(page);
@@ -142,6 +144,26 @@ test('on a phone, an analytical chart expands to a full-screen dialog', async ({
     .poll(async () => (await page.locator('#chart-zoom-canvas').boundingBox())?.height ?? 0,
           { message: 'zoomed chart should be tall' })
     .toBeGreaterThan(300);
+
+  // Pan/zoom is live: the plugin is registered, the enlarged chart exposes
+  // zoom(), zooming changes the axis range, and Reset restores it.
+  const zoom = await page.evaluate(() => {
+    let registered = false;
+    try { registered = !!window.Chart.registry.plugins.get('zoom'); } catch {}
+    const c = window.Chart.getChart('chart-zoom-canvas');
+    const before = c.scales.x.max - c.scales.x.min;
+    c.zoom(2);
+    const zoomed = c.scales.x.max - c.scales.x.min;
+    c.resetZoom();
+    const reset = c.scales.x.max - c.scales.x.min;
+    return { registered, hammer: typeof window.Hammer, before, zoomed, reset };
+  });
+  expect(zoom.registered, 'zoom plugin registered').toBe(true);
+  expect(zoom.hammer, 'Hammer loaded for touch gestures').toBe('function');
+  expect(zoom.zoomed, 'zooming narrows the axis range').toBeLessThan(zoom.before);
+  expect(zoom.reset, 'reset restores the range').toBeCloseTo(zoom.before, 5);
+  await expect(page.locator('#chart-zoom-reset')).toBeVisible();
+
   await page.keyboard.press('Escape');
   await expect(page.locator('#chart-zoom-modal')).not.toHaveClass(/open/);
 });
