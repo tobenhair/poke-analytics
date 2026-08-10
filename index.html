@@ -1023,6 +1023,16 @@
   .news-empty { padding: 16px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: var(--text-sm); }
 
   canvas { max-height: 220px; }
+  /* Per-lens set/product comparison chart inside the board panel (Relative /
+     Momentum lenses). A diverging horizontal bar chart whose height is a
+     function of its bar count, so it lives in a capped scroll area and the
+     canvas escapes the 220px cap (same wrapper trick the drill charts use). */
+  .board-lens-chart { padding: 8px 22px 4px; border-bottom: 1px solid var(--hairline); }
+  .lens-chart-head { display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; margin-bottom: 10px; }
+  .lens-chart-cap { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); letter-spacing: 0.06em; color: var(--muted); }
+  .lens-chart-scroll { max-height: 380px; overflow-y: auto; }
+  .lens-chart-wrap { position: relative; height: 260px; }
+  .lens-chart-wrap canvas { max-height: none; }
 
   .trend-select {
     background: var(--bg3); border: 1px solid var(--hairline); color: var(--text);
@@ -2579,6 +2589,25 @@
          Toggled by applyBoardLens(). -->
     <p class="scroll-hint" id="board-scroll-hint">Swipe the table sideways for more →</p>
 
+    <!-- Set-vs-product comparison chart for the Relative and Momentum lenses —
+         a diverging bar chart of the same metric the table ranks, but rolled up
+         so you can compare whole releases at a glance (which the collapsed tree
+         can't). Hidden on the Value lens (its visual is the §02 scatter).
+         Sets ⇄ Products toggle, Sets by default. Managed by
+         renderBoardLensChart() / applyBoardLens(). -->
+    <div class="board-lens-chart" id="board-lens-chart" hidden>
+      <div class="lens-chart-head">
+        <div class="pill-group" id="board-chart-mode" role="group" aria-label="Compare sets or products">
+          <button class="pill active" type="button" data-mode="set" aria-pressed="true">Sets</button>
+          <button class="pill" type="button" data-mode="product" aria-pressed="false">Products</button>
+        </div>
+        <span class="lens-chart-cap" id="board-chart-cap"></span>
+      </div>
+      <div class="lens-chart-scroll">
+        <div class="lens-chart-wrap" id="board-lens-wrap"><canvas id="board-lens-canvas"></canvas></div>
+      </div>
+    </div>
+
     <!-- Value lens — the headline board (rows carry .row-open buttons, so this
          wrap needs no tabindex). -->
     <div class="table-wrap" id="board-view-value">
@@ -3048,6 +3077,9 @@ let momentumExpandedSets = new Set();
 // each its own table under a shared pill toggle. This holds the active lens;
 // applyBoardLens() shows the matching table-wrap and renderBoard() renders it.
 let boardLens = 'value'; // 'value' | 'relative' | 'momentum'
+// The Relative/Momentum lenses carry a set-vs-product comparison bar chart
+// (renderBoardLensChart); this is its roll-up mode, Sets by default.
+let boardChartMode = 'set'; // 'set' | 'product'
 let ageThreshold = 1; // years until age weight reaches 1.0 (default)
 // The age-fit line (SV/Booster ~ age) with its R², recomputed once per data
 // load by recomputeFit(). Shared by the board's fair price, the scatter overlay
@@ -3425,6 +3457,8 @@ function applyBoardLens() {
   // Only the wide 9-column Value lens can overflow a phone; the other two drop
   // to two columns and fit, so their swipe hint would be a lie.
   document.getElementById('board-scroll-hint').hidden = !isValue;
+  // The set/product comparison chart rides the Relative and Momentum lenses only.
+  document.getElementById('board-lens-chart').hidden = isValue;
   renderBoard();
 }
 
@@ -3435,11 +3469,105 @@ function renderBoard() {
   if (boardLens === 'value')      updateTable();
   else if (boardLens === 'relative') renderRelativeValue();
   else                            renderMomentum();
+  // Relative/Momentum also carry the set-vs-product comparison chart.
+  if (boardLens !== 'value') renderBoardLensChart();
 }
 
 function setBoardHint(text) {
   const el = document.getElementById('board-lens-hint');
   if (el) el.textContent = text;
+}
+
+// ── The Relative/Momentum comparison chart ──────────────────
+// A diverging horizontal bar chart of the active lens's metric, rolled up so you
+// can compare whole releases at a glance — the set-level view the collapsed tree
+// can't give. Relative plots **Δ vs peers** (SV/Booster minus the expected-for-
+// age value, in ×); Momentum plots the **30-day price change** (%). Sets mode
+// (default) means each product's metric over its set (by set key, matching the
+// board tree); Products mode ranks products. Positive is green, negative red —
+// the same sign convention as the tables. Capped to the strongest movers so the
+// height stays bounded (see CAP); the scroll area holds the rest.
+let boardLensChart = null;
+const BOARD_CHART_CAP = 12;   // biggest movers shown; the rest scroll
+
+function shortProductName(name) {
+  return name.replace(' Booster Box', '').replace(' Booster Bundle', '')
+             .replace(' Elite Trainer Box', '').replace(' ETB', '');
+}
+
+function renderBoardLensChart() {
+  const canvas = document.getElementById('board-lens-canvas');
+  if (!canvas) return;
+  const isRel = boardLens === 'relative';
+
+  // Same pool the lens table uses: type filter + the board search.
+  const q = searchTerm.trim().toLowerCase();
+  const pool = visibleProducts().filter(p => !q || p.name.toLowerCase().includes(q));
+
+  // Per-product metric for the active lens (null = not computable, dropped).
+  const resByName = isRel ? new Map(peerResiduals(pool, ageFit).map(r => [r.name, r.residual])) : null;
+  const metric = p => {
+    if (isRel) return resByName.get(p.name) ?? null;
+    const m = computeMomentum(p.name);
+    return m ? m.change30d : null;
+  };
+
+  // Roll up to rows: sets (mean over members) or products.
+  let rows;
+  if (boardChartMode === 'set') {
+    rows = boardSets(pool).map(s => {
+      const vals = s.products.map(metric).filter(v => v != null);
+      return vals.length ? { label: s.label, value: vals.reduce((a, b) => a + b, 0) / vals.length } : null;
+    }).filter(Boolean);
+  } else {
+    rows = pool.map(p => { const v = metric(p); return v == null ? null : { label: shortProductName(p.name), value: v }; })
+               .filter(Boolean);
+  }
+  // Bound the height: past the cap, keep the biggest movers by magnitude (up or
+  // down), dropping the near-zero middle — a comparison chart wants the extremes,
+  // not a wall of stubs. Then sort what's left by value for the diverging shape.
+  const cap = document.getElementById('board-chart-cap');
+  const unit = isRel ? '×' : '%';
+  let capped = false;
+  if (rows.length > BOARD_CHART_CAP) {
+    rows = [...rows].sort((a, b) => Math.abs(b.value) - Math.abs(a.value)).slice(0, BOARD_CHART_CAP);
+    capped = true;
+  }
+  rows.sort((a, b) => b.value - a.value);
+  const modeWord = boardChartMode === 'set' ? 'set' : 'product';
+  const metricWord = isRel ? 'Δ vs peers' : '30-day price change';
+  if (cap) cap.textContent = rows.length
+    ? `${boardChartMode === 'set' ? 'mean ' : ''}${metricWord} per ${modeWord}${capped ? ` · ${BOARD_CHART_CAP} biggest moves` : ''}`
+    : '';
+
+  // Height from the bar count (a wrapper height, not a canvas one — Chart.js
+  // sizes the canvas to its parent), so the capped scroll area can hold it.
+  const wrap = document.getElementById('board-lens-wrap');
+  if (wrap) wrap.style.height = Math.max(140, rows.length * 26 + 24) + 'px';
+
+  const labels = rows.map(r => r.label);
+  const values = rows.map(r => parseFloat(r.value.toFixed(1)));
+  const colors = values.map(v => v >= 0 ? COLOR.green : COLOR.red);
+  canvas.setAttribute('aria-label',
+    `${metricWord} by ${modeWord}. ${rows.length ? `Best: ${labels[0]} at ${values[0]}${unit}.` : 'No data.'} The table below lists every row.`);
+
+  if (boardLensChart) boardLensChart.destroy();
+  if (!rows.length) return;
+  boardLensChart = new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 4, borderSkipped: false }] },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ` ${ctx.parsed.x > 0 ? '+' : ''}${ctx.parsed.x}${unit} ${isRel ? 'vs age-expected' : 'over 30 days'}` }
+      }},
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => (v > 0 ? '+' : '') + v + unit } },
+        y: { grid: { display: false }, ticks: { color: COLOR.muted, font: { family: 'DM Sans', size: 10 } } }
+      }
+    }
+  });
 }
 
 // ============================================================
@@ -4056,6 +4184,19 @@ document.querySelectorAll('#board-lens .pill').forEach(pill => {
   pill.addEventListener('click', () => {
     boardLens = pill.dataset.lens;
     applyBoardLens();
+  });
+});
+
+// The comparison chart's Sets ⇄ Products toggle (Relative / Momentum lenses).
+document.querySelectorAll('#board-chart-mode .pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    boardChartMode = pill.dataset.mode;
+    document.querySelectorAll('#board-chart-mode .pill').forEach(p => {
+      const on = p.dataset.mode === boardChartMode;
+      p.classList.toggle('active', on);
+      p.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    renderBoardLensChart();
   });
 });
 

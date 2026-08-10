@@ -331,6 +331,22 @@ wiring is intact.
   apply to all three now — `renderRelativeValue()`/`renderMomentum()` filter their
   pool by `searchTerm` and force-expand the tree when searching, matching the
   Value board. Verdict + sort stay Value-only (they're `.value-lens-ctrl`).
+- **The Relative/Momentum lenses carry a set-vs-product comparison chart**
+  (`renderBoardLensChart()`, canvas `#board-lens-canvas`, hidden on Value via
+  `applyBoardLens()`). It's the set-level view the collapsed tree can't give — a
+  diverging horizontal bar chart of the active lens's metric, **Sets by default**
+  with a `#board-chart-mode` Sets ⇄ Products toggle (`boardChartMode`). Relative
+  plots **Δ vs peers** (SV/Booster minus the age-expected value, in ×, from
+  `peerResiduals`); Momentum plots the **30-day price change** (%, from
+  `momentum().change30d`). Sets roll up by set key (`boardSets`, matching the
+  tree); positive is green, negative red — the tables' sign convention. It's
+  **capped to the `BOARD_CHART_CAP` (12) biggest movers by magnitude** (dropping
+  the near-zero middle so the chart shows extremes, not a wall of stubs) inside a
+  height-from-row-count wrapper (`#board-lens-wrap`) in a capped scroll area
+  (`.lens-chart-scroll`); the `#board-chart-cap` line captions the metric/mode.
+  It re-renders inside `renderBoard()` (so it follows the type filter, search,
+  currency and age-threshold like the table). Nothing new in `metrics.js` — it
+  reuses `peerResiduals`/`momentum`/`boardSets`.
 
 Each lens still keeps its own independent expand state
 (`relvalExpandedEras`/`relvalExpandedSets`, `momentumExpandedEras`/

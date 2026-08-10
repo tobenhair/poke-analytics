@@ -195,11 +195,14 @@ test('the board consolidates into one panel with a Value / Relative / Momentum l
   await expect(page.locator('#board-view-relative')).toBeHidden();
   await expect(page.locator('#board-view-momentum')).toBeHidden();
   await expect(page.locator('#board-badge')).toHaveText(/product/);
-  // The Value-only controls (verdict + sort) are present here.
+  // The Value-only controls (verdict + sort) are present here; the set/product
+  // comparison chart rides only the other two lenses, so it's hidden on Value.
   await expect(page.locator('#sort-select')).toBeVisible();
+  await expect(page.locator('#board-lens-chart')).toBeHidden();
 
   // Relative lens: its table shows, value hides, the badge switches to the fit,
-  // and the Value-only sort control is hidden.
+  // the Value-only sort control is hidden, and the comparison chart appears and
+  // actually drew (non-zero canvas), captioned for the residual metric.
   await switchTo('relative');
   await expect(lensBtn('relative')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#board-view-relative')).toBeVisible();
@@ -207,19 +210,34 @@ test('the board consolidates into one panel with a Value / Relative / Momentum l
   await expect(page.locator('#relval-tbody .grp-era').first()).toBeAttached();
   await expect(page.locator('#board-badge')).toHaveText(/age trend|flat/);
   await expect(page.locator('#sort-select')).toBeHidden();
+  await expect(page.locator('#board-lens-chart')).toBeVisible();
+  await expect(page.locator('#board-chart-cap')).toContainText(/Δ vs peers per set/);
+  await expect
+    .poll(async () => (await page.locator('#board-lens-canvas').boundingBox())?.height ?? 0)
+    .toBeGreaterThan(0);
 
-  // Momentum lens: its table shows, its badge reads "by deepest dip".
+  // The comparison chart's Sets ⇄ Products toggle re-captions the chart.
+  const prodMode = page.locator('#board-chart-mode .pill[data-mode="product"]');
+  await prodMode.evaluate(el => el.scrollIntoView({ block: 'center' }));
+  await prodMode.click();
+  await expect(page.locator('#board-chart-cap')).toContainText(/per product/);
+
+  // Momentum lens: its table shows, its badge reads "by deepest dip", and the
+  // chart re-captions to the 30-day price move.
   await switchTo('momentum');
   await expect(page.locator('#board-view-momentum')).toBeVisible();
   await expect(page.locator('#board-view-relative')).toBeHidden();
   await expect(page.locator('#momentum-tbody .grp-era').first()).toBeAttached();
   await expect(page.locator('#board-badge')).toHaveText(/deepest dip/i);
+  await expect(page.locator('#board-lens-chart')).toBeVisible();
+  await expect(page.locator('#board-chart-cap')).toContainText(/30-day price change/);
 
-  // Back to Value restores the headline board and its controls.
+  // Back to Value restores the headline board and its controls, and drops the chart.
   await switchTo('value');
   await expect(page.locator('#board-view-value')).toBeVisible();
   await expect(page.locator('#board-view-momentum')).toBeHidden();
   await expect(page.locator('#sort-select')).toBeVisible();
+  await expect(page.locator('#board-lens-chart')).toBeHidden();
 });
 
 test('a missing workbook says so instead of passing sample data off as real', async ({ page }) => {
