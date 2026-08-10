@@ -15,16 +15,19 @@
 // Only headline + link + source + timestamp is extracted — never article bodies.
 // ============================================================
 
-import { parseFeed, buildNewsRows, NEWS_SOURCES } from './news-lib.mjs';
+import { parseFeed, buildNewsRows, NEWS_SOURCES, BROWSER_UA } from './news-lib.mjs';
 
-const UA = 'sealedanalytics-news/1.0 (+https://sealedanalytics.eu)';
 const only = (() => { const i = process.argv.indexOf('--source'); return i >= 0 ? process.argv[i + 1] : null; })();
 
-async function fetchFeed(url) {
+async function fetchFeed(url, ua) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 15000);
   try {
-    const res = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'application/rss+xml, application/atom+xml, application/xml, */*' }, signal: ctrl.signal });
+    const res = await fetch(url, { headers: {
+      'User-Agent': ua,
+      'Accept': 'application/rss+xml, application/atom+xml, application/xml, */*',
+      'Accept-Language': 'en-US,en;q=0.9',
+    }, signal: ctrl.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.text();
   } finally { clearTimeout(to); }
@@ -34,7 +37,7 @@ const chosen = NEWS_SOURCES.filter((s) => !only || s.source === only);
 const sources = [];
 for (const s of chosen) {
   try {
-    const items = parseFeed(await fetchFeed(s.url));
+    const items = parseFeed(await fetchFeed(s.url, s.ua ?? BROWSER_UA));
     sources.push({ ...s, items });
     console.error(`✓ ${s.source} (${s.category}): ${items.length} items`);
   } catch (e) {

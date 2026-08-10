@@ -142,17 +142,25 @@ export function buildNewsRows(sources, opts = {}) {
 // skips the relevance filter. The Edge Function and the Node runner both read
 // this list. cron-fetched hourly. VERIFY each URL against a live network before
 // relying on it — this sandbox can't reach them.
+// UA is per-source: Reddit REQUIRES a unique descriptive agent (429s generic
+// ones); Google News REJECTS bot agents with 503 and wants a browser one. The
+// runner defaults a source with no `ua` to a browser UA.
+export const FEED_UA = 'sealedanalytics-news/1.0 (+https://sealedanalytics.eu)';
+export const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+
 export const NEWS_SOURCES = [
-  // 1 — Pokémon TCG (priority): dedicated daily TCG news…
-  { source: 'PokéGuardian', category: 'tcg', scoped: true, kind: 'rss',
-    url: 'https://www.pokeguardian.com/articles?format=rss' },
+  // 1 — Pokémon TCG (priority): dedicated daily TCG news (WordPress feed)…
+  { source: 'PokéBeach', category: 'tcg', scoped: true, kind: 'rss',
+    url: 'https://www.pokebeach.com/feed' },
   // …hardened by a Google News safety net so the priority category always fills
-  // even if the dedicated feed path drifts.
+  // even if the dedicated feed path drifts. Browser UA (default) — Google News
+  // 503s a bot agent from a datacenter IP.
   { source: 'Google News', category: 'tcg', scoped: true, kind: 'gnews',
     url: 'https://news.google.com/rss/search?q=%22Pokemon+TCG%22+OR+%22Pokemon+cards%22&hl=en-US&gl=US&ceid=US:en' },
   // 2 — TCG investing: the community that discusses card values & buy-timing.
+  //     Reddit needs the descriptive UA.
   { source: 'r/PokeInvesting', category: 'investing', scoped: true, kind: 'reddit',
-    url: 'https://www.reddit.com/r/PokeInvesting/.rss' },
+    url: 'https://www.reddit.com/r/PokeInvesting/.rss', ua: FEED_UA },
   // 3 — Pokémon business / owner-company results.
   { source: 'Google News', category: 'business', scoped: true, kind: 'gnews',
     url: 'https://news.google.com/rss/search?q=%22Pokemon+Company%22+(earnings+OR+revenue+OR+financial)+OR+(Nintendo+earnings)&hl=en-US&gl=US&ceid=US:en' },

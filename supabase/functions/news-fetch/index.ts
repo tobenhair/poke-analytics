@@ -17,19 +17,26 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-// A descriptive UA is mandatory — Reddit 429s a blank/default agent.
-const UA = 'sealedanalytics-news/1.0 (+https://sealedanalytics.eu)';
+// The User-Agent is per-source and it matters: Reddit REQUIRES a unique
+// descriptive agent (it 429s blank/generic ones), while Google News REJECTS bot
+// agents from datacenter IPs with HTTP 503 and wants a browser one. So each
+// source picks its UA (Source.ua), defaulting to the browser string.
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+const FEED_UA = 'sealedanalytics-news/1.0 (+https://sealedanalytics.eu)';
 const RETENTION_DAYS = 60;
 
-type Source = { source: string; category: 'tcg' | 'investing' | 'business'; scoped: boolean; url: string };
+type Source = { source: string; category: 'tcg' | 'investing' | 'business'; scoped: boolean; url: string; ua?: string };
 
 // The v1 source set — TCG is the priority. scoped:true = already Pokémon-locked
 // (dedicated site or a Pokémon query) so it skips the relevance filter.
 const NEWS_SOURCES: Source[] = [
-  { source: 'PokéGuardian',   category: 'tcg',       scoped: true, url: 'https://www.pokeguardian.com/articles?format=rss' },
-  { source: 'Google News',    category: 'tcg',       scoped: true, url: 'https://news.google.com/rss/search?q=%22Pokemon+TCG%22+OR+%22Pokemon+cards%22&hl=en-US&gl=US&ceid=US:en' },
-  { source: 'r/PokeInvesting', category: 'investing', scoped: true, url: 'https://www.reddit.com/r/PokeInvesting/.rss' },
-  { source: 'Google News',    category: 'business',  scoped: true, url: 'https://news.google.com/rss/search?q=%22Pokemon+Company%22+(earnings+OR+revenue+OR+financial)+OR+(Nintendo+earnings)&hl=en-US&gl=US&ceid=US:en' },
+  // Dedicated TCG news site (WordPress feed) — the reliable, non-Google primary.
+  { source: 'PokéBeach',       category: 'tcg',       scoped: true, url: 'https://www.pokebeach.com/feed' },
+  // Google News safety net so the priority category always fills. Needs a browser UA.
+  { source: 'Google News',     category: 'tcg',       scoped: true, url: 'https://news.google.com/rss/search?q=%22Pokemon+TCG%22+OR+%22Pokemon+cards%22&hl=en-US&gl=US&ceid=US:en' },
+  // Reddit keeps the descriptive UA — a browser one gets 429'd here.
+  { source: 'r/PokeInvesting', category: 'investing', scoped: true, url: 'https://www.reddit.com/r/PokeInvesting/.rss', ua: FEED_UA },
+  { source: 'Google News',     category: 'business',  scoped: true, url: 'https://news.google.com/rss/search?q=%22Pokemon+Company%22+(earnings+OR+revenue+OR+financial)+OR+(Nintendo+earnings)&hl=en-US&gl=US&ceid=US:en' },
 ];
 
 const POKEMON_KEYWORDS = ['pokemon', 'pokémon', 'tcg', 'booster', 'elite trainer', 'etb', 'pokemon company', 'pokémon company'];
@@ -89,11 +96,15 @@ function isRelevant(title: string): boolean {
   return POKEMON_KEYWORDS.some((k) => t.includes(k));
 }
 
-async function fetchFeed(url: string): Promise<string> {
+async function fetchFeed(url: string, ua: string): Promise<string> {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 15000);
   try {
-    const res = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' }, signal: ctrl.signal });
+    const res = await fetch(url, { headers: {
+      'User-Agent': ua,
+      'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
+      'Accept-Language': 'en-US,en;q=0.9',
+    }, signal: ctrl.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.text();
   } finally { clearTimeout(to); }
@@ -112,7 +123,7 @@ Deno.serve(async (req) => {
 
   for (const s of NEWS_SOURCES) {
     try {
-      const items = parseFeed(await fetchFeed(s.url));
+      const items = parseFeed(await fetchFeed(s.url, s.ua ?? BROWSER_UA));
       let kept = 0;
       for (const it of items) {
         if (!it.title || !it.url) continue;
