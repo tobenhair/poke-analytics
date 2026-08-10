@@ -72,7 +72,7 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   // Drill-down opens from a product row, renders its stats and a real chart.
   await page.locator('#product-tbody tr.grp-product').first().click();
   await expect(page.locator('#drill-modal')).toHaveClass(/open/);
-  await expect(page.locator('#drill-stats .drill-stat')).toHaveCount(7);
+  await expect(page.locator('#drill-stats .drill-stat')).toHaveCount(8);
   // Set logo is best-effort: with the TCGdex API stubbed empty it stays hidden
   // (text title is the fallback) — the page must not show a broken image.
   await expect(page.locator('#drill-logo')).toBeHidden();

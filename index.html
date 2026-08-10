@@ -6222,6 +6222,7 @@ function renderDrill() {
     stat('Live Price', p.price != null ? money(p.price) : '—'),
     stat('Fair Price', p.fairPrice != null ? money(p.fairPrice) : '—', gapTxt + (trusted ? '' : ' · low fit'), gapCol),
     stat('SV / Booster', `${fmt(p.svPerBooster, 1)}×`, `set value ${pct(m?.svSinceFirst)}`),
+    stat('Set Value', p.setVal != null ? money(p.setVal) : '—', 'value of the set’s singles'),
     stat('Drawdown', m ? pct(m.drawdown) : '—', 'vs tracked peak', m && m.drawdown < -0.05 ? 'var(--accent2)' : 'var(--muted)'),
     stat('30d change', m ? pct(m.change30d) : '—', `7d ${m && m.change7d != null ? pct(m.change7d) : '—'}`, chCol(m?.change30d)),
     stat('Wtd. Score', fmt(p.score, 1), `age weight ${fmt(p.ageWeight, 2)}`),
