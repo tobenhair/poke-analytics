@@ -185,6 +185,22 @@ create table if not exists public.client_errors (
 );
 create index if not exists client_errors_created_idx on public.client_errors (created_at desc);
 
+-- News feed (Pokémon TCG / investing / business). Written only by the
+-- service-role `news-fetch` Edge Function (browsers can't fetch third-party RSS
+-- — no CORS), read by everyone including logged-out demo visitors. Only
+-- headline + link + source + timestamp is stored, never article bodies. `url`
+-- is unique so the ingest upserts idempotently and dedupes across sources.
+create table if not exists public.news (
+  id           bigint generated always as identity primary key,
+  source       text not null check (char_length(source) <= 80),
+  category     text not null check (category in ('tcg', 'investing', 'business')),
+  title        text not null check (char_length(title) <= 400),
+  url          text not null unique check (char_length(url) <= 600),
+  published_at timestamptz,
+  fetched_at   timestamptz not null default now()
+);
+create index if not exists news_published_idx on public.news (published_at desc nulls last);
+
 -- ============================================================
 -- Row-Level Security — the real security boundary
 -- ============================================================
@@ -195,6 +211,7 @@ alter table public.holdings      enable row level security;
 alter table public.alerts        enable row level security;
 alter table public.client_errors enable row level security;
 alter table public.cardmarket_expansion_singles enable row level security;
+alter table public.news enable row level security;
 -- No client policy: the catalog cache is ingestion infrastructure written by the
 -- service-role catalog-sync job (which bypasses RLS) and read by the service-role
 -- daily Edge Function. With RLS on and no policy, no anon/authenticated client
@@ -305,3 +322,13 @@ drop policy if exists "demo read snapshots" on public.snapshots;
 create policy "demo read snapshots" on public.snapshots
   for select to anon
   using (product_id in (select public.demo_product_ids()));
+
+-- ── news: public read (anon + signed-in), writes only via service role ──
+-- The whole feed is public (it's a companion to the demo/landing), so both the
+-- anon and authenticated roles may SELECT everything. There is deliberately NO
+-- insert/update/delete policy: the `news-fetch` Edge Function runs with the
+-- service_role key, which bypasses RLS, so no client can write — and with RLS
+-- on and no write policy, none can.
+drop policy if exists "read news" on public.news;
+create policy "read news" on public.news
+  for select to anon, authenticated using (true);

@@ -732,6 +732,17 @@
     letter-spacing: 0.06em;
     color: var(--muted);
   }
+  /* One-line "what this lens shows" note under the board's Value/Relative/Momentum
+     toggle. Always visible (unlike .scroll-hint), so the current lens explains
+     itself without opening the collapsed section explainer. */
+  .board-lens-hint {
+    margin: 0;
+    padding: 14px 26px 2px;
+    font-family: 'DM Mono', monospace;
+    font-size: var(--text-xs);
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
   table { width: 100%; border-collapse: collapse; }
   /* Secondary hint inside a column header ("💰 = buy signal"). It used to set
      opacity:0.6 inline, which dropped var(--muted) below the 4.5:1 minimum —
@@ -986,15 +997,42 @@
   .chart-zoom-foot { display: flex; align-items: center; justify-content: space-between;
     gap: 12px; flex-wrap: wrap; margin-top: 12px; }
   .chart-zoom-hint { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted); }
+
+  /* ── News (teaser + overlay) — headline lists, TCG-first ── */
+  .news-teaser .panel { padding: 6px 6px 12px; }
+  .news-teaser-body { list-style: none; }
+  .news-teaser-body li + li { border-top: 1px solid var(--hairline); }
+  .news-link { display: block; padding: 12px 16px; text-decoration: none; color: var(--text); }
+  .news-link:hover { background: rgba(244,198,81,0.03); }
+  .news-title { font-size: var(--text-lg); line-height: 1.35; }
+  .news-meta { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--muted);
+    margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .news-cat { color: var(--accent); }
+  /* padding gives the link a ≥24px hit area (WCAG 2.5.8); margin compensates so
+     the visual spacing is unchanged. */
+  .news-all { display: inline-block; margin: 6px 12px 2px; background: none; border: 0; padding: 6px 4px;
+    cursor: pointer; font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--accent3); }
+  .news-all:hover { text-decoration: underline; }
+  /* Overlay: same rows, grouped under a small category heading. */
+  #news-list { margin-top: 8px; }
+  .news-group + .news-group { margin-top: 22px; }
+  .news-group-title { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--accent);
+    text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 6px; }
+  #news-list ul { list-style: none; }
+  #news-list li + li { border-top: 1px solid var(--hairline); }
+  .news-empty { padding: 16px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: var(--text-sm); }
+
   canvas { max-height: 220px; }
-  /* Ten labelled rows need height per row, not a ratio — see the chart's
-     options. The height has to sit on a *wrapper*: with maintainAspectRatio
-     off, Chart.js sizes the canvas to its parent, so a height on the canvas
-     itself is circular. Same pattern as .drill-chart. 220px matches the cap
-     every other chart tops out at; the phone gets more, because the labels
-     are what it was dropping. */
-  .svb-chart-wrap { position: relative; height: 220px; }
-  .svb-chart-wrap canvas { max-height: none; }
+  /* Per-lens set/product comparison chart inside the board panel (Relative /
+     Momentum lenses). A diverging horizontal bar chart whose height is a
+     function of its bar count, so it lives in a capped scroll area and the
+     canvas escapes the 220px cap (same wrapper trick the drill charts use). */
+  .board-lens-chart { padding: 8px 22px 4px; border-bottom: 1px solid var(--hairline); }
+  .lens-chart-head { display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; margin-bottom: 10px; }
+  .lens-chart-cap { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); letter-spacing: 0.06em; color: var(--muted); }
+  .lens-chart-scroll { max-height: 380px; overflow-y: auto; }
+  .lens-chart-wrap { position: relative; height: 260px; }
+  .lens-chart-wrap canvas { max-height: none; }
 
   .trend-select {
     background: var(--bg3); border: 1px solid var(--hairline); color: var(--text);
@@ -1393,7 +1431,7 @@
   .portfolio-cancel-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.16); }
   .portfolio-edit-btn {
     background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: var(--text-lg); padding: 2px 6px; border-radius: 6px; line-height: 1;
+    font-size: var(--text-lg); padding: 6px 8px; border-radius: 6px; line-height: 1;
     transition: color 0.2s var(--ease);
   }
   .portfolio-edit-btn:hover { color: var(--accent3); }
@@ -1403,7 +1441,7 @@
   }
   .portfolio-remove-btn {
     background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: var(--text-xl); padding: 2px 6px; border-radius: 6px; line-height: 1;
+    font-size: var(--text-xl); padding: 6px 8px; border-radius: 6px; line-height: 1;
     transition: color 0.2s var(--ease);
   }
   .portfolio-remove-btn:hover { color: var(--accent2); }
@@ -1411,6 +1449,51 @@
     padding: 26px 24px; color: var(--muted); font-family: 'DM Mono', monospace;
     font-size: var(--text-md); text-align: center;
   }
+
+  /* ── Holdings as cards (responsive grid: 1-up on a phone, more on a wide
+     screen). Each card carries the same figures as the old table row, with the
+     value as the hero figure and a fair-price chip. ── */
+  .holding-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px; padding: 20px 24px;
+  }
+  .holding-grid .portfolio-empty { grid-column: 1 / -1; padding: 20px; }
+  .holding-card {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 16px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .holding-logo { height: 26px; width: auto; max-width: 150px; object-fit: contain; display: block; }
+  .holding-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .holding-id { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; min-width: 0; }
+  .holding-name { color: var(--text); font-size: var(--text-lg); font-weight: 500; max-width: 100%; }
+  .holding-name:hover { color: var(--accent); }
+  .holding-chip {
+    flex: none; font-family: 'DM Mono', monospace; font-size: var(--text-2xs);
+    text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; margin-top: 2px;
+  }
+  .holding-figures { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .holding-lbl {
+    font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 4px;
+  }
+  .holding-value { font-family: 'Bebas Neue', sans-serif; font-size: var(--display-sm); color: var(--text); line-height: 1; }
+  .holding-pnl { text-align: right; font-family: 'DM Mono', monospace; }
+  .holding-pnl-num { font-size: var(--text-lg); }
+  .holding-pnl-pct { font-size: var(--text-xs); margin-top: 2px; }
+  .holding-mom {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    font-family: 'DM Mono', monospace; font-size: var(--text-xs);
+  }
+  .holding-mom .mom-lbl { color: var(--muted); }
+  .holding-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    border-top: 1px solid var(--hairline); padding-top: 12px;
+  }
+  .holding-meta {
+    font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted);
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .holding-actions { display: flex; gap: 4px; flex: none; }
 
   /* ── Welcome hover affordance ── */
   #tab-welcome .panel[onclick] { transition: transform 0.35s var(--ease), border-color 0.35s var(--ease); }
@@ -1477,7 +1560,6 @@
     #tab-analysis > .panel { margin-bottom: 34px; }
     .panel-header { padding: 18px 18px 14px; }
     .chart-panel { padding: 16px 12px; }
-    .svb-chart-wrap { height: 265px; }
     .filters { gap: 10px; margin-bottom: 24px; }
     .age-control { margin-left: 0; padding-left: 0; border-left: 0; }
     .sort-select { margin-left: 0; width: 100%; }
@@ -1739,6 +1821,7 @@
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5.2"/><circle cx="12" cy="8.1" r="0.9" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.5" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-news" viewBox="0 0 24 24"><path d="M4 5.5h12.5v13H5.5A1.5 1.5 0 0 1 4 17z"/><path d="M16.5 9H20v8a1.5 1.5 0 0 1-3.5 0z"/><path d="M7 9h6.5M7 12h6.5M7 15h4"/></symbol>
 </svg>
 
 <!-- ═══════════ AUTH / SIGN-IN OVERLAY (Supabase) ═══════════
@@ -1964,6 +2047,21 @@
   </div>
 </div>
 
+<!-- ═══════════ NEWS ═══════════
+     Pokémon TCG (priority), TCG investing, and Pokémon-business/owner-company
+     headlines, grouped TCG-first. Read-only: headline + source + link only,
+     never article bodies (RSS/copyright norm). Rows come from the public `news`
+     table — a scheduled server job fetches the feeds because browsers can't
+     (no CORS). Direct child of <body> so it shows over any tab and the demo. -->
+<div class="modal-overlay" id="news-modal">
+  <div class="modal" style="max-width:640px;" role="dialog" aria-modal="true" aria-labelledby="news-heading" tabindex="-1">
+    <button class="modal-close" id="news-close" type="button" aria-label="Close news">✕</button>
+    <h2 id="news-heading">News</h2>
+    <p class="modal-intro">Pokémon TCG, investing &amp; business — headlines link out to the source.</p>
+    <div id="news-list"></div>
+  </div>
+</div>
+
 <!-- ═══════════ PRODUCT DRILL-DOWN ═══════════
      One product, one screen: the verdict and its ingredients, fair price,
      momentum/drawdown, price history with today's fair-price band overlaid,
@@ -2135,6 +2233,16 @@
       <button type="button" class="text-link glossary-open" aria-haspopup="dialog">What the numbers mean</button>
     </p>
 
+    <!-- Latest news teaser (TCG-first) — same shared component and #news-modal
+         as the signed-in app, so a logged-out visitor gets a reason to return. -->
+    <section class="news-teaser" hidden>
+      <h2 class="section-eyebrow">Latest news</h2>
+      <div class="panel">
+        <ul class="news-teaser-body"></ul>
+        <button type="button" class="news-all" aria-haspopup="dialog">All news →</button>
+      </div>
+    </section>
+
     <h2 class="section-eyebrow">A sample of what's tracked</h2>
     <p class="section-desc">
       The three most recently released sets, with the raw figures behind every verdict. Fair price and the
@@ -2167,6 +2275,12 @@
     </div>
     <div class="header-meta">
       <div class="last-update" id="last-update-wrap">Last updated: <span id="last-update-date">—</span><span class="stale-note" id="last-update-stale"></span></div>
+      <!-- News (Pokémon TCG-first) — opens the news overlay. Hidden until the
+           `news` table returns rows, so it never shows a dead control (static
+           build has no news). Populated by loadNews() → renderNews(). -->
+      <button class="auth-signout" id="news-btn" type="button" hidden style="margin-top:4px;" aria-haspopup="dialog">
+        <svg class="icon" aria-hidden="true"><use href="#i-news"/></svg> News
+      </button>
       <!-- Install (PWA) button. Hidden until the browser fires
            `beforeinstallprompt` (Android/desktop Chromium) and this isn't
            already running installed — so it only ever appears when it's
@@ -2291,6 +2405,17 @@
         </div>
       </div>
 
+      <!-- Latest news teaser (TCG-first). Hidden until the `news` table returns
+           rows; "All news →" opens the shared #news-modal. Populated by
+           renderNews() into every .news-teaser-body on the page. -->
+      <section class="news-teaser" hidden>
+        <h2 class="section-eyebrow">Latest news</h2>
+        <div class="panel">
+          <ul class="news-teaser-body"></ul>
+          <button type="button" class="news-all" aria-haspopup="dialog">All news →</button>
+        </div>
+      </section>
+
       <!-- Both open the same dialogs the demo page opens. That shared surface
            is the whole point: two copies of "what SV/Booster means" would drift
            within a release. -->
@@ -2414,14 +2539,18 @@
 
     <input type="search" id="board-search" class="board-search" placeholder="Search name / set…" autocomplete="off" aria-label="Search products by name or set">
 
-    <select class="sort-select" id="verdict-filter" style="margin-left:0;" aria-label="Filter by verdict">
+    <!-- Verdict + sort rank the Value lens; the Relative and Momentum lenses
+         have their own fixed ordering, so applyBoardLens() hides these two
+         (.value-lens-ctrl) when either is active. Type/age/search stay — they
+         scope every lens (and the charts). -->
+    <select class="sort-select value-lens-ctrl" id="verdict-filter" style="margin-left:0;" aria-label="Filter by verdict">
       <option value="all">Verdict: All</option>
       <option value="good">Verdict: Deals (under fair)</option>
       <option value="neutral">Verdict: Fair / no edge</option>
       <option value="bad">Verdict: Overpriced</option>
     </select>
 
-    <select class="sort-select" id="sort-select" aria-label="Sort the board">
+    <select class="sort-select value-lens-ctrl" id="sort-select" aria-label="Sort the board">
       <option value="score">Sort: Age-Weighted Score ↓</option>
       <option value="fair-gap">Sort: Best Deal (vs Fair Price) ↑</option>
       <option value="set-value-booster">Sort: Set Value / Booster ↓</option>
@@ -2432,16 +2561,56 @@
     </select>
   </div>
 
-  <!-- ── Section: product table (full width) ── -->
+  <!-- ── Section: The Board — one table, three lenses (full width) ──
+       Consolidates what were three separate sections (the board, Relative Value
+       and Momentum) into one panel with a Value / Relative / Momentum pill
+       toggle, extending the "Where to start" lens pattern. All three render
+       through the same renderGroupTree() Era→Set→Product tree; the lens only
+       swaps which table-wrap is shown (applyBoardLens), its sort and its
+       columns — so a first-time visitor no longer has to work out which of three
+       lookalike tables answers their question. The three <tbody> ids
+       (product-tbody / relval-tbody / momentum-tbody) and the render functions
+       are unchanged, so all existing wiring still applies. -->
   <h2 class="section-eyebrow">01 — The Board</h2>
-  <p class="section-desc"><strong>What:</strong> every tracked product, ranked. <strong>How to read:</strong> the line under each name is the <em>verdict</em> — the plain-language answer, synthesising the gap to fair price, the drawdown from peak and the set-value trend. <em>Fair Price</em> is what this product would cost if it traded like its same-age peers; the confidence word beside that column says how much to trust it, and explains the method when you tap it. A <svg class="icon" aria-hidden="true" style="color:var(--accent)"><use href="#i-deal"/></svg> marks a possible buy signal — price fell while set value held. Filter with the Type pills, reorder with the Sort menu. <em>SV/Booster</em> and the other column terms are defined in section 03 below, and on the Welcome tab.</p>
+  <p class="section-desc"><strong>What:</strong> every tracked product, ranked three ways — switch with the <em>Value / Relative / Momentum</em> toggle. <strong>Value</strong> is the headline board (verdict, fair price, weighted score); <strong>Relative</strong> ranks by how far each product sits above or below the expected-value-for-age line; <strong>Momentum</strong> ranks by recent price action and drawdown from peak. <strong>How to read:</strong> on the Value lens the line under each name is the <em>verdict</em> — the plain-language answer, synthesising the gap to fair price, the drawdown from peak and the set-value trend. <em>Fair Price</em> is what this product would cost if it traded like its same-age peers; the confidence word beside that column says how much to trust it, and explains the method when you tap it. A <svg class="icon" aria-hidden="true" style="color:var(--accent)"><use href="#i-deal"/></svg> marks a possible buy signal — price fell while set value held. Filter with the Type pills; the Sort menu reorders the Value lens. <em>SV/Booster</em> and the other column terms are defined in section 03 below, and on the Welcome tab.</p>
   <div class="panel">
     <div class="panel-header">
-      <h3 class="panel-title">All Products</h3>
-      <div class="panel-badge" id="count-badge">31 products</div>
+      <h3 class="panel-title">The Board</h3>
+      <div class="pill-group" id="board-lens" role="group" aria-label="Rank the board by">
+        <button class="pill active" type="button" data-lens="value" aria-pressed="true">Value</button>
+        <button class="pill" type="button" data-lens="relative" aria-pressed="false">Relative</button>
+        <button class="pill" type="button" data-lens="momentum" aria-pressed="false">Momentum</button>
+      </div>
+      <div class="panel-badge" id="board-badge">31 products</div>
     </div>
-    <p class="scroll-hint">Swipe the table sideways for more →</p>
-    <div class="table-wrap">
+    <p class="board-lens-hint" id="board-lens-hint"></p>
+    <!-- Scroll hint shows only on the wide 9-column Value lens; the Relative and
+         Momentum lenses drop to their two phone columns and fit without a swipe.
+         Toggled by applyBoardLens(). -->
+    <p class="scroll-hint" id="board-scroll-hint">Swipe the table sideways for more →</p>
+
+    <!-- Set-vs-product comparison chart for the Relative and Momentum lenses —
+         a diverging bar chart of the same metric the table ranks, but rolled up
+         so you can compare whole releases at a glance (which the collapsed tree
+         can't). Hidden on the Value lens (its visual is the §02 scatter).
+         Sets ⇄ Products toggle, Sets by default. Managed by
+         renderBoardLensChart() / applyBoardLens(). -->
+    <div class="board-lens-chart" id="board-lens-chart" hidden>
+      <div class="lens-chart-head">
+        <div class="pill-group" id="board-chart-mode" role="group" aria-label="Compare sets or products">
+          <button class="pill active" type="button" data-mode="set" aria-pressed="true">Sets</button>
+          <button class="pill" type="button" data-mode="product" aria-pressed="false">Products</button>
+        </div>
+        <span class="lens-chart-cap" id="board-chart-cap"></span>
+      </div>
+      <div class="lens-chart-scroll">
+        <div class="lens-chart-wrap" id="board-lens-wrap"><canvas id="board-lens-canvas"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Value lens — the headline board (rows carry .row-open buttons, so this
+         wrap needs no tabindex). -->
+    <div class="table-wrap" id="board-view-value">
       <table>
         <thead>
           <tr>
@@ -2459,23 +2628,50 @@
         <tbody id="product-tbody"></tbody>
       </table>
     </div>
-  </div>
 
-  <!-- ── Section: set value / booster (full width) ── -->
-  <h2 class="section-eyebrow">02 — Value Per Booster</h2>
-  <p class="section-desc"><strong>What:</strong> the ten products with the highest <em>SV/Booster</em> — Set Value ÷ the price of one booster. <strong>How to read:</strong> a taller bar means the set is worth more times what a single pack costs (e.g. 185× = the set is worth ~185 boosters' price), independent of product type — the fairest way to compare a Booster Box against an ETB or Bundle. It's a value-for-money ratio, not a euro amount.</p>
-  <div class="panel">
-    <div class="panel-header">
-      <h3 class="panel-title">Set Value / Booster</h3>
-      <div class="panel-badge">Top 10</div>
+    <!-- Relative lens — SV/Booster vs the expected-for-age line. On a phone it
+         drops to Product · Δ vs peers (the rest are .col-detail, in the
+         drill-down), so it fits without a sideways swipe.
+         tabindex: a capped-height scroll region with no focusable content inside
+         cannot be scrolled by keyboard otherwise (axe scrollable-region-focusable). -->
+    <div class="table-wrap" id="board-view-relative" tabindex="0" hidden>
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th class="col-detail">Type</th>
+            <th class="col-detail" style="text-align:right">Age (yr)</th>
+            <th class="col-detail" style="text-align:right">SV/Booster</th>
+            <th class="col-detail" style="text-align:right">Expected</th>
+            <th style="text-align:right">Δ vs peers</th>
+          </tr>
+        </thead>
+        <tbody id="relval-tbody"></tbody>
+      </table>
     </div>
-    <div class="chart-panel">
-      <div class="svb-chart-wrap"><canvas id="svb-chart"></canvas></div>
+
+    <!-- Momentum lens — recent price action + drawdown. On a phone it drops to
+         Product · 30d · vs Peak. -->
+    <div class="table-wrap" id="board-view-momentum" tabindex="0" hidden>
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th class="col-detail">Type</th>
+            <th class="col-detail" style="text-align:right">Price</th>
+            <th class="col-detail" style="text-align:right">7d</th>
+            <th style="text-align:right">30d</th>
+            <th class="col-detail" style="text-align:right">Set Val since 1st</th>
+            <th style="text-align:right">vs Peak</th>
+          </tr>
+        </thead>
+        <tbody id="momentum-tbody"></tbody>
+      </table>
     </div>
   </div>
 
   <!-- ── Section: age vs value scatter (full width) ── -->
-  <h2 class="section-eyebrow">03 — Age vs Value</h2>
+  <h2 class="section-eyebrow">02 — Age vs Value</h2>
   <p class="section-desc"><strong>What:</strong> every product plotted by <em>age</em> (horizontal) against <em>SV/Booster</em> (vertical — Set Value as a multiple of one booster's cost, higher = better value). The dashed line is the expected value for a given age. <strong>How to read:</strong> points <span class="up">above</span> the line are better value than typical for their age; points <span class="down">below</span> are worse — the higher above the line, the better the bargain.</p>
   <div class="panel">
     <div class="panel-header">
@@ -2488,38 +2684,8 @@
     </div>
   </div>
 
-  <!-- ── Section: relative value vs the age curve (full width) ── -->
-  <h2 class="section-eyebrow">04 — Relative Value</h2>
-  <p class="section-desc"><strong>What:</strong> products ranked by how far their SV/Booster sits above or below the expected-for-age line from section 04. <strong>KPI:</strong> <em>Δ vs peers</em> — the gap to that expectation (<span class="up">▲ better</span> · <span class="down">▼ worse</span>); the badge shows the fit quality (R²). <strong>How to read:</strong> the top of the list is the best value relative to same-age peers.</p>
-  <div class="panel">
-    <div class="panel-header">
-      <h3 class="panel-title">Relative Value — vs Peers of the Same Age</h3>
-      <div class="panel-badge" id="relval-fit-badge">—</div>
-    </div>
-    <p class="scroll-hint">Swipe the table sideways for more →</p>
-    <!-- tabindex: a capped-height scroll region with no focusable content
-         inside cannot be scrolled by keyboard otherwise (axe
-         scrollable-region-focusable). The board's own wrap is exempt — its
-         rows carry the .row-open buttons. -->
-    <div class="table-wrap" tabindex="0">
-      <table>
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Type</th>
-            <th style="text-align:right">Age (yr)</th>
-            <th style="text-align:right">SV/Booster</th>
-            <th style="text-align:right">Expected</th>
-            <th style="text-align:right">Δ vs peers</th>
-          </tr>
-        </thead>
-        <tbody id="relval-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
   <!-- ── Section: price history (full width) ── -->
-  <h2 class="section-eyebrow">05 — Price History</h2>
+  <h2 class="section-eyebrow">03 — Price History</h2>
   <p class="section-desc"><strong>What:</strong> tracked <em>price over time</em> — add several products, or switch to <em>Sets</em> to compare whole releases (a set's line is the average price per booster of its products). <strong>How to read:</strong> a falling line means it's getting cheaper; with a single product the set value is overlaid too, so you can pair a price dip with a steady set value to spot a buying window. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
@@ -2539,35 +2705,8 @@
     </div>
   </div>
 
-  <!-- ── Section: momentum & drawdown (full width) ── -->
-  <h2 class="section-eyebrow">06 — Momentum &amp; Drawdown</h2>
-  <p class="section-desc"><strong>What:</strong> recent price action per product. <strong>KPIs:</strong> <em>7d</em> and <em>30d</em> (price change over the trailing 7 / 30 calendar days — blank until enough history has accrued), <em>Set Val since 1st</em> (set-value change across all tracked history), and <em>vs Peak / Drawdown</em> (how far below its highest tracked price it is now). <strong>How to read:</strong> a deep drawdown (<span class="down">▼</span>) while set value holds steady can flag a buying opportunity. Sorted by deepest dip.</p>
-  <div class="panel">
-    <div class="panel-header">
-      <h3 class="panel-title">Momentum &amp; Drawdown</h3>
-      <div class="panel-badge">By deepest dip</div>
-    </div>
-    <p class="scroll-hint">Swipe the table sideways for more →</p>
-    <div class="table-wrap" tabindex="0">
-      <table>
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Type</th>
-            <th style="text-align:right">Price</th>
-            <th style="text-align:right">7d</th>
-            <th style="text-align:right">30d</th>
-            <th style="text-align:right">Set Val since 1st</th>
-            <th style="text-align:right">vs Peak</th>
-          </tr>
-        </thead>
-        <tbody id="momentum-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
   <!-- ── Section: SV/Booster trend over time (full width) ── -->
-  <h2 class="section-eyebrow">07 — Trend Over Time</h2>
+  <h2 class="section-eyebrow">04 — Trend Over Time</h2>
   <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> — add several products to compare, or switch to <em>Sets</em> to weigh whole releases head to head (a set's line is the average SV/Booster of its products). <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means the set is worth more relative to a booster's cost (better value); because it's a multiple of booster cost, every product type — box, ETB, bundle or single pack — is directly comparable. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
@@ -2616,24 +2755,11 @@
       </div>
       <div id="portfolio-editor-error" class="portfolio-error"></div>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Type</th>
-              <th style="text-align:right">Qty</th>
-              <th style="text-align:right">Cost / unit</th>
-              <th style="text-align:right">Now / unit</th>
-              <th style="text-align:right">Value</th>
-              <th style="text-align:right">P&amp;L</th>
-              <th style="text-align:right">P&amp;L %</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="portfolio-tbody"></tbody>
-        </table>
-      </div>
+      <!-- Holdings as a responsive card grid (1-up on a phone, more on a wide
+           screen) — the 9-column table forced a sideways swipe and buried the
+           value/P&L mid-row. Each card carries the same figures plus a
+           fair-price chip. Built by renderPortfolio(). -->
+      <div class="holding-grid" id="portfolio-cards"></div>
     </div>
 
     <!-- ── Section: portfolio value over time ── -->
@@ -2947,6 +3073,13 @@ let relvalExpandedEras   = new Set();
 let relvalExpandedSets   = new Set();
 let momentumExpandedEras = new Set();
 let momentumExpandedSets = new Set();
+// §01 The Board is one panel with three lenses (Value / Relative / Momentum),
+// each its own table under a shared pill toggle. This holds the active lens;
+// applyBoardLens() shows the matching table-wrap and renderBoard() renders it.
+let boardLens = 'value'; // 'value' | 'relative' | 'momentum'
+// The Relative/Momentum lenses carry a set-vs-product comparison bar chart
+// (renderBoardLensChart); this is its roll-up mode, Sets by default.
+let boardChartMode = 'set'; // 'set' | 'product'
 let ageThreshold = 1; // years until age weight reaches 1.0 (default)
 // The age-fit line (SV/Booster ~ age) with its R², recomputed once per data
 // load by recomputeFit(). Shared by the board's fair price, the scatter overlay
@@ -3293,6 +3426,151 @@ function renderOverview() {
 }
 
 // ============================================================
+// THE BOARD — one panel, three lenses
+// ============================================================
+// The board consolidates what were three lookalike tables (the value board,
+// Relative Value, Momentum) into one panel with a Value / Relative / Momentum
+// pill toggle. All three still render through the same renderGroupTree() tree
+// and keep their own <tbody> + render function; the lens only swaps which
+// table-wrap is visible and hides the Value-only filter controls (verdict +
+// sort — the other two lenses have a fixed ranking). Search and the Type filter
+// scope every lens.
+function syncBoardLensPills() {
+  document.querySelectorAll('#board-lens .pill').forEach(p => {
+    const on = p.dataset.lens === boardLens;
+    p.classList.toggle('active', on);
+    p.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+// Show the active lens's table, hide the others, toggle the Value-only controls,
+// then render the active lens. The two hidden tables are not rendered until
+// selected (renderBoard renders only the active one), so switching is a cheap
+// re-render rather than three up front.
+function applyBoardLens() {
+  syncBoardLensPills();
+  const isValue = boardLens === 'value';
+  document.getElementById('board-view-value').hidden    = !isValue;
+  document.getElementById('board-view-relative').hidden = boardLens !== 'relative';
+  document.getElementById('board-view-momentum').hidden = boardLens !== 'momentum';
+  document.querySelectorAll('.value-lens-ctrl').forEach(el => { el.hidden = !isValue; });
+  // Only the wide 9-column Value lens can overflow a phone; the other two drop
+  // to two columns and fit, so their swipe hint would be a lie.
+  document.getElementById('board-scroll-hint').hidden = !isValue;
+  // The set/product comparison chart rides the Relative and Momentum lenses only.
+  document.getElementById('board-lens-chart').hidden = isValue;
+  renderBoard();
+}
+
+// Render whichever lens is active. Each render fills its own <tbody> and updates
+// the shared badge + lens-hint line. Called on lens switch and by every path
+// that re-renders the board (INIT, applyNewData, type/currency/age changes).
+function renderBoard() {
+  if (boardLens === 'value')      updateTable();
+  else if (boardLens === 'relative') renderRelativeValue();
+  else                            renderMomentum();
+  // Relative/Momentum also carry the set-vs-product comparison chart.
+  if (boardLens !== 'value') renderBoardLensChart();
+}
+
+function setBoardHint(text) {
+  const el = document.getElementById('board-lens-hint');
+  if (el) el.textContent = text;
+}
+
+// ── The Relative/Momentum comparison chart ──────────────────
+// A diverging horizontal bar chart of the active lens's metric, rolled up so you
+// can compare whole releases at a glance — the set-level view the collapsed tree
+// can't give. Relative plots **Δ vs peers** (SV/Booster minus the expected-for-
+// age value, in ×); Momentum plots the **30-day price change** (%). Sets mode
+// (default) means each product's metric over its set (by set key, matching the
+// board tree); Products mode ranks products. Positive is green, negative red —
+// the same sign convention as the tables. Capped to the strongest movers so the
+// height stays bounded (see CAP); the scroll area holds the rest.
+let boardLensChart = null;
+const BOARD_CHART_CAP = 12;   // biggest movers shown; the rest scroll
+
+function shortProductName(name) {
+  return name.replace(' Booster Box', '').replace(' Booster Bundle', '')
+             .replace(' Elite Trainer Box', '').replace(' ETB', '');
+}
+
+function renderBoardLensChart() {
+  const canvas = document.getElementById('board-lens-canvas');
+  if (!canvas) return;
+  const isRel = boardLens === 'relative';
+
+  // Same pool the lens table uses: type filter + the board search.
+  const q = searchTerm.trim().toLowerCase();
+  const pool = visibleProducts().filter(p => !q || p.name.toLowerCase().includes(q));
+
+  // Per-product metric for the active lens (null = not computable, dropped).
+  const resByName = isRel ? new Map(peerResiduals(pool, ageFit).map(r => [r.name, r.residual])) : null;
+  const metric = p => {
+    if (isRel) return resByName.get(p.name) ?? null;
+    const m = computeMomentum(p.name);
+    return m ? m.change30d : null;
+  };
+
+  // Roll up to rows: sets (mean over members) or products.
+  let rows;
+  if (boardChartMode === 'set') {
+    rows = boardSets(pool).map(s => {
+      const vals = s.products.map(metric).filter(v => v != null);
+      return vals.length ? { label: s.label, value: vals.reduce((a, b) => a + b, 0) / vals.length } : null;
+    }).filter(Boolean);
+  } else {
+    rows = pool.map(p => { const v = metric(p); return v == null ? null : { label: shortProductName(p.name), value: v }; })
+               .filter(Boolean);
+  }
+  // Bound the height: past the cap, keep the biggest movers by magnitude (up or
+  // down), dropping the near-zero middle — a comparison chart wants the extremes,
+  // not a wall of stubs. Then sort what's left by value for the diverging shape.
+  const cap = document.getElementById('board-chart-cap');
+  const unit = isRel ? '×' : '%';
+  let capped = false;
+  if (rows.length > BOARD_CHART_CAP) {
+    rows = [...rows].sort((a, b) => Math.abs(b.value) - Math.abs(a.value)).slice(0, BOARD_CHART_CAP);
+    capped = true;
+  }
+  rows.sort((a, b) => b.value - a.value);
+  const modeWord = boardChartMode === 'set' ? 'set' : 'product';
+  const metricWord = isRel ? 'Δ vs peers' : '30-day price change';
+  if (cap) cap.textContent = rows.length
+    ? `${boardChartMode === 'set' ? 'mean ' : ''}${metricWord} per ${modeWord}${capped ? ` · ${BOARD_CHART_CAP} biggest moves` : ''}`
+    : '';
+
+  // Height from the bar count (a wrapper height, not a canvas one — Chart.js
+  // sizes the canvas to its parent), so the capped scroll area can hold it.
+  const wrap = document.getElementById('board-lens-wrap');
+  if (wrap) wrap.style.height = Math.max(140, rows.length * 26 + 24) + 'px';
+
+  const labels = rows.map(r => r.label);
+  const values = rows.map(r => parseFloat(r.value.toFixed(1)));
+  const colors = values.map(v => v >= 0 ? COLOR.green : COLOR.red);
+  canvas.setAttribute('aria-label',
+    `${metricWord} by ${modeWord}. ${rows.length ? `Best: ${labels[0]} at ${values[0]}${unit}.` : 'No data.'} The table below lists every row.`);
+
+  if (boardLensChart) boardLensChart.destroy();
+  if (!rows.length) return;
+  boardLensChart = new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 4, borderSkipped: false }] },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ` ${ctx.parsed.x > 0 ? '+' : ''}${ctx.parsed.x}${unit} ${isRel ? 'vs age-expected' : 'over 30 days'}` }
+      }},
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => (v > 0 ? '+' : '') + v + unit } },
+        y: { grid: { display: false }, ticks: { color: COLOR.muted, font: { family: 'DM Sans', size: 10 } } }
+      }
+    }
+  });
+}
+
+// ============================================================
 // TABLE
 // ============================================================
 // The board is a collapsible Era → Set → Product tree. getFiltered() still does
@@ -3302,7 +3580,8 @@ function renderOverview() {
 // first, products in getFiltered's sort order. A live search opens every group.
 function updateTable() {
   const data = getFiltered();
-  document.getElementById('count-badge').textContent = `${data.length} product${data.length === 1 ? '' : 's'}`;
+  document.getElementById('board-badge').textContent = `${data.length} product${data.length === 1 ? '' : 's'}`;
+  setBoardHint('Every tracked product, ranked by your chosen sort — the line under each name is the plain-language verdict.');
   updateFairFitNote();
   const tbody = document.getElementById('product-tbody');
   tbody.innerHTML = '';
@@ -3500,44 +3779,9 @@ function isBuySignal(name) {
 }
 
 // ============================================================
-// SVB CHART
-// ============================================================
-let svbChart = null;
-function renderSVBChart() {
-  const data = [...visibleProducts()].sort((a, b) => b.svPerBooster - a.svPerBooster).slice(0, 10);
-  const labels = data.map(p => p.name.replace(' Booster Box', '').replace(' Booster Bundle', '').replace(' Elite Trainer Box', '').replace(' ETB', ''));
-  const values = data.map(p => p.svPerBooster);
-  const colors = data.map(p => categoryColor(p.type));
-
-  if (svbChart) svbChart.destroy();
-  svbChart = new Chart(document.getElementById('svb-chart'), {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{ data: values, backgroundColor: colors, borderRadius: 4, borderSkipped: false }]
-    },
-    options: {
-      indexAxis: 'y',
-      // Height comes from CSS, not from an aspect ratio: this is a fixed list
-      // of ten rows, and at a phone's width the 2:1 default left it 166px tall,
-      // where Chart.js silently dropped every other product label — half the
-      // bars became unidentifiable. See the #svb-chart rule.
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: {
-        callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(1)}× booster cost` }
-      }},
-      scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } },
-        y: { grid: { display: false }, ticks: { color: COLOR.muted, font: { family: 'DM Sans', size: 10 } } }
-      }
-    }
-  });
-}
-
-// ============================================================
 // TREND CHART
 // ============================================================
-// ── Comparison views (§06 Price History, §08 SV/Booster trend) ──
+// ── Comparison views (§03 Price History, §04 SV/Booster trend) ──
 // Both sections are the same interaction: a Products⇄Sets mode toggle, a
 // multi-select (add via the dropdown, remove via a chip), one line per
 // selection from a capped palette, and the chart's own legend as the show/hide
@@ -3933,15 +4177,35 @@ document.querySelectorAll('#start-lens .pill').forEach(pill => {
   });
 });
 
+// The board's Value / Relative / Momentum lens toggle — swaps which table is
+// shown and re-renders it (applyBoardLens), leaving the Type filter and search
+// in place across lenses.
+document.querySelectorAll('#board-lens .pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    boardLens = pill.dataset.lens;
+    applyBoardLens();
+  });
+});
+
+// The comparison chart's Sets ⇄ Products toggle (Relative / Momentum lenses).
+document.querySelectorAll('#board-chart-mode .pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    boardChartMode = pill.dataset.mode;
+    document.querySelectorAll('#board-chart-mode .pill').forEach(p => {
+      const on = p.dataset.mode === boardChartMode;
+      p.classList.toggle('active', on);
+      p.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    renderBoardLensChart();
+  });
+});
+
 // Re-render everything the global type filter scopes: the board plus the
 // analytical charts/tables and the comparison views.
 function applyTypeFilter() {
   renderOverview();
-  updateTable();
-  renderSVBChart();
+  renderBoard();            // the active board lens (Value / Relative / Momentum)
   renderScatterChart();
-  renderRelativeValue();
-  renderMomentum();
   cmpHist.refresh();
   cmpSvb.refresh();
 }
@@ -3953,8 +4217,7 @@ function applyTypeFilter() {
 // (harmless: the picker is in the header, unreachable while the modal traps focus).
 function renderCurrencySensitive() {
   renderOverview();
-  updateTable();
-  renderMomentum();
+  renderBoard();            // the active board lens (Value & Momentum show money; Relative is ratio-only)
   cmpHist.refresh();
   renderPortfolio();
   renderAlerts();
@@ -3968,7 +4231,7 @@ document.getElementById('sort-select').addEventListener('change', e => {
 
 document.getElementById('board-search').addEventListener('input', e => {
   searchTerm = e.target.value;
-  updateTable();
+  renderBoard();   // search scopes whichever lens is active
 });
 
 document.getElementById('verdict-filter').addEventListener('change', e => {
@@ -3981,8 +4244,7 @@ document.getElementById('age-threshold-slider').addEventListener('input', e => {
   document.getElementById('age-threshold-display').textContent = ageThreshold.toFixed(1);
   recomputeScores(products, ageThreshold);
   updateKPIs();
-  updateTable();
-  renderSVBChart();
+  renderBoard();
 });
 
 
@@ -4199,12 +4461,9 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
   updateKPIs();
   renderOverview();
-  updateTable();
-  renderSVBChart();
+  applyBoardLens();   // re-render the active board lens (lens state persists across reloads)
   cmpHist.refresh();
   renderScatterChart();
-  renderRelativeValue();
-  renderMomentum();
   cmpSvb.refresh();
   initScenario();
 
@@ -4375,7 +4634,8 @@ function portfolioRows() {
     const curValue  = now != null ? now * qty : null;
     const pnl       = curValue != null ? curValue - costValue : null;
     const pnlPct    = (now != null && cost > 0) ? (now - cost) / cost : null;
-    return { name, type: p ? p.type : null, qty, cost, now, costValue, curValue, pnl, pnlPct };
+    return { name, type: p ? p.type : null, qty, cost, now, costValue, curValue, pnl, pnlPct,
+      fairGap: p ? p.fairGap : null };
   }).sort((a, b) => (b.curValue ?? 0) - (a.curValue ?? 0));
 }
 
@@ -4434,9 +4694,9 @@ async function persistCurrency() {
 }
 
 function renderPortfolio() {
-  const tbody = document.getElementById('portfolio-tbody');
+  const grid = document.getElementById('portfolio-cards');
   const summaryEl = document.getElementById('portfolio-summary');
-  if (!tbody || !summaryEl) return;
+  if (!grid || !summaryEl) return;
   populatePortfolioSelect();
 
   const rows = portfolioRows();
@@ -4466,32 +4726,88 @@ function renderPortfolio() {
       <div class="sub" style="color:${pnlColor(totalPnl)}">${totalPct != null ? withSign((Math.abs(totalPct) * 100).toFixed(1) + '%', totalPnl) : '—'}</div>
     </div>` : '';
 
-  tbody.innerHTML = rows.length ? rows.map(r => `
-    <tr>
-      <td class="product-name" title="${r.name}">${r.name}</td>
-      <td>${typeBadge(r.type)}</td>
-      <td class="num">${r.qty}</td>
-      <td class="num">${money(r.cost)}</td>
-      <td class="num">${r.now != null ? money(r.now) : '—'}</td>
-      <td class="num">${r.curValue != null ? money(r.curValue) : '—'}</td>
-      <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnl != null ? withSign(money(Math.abs(r.pnl)), r.pnl) : '—'}</td>
-      <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnlPct != null ? withSign((Math.abs(r.pnlPct) * 100).toFixed(1) + '%', r.pnl) : '—'}</td>
-      <td style="text-align:center; white-space:nowrap;">
-        <button class="portfolio-edit-btn" data-product="${r.name}" title="Edit exact quantity / cost" aria-label="Edit ${r.name}"><svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg></button>
-        <button class="portfolio-remove-btn" data-product="${r.name}" title="Remove holding">✕</button>
-      </td>
-    </tr>`).join('')
-    : `<tr><td colspan="9"><div class="portfolio-empty">No holdings yet — pick a product, enter quantity and the price you paid, then “Add / buy more”.</div></td></tr>`;
+  grid.innerHTML = rows.length ? rows.map(r => holdingCard(r)).join('')
+    : `<div class="portfolio-empty">No holdings yet — pick a product, enter quantity and the price you paid, then “Add / buy more”.</div>`;
 
-  tbody.querySelectorAll('.portfolio-edit-btn').forEach(btn => {
-    btn.addEventListener('click', () => startPortfolioEdit(btn.dataset.product));
-  });
-  tbody.querySelectorAll('.portfolio-remove-btn').forEach(btn => {
-    btn.addEventListener('click', () => removeHolding(btn.dataset.product));
-  });
+  fillHoldingLogos();
+  grid.querySelectorAll('.row-open').forEach(btn =>
+    btn.addEventListener('click', () => openDrill(btn.dataset.product)));
+  grid.querySelectorAll('.portfolio-edit-btn').forEach(btn =>
+    btn.addEventListener('click', () => startPortfolioEdit(btn.dataset.product)));
+  grid.querySelectorAll('.portfolio-remove-btn').forEach(btn =>
+    btn.addEventListener('click', () => removeHolding(btn.dataset.product)));
 
   renderPortfolioValueChart();
   renderBalancer(rows);
+}
+
+// One holding card. The value is the hero figure; P&L is coloured beside it; a
+// fair-price chip ties the position to the app's north star (only when the fit
+// is trusted — a chip on an ignored fair price would mislead). The name opens
+// the drill-down (same as every other product surface); edit/remove reuse the
+// existing buttons/wiring.
+function holdingCard(r) {
+  const col = r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)';
+  const chip = (fairPriceTrusted() && r.fairGap != null)
+    ? `<span class="holding-chip" style="color:${r.fairGap < 0 ? 'var(--accent4)' : r.fairGap > 0 ? 'var(--accent2)' : 'var(--muted)'}">${
+        r.fairGap === 0 ? 'at fair' : `${Math.abs(r.fairGap)}% ${r.fairGap < 0 ? 'under' : 'over'} fair`}</span>`
+    : '';
+  // Trailing 1d/7d/30d price change (date-windowed). Value change == price change
+  // since quantity is constant. Each is `—` until its window is covered.
+  const m = computeMomentum(r.name);
+  const chgCol = v => v == null ? 'var(--muted)' : v > 0.05 ? 'var(--accent4)' : v < -0.05 ? 'var(--accent2)' : 'var(--muted)';
+  const seg = (lbl, v) => `<span><span class="mom-lbl">${lbl}</span> <span style="color:${chgCol(v)}">${v == null ? '—' : (v > 0 ? '+' : '') + fmt(v, 1) + '%'}</span></span>`;
+  const momStrip = `<div class="holding-mom">${seg('1d', m?.change1d)}${seg('7d', m?.change7d)}${seg('30d', m?.change30d)}</div>`;
+  return `
+    <article class="holding-card">
+      <img class="holding-logo" data-product="${r.name}" alt="" hidden>
+      <div class="holding-top">
+        <div class="holding-id">
+          <button type="button" class="row-open holding-name" data-product="${r.name}" aria-haspopup="dialog" title="${r.name}">${r.name}</button>
+          ${typeBadge(r.type)}
+        </div>
+        ${chip}
+      </div>
+      <div class="holding-figures">
+        <div>
+          <div class="holding-lbl">Value</div>
+          <div class="holding-value">${r.curValue != null ? money(r.curValue) : '—'}</div>
+        </div>
+        <div class="holding-pnl" style="color:${col}">
+          <div class="holding-pnl-num">${r.pnl != null ? withSign(money(Math.abs(r.pnl)), r.pnl) : '—'}</div>
+          <div class="holding-pnl-pct">${r.pnlPct != null ? withSign((Math.abs(r.pnlPct) * 100).toFixed(1) + '%', r.pnl) : ''}</div>
+        </div>
+      </div>
+      ${momStrip}
+      <div class="holding-foot">
+        <span class="holding-meta">${r.qty} × ${r.now != null ? money(r.now) : '—'} · cost ${money(r.cost)}/u</span>
+        <span class="holding-actions">
+          <button class="portfolio-edit-btn" data-product="${r.name}" aria-label="Edit ${r.name}"><svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg></button>
+          <button class="portfolio-remove-btn" data-product="${r.name}" aria-label="Remove ${r.name}">✕</button>
+        </span>
+      </div>
+    </article>`;
+}
+
+// Best-effort set logos on the holding cards — same TCGdex source and name
+// resolution as the drill-down (ensureSetLogos + setLogoKey). Each card's <img>
+// starts hidden and is un-hidden only on a successful load, so an unmatched,
+// offline or blocked logo just leaves the name + type badge (never a broken
+// image). Re-run on every render; the once-per-session cache makes it cheap.
+function fillHoldingLogos() {
+  const grid = document.getElementById('portfolio-cards');
+  if (!grid) return;
+  ensureSetLogos().then(map => {
+    grid.querySelectorAll('.holding-logo').forEach(img => {
+      const name = img.dataset.product;
+      const base = name && map[setLogoKey(name)];
+      if (!base) return;                                 // unmatched → text identity
+      img.onload  = () => { img.hidden = false; };
+      img.onerror = () => { img.hidden = true; };
+      img.alt = name.replace(SET_LOGO_SKU_RE, '').trim() + ' set logo';
+      img.src = base + '.png';
+    });
+  });
 }
 
 // ── Portfolio value over time (the change chart) ──
@@ -5041,6 +5357,13 @@ document.querySelectorAll('.chart-expand-btn').forEach(btn => {
 });
 document.getElementById('chart-zoom-close').addEventListener('click', closeChartZoom);
 document.getElementById('chart-zoom-reset').addEventListener('click', () => { if (zoomChart) zoomChart.resetZoom(); });
+
+// News overlay: header button + every "All news →" teaser link open it; the
+// close button and the shared Escape/backdrop handlers dismiss it.
+document.getElementById('news-btn').addEventListener('click', () => openOverlay('news-modal'));
+document.getElementById('news-close').addEventListener('click', () => closeOverlay('news-modal'));
+document.querySelectorAll('.news-all').forEach(btn =>
+  btn.addEventListener('click', () => openOverlay('news-modal')));
 
 function dismissTopOverlay() {
   const top = topOverlay();
@@ -5907,17 +6230,24 @@ function renderRelativeValue() {
   const tbody = document.getElementById('relval-tbody');
   if (!tbody) return;
   const fit = ageFit;
-  const badge = document.getElementById('relval-fit-badge');
+  // The fit quality (age trend / R²) that used to live in this section's own
+  // badge now rides the shared board badge; the lens hint says what the view is.
+  const badge = document.getElementById('board-badge');
   if (badge) badge.textContent = fit
     ? `age trend ${fit.b >= 0 ? '+' : ''}${fit.b.toFixed(1)}/yr · R² ${fit.r2.toFixed(2)}`
     : 'flat';
+  setBoardHint('SV/Booster vs the expected-value-for-age line — top of the list is the best value for its age (Δ vs peers).');
 
-  const pool = visibleProducts();
+  // Search scopes this lens too (like the Value board); a live search
+  // force-expands every group so matches are visible.
+  const q = searchTerm.trim().toLowerCase();
+  const searching = q !== '';
+  const pool = visibleProducts().filter(p => !q || p.name.toLowerCase().includes(q));
   const rows = peerResiduals(pool, fit);   // sorted by residual desc
 
   tbody.innerHTML = '';
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="portfolio-empty">No products to compare — clear the type filter.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="portfolio-empty">No products to compare — clear the search or type filter.</div></td></tr>`;
     return;
   }
   // Nest the residual ranking under the same Era → Set → Product tree as the
@@ -5932,7 +6262,7 @@ function renderRelativeValue() {
     expandedEras: relvalExpandedEras,
     expandedSets: relvalExpandedSets,
     rerender: renderRelativeValue,
-    searching: false,
+    searching,
     leaf: p => relvalRowTr(resByName.get(p.name)),
   });
 }
@@ -5947,10 +6277,10 @@ function relvalRowTr(r) {
   tr.className = 'grp-product';
   tr.innerHTML = `
     <td class="product-name" title="${r.name}"><button type="button" class="row-open" aria-haspopup="dialog">${r.name}</button></td>
-    <td>${typeBadge(r.type)}</td>
-    <td class="num">${fmt(r.age, 1)}</td>
-    <td class="num">${fmt(r.svb, 1)}×</td>
-    <td class="num" style="color:var(--muted)">${fmt(r.expected, 1)}×</td>
+    <td class="col-detail">${typeBadge(r.type)}</td>
+    <td class="num col-detail">${fmt(r.age, 1)}</td>
+    <td class="num col-detail">${fmt(r.svb, 1)}×</td>
+    <td class="num col-detail" style="color:var(--muted)">${fmt(r.expected, 1)}×</td>
     <td class="num" style="color:${color}">${good ? '▲ +' : '▼ '}${fmt(r.residual, 1)}×</td>
   `;
   tr.addEventListener('click', () => openDrill(r.name));
@@ -5969,13 +6299,21 @@ function computeMomentum(name) {
 function renderMomentum() {
   const tbody = document.getElementById('momentum-tbody');
   if (!tbody) return;
-  const rows = visibleProducts().map(p => ({ p, m: computeMomentum(p.name) }))
+  const badge = document.getElementById('board-badge');
+  if (badge) badge.textContent = 'By deepest dip';
+  setBoardHint('Recent price action — 7d / 30d change and drawdown from peak, sorted by the deepest dip (a possible buying window).');
+
+  // Search scopes this lens too; a live search force-expands every group.
+  const q = searchTerm.trim().toLowerCase();
+  const searching = q !== '';
+  const rows = visibleProducts().filter(p => !q || p.name.toLowerCase().includes(q))
+    .map(p => ({ p, m: computeMomentum(p.name) }))
     .filter(r => r.m)
     .sort((a, b) => (a.m.drawdown ?? 0) - (b.m.drawdown ?? 0)); // deepest dip first
 
   tbody.innerHTML = '';
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="portfolio-empty">No products with price history — clear the type filter.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="portfolio-empty">No products with price history — clear the search or type filter.</div></td></tr>`;
     return;
   }
   // Same Era → Set → Product tree as the board; products stay in deepest-dip
@@ -5987,18 +6325,18 @@ function renderMomentum() {
     expandedEras: momentumExpandedEras,
     expandedSets: momentumExpandedSets,
     rerender: renderMomentum,
-    searching: false,
+    searching,
     leaf: p => momentumRowTr(p, mByName.get(p.name)),
   });
 }
 
 // One Momentum leaf row (the seven-column change/drawdown line).
 function momentumRowTr(p, m) {
-  const pctCell = v => {
-    if (v == null) return `<td class="num" style="color:var(--muted)">—</td>`;
+  const pctCell = (v, cls = '') => {
+    if (v == null) return `<td class="num ${cls}" style="color:var(--muted)">—</td>`;
     const c = v > 0.05 ? 'var(--accent4)' : v < -0.05 ? 'var(--accent2)' : 'var(--muted)';
     const arrow = v > 0.05 ? '▲ +' : v < -0.05 ? '▼ ' : '';
-    return `<td class="num" style="color:${c}">${arrow}${fmt(v, 1)}%</td>`;
+    return `<td class="num ${cls}" style="color:${c}">${arrow}${fmt(v, 1)}%</td>`;
   };
   const ddCell = v => {
     if (v == null) return `<td class="num" style="color:var(--muted)">—</td>`;
@@ -6007,13 +6345,15 @@ function momentumRowTr(p, m) {
   };
   const tr = document.createElement('tr');
   tr.className = 'grp-product';
+  // Phone column priority (like the board): keep Product · 30d · vs Peak; the
+  // rest are .col-detail (dropped < 680px) and remain in the drill-down.
   tr.innerHTML = `
     <td class="product-name" title="${p.name}"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></td>
-    <td>${typeBadge(p.type)}</td>
-    <td class="num">${money(m.price)}</td>
-    ${pctCell(m.change7d)}
+    <td class="col-detail">${typeBadge(p.type)}</td>
+    <td class="num col-detail">${money(m.price)}</td>
+    ${pctCell(m.change7d, 'col-detail')}
     ${pctCell(m.change30d)}
-    ${pctCell(m.svSinceFirst)}
+    ${pctCell(m.svSinceFirst, 'col-detail')}
     ${ddCell(m.drawdown)}
   `;
   // Whole row opens the drill for the mouse; the named button is the a11y target.
@@ -6147,6 +6487,7 @@ function renderDrill() {
     stat('Live Price', p.price != null ? money(p.price) : '—'),
     stat('Fair Price', p.fairPrice != null ? money(p.fairPrice) : '—', gapTxt + (trusted ? '' : ' · low fit'), gapCol),
     stat('SV / Booster', `${fmt(p.svPerBooster, 1)}×`, `set value ${pct(m?.svSinceFirst)}`),
+    stat('Set Value', p.setVal != null ? money(p.setVal) : '—', 'value of the set’s singles'),
     stat('Drawdown', m ? pct(m.drawdown) : '—', 'vs tracked peak', m && m.drawdown < -0.05 ? 'var(--accent2)' : 'var(--muted)'),
     stat('30d change', m ? pct(m.change30d) : '—', `7d ${m && m.change7d != null ? pct(m.change7d) : '—'}`, chCol(m?.change30d)),
     stat('Wtd. Score', fmt(p.score, 1), `age weight ${fmt(p.ageWeight, 2)}`),
@@ -6538,12 +6879,9 @@ recomputeScores(products, ageThreshold); // apply the default age threshold to t
 recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
 updateKPIs();
 renderOverview();
-updateTable();
-renderSVBChart();
+applyBoardLens();   // shows + renders the active board lens (Value by default)
 cmpHist.init();
 renderScatterChart();
-renderRelativeValue();
-renderMomentum();
 cmpSvb.init();
 initScenario();
 populateCurrencySelect();
@@ -6723,6 +7061,83 @@ function setAuthedUI(user) {
   }
 }
 
+// ── News: TCG-first headlines from the public `news` table ──
+// Browsers can't fetch third-party RSS (no CORS), so a scheduled server job
+// (supabase/functions/news-fetch) writes rows here; the client only reads. The
+// table is public-read, so this runs for both signed-in and logged-out (demo)
+// visitors. Fire-and-forget — a news failure never blocks the app or the demo.
+// Only headline + source + link is shown; never article bodies.
+let newsItems = [];
+const NEWS_CATS = [
+  { key: 'tcg',       label: 'Pokémon TCG' },   // priority — always first
+  { key: 'investing', label: 'Investing' },
+  { key: 'business',  label: 'Business' },
+];
+// External feed text goes into innerHTML, so escape it, and only allow http(s)
+// links (a feed can't inject markup or a javascript: URL).
+const escHtml = s => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+const safeUrl = u => (/^https?:\/\//i.test(String(u || '')) ? String(u) : '#');
+
+async function loadNews() {
+  if (!sbClient) return;
+  try {
+    const { data, error } = await sbClient.from('news')
+      .select('source,category,title,url,published_at')
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .limit(120);
+    if (error) throw error;
+    newsItems = data || [];
+  } catch { newsItems = []; }   // stay silent; the panel simply won't show
+  renderNews();
+}
+
+function newsAgo(iso) {
+  if (!iso) return '';
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (isNaN(s) || s < 0) return '';
+  if (s < 3600)  return `${Math.max(1, Math.round(s / 60))}m ago`;
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  return `${Math.round(s / 86400)}d ago`;
+}
+const newsCatLabel = k => (NEWS_CATS.find(c => c.key === k) || {}).label || k;
+
+function newsRowHtml(n) {
+  const ago = n.published_at ? ` · ${newsAgo(n.published_at)}` : '';
+  return `<li><a class="news-link" href="${escHtml(safeUrl(n.url))}" target="_blank" rel="noopener noreferrer">
+    <div class="news-title">${escHtml(n.title)}</div>
+    <div class="news-meta"><span class="news-cat">${escHtml(newsCatLabel(n.category))}</span> · ${escHtml(n.source)}${ago}</div>
+  </a></li>`;
+}
+
+function renderNews() {
+  const has = newsItems.length > 0;
+  // Teaser: TCG first (priority), then investing/business, newest within — cap 5.
+  const rank = { tcg: 0, investing: 1, business: 2 };
+  const teaser = [...newsItems]
+    .sort((a, b) => (rank[a.category] ?? 9) - (rank[b.category] ?? 9)
+      || String(b.published_at || '').localeCompare(String(a.published_at || '')))
+    .slice(0, 5);
+  document.querySelectorAll('.news-teaser').forEach(sec => {
+    sec.hidden = !has;
+    const body = sec.querySelector('.news-teaser-body');
+    if (body) body.innerHTML = teaser.map(newsRowHtml).join('');
+  });
+  // Overlay: grouped by category, TCG first, newest within.
+  const list = document.getElementById('news-list');
+  if (list) {
+    list.innerHTML = has ? NEWS_CATS.map(c => {
+      const items = newsItems.filter(n => n.category === c.key).slice(0, 25);
+      return items.length
+        ? `<div class="news-group"><div class="news-group-title">${c.label}</div><ul>${items.map(newsRowHtml).join('')}</ul></div>`
+        : '';
+    }).join('') : `<div class="news-empty">No news yet.</div>`;
+  }
+  const btn = document.getElementById('news-btn');
+  if (btn) btn.hidden = !has;
+}
+
 // Load every product + snapshot for the signed-in user and hand them to the
 // same applyNewData() path the .xlsx loader uses. Pivots the normalized
 // snapshot rows back into the aligned price[]/setVal[] arrays the app expects.
@@ -6827,6 +7242,7 @@ async function loadFromSupabase() {
   applyNewData({ newProducts: usable, newHistoricalData, newHistDates, newLinks });
   setDataSource('cloud');
   setStatus('analysis-status', 'Loaded ' + usable.length + ' products from your cloud account', false);
+  loadNews();   // fire-and-forget; renders the news teaser/overlay when it returns
 }
 
 // ── Pre-login demo ──
@@ -6877,6 +7293,7 @@ async function loadDemo() {
                     .sort((a, b) => b.svPerBooster - a.svPerBooster),
   }));
   renderDemo(groups);
+  loadNews();   // public-read: the demo page shows the same TCG-first teaser
 }
 
 // Longest common prefix of the product names in a set → a readable set name.

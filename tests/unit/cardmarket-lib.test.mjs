@@ -79,6 +79,28 @@ test('deriveProducts: box price = trend/avg blend, Set Value = avg30 singles sum
   assert.equal(d['Mega Evolutions Booster Box'].setValue, 30);
 });
 
+test('deriveProducts: a trend far below avg uses avg, not the dragged-down blend', () => {
+  const m = { products: { 'Grail Box': { type: 'BOX', release: '2019-01-01' } } };
+  const ns = [{ idProduct: 950, name: 'Grail Box', categoryName: 'Booster Box', idExpansion: 95 }];
+  // trend 600 is 40% below avg 1000 → past the 30% gap → use avg (a stale/thin
+  // trend would otherwise blend to a wrong 800).
+  const pg = [{ idProduct: 950, avg: 1000, low: 400, trend: 600 }];
+  const d = deriveProducts(m, resolveIds(m, ns), pg, []);
+  assert.equal(d['Grail Box'].price, 1000);       // avg, not the blend 800
+  assert.equal(d['Grail Box'].priceSrc, 'avg');
+  assert.equal(d['Grail Box'].lowLiquidity, true); // still flagged for review
+});
+
+test('deriveProducts: a trend only moderately below avg still blends', () => {
+  const m = { products: { 'Thin Box': { type: 'BOX', release: '2019-01-01' } } };
+  const ns = [{ idProduct: 951, name: 'Thin Box', categoryName: 'Booster Box', idExpansion: 96 }];
+  // trend 800 is 20% below avg 1000 → within the 30% gap → blend (900).
+  const pg = [{ idProduct: 951, avg: 1000, low: 500, trend: 800 }];
+  const d = deriveProducts(m, resolveIds(m, ns), pg, []);
+  assert.equal(d['Thin Box'].price, 900);
+  assert.equal(d['Thin Box'].priceSrc, 'blend');
+});
+
 test('deriveProducts: box price falls back to the single value when avg is absent', () => {
   const m = { products: { 'X Box': { type: 'BOX', release: '2020-01-01' } } };
   const ns = [{ idProduct: 900, name: 'X Box', categoryName: 'Booster Box', idExpansion: 90 }];

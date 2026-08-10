@@ -342,3 +342,34 @@ The derivation is the unit-tested core in `scripts/cardmarket-lib.mjs`
 (`tests/unit/cardmarket-lib.test.mjs` pins the numbers); all three Edge Functions
 mirror the same match/derive math, so the automated values match what the
 read-only `cardmarket:spike` checks reported.
+
+## Optional: news feed (Pokémon TCG / investing / business)
+
+A companion headline feed. Browsers can't fetch third-party RSS (no CORS), so a
+scheduled server job does it and the client reads a table.
+
+1. **Create the table:** re-running `supabase/schema.sql` adds `public.news`
+   (public read for anon + signed-in; writes only via the service role — no
+   client write policy).
+2. **Deploy the function:** `supabase functions deploy news-fetch`
+   (`supabase/functions/news-fetch/index.ts`). It fetches the feeds in
+   `NEWS_SOURCES`, parses RSS/Atom, dedupes, and upserts `news`; it prunes rows
+   older than 60 days. Only headline + link + source + timestamp is stored.
+3. **Schedule it:** run `supabase/news-cron.sql` (fill in your project ref; store
+   the `service_role` key in Vault as `news_service_key`, or reuse an existing
+   secret). `pg_cron` then calls `news-fetch` hourly at :07. Test once via the
+   function's **Invoke** button. Optionally set an `INGEST_SECRET` env var on the
+   function and send it as `x-ingest-secret` to lock down manual invocation.
+4. **Verify the feeds first.** The source URLs (PokéBeach, r/PokeInvesting,
+   two Google News queries) should be curl-checked once — confirm each returns
+   valid RSS/Atom with recent items — before relying on them; a dead feed is
+   isolated (the run continues) but yields nothing. `node scripts/news-fetch.mjs`
+   previews what the feeds currently return from a machine that can reach them.
+   The **Invoke** button's `perSource` JSON is the fastest check per source.
+   Note the per-source **User-Agent**: Reddit needs the descriptive agent, Google
+   News needs a browser one (it returns **HTTP 503** to a bot agent from a
+   datacenter IP — the cause if a Google News source shows `error: HTTP 503`).
+
+The parse/relevance/dedupe logic is the unit-tested `scripts/news-lib.mjs`
+(`tests/unit/news-lib.test.mjs`); the Edge Function mirrors it. If the feed is
+never enabled, the app is unaffected — the news button and teasers stay hidden.

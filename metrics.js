@@ -283,6 +283,7 @@ function pctChangeOverDays(series, days) {
 
 // Momentum & drawdown for one product (§06, the drill-down KPIs, and — via
 // drawdown/svSinceFirst — two of the three Board-verdict ingredients):
+//   change1d     % price change over the trailing 1 calendar day (portfolio cards)
 //   change7d     % price change over the trailing 7 calendar days
 //   change30d    % price change over the trailing 30 calendar days
 //   sinceFirst   % price change across the whole tracked history
@@ -309,6 +310,7 @@ export function momentum(hist, dates) {
   }
   return {
     price: last,
+    change1d:  pctChangeOverDays(series, 1),
     change7d:  pctChangeOverDays(series, 7),
     change30d: pctChangeOverDays(series, 30),
     sinceFirst: pctChange(p[0], last),
