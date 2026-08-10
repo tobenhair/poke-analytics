@@ -1418,7 +1418,7 @@
   .portfolio-cancel-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.16); }
   .portfolio-edit-btn {
     background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: var(--text-lg); padding: 2px 6px; border-radius: 6px; line-height: 1;
+    font-size: var(--text-lg); padding: 6px 8px; border-radius: 6px; line-height: 1;
     transition: color 0.2s var(--ease);
   }
   .portfolio-edit-btn:hover { color: var(--accent3); }
@@ -1428,7 +1428,7 @@
   }
   .portfolio-remove-btn {
     background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: var(--text-xl); padding: 2px 6px; border-radius: 6px; line-height: 1;
+    font-size: var(--text-xl); padding: 6px 8px; border-radius: 6px; line-height: 1;
     transition: color 0.2s var(--ease);
   }
   .portfolio-remove-btn:hover { color: var(--accent2); }
@@ -1436,6 +1436,45 @@
     padding: 26px 24px; color: var(--muted); font-family: 'DM Mono', monospace;
     font-size: var(--text-md); text-align: center;
   }
+
+  /* ── Holdings as cards (responsive grid: 1-up on a phone, more on a wide
+     screen). Each card carries the same figures as the old table row, with the
+     value as the hero figure and a fair-price chip. ── */
+  .holding-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px; padding: 20px 24px;
+  }
+  .holding-grid .portfolio-empty { grid-column: 1 / -1; padding: 20px; }
+  .holding-card {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 16px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .holding-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .holding-id { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; min-width: 0; }
+  .holding-name { color: var(--text); font-size: var(--text-lg); font-weight: 500; max-width: 100%; }
+  .holding-name:hover { color: var(--accent); }
+  .holding-chip {
+    flex: none; font-family: 'DM Mono', monospace; font-size: var(--text-2xs);
+    text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; margin-top: 2px;
+  }
+  .holding-figures { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .holding-lbl {
+    font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 4px;
+  }
+  .holding-value { font-family: 'Bebas Neue', sans-serif; font-size: var(--display-sm); color: var(--text); line-height: 1; }
+  .holding-pnl { text-align: right; font-family: 'DM Mono', monospace; }
+  .holding-pnl-num { font-size: var(--text-lg); }
+  .holding-pnl-pct { font-size: var(--text-xs); margin-top: 2px; }
+  .holding-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    border-top: 1px solid var(--hairline); padding-top: 12px;
+  }
+  .holding-meta {
+    font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted);
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .holding-actions { display: flex; gap: 4px; flex: none; }
 
   /* ── Welcome hover affordance ── */
   #tab-welcome .panel[onclick] { transition: transform 0.35s var(--ease), border-color 0.35s var(--ease); }
@@ -2684,24 +2723,11 @@
       </div>
       <div id="portfolio-editor-error" class="portfolio-error"></div>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Type</th>
-              <th style="text-align:right">Qty</th>
-              <th style="text-align:right">Cost / unit</th>
-              <th style="text-align:right">Now / unit</th>
-              <th style="text-align:right">Value</th>
-              <th style="text-align:right">P&amp;L</th>
-              <th style="text-align:right">P&amp;L %</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="portfolio-tbody"></tbody>
-        </table>
-      </div>
+      <!-- Holdings as a responsive card grid (1-up on a phone, more on a wide
+           screen) — the 9-column table forced a sideways swipe and buried the
+           value/P&L mid-row. Each card carries the same figures plus a
+           fair-price chip. Built by renderPortfolio(). -->
+      <div class="holding-grid" id="portfolio-cards"></div>
     </div>
 
     <!-- ── Section: portfolio value over time ── -->
@@ -4443,7 +4469,8 @@ function portfolioRows() {
     const curValue  = now != null ? now * qty : null;
     const pnl       = curValue != null ? curValue - costValue : null;
     const pnlPct    = (now != null && cost > 0) ? (now - cost) / cost : null;
-    return { name, type: p ? p.type : null, qty, cost, now, costValue, curValue, pnl, pnlPct };
+    return { name, type: p ? p.type : null, qty, cost, now, costValue, curValue, pnl, pnlPct,
+      fairGap: p ? p.fairGap : null };
   }).sort((a, b) => (b.curValue ?? 0) - (a.curValue ?? 0));
 }
 
@@ -4502,9 +4529,9 @@ async function persistCurrency() {
 }
 
 function renderPortfolio() {
-  const tbody = document.getElementById('portfolio-tbody');
+  const grid = document.getElementById('portfolio-cards');
   const summaryEl = document.getElementById('portfolio-summary');
-  if (!tbody || !summaryEl) return;
+  if (!grid || !summaryEl) return;
   populatePortfolioSelect();
 
   const rows = portfolioRows();
@@ -4534,32 +4561,58 @@ function renderPortfolio() {
       <div class="sub" style="color:${pnlColor(totalPnl)}">${totalPct != null ? withSign((Math.abs(totalPct) * 100).toFixed(1) + '%', totalPnl) : '—'}</div>
     </div>` : '';
 
-  tbody.innerHTML = rows.length ? rows.map(r => `
-    <tr>
-      <td class="product-name" title="${r.name}">${r.name}</td>
-      <td>${typeBadge(r.type)}</td>
-      <td class="num">${r.qty}</td>
-      <td class="num">${money(r.cost)}</td>
-      <td class="num">${r.now != null ? money(r.now) : '—'}</td>
-      <td class="num">${r.curValue != null ? money(r.curValue) : '—'}</td>
-      <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnl != null ? withSign(money(Math.abs(r.pnl)), r.pnl) : '—'}</td>
-      <td class="num" style="color:${r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)'}">${r.pnlPct != null ? withSign((Math.abs(r.pnlPct) * 100).toFixed(1) + '%', r.pnl) : '—'}</td>
-      <td style="text-align:center; white-space:nowrap;">
-        <button class="portfolio-edit-btn" data-product="${r.name}" title="Edit exact quantity / cost" aria-label="Edit ${r.name}"><svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg></button>
-        <button class="portfolio-remove-btn" data-product="${r.name}" title="Remove holding">✕</button>
-      </td>
-    </tr>`).join('')
-    : `<tr><td colspan="9"><div class="portfolio-empty">No holdings yet — pick a product, enter quantity and the price you paid, then “Add / buy more”.</div></td></tr>`;
+  grid.innerHTML = rows.length ? rows.map(r => holdingCard(r)).join('')
+    : `<div class="portfolio-empty">No holdings yet — pick a product, enter quantity and the price you paid, then “Add / buy more”.</div>`;
 
-  tbody.querySelectorAll('.portfolio-edit-btn').forEach(btn => {
-    btn.addEventListener('click', () => startPortfolioEdit(btn.dataset.product));
-  });
-  tbody.querySelectorAll('.portfolio-remove-btn').forEach(btn => {
-    btn.addEventListener('click', () => removeHolding(btn.dataset.product));
-  });
+  grid.querySelectorAll('.row-open').forEach(btn =>
+    btn.addEventListener('click', () => openDrill(btn.dataset.product)));
+  grid.querySelectorAll('.portfolio-edit-btn').forEach(btn =>
+    btn.addEventListener('click', () => startPortfolioEdit(btn.dataset.product)));
+  grid.querySelectorAll('.portfolio-remove-btn').forEach(btn =>
+    btn.addEventListener('click', () => removeHolding(btn.dataset.product)));
 
   renderPortfolioValueChart();
   renderBalancer(rows);
+}
+
+// One holding card. The value is the hero figure; P&L is coloured beside it; a
+// fair-price chip ties the position to the app's north star (only when the fit
+// is trusted — a chip on an ignored fair price would mislead). The name opens
+// the drill-down (same as every other product surface); edit/remove reuse the
+// existing buttons/wiring.
+function holdingCard(r) {
+  const col = r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)';
+  const chip = (fairPriceTrusted() && r.fairGap != null)
+    ? `<span class="holding-chip" style="color:${r.fairGap < 0 ? 'var(--accent4)' : r.fairGap > 0 ? 'var(--accent2)' : 'var(--muted)'}">${
+        r.fairGap === 0 ? 'at fair' : `${Math.abs(r.fairGap)}% ${r.fairGap < 0 ? 'under' : 'over'} fair`}</span>`
+    : '';
+  return `
+    <article class="holding-card">
+      <div class="holding-top">
+        <div class="holding-id">
+          <button type="button" class="row-open holding-name" data-product="${r.name}" aria-haspopup="dialog" title="${r.name}">${r.name}</button>
+          ${typeBadge(r.type)}
+        </div>
+        ${chip}
+      </div>
+      <div class="holding-figures">
+        <div>
+          <div class="holding-lbl">Value</div>
+          <div class="holding-value">${r.curValue != null ? money(r.curValue) : '—'}</div>
+        </div>
+        <div class="holding-pnl" style="color:${col}">
+          <div class="holding-pnl-num">${r.pnl != null ? withSign(money(Math.abs(r.pnl)), r.pnl) : '—'}</div>
+          <div class="holding-pnl-pct">${r.pnlPct != null ? withSign((Math.abs(r.pnlPct) * 100).toFixed(1) + '%', r.pnl) : ''}</div>
+        </div>
+      </div>
+      <div class="holding-foot">
+        <span class="holding-meta">${r.qty} × ${r.now != null ? money(r.now) : '—'} · cost ${money(r.cost)}/u</span>
+        <span class="holding-actions">
+          <button class="portfolio-edit-btn" data-product="${r.name}" aria-label="Edit ${r.name}"><svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg></button>
+          <button class="portfolio-remove-btn" data-product="${r.name}" aria-label="Remove ${r.name}">✕</button>
+        </span>
+      </div>
+    </article>`;
 }
 
 // ── Portfolio value over time (the change chart) ──
