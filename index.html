@@ -732,6 +732,17 @@
     letter-spacing: 0.06em;
     color: var(--muted);
   }
+  /* One-line "what this lens shows" note under the board's Value/Relative/Momentum
+     toggle. Always visible (unlike .scroll-hint), so the current lens explains
+     itself without opening the collapsed section explainer. */
+  .board-lens-hint {
+    margin: 0;
+    padding: 14px 26px 2px;
+    font-family: 'DM Mono', monospace;
+    font-size: var(--text-xs);
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
   table { width: 100%; border-collapse: collapse; }
   /* Secondary hint inside a column header ("💰 = buy signal"). It used to set
      opacity:0.6 inline, which dropped var(--muted) below the 4.5:1 minimum —
@@ -1012,14 +1023,6 @@
   .news-empty { padding: 16px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: var(--text-sm); }
 
   canvas { max-height: 220px; }
-  /* Ten labelled rows need height per row, not a ratio — see the chart's
-     options. The height has to sit on a *wrapper*: with maintainAspectRatio
-     off, Chart.js sizes the canvas to its parent, so a height on the canvas
-     itself is circular. Same pattern as .drill-chart. 220px matches the cap
-     every other chart tops out at; the phone gets more, because the labels
-     are what it was dropping. */
-  .svb-chart-wrap { position: relative; height: 220px; }
-  .svb-chart-wrap canvas { max-height: none; }
 
   .trend-select {
     background: var(--bg3); border: 1px solid var(--hairline); color: var(--text);
@@ -1547,7 +1550,6 @@
     #tab-analysis > .panel { margin-bottom: 34px; }
     .panel-header { padding: 18px 18px 14px; }
     .chart-panel { padding: 16px 12px; }
-    .svb-chart-wrap { height: 265px; }
     .filters { gap: 10px; margin-bottom: 24px; }
     .age-control { margin-left: 0; padding-left: 0; border-left: 0; }
     .sort-select { margin-left: 0; width: 100%; }
@@ -2527,14 +2529,18 @@
 
     <input type="search" id="board-search" class="board-search" placeholder="Search name / set…" autocomplete="off" aria-label="Search products by name or set">
 
-    <select class="sort-select" id="verdict-filter" style="margin-left:0;" aria-label="Filter by verdict">
+    <!-- Verdict + sort rank the Value lens; the Relative and Momentum lenses
+         have their own fixed ordering, so applyBoardLens() hides these two
+         (.value-lens-ctrl) when either is active. Type/age/search stay — they
+         scope every lens (and the charts). -->
+    <select class="sort-select value-lens-ctrl" id="verdict-filter" style="margin-left:0;" aria-label="Filter by verdict">
       <option value="all">Verdict: All</option>
       <option value="good">Verdict: Deals (under fair)</option>
       <option value="neutral">Verdict: Fair / no edge</option>
       <option value="bad">Verdict: Overpriced</option>
     </select>
 
-    <select class="sort-select" id="sort-select" aria-label="Sort the board">
+    <select class="sort-select value-lens-ctrl" id="sort-select" aria-label="Sort the board">
       <option value="score">Sort: Age-Weighted Score ↓</option>
       <option value="fair-gap">Sort: Best Deal (vs Fair Price) ↑</option>
       <option value="set-value-booster">Sort: Set Value / Booster ↓</option>
@@ -2545,16 +2551,37 @@
     </select>
   </div>
 
-  <!-- ── Section: product table (full width) ── -->
+  <!-- ── Section: The Board — one table, three lenses (full width) ──
+       Consolidates what were three separate sections (the board, Relative Value
+       and Momentum) into one panel with a Value / Relative / Momentum pill
+       toggle, extending the "Where to start" lens pattern. All three render
+       through the same renderGroupTree() Era→Set→Product tree; the lens only
+       swaps which table-wrap is shown (applyBoardLens), its sort and its
+       columns — so a first-time visitor no longer has to work out which of three
+       lookalike tables answers their question. The three <tbody> ids
+       (product-tbody / relval-tbody / momentum-tbody) and the render functions
+       are unchanged, so all existing wiring still applies. -->
   <h2 class="section-eyebrow">01 — The Board</h2>
-  <p class="section-desc"><strong>What:</strong> every tracked product, ranked. <strong>How to read:</strong> the line under each name is the <em>verdict</em> — the plain-language answer, synthesising the gap to fair price, the drawdown from peak and the set-value trend. <em>Fair Price</em> is what this product would cost if it traded like its same-age peers; the confidence word beside that column says how much to trust it, and explains the method when you tap it. A <svg class="icon" aria-hidden="true" style="color:var(--accent)"><use href="#i-deal"/></svg> marks a possible buy signal — price fell while set value held. Filter with the Type pills, reorder with the Sort menu. <em>SV/Booster</em> and the other column terms are defined in section 03 below, and on the Welcome tab.</p>
+  <p class="section-desc"><strong>What:</strong> every tracked product, ranked three ways — switch with the <em>Value / Relative / Momentum</em> toggle. <strong>Value</strong> is the headline board (verdict, fair price, weighted score); <strong>Relative</strong> ranks by how far each product sits above or below the expected-value-for-age line; <strong>Momentum</strong> ranks by recent price action and drawdown from peak. <strong>How to read:</strong> on the Value lens the line under each name is the <em>verdict</em> — the plain-language answer, synthesising the gap to fair price, the drawdown from peak and the set-value trend. <em>Fair Price</em> is what this product would cost if it traded like its same-age peers; the confidence word beside that column says how much to trust it, and explains the method when you tap it. A <svg class="icon" aria-hidden="true" style="color:var(--accent)"><use href="#i-deal"/></svg> marks a possible buy signal — price fell while set value held. Filter with the Type pills; the Sort menu reorders the Value lens. <em>SV/Booster</em> and the other column terms are defined in section 03 below, and on the Welcome tab.</p>
   <div class="panel">
     <div class="panel-header">
-      <h3 class="panel-title">All Products</h3>
-      <div class="panel-badge" id="count-badge">31 products</div>
+      <h3 class="panel-title">The Board</h3>
+      <div class="pill-group" id="board-lens" role="group" aria-label="Rank the board by">
+        <button class="pill active" type="button" data-lens="value" aria-pressed="true">Value</button>
+        <button class="pill" type="button" data-lens="relative" aria-pressed="false">Relative</button>
+        <button class="pill" type="button" data-lens="momentum" aria-pressed="false">Momentum</button>
+      </div>
+      <div class="panel-badge" id="board-badge">31 products</div>
     </div>
-    <p class="scroll-hint">Swipe the table sideways for more →</p>
-    <div class="table-wrap">
+    <p class="board-lens-hint" id="board-lens-hint"></p>
+    <!-- Scroll hint shows only on the wide 9-column Value lens; the Relative and
+         Momentum lenses drop to their two phone columns and fit without a swipe.
+         Toggled by applyBoardLens(). -->
+    <p class="scroll-hint" id="board-scroll-hint">Swipe the table sideways for more →</p>
+
+    <!-- Value lens — the headline board (rows carry .row-open buttons, so this
+         wrap needs no tabindex). -->
+    <div class="table-wrap" id="board-view-value">
       <table>
         <thead>
           <tr>
@@ -2572,50 +2599,13 @@
         <tbody id="product-tbody"></tbody>
       </table>
     </div>
-  </div>
 
-  <!-- ── Section: set value / booster (full width) ── -->
-  <h2 class="section-eyebrow">02 — Value Per Booster</h2>
-  <p class="section-desc"><strong>What:</strong> the ten products with the highest <em>SV/Booster</em> — Set Value ÷ the price of one booster. <strong>How to read:</strong> a taller bar means the set is worth more times what a single pack costs (e.g. 185× = the set is worth ~185 boosters' price), independent of product type — the fairest way to compare a Booster Box against an ETB or Bundle. It's a value-for-money ratio, not a euro amount.</p>
-  <div class="panel">
-    <div class="panel-header">
-      <h3 class="panel-title">Set Value / Booster</h3>
-      <div class="panel-badge">Top 10</div>
-    </div>
-    <div class="chart-panel">
-      <div class="svb-chart-wrap"><canvas id="svb-chart"></canvas></div>
-    </div>
-  </div>
-
-  <!-- ── Section: age vs value scatter (full width) ── -->
-  <h2 class="section-eyebrow">03 — Age vs Value</h2>
-  <p class="section-desc"><strong>What:</strong> every product plotted by <em>age</em> (horizontal) against <em>SV/Booster</em> (vertical — Set Value as a multiple of one booster's cost, higher = better value). The dashed line is the expected value for a given age. <strong>How to read:</strong> points <span class="up">above</span> the line are better value than typical for their age; points <span class="down">below</span> are worse — the higher above the line, the better the bargain.</p>
-  <div class="panel">
-    <div class="panel-header">
-      <h3 class="panel-title">Age vs Set Value / Booster</h3>
-      <div class="panel-badge">All products</div>
-      <button type="button" class="chart-expand-btn" data-chart="scatter" aria-label="Expand chart to full screen"><svg class="icon" aria-hidden="true"><use href="#i-expand"/></svg></button>
-    </div>
-    <div class="chart-panel">
-      <canvas id="scatter-chart"></canvas>
-    </div>
-  </div>
-
-  <!-- ── Section: relative value vs the age curve (full width) ── -->
-  <h2 class="section-eyebrow">04 — Relative Value</h2>
-  <p class="section-desc"><strong>What:</strong> products ranked by how far their SV/Booster sits above or below the expected-for-age line from section 04. <strong>KPI:</strong> <em>Δ vs peers</em> — the gap to that expectation (<span class="up">▲ better</span> · <span class="down">▼ worse</span>); the badge shows the fit quality (R²). <strong>How to read:</strong> the top of the list is the best value relative to same-age peers.</p>
-  <div class="panel">
-    <div class="panel-header">
-      <h3 class="panel-title">Relative Value — vs Peers of the Same Age</h3>
-      <div class="panel-badge" id="relval-fit-badge">—</div>
-    </div>
-    <!-- No scroll-hint: on a phone this drops to Product · Δ vs peers (the rest
-         are .col-detail, in the drill-down), so it fits without a sideways swipe. -->
-    <!-- tabindex: a capped-height scroll region with no focusable content
-         inside cannot be scrolled by keyboard otherwise (axe
-         scrollable-region-focusable). The board's own wrap is exempt — its
-         rows carry the .row-open buttons. -->
-    <div class="table-wrap" tabindex="0">
+    <!-- Relative lens — SV/Booster vs the expected-for-age line. On a phone it
+         drops to Product · Δ vs peers (the rest are .col-detail, in the
+         drill-down), so it fits without a sideways swipe.
+         tabindex: a capped-height scroll region with no focusable content inside
+         cannot be scrolled by keyboard otherwise (axe scrollable-region-focusable). -->
+    <div class="table-wrap" id="board-view-relative" tabindex="0" hidden>
       <table>
         <thead>
           <tr>
@@ -2630,10 +2620,43 @@
         <tbody id="relval-tbody"></tbody>
       </table>
     </div>
+
+    <!-- Momentum lens — recent price action + drawdown. On a phone it drops to
+         Product · 30d · vs Peak. -->
+    <div class="table-wrap" id="board-view-momentum" tabindex="0" hidden>
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th class="col-detail">Type</th>
+            <th class="col-detail" style="text-align:right">Price</th>
+            <th class="col-detail" style="text-align:right">7d</th>
+            <th style="text-align:right">30d</th>
+            <th class="col-detail" style="text-align:right">Set Val since 1st</th>
+            <th style="text-align:right">vs Peak</th>
+          </tr>
+        </thead>
+        <tbody id="momentum-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Section: age vs value scatter (full width) ── -->
+  <h2 class="section-eyebrow">02 — Age vs Value</h2>
+  <p class="section-desc"><strong>What:</strong> every product plotted by <em>age</em> (horizontal) against <em>SV/Booster</em> (vertical — Set Value as a multiple of one booster's cost, higher = better value). The dashed line is the expected value for a given age. <strong>How to read:</strong> points <span class="up">above</span> the line are better value than typical for their age; points <span class="down">below</span> are worse — the higher above the line, the better the bargain.</p>
+  <div class="panel">
+    <div class="panel-header">
+      <h3 class="panel-title">Age vs Set Value / Booster</h3>
+      <div class="panel-badge">All products</div>
+      <button type="button" class="chart-expand-btn" data-chart="scatter" aria-label="Expand chart to full screen"><svg class="icon" aria-hidden="true"><use href="#i-expand"/></svg></button>
+    </div>
+    <div class="chart-panel">
+      <canvas id="scatter-chart"></canvas>
+    </div>
   </div>
 
   <!-- ── Section: price history (full width) ── -->
-  <h2 class="section-eyebrow">05 — Price History</h2>
+  <h2 class="section-eyebrow">03 — Price History</h2>
   <p class="section-desc"><strong>What:</strong> tracked <em>price over time</em> — add several products, or switch to <em>Sets</em> to compare whole releases (a set's line is the average price per booster of its products). <strong>How to read:</strong> a falling line means it's getting cheaper; with a single product the set value is overlaid too, so you can pair a price dip with a steady set value to spot a buying window. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
@@ -2653,36 +2676,8 @@
     </div>
   </div>
 
-  <!-- ── Section: momentum & drawdown (full width) ── -->
-  <h2 class="section-eyebrow">06 — Momentum &amp; Drawdown</h2>
-  <p class="section-desc"><strong>What:</strong> recent price action per product. <strong>KPIs:</strong> <em>7d</em> and <em>30d</em> (price change over the trailing 7 / 30 calendar days — blank until enough history has accrued), <em>Set Val since 1st</em> (set-value change across all tracked history), and <em>vs Peak / Drawdown</em> (how far below its highest tracked price it is now). <strong>How to read:</strong> a deep drawdown (<span class="down">▼</span>) while set value holds steady can flag a buying opportunity. Sorted by deepest dip.</p>
-  <div class="panel">
-    <div class="panel-header">
-      <h3 class="panel-title">Momentum &amp; Drawdown</h3>
-      <div class="panel-badge">By deepest dip</div>
-    </div>
-    <!-- No scroll-hint: on a phone this drops to Product · 30d · vs Peak (the
-         rest are .col-detail, in the drill-down), so it fits without a swipe. -->
-    <div class="table-wrap" tabindex="0">
-      <table>
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th class="col-detail">Type</th>
-            <th class="col-detail" style="text-align:right">Price</th>
-            <th class="col-detail" style="text-align:right">7d</th>
-            <th style="text-align:right">30d</th>
-            <th class="col-detail" style="text-align:right">Set Val since 1st</th>
-            <th style="text-align:right">vs Peak</th>
-          </tr>
-        </thead>
-        <tbody id="momentum-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
   <!-- ── Section: SV/Booster trend over time (full width) ── -->
-  <h2 class="section-eyebrow">07 — Trend Over Time</h2>
+  <h2 class="section-eyebrow">04 — Trend Over Time</h2>
   <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> — add several products to compare, or switch to <em>Sets</em> to weigh whole releases head to head (a set's line is the average SV/Booster of its products). <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means the set is worth more relative to a booster's cost (better value); because it's a multiple of booster cost, every product type — box, ETB, bundle or single pack — is directly comparable. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
@@ -3049,6 +3044,10 @@ let relvalExpandedEras   = new Set();
 let relvalExpandedSets   = new Set();
 let momentumExpandedEras = new Set();
 let momentumExpandedSets = new Set();
+// §01 The Board is one panel with three lenses (Value / Relative / Momentum),
+// each its own table under a shared pill toggle. This holds the active lens;
+// applyBoardLens() shows the matching table-wrap and renderBoard() renders it.
+let boardLens = 'value'; // 'value' | 'relative' | 'momentum'
 let ageThreshold = 1; // years until age weight reaches 1.0 (default)
 // The age-fit line (SV/Booster ~ age) with its R², recomputed once per data
 // load by recomputeFit(). Shared by the board's fair price, the scatter overlay
@@ -3395,6 +3394,55 @@ function renderOverview() {
 }
 
 // ============================================================
+// THE BOARD — one panel, three lenses
+// ============================================================
+// The board consolidates what were three lookalike tables (the value board,
+// Relative Value, Momentum) into one panel with a Value / Relative / Momentum
+// pill toggle. All three still render through the same renderGroupTree() tree
+// and keep their own <tbody> + render function; the lens only swaps which
+// table-wrap is visible and hides the Value-only filter controls (verdict +
+// sort — the other two lenses have a fixed ranking). Search and the Type filter
+// scope every lens.
+function syncBoardLensPills() {
+  document.querySelectorAll('#board-lens .pill').forEach(p => {
+    const on = p.dataset.lens === boardLens;
+    p.classList.toggle('active', on);
+    p.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+// Show the active lens's table, hide the others, toggle the Value-only controls,
+// then render the active lens. The two hidden tables are not rendered until
+// selected (renderBoard renders only the active one), so switching is a cheap
+// re-render rather than three up front.
+function applyBoardLens() {
+  syncBoardLensPills();
+  const isValue = boardLens === 'value';
+  document.getElementById('board-view-value').hidden    = !isValue;
+  document.getElementById('board-view-relative').hidden = boardLens !== 'relative';
+  document.getElementById('board-view-momentum').hidden = boardLens !== 'momentum';
+  document.querySelectorAll('.value-lens-ctrl').forEach(el => { el.hidden = !isValue; });
+  // Only the wide 9-column Value lens can overflow a phone; the other two drop
+  // to two columns and fit, so their swipe hint would be a lie.
+  document.getElementById('board-scroll-hint').hidden = !isValue;
+  renderBoard();
+}
+
+// Render whichever lens is active. Each render fills its own <tbody> and updates
+// the shared badge + lens-hint line. Called on lens switch and by every path
+// that re-renders the board (INIT, applyNewData, type/currency/age changes).
+function renderBoard() {
+  if (boardLens === 'value')      updateTable();
+  else if (boardLens === 'relative') renderRelativeValue();
+  else                            renderMomentum();
+}
+
+function setBoardHint(text) {
+  const el = document.getElementById('board-lens-hint');
+  if (el) el.textContent = text;
+}
+
+// ============================================================
 // TABLE
 // ============================================================
 // The board is a collapsible Era → Set → Product tree. getFiltered() still does
@@ -3404,7 +3452,8 @@ function renderOverview() {
 // first, products in getFiltered's sort order. A live search opens every group.
 function updateTable() {
   const data = getFiltered();
-  document.getElementById('count-badge').textContent = `${data.length} product${data.length === 1 ? '' : 's'}`;
+  document.getElementById('board-badge').textContent = `${data.length} product${data.length === 1 ? '' : 's'}`;
+  setBoardHint('Every tracked product, ranked by your chosen sort — the line under each name is the plain-language verdict.');
   updateFairFitNote();
   const tbody = document.getElementById('product-tbody');
   tbody.innerHTML = '';
@@ -3602,44 +3651,9 @@ function isBuySignal(name) {
 }
 
 // ============================================================
-// SVB CHART
-// ============================================================
-let svbChart = null;
-function renderSVBChart() {
-  const data = [...visibleProducts()].sort((a, b) => b.svPerBooster - a.svPerBooster).slice(0, 10);
-  const labels = data.map(p => p.name.replace(' Booster Box', '').replace(' Booster Bundle', '').replace(' Elite Trainer Box', '').replace(' ETB', ''));
-  const values = data.map(p => p.svPerBooster);
-  const colors = data.map(p => categoryColor(p.type));
-
-  if (svbChart) svbChart.destroy();
-  svbChart = new Chart(document.getElementById('svb-chart'), {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{ data: values, backgroundColor: colors, borderRadius: 4, borderSkipped: false }]
-    },
-    options: {
-      indexAxis: 'y',
-      // Height comes from CSS, not from an aspect ratio: this is a fixed list
-      // of ten rows, and at a phone's width the 2:1 default left it 166px tall,
-      // where Chart.js silently dropped every other product label — half the
-      // bars became unidentifiable. See the #svb-chart rule.
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: {
-        callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(1)}× booster cost` }
-      }},
-      scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } },
-        y: { grid: { display: false }, ticks: { color: COLOR.muted, font: { family: 'DM Sans', size: 10 } } }
-      }
-    }
-  });
-}
-
-// ============================================================
 // TREND CHART
 // ============================================================
-// ── Comparison views (§06 Price History, §08 SV/Booster trend) ──
+// ── Comparison views (§03 Price History, §04 SV/Booster trend) ──
 // Both sections are the same interaction: a Products⇄Sets mode toggle, a
 // multi-select (add via the dropdown, remove via a chip), one line per
 // selection from a capped palette, and the chart's own legend as the show/hide
@@ -4035,15 +4049,22 @@ document.querySelectorAll('#start-lens .pill').forEach(pill => {
   });
 });
 
+// The board's Value / Relative / Momentum lens toggle — swaps which table is
+// shown and re-renders it (applyBoardLens), leaving the Type filter and search
+// in place across lenses.
+document.querySelectorAll('#board-lens .pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    boardLens = pill.dataset.lens;
+    applyBoardLens();
+  });
+});
+
 // Re-render everything the global type filter scopes: the board plus the
 // analytical charts/tables and the comparison views.
 function applyTypeFilter() {
   renderOverview();
-  updateTable();
-  renderSVBChart();
+  renderBoard();            // the active board lens (Value / Relative / Momentum)
   renderScatterChart();
-  renderRelativeValue();
-  renderMomentum();
   cmpHist.refresh();
   cmpSvb.refresh();
 }
@@ -4055,8 +4076,7 @@ function applyTypeFilter() {
 // (harmless: the picker is in the header, unreachable while the modal traps focus).
 function renderCurrencySensitive() {
   renderOverview();
-  updateTable();
-  renderMomentum();
+  renderBoard();            // the active board lens (Value & Momentum show money; Relative is ratio-only)
   cmpHist.refresh();
   renderPortfolio();
   renderAlerts();
@@ -4070,7 +4090,7 @@ document.getElementById('sort-select').addEventListener('change', e => {
 
 document.getElementById('board-search').addEventListener('input', e => {
   searchTerm = e.target.value;
-  updateTable();
+  renderBoard();   // search scopes whichever lens is active
 });
 
 document.getElementById('verdict-filter').addEventListener('change', e => {
@@ -4083,8 +4103,7 @@ document.getElementById('age-threshold-slider').addEventListener('input', e => {
   document.getElementById('age-threshold-display').textContent = ageThreshold.toFixed(1);
   recomputeScores(products, ageThreshold);
   updateKPIs();
-  updateTable();
-  renderSVBChart();
+  renderBoard();
 });
 
 
@@ -4301,12 +4320,9 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
   updateKPIs();
   renderOverview();
-  updateTable();
-  renderSVBChart();
+  applyBoardLens();   // re-render the active board lens (lens state persists across reloads)
   cmpHist.refresh();
   renderScatterChart();
-  renderRelativeValue();
-  renderMomentum();
   cmpSvb.refresh();
   initScenario();
 
@@ -6073,17 +6089,24 @@ function renderRelativeValue() {
   const tbody = document.getElementById('relval-tbody');
   if (!tbody) return;
   const fit = ageFit;
-  const badge = document.getElementById('relval-fit-badge');
+  // The fit quality (age trend / R²) that used to live in this section's own
+  // badge now rides the shared board badge; the lens hint says what the view is.
+  const badge = document.getElementById('board-badge');
   if (badge) badge.textContent = fit
     ? `age trend ${fit.b >= 0 ? '+' : ''}${fit.b.toFixed(1)}/yr · R² ${fit.r2.toFixed(2)}`
     : 'flat';
+  setBoardHint('SV/Booster vs the expected-value-for-age line — top of the list is the best value for its age (Δ vs peers).');
 
-  const pool = visibleProducts();
+  // Search scopes this lens too (like the Value board); a live search
+  // force-expands every group so matches are visible.
+  const q = searchTerm.trim().toLowerCase();
+  const searching = q !== '';
+  const pool = visibleProducts().filter(p => !q || p.name.toLowerCase().includes(q));
   const rows = peerResiduals(pool, fit);   // sorted by residual desc
 
   tbody.innerHTML = '';
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="portfolio-empty">No products to compare — clear the type filter.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="portfolio-empty">No products to compare — clear the search or type filter.</div></td></tr>`;
     return;
   }
   // Nest the residual ranking under the same Era → Set → Product tree as the
@@ -6098,7 +6121,7 @@ function renderRelativeValue() {
     expandedEras: relvalExpandedEras,
     expandedSets: relvalExpandedSets,
     rerender: renderRelativeValue,
-    searching: false,
+    searching,
     leaf: p => relvalRowTr(resByName.get(p.name)),
   });
 }
@@ -6135,13 +6158,21 @@ function computeMomentum(name) {
 function renderMomentum() {
   const tbody = document.getElementById('momentum-tbody');
   if (!tbody) return;
-  const rows = visibleProducts().map(p => ({ p, m: computeMomentum(p.name) }))
+  const badge = document.getElementById('board-badge');
+  if (badge) badge.textContent = 'By deepest dip';
+  setBoardHint('Recent price action — 7d / 30d change and drawdown from peak, sorted by the deepest dip (a possible buying window).');
+
+  // Search scopes this lens too; a live search force-expands every group.
+  const q = searchTerm.trim().toLowerCase();
+  const searching = q !== '';
+  const rows = visibleProducts().filter(p => !q || p.name.toLowerCase().includes(q))
+    .map(p => ({ p, m: computeMomentum(p.name) }))
     .filter(r => r.m)
     .sort((a, b) => (a.m.drawdown ?? 0) - (b.m.drawdown ?? 0)); // deepest dip first
 
   tbody.innerHTML = '';
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="portfolio-empty">No products with price history — clear the type filter.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="portfolio-empty">No products with price history — clear the search or type filter.</div></td></tr>`;
     return;
   }
   // Same Era → Set → Product tree as the board; products stay in deepest-dip
@@ -6153,7 +6184,7 @@ function renderMomentum() {
     expandedEras: momentumExpandedEras,
     expandedSets: momentumExpandedSets,
     rerender: renderMomentum,
-    searching: false,
+    searching,
     leaf: p => momentumRowTr(p, mByName.get(p.name)),
   });
 }
@@ -6707,12 +6738,9 @@ recomputeScores(products, ageThreshold); // apply the default age threshold to t
 recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
 updateKPIs();
 renderOverview();
-updateTable();
-renderSVBChart();
+applyBoardLens();   // shows + renders the active board lens (Value by default)
 cmpHist.init();
 renderScatterChart();
-renderRelativeValue();
-renderMomentum();
 cmpSvb.init();
 initScenario();
 populateCurrencySelect();

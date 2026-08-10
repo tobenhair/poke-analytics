@@ -85,11 +85,11 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   await page.keyboard.press('Escape');
   await expect(page.locator('#drill-modal')).not.toHaveClass(/open/);
 
-  // A Chart.js canvas actually drew (non-zero size).
-  const svbBox = await page.locator('#svb-chart').boundingBox();
-  expect(svbBox, 'value/booster chart should be rendered').not.toBeNull();
-  expect(svbBox.width).toBeGreaterThan(0);
-  expect(svbBox.height).toBeGreaterThan(0);
+  // A Chart.js canvas actually drew (non-zero size) — the §02 Age-vs-Value scatter.
+  const scatterBox = await page.locator('#scatter-chart').boundingBox();
+  expect(scatterBox, 'age-vs-value scatter should be rendered').not.toBeNull();
+  expect(scatterBox.width).toBeGreaterThan(0);
+  expect(scatterBox.height).toBeGreaterThan(0);
 
   // ── Data Entry ──
   await page.locator('.tab-btn[data-tab="entry"]').click();
@@ -166,6 +166,60 @@ test('an analytical chart expands to a full-screen, zoomable dialog', async ({ p
 
   await page.keyboard.press('Escape');
   await expect(page.locator('#chart-zoom-modal')).not.toHaveClass(/open/);
+});
+
+test('the board consolidates into one panel with a Value / Relative / Momentum lens toggle', async ({ page }) => {
+  // §01 The Board is one table with three lenses (what were three separate
+  // sections). Each lens swaps the visible table-wrap, its columns and its
+  // badge; the Type filter + search scope every lens. Proves the toggle shows
+  // exactly one table at a time and the right one.
+  await routeLocalLibs(page);
+  await forceStaticMode(page);
+  await page.goto('/');
+  await page.locator('.tab-btn[data-tab="analysis"]').click();
+  await expect(page.locator('#tab-analysis')).toBeVisible();
+  await expect.poll(() => page.locator('#product-tbody .grp-era').count(),
+    { timeout: 10_000 }).toBeGreaterThan(0);
+
+  const lensBtn = (l) => page.locator(`#board-lens .pill[data-lens="${l}"]`);
+  // Centre the toggle so the reveal-on-scroll fires and the click isn't
+  // swallowed by the sticky tab-bar (same harness note as the chart-expand test).
+  const switchTo = async (l) => {
+    await lensBtn(l).evaluate(el => el.scrollIntoView({ block: 'center' }));
+    await lensBtn(l).click();
+  };
+
+  // Value lens is the default: its table is shown, the others hidden.
+  await expect(lensBtn('value')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#board-view-value')).toBeVisible();
+  await expect(page.locator('#board-view-relative')).toBeHidden();
+  await expect(page.locator('#board-view-momentum')).toBeHidden();
+  await expect(page.locator('#board-badge')).toHaveText(/product/);
+  // The Value-only controls (verdict + sort) are present here.
+  await expect(page.locator('#sort-select')).toBeVisible();
+
+  // Relative lens: its table shows, value hides, the badge switches to the fit,
+  // and the Value-only sort control is hidden.
+  await switchTo('relative');
+  await expect(lensBtn('relative')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#board-view-relative')).toBeVisible();
+  await expect(page.locator('#board-view-value')).toBeHidden();
+  await expect(page.locator('#relval-tbody .grp-era').first()).toBeAttached();
+  await expect(page.locator('#board-badge')).toHaveText(/age trend|flat/);
+  await expect(page.locator('#sort-select')).toBeHidden();
+
+  // Momentum lens: its table shows, its badge reads "by deepest dip".
+  await switchTo('momentum');
+  await expect(page.locator('#board-view-momentum')).toBeVisible();
+  await expect(page.locator('#board-view-relative')).toBeHidden();
+  await expect(page.locator('#momentum-tbody .grp-era').first()).toBeAttached();
+  await expect(page.locator('#board-badge')).toHaveText(/deepest dip/i);
+
+  // Back to Value restores the headline board and its controls.
+  await switchTo('value');
+  await expect(page.locator('#board-view-value')).toBeVisible();
+  await expect(page.locator('#board-view-momentum')).toBeHidden();
+  await expect(page.locator('#sort-select')).toBeVisible();
 });
 
 test('a missing workbook says so instead of passing sample data off as real', async ({ page }) => {

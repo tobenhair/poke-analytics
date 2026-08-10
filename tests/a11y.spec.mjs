@@ -219,7 +219,7 @@ test('the type filter pills are operable from the keyboard', async ({ page }) =>
   await expect(boxPill).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#type-filters .pill[data-type="ALL"]')).toHaveAttribute('aria-pressed', 'false');
   // The filter actually applied, not just the ARIA state.
-  await expect(page.locator('#count-badge')).not.toHaveText(/^0 /);
+  await expect(page.locator('#board-badge')).not.toHaveText(/^0 /);
 });
 
 test('every tab reflows at 320px without two-dimensional scrolling (WCAG 1.4.10)', async ({ page }) => {
@@ -349,18 +349,6 @@ test('the desktop board keeps every column', async ({ page }) => {
   await expect(page.locator('#tab-analysis .scroll-hint').first()).toBeHidden();
 });
 
-test('the Top-10 bar chart keeps a label per bar at phone width', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 800 });
-  await bootStatic(page);
-  await openTab(page, 'analysis');
-
-  // Chart.js drops every other category label when the plot area is too short
-  // for them — at the default 2:1 ratio a 332px-wide phone gave 166px, and half
-  // the bars became unidentifiable. The height now comes from the wrapper.
-  const h = await page.locator('#svb-chart').evaluate((c) => c.getBoundingClientRect().height);
-  expect(h, 'ten labelled rows need ~26px each').toBeGreaterThanOrEqual(240);
-});
-
 test('section explainers start collapsed at every width and remember the choice', async ({ page }) => {
   // Measured at 1,478px — 17.7% of the phone page — of prose before the board.
   // The text is hidden, never removed, so it stays reachable for a first-time
@@ -387,18 +375,19 @@ test('section explainers start collapsed at every width and remember the choice'
   await page.locator('#desc-toggle-all').click();
   expect(await shown(), 'the global control hides every explainer').toBe(0);
 
-  // From all-collapsed it shows every one. (Seven numbered sections' .section-desc
-  // plus the KPI intro — §01 "Top Picks" was retired into the Where-to-start block,
-  // and the What-If explainer moved into the drill-down.)
+  // From all-collapsed it shows every one. (Four numbered sections' .section-desc
+  // plus the KPI intro — Relative Value and Momentum folded into §01 The Board's
+  // Value/Relative/Momentum lens toggle, and the redundant Value-Per-Booster bar
+  // chart was retired, so the analysis tab now has four sections.)
   await expect(page.locator('#desc-toggle-all')).toHaveText('Show explanations');
   await page.locator('#desc-toggle-all').click();
-  expect(await shown()).toBe(8);
+  expect(await shown()).toBe(5);
 
   // The choice survives a reload — the whole point of persisting it.
   await page.reload();
   await expect(page.locator('#product-tbody tr').first()).toBeAttached();
   await openTab(page, 'analysis');
-  expect(await shown(), 'expanded state should persist').toBe(8);
+  expect(await shown(), 'expanded state should persist').toBe(5);
 
   // A desktop visitor with nothing stored gets the same condensed page — the
   // default is width-independent, so the first view is the numbers.

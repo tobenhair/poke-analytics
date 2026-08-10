@@ -98,9 +98,9 @@ The pure math lives in **`metrics.js`** (imported by `index.html` and unit-teste
 
 ## UI architecture
 
-Four tabs (Welcome / Analysis / Portfolio / Data Entry) are `.tab-pane`s toggled by `.tab-btn[data-tab]` — Portfolio (`.sb-only`, signed-in) and Data Entry (`.admin-only`) are conditionally shown. The Analysis tab opens with the unnumbered **Where to start** shortlist (see below), then a single vertically-stacked column of full-width sections, each introduced by a numbered `.section-eyebrow` (01–07) — on-screen title first, internal name second: **01 The Board** (the All Products table), **02 Value Per Booster**, **03 Age vs Value** (the scatter, with a fitted "expected value for age" line), **04 Relative Value**, **05 Price History**, **06 Momentum & Drawdown**, **07 Trend Over Time**. The **What If / Scenario Explorer** is no longer a tab section — it lives inside the product drill-down (see below), always scoped to the product on screen. The Portfolio tab numbers its own sections independently (01–03: Your Portfolio, Value Over Time, Concentration & Rebalance).
+Four tabs (Welcome / Analysis / Portfolio / Data Entry) are `.tab-pane`s toggled by `.tab-btn[data-tab]` — Portfolio (`.sb-only`, signed-in) and Data Entry (`.admin-only`) are conditionally shown. The Analysis tab opens with the unnumbered **Where to start** shortlist (see below), then a single vertically-stacked column of full-width sections, each introduced by a numbered `.section-eyebrow` (01–04) — on-screen title first, internal name second: **01 The Board** (one table, three lenses — see *The board is one panel with three lenses* below), **02 Age vs Value** (the scatter, with a fitted "expected value for age" line), **03 Price History**, **04 Trend Over Time**. What used to be three more sections — Relative Value and Momentum & Drawdown (now **lenses of §01 The Board**) and a "Value Per Booster" Top-10 bar chart (**retired** — redundant with the Where-to-start *Best value* lens, the Board's SV/Booster sort, and the §02 scatter, which plots the same metric against age) — are gone. The **What If / Scenario Explorer** is no longer a tab section either — it lives inside the product drill-down (see below), always scoped to the product on screen. The Portfolio tab numbers its own sections independently (01–03: Your Portfolio, Value Over Time, Concentration & Rebalance).
 
-Rendering follows a **state + render-function** pattern: module-level state (`activeType` — the global type filter, a *category* (`BOX`/`ETB`/`BUNDLE`/`PACK`, or `ALL`) so an ETB pill scopes to every ETB variant, `sortKey`, `ageThreshold`, …) plus render functions (`updateTable`, `updateKPIs`, `renderOverview`, `renderScatterChart`, `renderRelativeValue`, `renderMomentum`, `initScenario`, …). Chart.js instances live in module-level vars and are **destroyed and recreated** on each re-render. Any new render function must be wired into both `INIT` and `applyNewData()` so it runs on first load and after a data file loads. The Price History (§05) and SV/Booster Trend (§07) comparison views are built by a shared `createCompareView()` controller (instances `cmpHist`/`cmpSvb`) — a Products⇄Sets mode toggle, a capped multi-series picker (chips + a legend that toggles series), with set roll-ups via `groupSets()`/`meanSeries()` in `metrics.js`; each instance is `init()`ed in `INIT` and `refresh()`ed in `applyNewData()` and on type-filter change. `activeType` scopes the board plus every analytical chart/comparison view via the `visibleProducts()` helper (`applyTypeFilter()`).
+Rendering follows a **state + render-function** pattern: module-level state (`activeType` — the global type filter, a *category* (`BOX`/`ETB`/`BUNDLE`/`PACK`, or `ALL`) so an ETB pill scopes to every ETB variant, `sortKey`, `ageThreshold`, …) plus render functions (`updateTable`, `updateKPIs`, `renderOverview`, `renderScatterChart`, `renderRelativeValue`, `renderMomentum`, `initScenario`, …). Chart.js instances live in module-level vars and are **destroyed and recreated** on each re-render. Any new render function must be wired into both `INIT` and `applyNewData()` so it runs on first load and after a data file loads. The Price History (§04) and SV/Booster Trend (§05) comparison views are built by a shared `createCompareView()` controller (instances `cmpHist`/`cmpSvb`) — a Products⇄Sets mode toggle, a capped multi-series picker (chips + a legend that toggles series), with set roll-ups via `groupSets()`/`meanSeries()` in `metrics.js`; each instance is `init()`ed in `INIT` and `refresh()`ed in `applyNewData()` and on type-filter change. `activeType` scopes the board plus every analytical chart/comparison view via the `visibleProducts()` helper (`applyTypeFilter()`).
 
 ### Loose packs are reference, not ranked
 
@@ -167,8 +167,8 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   cannot ellipsis *part* of an inline-block, and a long name beside a buy/alert flag
   disappears entirely.
 - **The drill-down opens from every product surface, not just the board.** The
-  Where-to-start shortlist builds the same `.row-open` button; the
-  Relative Value (§04) and Momentum (§06) tables now do too (whole row clickable
+  Where-to-start shortlist builds the same `.row-open` button; the board's
+  Relative and Momentum lenses do too (whole row clickable
   + the named button as the keyboard target, `#relval-tbody`/`#momentum-tbody`
   carry `cursor: pointer`); the Age-vs-Value scatter (§03) opens a point's
   product via Chart.js `onClick`/`onHover` (the age-fit line's points carry no
@@ -300,33 +300,60 @@ era collapsed — `expandedEras`/`expandedSets` start empty), so the page leads 
   off `ctx` too. Products passed in must carry `release`/`svPerBooster`/`fairGap`/
   `price` — `groupStats()` reads them for the headline aggregates.
 
-### §04 Relative Value and §06 Momentum reuse the same tree
+### The board is one panel with three lenses (Value / Relative / Momentum)
 
-`renderRelativeValue()` (`#relval-tbody`, colspan 6) and `renderMomentum()`
-(`#momentum-tbody`, colspan 7) render their rankings through the same
-`renderGroupTree()` as the board, each with its own independent expand state
+§01 The Board used to be three lookalike sections — the value board, §04
+Relative Value and §06 Momentum. A first-time visitor couldn't tell which of the
+three answered their question. They are now **one panel with a Value / Relative /
+Momentum pill toggle** (`#board-lens`), extending the "Where to start" lens
+pattern. Only the presentation changed — nothing in `metrics.js`, and each lens
+keeps its own `<tbody>` (`product-tbody` / `relval-tbody` / `momentum-tbody`) and
+its own render function (`updateTable` / `renderRelativeValue` / `renderMomentum`),
+so all three still go through the same `renderGroupTree()` and their existing
+wiring is intact.
+
+- **`boardLens`** (`'value' | 'relative' | 'momentum'`) is the state.
+  `applyBoardLens()` reflects the pills, shows the active lens's `.table-wrap`
+  (the other two carry the boolean `hidden` attribute — `[hidden]{display:none
+  !important}` beats `.table-wrap`'s `display`) and hides the Value-only filter
+  controls (`.value-lens-ctrl` — the verdict + sort selects; Relative and
+  Momentum have a fixed ranking), then calls **`renderBoard()`**, which renders
+  **only the active lens** (the two hidden tables aren't pre-rendered — switching
+  is a cheap re-render). Every path that re-renders the board now calls
+  `renderBoard()`/`applyBoardLens()` instead of the three functions separately:
+  `INIT`, `applyNewData()`, `applyTypeFilter()`, `renderCurrencySensitive()`, and
+  the age-threshold handler.
+- **The shared header.** One `#board-badge` and one `#board-lens-hint` line serve
+  all three — each render function writes them (value: "N products"; relative:
+  the age-fit `age trend …/yr · R²`; momentum: "By deepest dip"), so the retired
+  `#count-badge` and `#relval-fit-badge` ids are gone.
+- **Search scopes every lens.** The `#board-search` box (and the Type filter)
+  apply to all three now — `renderRelativeValue()`/`renderMomentum()` filter their
+  pool by `searchTerm` and force-expand the tree when searching, matching the
+  Value board. Verdict + sort stay Value-only (they're `.value-lens-ctrl`).
+
+Each lens still keeps its own independent expand state
 (`relvalExpandedEras`/`relvalExpandedSets`, `momentumExpandedEras`/
-`momentumExpandedSets`), also opening as a pure era overview. Both feed the tree
-**product objects** (so `groupStats()`/`boardSets()` work unchanged) and a `leaf`
-builder that renders the ranking row: `relvalRowTr()` / `momentumRowTr()`. The
-sort each table already computed is preserved *within* a set — for Relative Value,
-`peerResiduals()` returns bare `{name,…}` objects with no release, so they're
-mapped back to their products for grouping via a name→product map and a
-name→residual lookup keys the leaf; Momentum's rows already carry the product, so
-a name→momentum map keys its leaf. Neither table has a search box, so `searching`
-is always `false` (no force-expand). Both are already wired into `INIT`,
-`applyNewData()` and `applyTypeFilter()`; their group toggles re-render via
-`ctx.rerender`.
+`momentumExpandedSets`, and the board's own `expandedEras`/`expandedSets`), also
+opening as a pure era overview, and feeds the tree **product objects** (so
+`groupStats()`/`boardSets()` work unchanged) plus a `leaf` builder
+(`relvalRowTr()` / `momentumRowTr()`). The sort each already computed is preserved
+*within* a set — for Relative Value, `peerResiduals()` returns bare `{name,…}`
+objects with no release, so they're mapped back to their products for grouping via
+a name→product map and a name→residual lookup keys the leaf; Momentum's rows
+already carry the product, so a name→momentum map keys its leaf. Group toggles
+re-render via `ctx.rerender`.
 
-**Both get the board's phone column-priority.** The `.table-wrap` mobile rules
-(frozen first column + `.col-detail { display:none }` below 680px) are general,
-so §04/§06 already froze the product name; they now also mark their non-headline
-columns `.col-detail` on the `<th>` **and** the leaf `<td>` (via the `cls` arg
-`momentumRowTr`'s `pctCell` now takes), collapsing a phone to **Product · Δ vs
-peers** (§04) and **Product · 30d · vs Peak** (§06). Everything hidden stays in
-the drill-down these rows already open. With only 2–3 columns they fit without a
-sideways swipe, so their `scroll-hint` was removed (the board keeps its own —
-Price + Fair Price can still overflow a hair).
+**Each lens gets the board's phone column-priority.** The `.table-wrap` mobile
+rules (frozen first column + `.col-detail { display:none }` below 680px) are
+general, so all three froze the product name; the Relative and Momentum lenses
+also mark their non-headline columns `.col-detail` on the `<th>` **and** the leaf
+`<td>` (via the `cls` arg `momentumRowTr`'s `pctCell` takes), collapsing a phone
+to **Product · Δ vs peers** (Relative) and **Product · 30d · vs Peak** (Momentum).
+Everything hidden stays in the drill-down these rows open. The `scroll-hint`
+(`#board-scroll-hint`) is toggled by `applyBoardLens()` — shown only on the wide
+9-column Value lens (Price + Fair Price can overflow a hair); the two-column
+Relative/Momentum lenses fit without a swipe, so it stays hidden there.
 
 **Momentum's columns are date-windowed, not position-windowed.** The table shows
 `Price · 7d · 30d · Set Val since 1st · vs Peak`, where **7d/30d** are the price
@@ -364,11 +391,6 @@ future change should preserve:
 - **Stacking order is load-bearing**: the sticky header row is `z-index: 2`, so
   frozen body cells must be `1` and the frozen header cell `3`. Equal values let
   the first body cell paint over the column labels.
-- The **`.svb-chart-wrap`** wrapper exists because Chart.js sizes a
-  `maintainAspectRatio: false` chart to its *parent* — a height on the canvas is
-  circular. The Top-10 bar chart is a fixed list of ten rows, so its height must
-  come from the row count; at the default 2:1 ratio a phone gave it 166px and
-  Chart.js silently dropped every other product label.
 - **There is no click-to-sort on `thead th`** — there never was. The `cursor:
   pointer` and hover highlight that implied one are gone, and the board's
   explainer no longer promises it. Sorting is `#sort-select`. If you add header
@@ -621,7 +643,7 @@ Markup, styles, and logic share one file, and the JS builds DOM from string temp
   Type is an 11-step scale, `--text-2xs` … `--display-xl`; radii are
   `--radius-pill` / `--radius-sm` / `--radius` (the panel corner). Adding a
   literal instead fails `npm run check:design-tokens`.
-- The All Products table's `.table-wrap` is a capped-height (`70vh`) scroll area with a sticky header; other tables use different wrappers. A `.table-wrap` with **no focusable content inside** needs `tabindex="0"` or it cannot be scrolled by keyboard (§04 and §06 carry it; the board doesn't need it — its rows have `.row-open` buttons).
+- The All Products table's `.table-wrap` is a capped-height (`70vh`) scroll area with a sticky header; other tables use different wrappers. A `.table-wrap` with **no focusable content inside** needs `tabindex="0"` or it cannot be scrolled by keyboard (the board's Relative and Momentum lens wraps carry it; the Value lens doesn't need it — its rows have `.row-open` buttons).
 
 ## Workflow / deployment
 
