@@ -54,10 +54,13 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   display currency** — a header picker that shows every price on the page (board,
   charts, drill-down, portfolio) in the chosen unit (€ canonical, FX
   display-only; the ratio metrics stay put since a rate cancels out of them).
-  **⟳ Reopened (Aug 2026):** the surrounding features shipped, but the fair price's
-  core assumption — a **linear** age fit — is back under review; the fair-price
-  topic is **not done**. See **Non-linear fair-price curve** under **Now —
-  trustworthy numbers**.
+  **⟳ Reopened then resolved (Aug 2026):** the fair price's core assumption — a
+  **linear** age fit — was put back under review, then **validated**: a
+  cross-validated investigation found no non-linear model that beats linear
+  out-of-sample on the current catalogue without overfitting or double-counting
+  the age weight, so the linear fit stays. See **Non-linear fair-price curve**
+  under **Now — trustworthy numbers** for the full result and the one optional
+  follow-up (outlier robustness).
 - **Loose pack price (reference)** — loose single boosters are tracked per set as
   `PACK` products (Cardmarket-ingested like the rest), but held *out* of every
   ranking, chart and KPI: with no sealed-box premium they beat every box on value
@@ -533,36 +536,40 @@ on the page and every failure mode around it.
 Items are tagged **Bug** (something is wrong today), **Fix** (something is
 right but poorly built) or **Feature** (something new).
 
-- **Non-linear fair-price curve — investigate the age fit's shape.**
-  *(Investigate → Fix.)* The fair price inverts a **linear** OLS fit of
-  SV/Booster vs age (`linearFit` → `expectedSvPerBooster` → `fairPrice` in
-  `metrics.js`). But a new release usually carries an **initial-hype premium** —
-  set value is elevated at launch and decays until the set leaves print — so the
-  true SV/Booster-vs-age relationship is probably **curved early, flatter later**;
-  a straight line splits the difference, biased for the youngest sets (and it
-  floors awkwardly for the oldest). Investigate whether a non-linear model fits
-  materially better. **Leading hypothesis: piecewise — a curved/decaying segment
-  before an age threshold (≈ the age-weight knot, ~1 yr), linear after** — model
-  the hype decay explicitly, then the settled linear tail. Compare against today's
-  line: segmented/piecewise regression (knot at the threshold), a smooth form
-  (log / power / exponential-decay-to-asymptote), or a robust local fit (LOESS).
-  - **Judge it honestly, don't just chase R².** Compare **out-of-sample /
-    cross-validated** error and residual structure, not in-sample R² — with ~37
-    sealed products (growing as coverage backfills) a bendier model overfits
-    easily. Adopt the non-linear form only if it **beats linear out-of-sample**,
-    and keep a **fallback to linear** when data is thin or the gain isn't real.
-  - **Keep the invariants.** Stays pure and unit-tested in `metrics.js` (no derived
-    number without a test); the result must remain **invertible to a fair price**
-    and sensibly floored; `fitConfidence()` / `fairPriceTrusted()` (the R² → band
-    honesty gate) still apply — extend them to whatever goodness-of-fit the new
-    model reports.
-  - **Watch the interaction with the age weight.** The age weight already discounts
-    a young set's *score*; if the *fair-price curve* also bends down for young
-    sets, the two risk double-counting the youth adjustment — decide deliberately
-    how they compose. This is the principled alternative to the **directional
-    fair-price haircut for young products** that was considered and deferred
-    (see the data-maturity work): a curved fit earns the correction from the data
-    instead of imposing it.
+- **Non-linear fair-price curve — investigated; keep linear.** *(Investigate →
+  decided.)* The fair price inverts a **linear** OLS fit of SV/Booster vs age
+  (`linearFit` → `expectedSvPerBooster` → `fairPrice` in `metrics.js`); the
+  hypothesis was that an **initial-hype premium** (set value elevated at launch,
+  decaying until the set leaves print) makes the true curve **steeper early,
+  flatter later**, so a bend would fit better. Investigated on the 37-product
+  analysis pool with **leave-one-out cross-validation** (not in-sample R²),
+  comparing linear against log, √, quadratic and piecewise (knot at ≈ the
+  age-weight threshold). Findings:
+  - **The concavity is real but modest.** The linear residuals go
+    **+46× → +13× → −25× → −10×** young→mid (young sets sit *above* the line —
+    the hype signature), and the two simplest concave forms beat linear
+    out-of-sample: **log** LOO-RMSE **59.3 vs 65.5** (MAE 42.4 vs 46.4). But the
+    edge is **~9% RMSE on the full pool and only ~2% MAE once the two launch
+    outliers are removed** (both *Ascended Heroes*, ~0.5 yr, 316×/395×) — i.e.
+    most of the "win" is those two young points, not a broad curvature.
+  - **The leading hypothesis (piecewise at the knot) failed.** It never beat
+    linear out-of-sample (LOO-RMSE 69.8 full / 46.0 trimmed vs 45.2) — with only
+    ~5–7 sub-1-yr points the early segment overfits, exactly the small-N trap.
+    Quadratic overfits too (higher R², worse LOO).
+  - **Decision: keep the linear fit.** The only forms that beat it (log/√) do so
+    marginally and largely on two outliers, and a concave fair-price curve would
+    **double-count** the youth adjustment the age weight already applies (and the
+    data-maturity readout already flags). Not worth the added model risk on a
+    thin, growing dataset. Re-open only if a much larger catalogue shows a
+    broad-based (not outlier-driven) bend.
+  - **The real lever the data points to is outlier/leverage robustness, not
+    curvature** (matches the observation that the line is "fine if you disregard
+    the extremes"). *Optional, low-risk follow-up:* a robust or launch-trimmed
+    linear fit — e.g. down-weight/exclude very-young (< ~0.5 yr, still price-
+    finding) products from the **fit** while still stamping them a fair price.
+    On the trimmed set the linear fit already tightens (R² 0.39 → 0.44). Would
+    stay pure + unit-tested in `metrics.js`, invertible and floored, with
+    `fitConfidence()`/`fairPriceTrusted()` unchanged. Not yet scheduled.
 
 _Otherwise nothing open in this theme — the rest is under **Then** and **Later**.
 The **Backup & restore** item that used to live here is deferred by maintainer
