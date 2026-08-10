@@ -77,6 +77,19 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   A deliberate choice — it **reports, it does not adjust**: the verdict and fair
   price are untouched, and the risk call is the buyer's. (A directional fair-price
   haircut for young products was considered and deferred.)
+- **News feed (Pokémon TCG priority · investing · business).** An opt-in
+  companion feed: a header **News** button + a TCG-first teaser on the
+  landing/demo open a grouped overlay of headlines that link out to the source.
+  Because browsers can't fetch third-party RSS (no CORS), ingestion mirrors the
+  Cardmarket split — **`pg_cron` (hourly) → the `news-fetch` Edge Function** parses
+  RSS/Atom, dedupes and upserts the public-read **`news`** table; the client only
+  reads it (so logged-out demo visitors see it too). Three sources chosen
+  (**PokéGuardian** + a Google News TCG safety-net, **r/PokeInvesting**, a Google
+  News *Pokemon Company / Nintendo earnings* query). Parse/relevance/dedupe is the
+  unit-tested `scripts/news-lib.mjs` (mirrored by the Edge Function); external
+  text is escaped and links are http(s)-guarded. Client + tests shipped; the
+  cloud deploy (run schema, deploy the function, schedule the cron) and a live
+  feed-URL verification are the operator steps in `SUPABASE.md`.
 - **Grouped board + analytical tables — Era → Set → Product.** The flat
   All-Products board became a collapsible tree: it opens as a **pure era overview**
   (~5 era headline rows) and you expand an era → its sets → the product rows, so a

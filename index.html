@@ -986,6 +986,31 @@
   .chart-zoom-foot { display: flex; align-items: center; justify-content: space-between;
     gap: 12px; flex-wrap: wrap; margin-top: 12px; }
   .chart-zoom-hint { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted); }
+
+  /* ── News (teaser + overlay) — headline lists, TCG-first ── */
+  .news-teaser .panel { padding: 6px 6px 12px; }
+  .news-teaser-body { list-style: none; }
+  .news-teaser-body li + li { border-top: 1px solid var(--hairline); }
+  .news-link { display: block; padding: 12px 16px; text-decoration: none; color: var(--text); }
+  .news-link:hover { background: rgba(244,198,81,0.03); }
+  .news-title { font-size: var(--text-lg); line-height: 1.35; }
+  .news-meta { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--muted);
+    margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .news-cat { color: var(--accent); }
+  /* padding gives the link a ≥24px hit area (WCAG 2.5.8); margin compensates so
+     the visual spacing is unchanged. */
+  .news-all { display: inline-block; margin: 6px 12px 2px; background: none; border: 0; padding: 6px 4px;
+    cursor: pointer; font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--accent3); }
+  .news-all:hover { text-decoration: underline; }
+  /* Overlay: same rows, grouped under a small category heading. */
+  #news-list { margin-top: 8px; }
+  .news-group + .news-group { margin-top: 22px; }
+  .news-group-title { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--accent);
+    text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 6px; }
+  #news-list ul { list-style: none; }
+  #news-list li + li { border-top: 1px solid var(--hairline); }
+  .news-empty { padding: 16px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: var(--text-sm); }
+
   canvas { max-height: 220px; }
   /* Ten labelled rows need height per row, not a ratio — see the chart's
      options. The height has to sit on a *wrapper*: with maintainAspectRatio
@@ -1739,6 +1764,7 @@
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5.2"/><circle cx="12" cy="8.1" r="0.9" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.5" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-news" viewBox="0 0 24 24"><path d="M4 5.5h12.5v13H5.5A1.5 1.5 0 0 1 4 17z"/><path d="M16.5 9H20v8a1.5 1.5 0 0 1-3.5 0z"/><path d="M7 9h6.5M7 12h6.5M7 15h4"/></symbol>
 </svg>
 
 <!-- ═══════════ AUTH / SIGN-IN OVERLAY (Supabase) ═══════════
@@ -1964,6 +1990,21 @@
   </div>
 </div>
 
+<!-- ═══════════ NEWS ═══════════
+     Pokémon TCG (priority), TCG investing, and Pokémon-business/owner-company
+     headlines, grouped TCG-first. Read-only: headline + source + link only,
+     never article bodies (RSS/copyright norm). Rows come from the public `news`
+     table — a scheduled server job fetches the feeds because browsers can't
+     (no CORS). Direct child of <body> so it shows over any tab and the demo. -->
+<div class="modal-overlay" id="news-modal">
+  <div class="modal" style="max-width:640px;" role="dialog" aria-modal="true" aria-labelledby="news-heading" tabindex="-1">
+    <button class="modal-close" id="news-close" type="button" aria-label="Close news">✕</button>
+    <h2 id="news-heading">News</h2>
+    <p class="modal-intro">Pokémon TCG, investing &amp; business — headlines link out to the source.</p>
+    <div id="news-list"></div>
+  </div>
+</div>
+
 <!-- ═══════════ PRODUCT DRILL-DOWN ═══════════
      One product, one screen: the verdict and its ingredients, fair price,
      momentum/drawdown, price history with today's fair-price band overlaid,
@@ -2135,6 +2176,16 @@
       <button type="button" class="text-link glossary-open" aria-haspopup="dialog">What the numbers mean</button>
     </p>
 
+    <!-- Latest news teaser (TCG-first) — same shared component and #news-modal
+         as the signed-in app, so a logged-out visitor gets a reason to return. -->
+    <section class="news-teaser" hidden>
+      <h2 class="section-eyebrow">Latest news</h2>
+      <div class="panel">
+        <ul class="news-teaser-body"></ul>
+        <button type="button" class="news-all" aria-haspopup="dialog">All news →</button>
+      </div>
+    </section>
+
     <h2 class="section-eyebrow">A sample of what's tracked</h2>
     <p class="section-desc">
       The three most recently released sets, with the raw figures behind every verdict. Fair price and the
@@ -2167,6 +2218,12 @@
     </div>
     <div class="header-meta">
       <div class="last-update" id="last-update-wrap">Last updated: <span id="last-update-date">—</span><span class="stale-note" id="last-update-stale"></span></div>
+      <!-- News (Pokémon TCG-first) — opens the news overlay. Hidden until the
+           `news` table returns rows, so it never shows a dead control (static
+           build has no news). Populated by loadNews() → renderNews(). -->
+      <button class="auth-signout" id="news-btn" type="button" hidden style="margin-top:4px;" aria-haspopup="dialog">
+        <svg class="icon" aria-hidden="true"><use href="#i-news"/></svg> News
+      </button>
       <!-- Install (PWA) button. Hidden until the browser fires
            `beforeinstallprompt` (Android/desktop Chromium) and this isn't
            already running installed — so it only ever appears when it's
@@ -2290,6 +2347,17 @@
           links, and the export that writes the workbook back out.</p>
         </div>
       </div>
+
+      <!-- Latest news teaser (TCG-first). Hidden until the `news` table returns
+           rows; "All news →" opens the shared #news-modal. Populated by
+           renderNews() into every .news-teaser-body on the page. -->
+      <section class="news-teaser" hidden>
+        <h2 class="section-eyebrow">Latest news</h2>
+        <div class="panel">
+          <ul class="news-teaser-body"></ul>
+          <button type="button" class="news-all" aria-haspopup="dialog">All news →</button>
+        </div>
+      </section>
 
       <!-- Both open the same dialogs the demo page opens. That shared surface
            is the whole point: two copies of "what SV/Booster means" would drift
@@ -5042,6 +5110,13 @@ document.querySelectorAll('.chart-expand-btn').forEach(btn => {
 document.getElementById('chart-zoom-close').addEventListener('click', closeChartZoom);
 document.getElementById('chart-zoom-reset').addEventListener('click', () => { if (zoomChart) zoomChart.resetZoom(); });
 
+// News overlay: header button + every "All news →" teaser link open it; the
+// close button and the shared Escape/backdrop handlers dismiss it.
+document.getElementById('news-btn').addEventListener('click', () => openOverlay('news-modal'));
+document.getElementById('news-close').addEventListener('click', () => closeOverlay('news-modal'));
+document.querySelectorAll('.news-all').forEach(btn =>
+  btn.addEventListener('click', () => openOverlay('news-modal')));
+
 function dismissTopOverlay() {
   const top = topOverlay();
   if (!top) return false;
@@ -6723,6 +6798,83 @@ function setAuthedUI(user) {
   }
 }
 
+// ── News: TCG-first headlines from the public `news` table ──
+// Browsers can't fetch third-party RSS (no CORS), so a scheduled server job
+// (supabase/functions/news-fetch) writes rows here; the client only reads. The
+// table is public-read, so this runs for both signed-in and logged-out (demo)
+// visitors. Fire-and-forget — a news failure never blocks the app or the demo.
+// Only headline + source + link is shown; never article bodies.
+let newsItems = [];
+const NEWS_CATS = [
+  { key: 'tcg',       label: 'Pokémon TCG' },   // priority — always first
+  { key: 'investing', label: 'Investing' },
+  { key: 'business',  label: 'Business' },
+];
+// External feed text goes into innerHTML, so escape it, and only allow http(s)
+// links (a feed can't inject markup or a javascript: URL).
+const escHtml = s => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+const safeUrl = u => (/^https?:\/\//i.test(String(u || '')) ? String(u) : '#');
+
+async function loadNews() {
+  if (!sbClient) return;
+  try {
+    const { data, error } = await sbClient.from('news')
+      .select('source,category,title,url,published_at')
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .limit(120);
+    if (error) throw error;
+    newsItems = data || [];
+  } catch { newsItems = []; }   // stay silent; the panel simply won't show
+  renderNews();
+}
+
+function newsAgo(iso) {
+  if (!iso) return '';
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (isNaN(s) || s < 0) return '';
+  if (s < 3600)  return `${Math.max(1, Math.round(s / 60))}m ago`;
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  return `${Math.round(s / 86400)}d ago`;
+}
+const newsCatLabel = k => (NEWS_CATS.find(c => c.key === k) || {}).label || k;
+
+function newsRowHtml(n) {
+  const ago = n.published_at ? ` · ${newsAgo(n.published_at)}` : '';
+  return `<li><a class="news-link" href="${escHtml(safeUrl(n.url))}" target="_blank" rel="noopener noreferrer">
+    <div class="news-title">${escHtml(n.title)}</div>
+    <div class="news-meta"><span class="news-cat">${escHtml(newsCatLabel(n.category))}</span> · ${escHtml(n.source)}${ago}</div>
+  </a></li>`;
+}
+
+function renderNews() {
+  const has = newsItems.length > 0;
+  // Teaser: TCG first (priority), then investing/business, newest within — cap 5.
+  const rank = { tcg: 0, investing: 1, business: 2 };
+  const teaser = [...newsItems]
+    .sort((a, b) => (rank[a.category] ?? 9) - (rank[b.category] ?? 9)
+      || String(b.published_at || '').localeCompare(String(a.published_at || '')))
+    .slice(0, 5);
+  document.querySelectorAll('.news-teaser').forEach(sec => {
+    sec.hidden = !has;
+    const body = sec.querySelector('.news-teaser-body');
+    if (body) body.innerHTML = teaser.map(newsRowHtml).join('');
+  });
+  // Overlay: grouped by category, TCG first, newest within.
+  const list = document.getElementById('news-list');
+  if (list) {
+    list.innerHTML = has ? NEWS_CATS.map(c => {
+      const items = newsItems.filter(n => n.category === c.key).slice(0, 25);
+      return items.length
+        ? `<div class="news-group"><div class="news-group-title">${c.label}</div><ul>${items.map(newsRowHtml).join('')}</ul></div>`
+        : '';
+    }).join('') : `<div class="news-empty">No news yet.</div>`;
+  }
+  const btn = document.getElementById('news-btn');
+  if (btn) btn.hidden = !has;
+}
+
 // Load every product + snapshot for the signed-in user and hand them to the
 // same applyNewData() path the .xlsx loader uses. Pivots the normalized
 // snapshot rows back into the aligned price[]/setVal[] arrays the app expects.
@@ -6827,6 +6979,7 @@ async function loadFromSupabase() {
   applyNewData({ newProducts: usable, newHistoricalData, newHistDates, newLinks });
   setDataSource('cloud');
   setStatus('analysis-status', 'Loaded ' + usable.length + ' products from your cloud account', false);
+  loadNews();   // fire-and-forget; renders the news teaser/overlay when it returns
 }
 
 // ── Pre-login demo ──
@@ -6877,6 +7030,7 @@ async function loadDemo() {
                     .sort((a, b) => b.svPerBooster - a.svPerBooster),
   }));
   renderDemo(groups);
+  loadNews();   // public-read: the demo page shows the same TCG-first teaser
 }
 
 // Longest common prefix of the product names in a set → a readable set name.

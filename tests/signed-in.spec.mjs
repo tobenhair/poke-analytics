@@ -66,6 +66,37 @@ test('logged-out visitors get the demo scope and a dismissible sign-in', async (
   expect(pageErrors).toEqual([]);
 });
 
+test('the news feed shows a TCG-first teaser and opens a grouped, safe-linking overlay', async ({ page }) => {
+  const pageErrors = await boot(page);
+
+  // Logged-out demo shows the teaser (public-read news), Pokémon TCG headline first.
+  await expect(page.locator('#demo-page .news-teaser')).toBeVisible();
+  await expect(page.locator('#demo-page .news-teaser .news-teaser-body li').first())
+    .toContainText('Prismatic Evolutions');
+
+  // "All news →" opens the shared overlay, grouped with Pokémon TCG first.
+  await page.locator('#demo-page .news-teaser .news-all').click();
+  await expect(page.locator('#news-modal')).toHaveClass(/open/);
+  await expect(page.locator('#news-list .news-group-title').first()).toHaveText('Pokémon TCG');
+  await expect(page.locator('#news-list')).toContainText('The Pokemon Company posts record revenue');
+
+  // Headlines link out safely — new tab + noopener.
+  const link = page.locator('#news-list .news-link').first();
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', /noopener/);
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#news-modal')).not.toHaveClass(/open/);
+
+  // Signed in, the header News button appears and opens the same overlay.
+  await signIn(page, 'user@test.local');
+  await expect(page.locator('#news-btn')).toBeVisible();
+  await page.locator('#news-btn').click();
+  await expect(page.locator('#news-modal')).toHaveClass(/open/);
+
+  expect(pageErrors).toEqual([]);
+});
+
 test('the demo page pitches before it lists, and is honest about what it withholds', async ({ page }) => {
   // The demo used to open on a bare table of Price / Set Value / €/Booster /
   // SV/Booster with no statement of what the tool is or what any column means

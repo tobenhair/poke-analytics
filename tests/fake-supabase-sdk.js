@@ -69,9 +69,15 @@
   var holdings = [{ id: 'h1', user_id: USER_ID, product_id: 'p2', quantity: 2, cost_basis: 150 }];
   var alerts = [{ id: 'a1', user_id: USER_ID, product_id: 'p3', alert_type: 'fixed', target_price: 100, below_pct: null }];
   var client_errors = [];
+  // Public-read news (anon + authed), across the three categories, TCG first.
+  var news = [
+    { id: 'n1', source: 'PokéGuardian', category: 'tcg', title: 'New set revealed: Prismatic Evolutions', url: 'https://example.com/tcg-1', published_at: '2026-08-06T10:00:00Z' },
+    { id: 'n2', source: 'r/PokeInvesting', category: 'investing', title: 'Sealed box index up 12% this month', url: 'https://example.com/inv-1', published_at: '2026-08-05T09:00:00Z' },
+    { id: 'n3', source: 'Google News', category: 'business', title: 'The Pokemon Company posts record revenue', url: 'https://example.com/biz-1', published_at: '2026-08-04T08:00:00Z' },
+  ];
   var tables = {
     products: products, snapshots: snapshots, user_settings: user_settings,
-    holdings: holdings, alerts: alerts, client_errors: client_errors,
+    holdings: holdings, alerts: alerts, client_errors: client_errors, news: news,
   };
   var idSeq = 1;
 
@@ -112,6 +118,7 @@
         var demoIds = demoProductIds();
         return rows.filter(function (s) { return demoIds.indexOf(s.product_id) !== -1; });
       }
+      if (table === 'news') return rows.slice();   // public read (anon + authed)
       // Per-user tables: only the signed-in user's rows.
       if (!session) return [];
       return rows.filter(function (r) { return r.user_id === session.user.id; });
@@ -154,6 +161,7 @@
           });
         }
         if (q.single) return { data: rows[0] || null, error: null };
+        if (q.limit != null) rows = rows.slice(0, q.limit);
         return { data: rows, error: null };
       }
       if (q.op === 'insert') {
@@ -195,6 +203,7 @@
       var api = {
         select: function () { return api; }, // column list is irrelevant to the fixtures
         order: function (col, opts) { q.orderBy = { col: col, ascending: !opts || opts.ascending !== false }; return api; },
+        limit: function (n) { q.limit = n; return api; },
         maybeSingle: function () { q.single = true; return api; },
         single: function () { q.single = true; return api; },
         insert: function (payload) { q.op = 'insert'; q.payload = payload; return api; },
