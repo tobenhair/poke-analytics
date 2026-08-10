@@ -149,9 +149,10 @@ export const FEED_UA = 'sealedanalytics-news/1.0 (+https://sealedanalytics.eu)';
 export const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
 export const NEWS_SOURCES = [
-  // 1 — Pokémon TCG (priority): dedicated daily TCG news (WordPress feed)…
+  // 1 — Pokémon TCG (priority): dedicated daily TCG news (PokéBeach) via a
+  //     GitHub Pages mirror — static hosting, so no datacenter 503 / UA games.
   { source: 'PokéBeach', category: 'tcg', scoped: true, kind: 'rss',
-    url: 'https://www.pokebeach.com/feed' },
+    url: 'https://kaprestridge.github.io/pokebeach-news-feed/feed.xml' },
   // …hardened by a Google News safety net so the priority category always fills
   // even if the dedicated feed path drifts. Browser UA (default) — Google News
   // 503s a bot agent from a datacenter IP.

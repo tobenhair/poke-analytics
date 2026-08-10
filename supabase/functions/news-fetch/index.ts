@@ -30,8 +30,9 @@ type Source = { source: string; category: 'tcg' | 'investing' | 'business'; scop
 // The v1 source set — TCG is the priority. scoped:true = already Pokémon-locked
 // (dedicated site or a Pokémon query) so it skips the relevance filter.
 const NEWS_SOURCES: Source[] = [
-  // Dedicated TCG news site (WordPress feed) — the reliable, non-Google primary.
-  { source: 'PokéBeach',       category: 'tcg',       scoped: true, url: 'https://www.pokebeach.com/feed' },
+  // Dedicated TCG news (PokéBeach) via a GitHub Pages mirror — static hosting,
+  // so no datacenter 503 and no UA sensitivity. The reliable, non-Google primary.
+  { source: 'PokéBeach',       category: 'tcg',       scoped: true, url: 'https://kaprestridge.github.io/pokebeach-news-feed/feed.xml' },
   // Google News safety net so the priority category always fills. Needs a browser UA.
   { source: 'Google News',     category: 'tcg',       scoped: true, url: 'https://news.google.com/rss/search?q=%22Pokemon+TCG%22+OR+%22Pokemon+cards%22&hl=en-US&gl=US&ceid=US:en' },
   // Reddit keeps the descriptive UA — a browser one gets 429'd here.
