@@ -168,9 +168,11 @@ export function singlesByExpansion(singlesRecords) {
 //   • Box Price  = the midpoint of `trend` and `avg` (50/50 blend). Thin boxes'
 //                  true price sits between Cardmarket's smoothed trend and the
 //                  sales avg; liquid boxes have trend ≈ avg so the blend ≈ trend.
-//                  Falls back to whichever single value exists; a map
-//                  `priceOverride` still wins (the manual lever). priceSrc is
-//                  'blend' | 'trend' | 'avg' | 'override' accordingly.
+//                  EXCEPT when trend runs far below avg (> `trendFallbackGap`
+//                  under it) — a stale/thin artefact — in which case it uses avg,
+//                  not the dragged-down blend. Falls back to whichever single
+//                  value exists; a map `priceOverride` still wins (the manual
+//                  lever). priceSrc is 'blend' | 'trend' | 'avg' | 'override'.
 //   • lowLiquidity = the box's own trend and avg disagree by ≥ thinGap — the
 //                  sales-based price is unreliable (advisory flag for review).
 // Returns name → { idProduct, idExpansion, type, release, cardmarket_url,
@@ -178,7 +180,7 @@ export function singlesByExpansion(singlesRecords) {
 //                  lowLiquidity }. avgPrice/lowPrice are the guide's avg/low,
 //                  stored for the Data Entry low-liquidity review.
 export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords, opts = {}) {
-  const { boxPriceField = 'trend', svField = 'avg30', thinGap = 0.2 } = opts;
+  const { boxPriceField = 'trend', svField = 'avg30', thinGap = 0.2, trendFallbackGap = 0.30 } = opts;
   const pgById = new Map();
   for (const r of priceGuideRecords) {
     const id = pick(r, FIELD_ALIASES.id);
@@ -214,8 +216,17 @@ export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords,
     // sales `avg` — confirmed against hand-tracked history (pure trend ran too low
     // on grail boxes); for liquid boxes trend ≈ avg so the blend ≈ trend. Falls
     // back to whichever single value exists; a map `priceOverride` still wins.
+    //
+    // BUT a `trend` far BELOW `avg` is usually a stale/thin-volume artefact that
+    // drags the midpoint down to a wrong (too-low) price — the case that was
+    // producing bad daily prices and needing manual fixes. When trend is more than
+    // `trendFallbackGap` below avg, trust the sales `avg` instead of the blend.
+    // (A high trend still blends — only the low-side anomaly falls back.)
     let basePrice, baseSrc;
-    if (t != null && a != null) { basePrice = (t + a) / 2; baseSrc = 'blend'; }
+    if (t != null && a != null) {
+      if (a > 0 && t < a * (1 - trendFallbackGap)) { basePrice = a; baseSrc = 'avg'; }
+      else { basePrice = (t + a) / 2; baseSrc = 'blend'; }
+    }
     else if (t != null) { basePrice = t; baseSrc = 'trend'; }
     else if (a != null) { basePrice = a; baseSrc = 'avg'; }
     else { basePrice = pgRec ? valueOf(pgRec, boxPriceField) : null; baseSrc = boxPriceField; }

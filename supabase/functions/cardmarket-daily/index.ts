@@ -31,6 +31,9 @@ const PRICE_GUIDE_URL =
 // Field-name candidates (mirror scripts/cardmarket-lib.mjs FIELD_ALIASES).
 const ID_KEYS = ['idProduct', 'idProductLocalized', 'productId', 'id'];
 const PRICE_FALLBACK = ['trend', 'avg', 'avg7', 'avg30', 'low', 'll'];
+// When trend is more than this fraction below avg, use avg instead of the blend
+// (mirror of cardmarket-lib.mjs `trendFallbackGap`).
+const TREND_FALLBACK_GAP = 0.30;
 
 type Rec = Record<string, unknown>;
 
@@ -142,11 +145,14 @@ Deno.serve(async (req) => {
       const priceLow = pgRec ? round2(numOrNull(pgRec.low)) : null;
 
       // Box Price = midpoint of trend and avg (50/50 blend) — mirror of
-      // scripts/cardmarket-lib.mjs. Left null when locked (admin's manual value).
+      // scripts/cardmarket-lib.mjs. When trend runs far below avg (> TREND_FALLBACK_GAP
+      // under it) it's a stale/thin artefact dragging the midpoint down, so use avg
+      // instead of the blend. Left null when locked (admin's manual value).
       let price: number | null = null;
       if (!p.price_locked) {
-        if (t != null && a != null) price = round2((t + a) / 2);
-        else if (t != null) price = round2(t);
+        if (t != null && a != null) {
+          price = round2(a > 0 && t < a * (1 - TREND_FALLBACK_GAP) ? a : (t + a) / 2);
+        } else if (t != null) price = round2(t);
         else if (a != null) price = round2(a);
       }
 
