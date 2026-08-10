@@ -2609,7 +2609,8 @@
       <h3 class="panel-title">Relative Value — vs Peers of the Same Age</h3>
       <div class="panel-badge" id="relval-fit-badge">—</div>
     </div>
-    <p class="scroll-hint">Swipe the table sideways for more →</p>
+    <!-- No scroll-hint: on a phone this drops to Product · Δ vs peers (the rest
+         are .col-detail, in the drill-down), so it fits without a sideways swipe. -->
     <!-- tabindex: a capped-height scroll region with no focusable content
          inside cannot be scrolled by keyboard otherwise (axe
          scrollable-region-focusable). The board's own wrap is exempt — its
@@ -2619,10 +2620,10 @@
         <thead>
           <tr>
             <th>Product</th>
-            <th>Type</th>
-            <th style="text-align:right">Age (yr)</th>
-            <th style="text-align:right">SV/Booster</th>
-            <th style="text-align:right">Expected</th>
+            <th class="col-detail">Type</th>
+            <th class="col-detail" style="text-align:right">Age (yr)</th>
+            <th class="col-detail" style="text-align:right">SV/Booster</th>
+            <th class="col-detail" style="text-align:right">Expected</th>
             <th style="text-align:right">Δ vs peers</th>
           </tr>
         </thead>
@@ -2660,17 +2661,18 @@
       <h3 class="panel-title">Momentum &amp; Drawdown</h3>
       <div class="panel-badge">By deepest dip</div>
     </div>
-    <p class="scroll-hint">Swipe the table sideways for more →</p>
+    <!-- No scroll-hint: on a phone this drops to Product · 30d · vs Peak (the
+         rest are .col-detail, in the drill-down), so it fits without a swipe. -->
     <div class="table-wrap" tabindex="0">
       <table>
         <thead>
           <tr>
             <th>Product</th>
-            <th>Type</th>
-            <th style="text-align:right">Price</th>
-            <th style="text-align:right">7d</th>
+            <th class="col-detail">Type</th>
+            <th class="col-detail" style="text-align:right">Price</th>
+            <th class="col-detail" style="text-align:right">7d</th>
             <th style="text-align:right">30d</th>
-            <th style="text-align:right">Set Val since 1st</th>
+            <th class="col-detail" style="text-align:right">Set Val since 1st</th>
             <th style="text-align:right">vs Peak</th>
           </tr>
         </thead>
@@ -6111,10 +6113,10 @@ function relvalRowTr(r) {
   tr.className = 'grp-product';
   tr.innerHTML = `
     <td class="product-name" title="${r.name}"><button type="button" class="row-open" aria-haspopup="dialog">${r.name}</button></td>
-    <td>${typeBadge(r.type)}</td>
-    <td class="num">${fmt(r.age, 1)}</td>
-    <td class="num">${fmt(r.svb, 1)}×</td>
-    <td class="num" style="color:var(--muted)">${fmt(r.expected, 1)}×</td>
+    <td class="col-detail">${typeBadge(r.type)}</td>
+    <td class="num col-detail">${fmt(r.age, 1)}</td>
+    <td class="num col-detail">${fmt(r.svb, 1)}×</td>
+    <td class="num col-detail" style="color:var(--muted)">${fmt(r.expected, 1)}×</td>
     <td class="num" style="color:${color}">${good ? '▲ +' : '▼ '}${fmt(r.residual, 1)}×</td>
   `;
   tr.addEventListener('click', () => openDrill(r.name));
@@ -6158,11 +6160,11 @@ function renderMomentum() {
 
 // One Momentum leaf row (the seven-column change/drawdown line).
 function momentumRowTr(p, m) {
-  const pctCell = v => {
-    if (v == null) return `<td class="num" style="color:var(--muted)">—</td>`;
+  const pctCell = (v, cls = '') => {
+    if (v == null) return `<td class="num ${cls}" style="color:var(--muted)">—</td>`;
     const c = v > 0.05 ? 'var(--accent4)' : v < -0.05 ? 'var(--accent2)' : 'var(--muted)';
     const arrow = v > 0.05 ? '▲ +' : v < -0.05 ? '▼ ' : '';
-    return `<td class="num" style="color:${c}">${arrow}${fmt(v, 1)}%</td>`;
+    return `<td class="num ${cls}" style="color:${c}">${arrow}${fmt(v, 1)}%</td>`;
   };
   const ddCell = v => {
     if (v == null) return `<td class="num" style="color:var(--muted)">—</td>`;
@@ -6171,13 +6173,15 @@ function momentumRowTr(p, m) {
   };
   const tr = document.createElement('tr');
   tr.className = 'grp-product';
+  // Phone column priority (like the board): keep Product · 30d · vs Peak; the
+  // rest are .col-detail (dropped < 680px) and remain in the drill-down.
   tr.innerHTML = `
     <td class="product-name" title="${p.name}"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></td>
-    <td>${typeBadge(p.type)}</td>
-    <td class="num">${money(m.price)}</td>
-    ${pctCell(m.change7d)}
+    <td class="col-detail">${typeBadge(p.type)}</td>
+    <td class="num col-detail">${money(m.price)}</td>
+    ${pctCell(m.change7d, 'col-detail')}
     ${pctCell(m.change30d)}
-    ${pctCell(m.svSinceFirst)}
+    ${pctCell(m.svSinceFirst, 'col-detail')}
     ${ddCell(m.drawdown)}
   `;
   // Whole row opens the drill for the mouse; the named button is the a11y target.

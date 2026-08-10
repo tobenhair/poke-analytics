@@ -318,6 +318,16 @@ is always `false` (no force-expand). Both are already wired into `INIT`,
 `applyNewData()` and `applyTypeFilter()`; their group toggles re-render via
 `ctx.rerender`.
 
+**Both get the board's phone column-priority.** The `.table-wrap` mobile rules
+(frozen first column + `.col-detail { display:none }` below 680px) are general,
+so §04/§06 already froze the product name; they now also mark their non-headline
+columns `.col-detail` on the `<th>` **and** the leaf `<td>` (via the `cls` arg
+`momentumRowTr`'s `pctCell` now takes), collapsing a phone to **Product · Δ vs
+peers** (§04) and **Product · 30d · vs Peak** (§06). Everything hidden stays in
+the drill-down these rows already open. With only 2–3 columns they fit without a
+sideways swipe, so their `scroll-hint` was removed (the board keeps its own —
+Price + Fair Price can still overflow a hair).
+
 **Momentum's columns are date-windowed, not position-windowed.** The table shows
 `Price · 7d · 30d · Set Val since 1st · vs Peak`, where **7d/30d** are the price
 change over the trailing 7 / 30 **calendar days** — `momentum(hist, dates)`'s
