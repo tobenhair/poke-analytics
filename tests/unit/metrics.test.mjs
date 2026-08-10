@@ -545,6 +545,8 @@ test('momentum 7d/30d change use date-based look-back over daily snapshots', () 
     price.push(100 + i);
   }
   const m = momentum({ price, setVal: [] }, dates);
+  // 1 day before 2026-03-31 is 2026-03-30 (price 129); 130 vs 129.
+  assert.ok(Math.abs(m.change1d - ((130 - 129) / 129) * 100) < 1e-9);
   // 7 days before 2026-03-31 is 2026-03-24 (price 123); 130 vs 123.
   assert.ok(Math.abs(m.change7d - ((130 - 123) / 123) * 100) < 1e-9);
   // 30 days before is 2026-03-01 (price 100); 130 vs 100 = +30%.

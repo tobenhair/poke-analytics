@@ -1467,6 +1467,11 @@
   .holding-pnl { text-align: right; font-family: 'DM Mono', monospace; }
   .holding-pnl-num { font-size: var(--text-lg); }
   .holding-pnl-pct { font-size: var(--text-xs); margin-top: 2px; }
+  .holding-mom {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    font-family: 'DM Mono', monospace; font-size: var(--text-xs);
+  }
+  .holding-mom .mom-lbl { color: var(--muted); }
   .holding-foot {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
     border-top: 1px solid var(--hairline); padding-top: 12px;
@@ -4588,6 +4593,12 @@ function holdingCard(r) {
     ? `<span class="holding-chip" style="color:${r.fairGap < 0 ? 'var(--accent4)' : r.fairGap > 0 ? 'var(--accent2)' : 'var(--muted)'}">${
         r.fairGap === 0 ? 'at fair' : `${Math.abs(r.fairGap)}% ${r.fairGap < 0 ? 'under' : 'over'} fair`}</span>`
     : '';
+  // Trailing 1d/7d/30d price change (date-windowed). Value change == price change
+  // since quantity is constant. Each is `—` until its window is covered.
+  const m = computeMomentum(r.name);
+  const chgCol = v => v == null ? 'var(--muted)' : v > 0.05 ? 'var(--accent4)' : v < -0.05 ? 'var(--accent2)' : 'var(--muted)';
+  const seg = (lbl, v) => `<span><span class="mom-lbl">${lbl}</span> <span style="color:${chgCol(v)}">${v == null ? '—' : (v > 0 ? '+' : '') + fmt(v, 1) + '%'}</span></span>`;
+  const momStrip = `<div class="holding-mom">${seg('1d', m?.change1d)}${seg('7d', m?.change7d)}${seg('30d', m?.change30d)}</div>`;
   return `
     <article class="holding-card">
       <img class="holding-logo" data-product="${r.name}" alt="" hidden>
@@ -4608,6 +4619,7 @@ function holdingCard(r) {
           <div class="holding-pnl-pct">${r.pnlPct != null ? withSign((Math.abs(r.pnlPct) * 100).toFixed(1) + '%', r.pnl) : ''}</div>
         </div>
       </div>
+      ${momStrip}
       <div class="holding-foot">
         <span class="holding-meta">${r.qty} × ${r.now != null ? money(r.now) : '—'} · cost ${money(r.cost)}/u</span>
         <span class="holding-actions">
