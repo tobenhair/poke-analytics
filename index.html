@@ -1449,6 +1449,7 @@
     background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm);
     padding: 16px; display: flex; flex-direction: column; gap: 14px;
   }
+  .holding-logo { height: 26px; width: auto; max-width: 150px; object-fit: contain; display: block; }
   .holding-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
   .holding-id { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; min-width: 0; }
   .holding-name { color: var(--text); font-size: var(--text-lg); font-weight: 500; max-width: 100%; }
@@ -4564,6 +4565,7 @@ function renderPortfolio() {
   grid.innerHTML = rows.length ? rows.map(r => holdingCard(r)).join('')
     : `<div class="portfolio-empty">No holdings yet — pick a product, enter quantity and the price you paid, then “Add / buy more”.</div>`;
 
+  fillHoldingLogos();
   grid.querySelectorAll('.row-open').forEach(btn =>
     btn.addEventListener('click', () => openDrill(btn.dataset.product)));
   grid.querySelectorAll('.portfolio-edit-btn').forEach(btn =>
@@ -4588,6 +4590,7 @@ function holdingCard(r) {
     : '';
   return `
     <article class="holding-card">
+      <img class="holding-logo" data-product="${r.name}" alt="" hidden>
       <div class="holding-top">
         <div class="holding-id">
           <button type="button" class="row-open holding-name" data-product="${r.name}" aria-haspopup="dialog" title="${r.name}">${r.name}</button>
@@ -4613,6 +4616,27 @@ function holdingCard(r) {
         </span>
       </div>
     </article>`;
+}
+
+// Best-effort set logos on the holding cards — same TCGdex source and name
+// resolution as the drill-down (ensureSetLogos + setLogoKey). Each card's <img>
+// starts hidden and is un-hidden only on a successful load, so an unmatched,
+// offline or blocked logo just leaves the name + type badge (never a broken
+// image). Re-run on every render; the once-per-session cache makes it cheap.
+function fillHoldingLogos() {
+  const grid = document.getElementById('portfolio-cards');
+  if (!grid) return;
+  ensureSetLogos().then(map => {
+    grid.querySelectorAll('.holding-logo').forEach(img => {
+      const name = img.dataset.product;
+      const base = name && map[setLogoKey(name)];
+      if (!base) return;                                 // unmatched → text identity
+      img.onload  = () => { img.hidden = false; };
+      img.onerror = () => { img.hidden = true; };
+      img.alt = name.replace(SET_LOGO_SKU_RE, '').trim() + ' set logo';
+      img.src = base + '.png';
+    });
+  });
 }
 
 // ── Portfolio value over time (the change chart) ──
