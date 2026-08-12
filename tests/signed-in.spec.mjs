@@ -139,18 +139,16 @@ test('the demo page pitches before it lists, and is honest about what it withhol
   expect(pageErrors).toEqual([]);
 });
 
-test('signing in lands on the answer, and Welcome shares the demo page explanations', async ({ page }) => {
+test('signing in lands on the Welcome tab, which shares the demo page explanations', async ({ page }) => {
   const pageErrors = await boot(page);
   await signIn(page, 'user@test.local');
 
-  // The pitch is read once, logged out. A signed-in session opens on Analysis
-  // — which itself opens on "best deals right now" — not on the Welcome tab.
-  await expect(page.locator('#tab-analysis')).toBeVisible();
-  await expect(page.locator('#tab-welcome')).toBeHidden();
-  await expect(page.locator('.tab-bar .tab-btn[data-tab="analysis"]')).toHaveAttribute('aria-selected', 'true');
-
-  await page.locator('.tab-bar .tab-btn[data-tab="welcome"]').click();
+  // A signed-in session opens on the Welcome tab — the signed-in landing (the
+  // where-to-go map + the latest-news teaser), which is also the markup default,
+  // so first paint and post-login agree.
   await expect(page.locator('#tab-welcome')).toBeVisible();
+  await expect(page.locator('#tab-analysis')).toBeHidden();
+  await expect(page.locator('.tab-bar .tab-btn[data-tab="welcome"]')).toHaveAttribute('aria-selected', 'true');
 
   // Welcome advertises every tab this user actually has. Portfolio used to be
   // missing here even though the tab exists for every signed-in user.

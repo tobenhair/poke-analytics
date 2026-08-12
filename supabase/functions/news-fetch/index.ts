@@ -37,7 +37,10 @@ const NEWS_SOURCES: Source[] = [
   { source: 'Google News',     category: 'tcg',       scoped: true, url: 'https://news.google.com/rss/search?q=%22Pokemon+TCG%22+OR+%22Pokemon+cards%22&hl=en-US&gl=US&ceid=US:en' },
   // Reddit keeps the descriptive UA — a browser one gets 429'd here.
   { source: 'r/PokeInvesting', category: 'investing', scoped: true, url: 'https://www.reddit.com/r/PokeInvesting/.rss', ua: FEED_UA },
-  { source: 'Google News',     category: 'business',  scoped: true, url: 'https://news.google.com/rss/search?q=%22Pokemon+Company%22+(earnings+OR+revenue+OR+financial)+OR+(Nintendo+earnings)&hl=en-US&gl=US&ceid=US:en' },
+  // Broadened past earnings-only (which rarely had fresh items) to Pokémon-
+  // business generally; every clause names Pokémon/TPC so it stays on-topic
+  // despite scoped:true (no relevance filter).
+  { source: 'Google News',     category: 'business',  scoped: true, url: 'https://news.google.com/rss/search?q=%22Pokemon+Company%22+OR+%22The+Pokemon+Company%22+OR+(Pokemon+revenue)+OR+(Pokemon+sales)+OR+(Pokemon+earnings)+OR+(Pokemon+business)+OR+(Pokemon+Nintendo)&hl=en-US&gl=US&ceid=US:en' },
 ];
 
 const POKEMON_KEYWORDS = ['pokemon', 'pokémon', 'tcg', 'booster', 'elite trainer', 'etb', 'pokemon company', 'pokémon company'];

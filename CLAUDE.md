@@ -79,7 +79,7 @@ Logged-out visitors see a **pre-login demo** (`#demo-page`, a `<body>` child sho
 
 Runtime errors are reported to an insert-only **`client_errors`** table (error monitoring): an early inline script near the top of `index.html` buffers `window.onerror`/`unhandledrejection` events from the first script tick, and the module drains the buffer via `reportClientError()`/`initErrorReporting()` once `sbClient` exists — deduped, capped at 10/session, fire-and-forget, a no-op in static mode. Anyone may insert (RLS blocks spoofing another `user_id`), only the admin may read; an optional daily `pg_cron` + Resend digest (`supabase/error-digest.sql`) emails a grouped summary and stays silent when the table is clean.
 
-A **news feed** (Pokémon TCG — priority — plus TCG investing and Pokémon-business/owner-company headlines) is an opt-in companion. Browsers can't fetch third-party RSS (no CORS), so ingestion is server-side, mirroring the Cardmarket split: **`pg_cron` (hourly) → the `news-fetch` Edge Function** (`supabase/functions/news-fetch/index.ts`, scheduled by `supabase/news-cron.sql`) fetches the feeds, parses RSS **and** Atom, keyword-filters (broad sources only), dedupes by normalised URL, and upserts into the **`news`** table. Its parse/relevance/dedupe logic **mirrors the pure `scripts/news-lib.mjs`** (pinned by `tests/unit/news-lib.test.mjs`), and `scripts/news-fetch.mjs` is the Node CLI mirror for previewing feeds off-cloud. `news` is **public-read** (anon + authenticated — so the logged-out demo shows it too), **service-role-write only** (no client write policy). Only **headline + link + source + timestamp** is stored, never article bodies. The v1 sources (`NEWS_SOURCES`): **PokéBeach** (TCG — the dedicated TCG news site via a **GitHub Pages mirror** `feed.xml`, static-hosted so no datacenter 503 / UA sensitivity; the reliable non-Google primary; with a Google News `"Pokemon TCG"` query as a same-category safety net), **r/PokeInvesting** (investing), and a **Google News** `"Pokemon Company" earnings` query (business). The **User-Agent is per-source** (`ua`, default a browser string): Reddit needs the descriptive bot UA (it 429s browser agents) while Google News needs a browser UA (it 503s bot agents from datacenter IPs) — the fix for the "Google News HTTP 503 from Edge" symptom. Client side: `loadNews()` reads the table in **both** `loadFromSupabase()` and `loadDemo()` (fire-and-forget — a news failure never blocks the app); `renderNews()` fills a **TCG-first teaser** (`.news-teaser` on the Welcome tab + demo page) and a grouped **`#news-modal`** overlay (opened by the header `#news-btn` and every `.news-all` link, via `openOverlay`). External feed text is escaped (`escHtml`) and links are `http(s)`-guarded (`safeUrl`) + `target=_blank rel=noopener`, since titles/URLs are untrusted. The `#news-btn` and teasers stay hidden until the table returns rows, so static/xlsx builds show no dead controls. `tests/fake-supabase-sdk.js` serves `news` rows (public-read) and `tests/signed-in.spec.mjs` pins the teaser → grouped overlay → safe-link flow. Operator setup (run `schema.sql`, deploy the function, schedule the cron) is in `SUPABASE.md`.
+A **news feed** (Pokémon TCG — priority — plus TCG investing and Pokémon-business/owner-company headlines) is an opt-in companion. Browsers can't fetch third-party RSS (no CORS), so ingestion is server-side, mirroring the Cardmarket split: **`pg_cron` (hourly) → the `news-fetch` Edge Function** (`supabase/functions/news-fetch/index.ts`, scheduled by `supabase/news-cron.sql`) fetches the feeds, parses RSS **and** Atom, keyword-filters (broad sources only), dedupes by normalised URL, and upserts into the **`news`** table. Its parse/relevance/dedupe logic **mirrors the pure `scripts/news-lib.mjs`** (pinned by `tests/unit/news-lib.test.mjs`), and `scripts/news-fetch.mjs` is the Node CLI mirror for previewing feeds off-cloud. `news` is **public-read** (anon + authenticated — so the logged-out demo shows it too), **service-role-write only** (no client write policy). Only **headline + link + source + timestamp** is stored, never article bodies. The v1 sources (`NEWS_SOURCES`): **PokéBeach** (TCG — the dedicated TCG news site via a **GitHub Pages mirror** `feed.xml`, static-hosted so no datacenter 503 / UA sensitivity; the reliable non-Google primary; with a Google News `"Pokemon TCG"` query as a same-category safety net), **r/PokeInvesting** (investing), and a **Google News** Pokémon-business query (business — broad Pokémon/TPC/Nintendo terms, not earnings-only, since earnings news is rarely fresh; every clause names Pokémon so it stays on-topic despite `scoped:true`). The **User-Agent is per-source** (`ua`, default a browser string): Reddit needs the descriptive bot UA (it 429s browser agents) while Google News needs a browser UA (it 503s bot agents from datacenter IPs) — the fix for the "Google News HTTP 503 from Edge" symptom. Client side: `loadNews()` reads the table in **both** `loadFromSupabase()` and `loadDemo()` (fire-and-forget — a news failure never blocks the app); `renderNews()` fills a **TCG-first teaser** (`.news-teaser` on the Welcome tab + demo page) and a grouped **`#news-modal`** overlay (opened by the header `#news-btn` and every `.news-all` link, via `openOverlay`). External feed text is escaped (`escHtml`) and links are `http(s)`-guarded (`safeUrl`) + `target=_blank rel=noopener`, since titles/URLs are untrusted. The `#news-btn` and teasers stay hidden until the table returns rows, so static/xlsx builds show no dead controls. `tests/fake-supabase-sdk.js` serves `news` rows (public-read) and `tests/signed-in.spec.mjs` pins the teaser → grouped overlay → safe-link flow. Operator setup (run `schema.sql`, deploy the function, schedule the cron) is in `SUPABASE.md`.
 
 Only **raw** inputs are stored in the DB (name/type/release/url + per-snapshot price/set-value + age threshold); derived metrics are recomputed client-side. Metric derivation is shared by both the xlsx and Supabase paths via the **`deriveProducts(newProducts, newHistoricalData)`** helper (and `boostersFromType()`), so the two loaders can never drift. These pure functions live in the standalone ES module **`metrics.js`**, imported by `index.html` (its main `<script type="module">`) and by the unit tests — one source of truth, no copy. Schema + RLS live in `supabase/schema.sql`; setup is documented in `SUPABASE.md`.
 
@@ -474,12 +474,15 @@ explanation exists in two places:
   `.method-open` / `.glossary-open` — precisely so a third caller costs nothing
   and no surface can define SV/Booster its own way. `#fair-fit-note` on the
   board is one of the `.method-open` callers.
-- **Signing in lands on Analysis**, not Welcome — the pitch is read once, logged
-  out, and Analysis opens on the answer. It is wired in the
-  `uid !== sbLoadedUserId` branch of `onAuthStateChange` on purpose: a token
-  refresh fires that handler too, and switching tabs under a reading user would
-  be a bug. It dispatches a **click** rather than calling `activateTab()`, so
-  the reveal-on-scroll handler (which listens for clicks) replays.
+- **Signing in lands on the Welcome tab** — the signed-in landing (the
+  where-to-go map + the latest-news teaser), which is also the markup default
+  (`tabbtn-welcome` is `active`/`aria-selected`), so first paint and post-login
+  agree. It is wired in the `uid !== sbLoadedUserId` branch of
+  `onAuthStateChange` on purpose: a token refresh fires that handler too, and
+  switching tabs under a reading user would be a bug. It dispatches a **click**
+  (`tabbtn-welcome`) rather than calling `activateTab()`, so the reveal-on-scroll
+  handler (which listens for clicks) replays. (This reversed an earlier choice to
+  land on Analysis; news lives on Welcome, so the landing shows it.)
 
 **What the demo must not do: show a fair price or a verdict.** Both are read off
 `linearFit()` across *every* product's age, and the anon RLS scope is three
@@ -509,6 +512,25 @@ call `setDataSource('workbook'|'cloud')`.
 Base rule that came out of it: **`[hidden] { display: none !important }`**. A
 class that sets `display` beats the UA's `[hidden]` rule on specificity, so a
 component can otherwise stay visible while claiming to be hidden.
+
+**The boot splash hides the transient, not the honesty.** `dataSource` starts at
+`sample` (the hardcoded fallback renders first), so for the split second before
+the workbook/cloud data arrives the "sample data" banner would flicker in and
+out — and the old `Loaded N products…` / `Auto-loaded pokemon_data.xlsx` status
+pills read as noise. `#app-loader` (a `<body>`-level opaque logo splash, in the
+markup so it covers the *first* paint; `z-index: 2000`, above the auth overlay
+and demo page, below the missing-library guard) sits over all of it until the
+initial data resolves. **`window.__hideAppLoader()`** — defined in a small
+classic (non-module) inline script right after the splash, the same
+buffer-then-drain pattern as the early error reporter — fades it out; the app
+calls it at every terminal load state (`tryAutoLoad` **finally**,
+`loadFromSupabase` success **and** the empty-account branch, `loadDemo` end), and
+an **8s failsafe timeout** in that same script guarantees it never hangs even if
+a load path throws. The two success status pills were removed with it (the splash
+*is* the "loading → ready" signal now); the honest **sample-data banner stays** —
+if a load genuinely falls back to sample, the splash clears to reveal it, no
+longer a flicker but a real state. Reduced-motion stills the bar pulse and snaps
+the fade. `tests/smoke.spec.mjs` pins show-on-first-paint → clear-on-ready.
 
 ### Fair price, and how it says what it's worth
 
