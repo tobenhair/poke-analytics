@@ -863,10 +863,26 @@
     padding: 10px 14px; border-radius: 10px; border: 1px solid var(--hairline);
     border-left-width: 2px; background: var(--bg3); margin-bottom: 22px;
   }
-  /* Set logo in the drill-down header — an identity aid, subordinate to the
-     numbers. Height-capped, hidden until the image actually loads (never a
-     broken image; text title is the fallback). Sourced from TCGdex; see footer. */
-  .drill-logo { height: 42px; width: auto; max-width: 200px; object-fit: contain; display: block; margin: 0 0 14px; }
+  /* Set-identity header — always present so a product is never a blank title.
+     Mirrors .drill-verdict's accent-left-on-bg3 pattern; the category hue is set
+     inline (categoryColor). Carries the type badge always, and the set name as a
+     mono label; the set logo (TCGdex, best-effort) swaps in over that name when
+     it loads — never a broken image. See footer for the logo attribution. */
+  .set-identity {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; margin-bottom: 18px;
+    background: var(--bg3); border: 1px solid var(--hairline);
+    border-left-width: 3px; border-radius: var(--radius-sm);
+  }
+  .set-identity-name {
+    font-family: 'DM Mono', monospace; font-size: var(--text-sm);
+    color: var(--muted); letter-spacing: 0.02em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  }
+  .set-identity #drill-type-badge { margin-left: auto; flex: none; }
+  /* Height-capped logo; hidden until it actually loads (text set name is the
+     fallback). No bottom margin — the .set-identity row owns the spacing. */
+  .drill-logo { height: 40px; width: auto; max-width: 200px; object-fit: contain; display: block; margin: 0; }
   .drill-stats {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 12px; margin-bottom: 30px;
@@ -2161,7 +2177,11 @@
 <div class="modal-overlay" id="drill-modal">
   <div class="modal" style="max-width:820px;" role="dialog" aria-modal="true" aria-labelledby="drill-title" tabindex="-1">
     <button class="modal-close" id="drill-close" type="button" aria-label="Close product details">✕</button>
-    <img id="drill-logo" class="drill-logo" alt="" hidden>
+    <div class="set-identity" id="drill-identity">
+      <img id="drill-logo" class="drill-logo" alt="" hidden>
+      <span class="set-identity-name" id="drill-set-name"></span>
+      <span id="drill-type-badge"></span>
+    </div>
     <h2 id="drill-title">Product</h2>
     <div id="drill-verdict" class="drill-verdict"></div>
     <div id="drill-stats" class="drill-stats"></div>
@@ -6535,17 +6555,31 @@ function setLogoKey(productName) {
   const key = normSetName(productName.replace(SET_LOGO_SKU_RE, '').trim());
   return SET_LOGO_ALIASES[key] || key;
 }
-function renderDrillLogo(p) {
-  const img = document.getElementById('drill-logo');
+// The drill-down's set-identity header. Always renders — a category-tinted
+// accent (categoryColor), the set name as a mono label, and the type badge — so
+// a product is never a blank title, and carries zero third-party-image rights.
+// The TCGdex set logo is a best-effort *upgrade*: it swaps in over the set-name
+// text on load, guarded on drillProduct so a late fetch can't paint onto another
+// product; any miss (offline/blocked/unmatched/404) leaves the text identity.
+function renderDrillIdentity(p) {
+  const img    = document.getElementById('drill-logo');
+  const nameEl = document.getElementById('drill-set-name');
+  const setName = p.name.replace(SET_LOGO_SKU_RE, '').trim();
+
+  document.getElementById('drill-identity').style.borderLeftColor = categoryColor(p.type);
+  nameEl.textContent = setName;
+  nameEl.hidden = false;
+  document.getElementById('drill-type-badge').innerHTML = typeBadge(p.type);
+
   img.hidden = true;
   img.removeAttribute('src');
   ensureSetLogos().then(map => {
     if (drillProduct !== p.name) return;
     const base = map[setLogoKey(p.name)];
-    if (!base) return;                                   // unmatched → text fallback
-    img.onload  = () => { if (drillProduct === p.name) img.hidden = false; };
-    img.onerror = () => { img.hidden = true; };
-    img.alt = p.name.replace(SET_LOGO_SKU_RE, '').trim() + ' set logo';
+    if (!base) return;                                   // unmatched → set-name text stays
+    img.onload  = () => { if (drillProduct === p.name) { img.hidden = false; nameEl.hidden = true; } };
+    img.onerror = () => { img.hidden = true; nameEl.hidden = false; };
+    img.alt = setName + ' set logo';
     img.src = base + '.png';
   });
 }
@@ -6557,7 +6591,7 @@ function renderDrill() {
   const v = p.verdict;
 
   document.getElementById('drill-title').textContent = p.name;
-  renderDrillLogo(p);
+  renderDrillIdentity(p);
 
   // Verdict banner
   const vb = document.getElementById('drill-verdict');

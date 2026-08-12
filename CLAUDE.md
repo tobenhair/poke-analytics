@@ -182,24 +182,36 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   points (opening off the scatter's own canvas click) never gets a resize
   callback, so it renders blank. Rendering after the overlay is visible sizes
   every chart. Don't move the render back ahead of the open.
-- **The drill-down header shows the set logo (TCGdex), best-effort.**
-  `ensureSetLogos()` fetches `api.tcgdex.net/v2/en/sets` once per session
-  (lazily, on the first drill-down), caches a normalised `set name → logo base
-  URL` map, and swallows every failure; `renderDrillLogo()` derives the set name
-  from the **product's own name** (`setLogoKey()` strips the SKU suffix — *not* a
-  release-date grouping, which would merge twin sets sharing a date like **Black
-  Bolt / White Flare** into one mislabelled group matching no logo), looks it up,
-  sets `#drill-logo`'s `src` to `base + '.png'`, and un-hides it only on `onload`
-  — guarded on `drillProduct` so a late fetch can't paint onto another product.
-  A set whose app name differs from TCGdex's (or that TCGdex hasn't added yet) is
-  pinned in **`SET_LOGO_ALIASES`** (normalised app name → normalised TCGdex name)
-  — the one place to fix a future mismatch. Any miss (offline, blocked, CORS,
-  unmatched set, 404) leaves the text title as the fallback — **never a broken
-  image**. Logos are **hotlinked, not re-hosted** (a deliberate licensing
-  choice); the footer carries the non-affiliation + TCGdex attribution notice.
-  Tests stub `api.tcgdex.net` → `[]` in `tests/local-cdn.mjs` (hermetic; the
-  smoke spec pins `#drill-logo` hidden). Sealed-product *photos* are a separate,
-  unbuilt problem — the card APIs don't carry them (see `IMPLEMENTATION.md` #9).
+- **The drill-down header is an always-on set-identity block (`#drill-identity`),
+  with the set logo (TCGdex) as a best-effort upgrade.** `renderDrillIdentity(p)`
+  (formerly `renderDrillLogo`) *always* renders a designed identity — a
+  category-tinted left accent (`categoryColor(p.type)`, set inline exactly as
+  `.drill-verdict` sets its tone colour), the **set name** as a mono label
+  (`#drill-set-name`), and the **type badge** (`#drill-type-badge`, via
+  `typeBadge()`) — so a product is **never a blank title** and the block carries
+  **zero third-party-image rights** (Phase 0 of the sealed-photos item — see
+  `docs/sealed-product-photos-research.md`). The **logo swaps in over the
+  set-name text** only when it loads: `ensureSetLogos()` fetches
+  `api.tcgdex.net/v2/en/sets` once per session (lazily, on the first drill-down),
+  caches a normalised `set name → logo base URL` map, and swallows every failure;
+  the set name is derived from the **product's own name** (`setLogoKey()` strips
+  the SKU suffix — *not* a release-date grouping, which would merge twin sets
+  sharing a date like **Black Bolt / White Flare** into one mislabelled group
+  matching no logo). `#drill-logo`'s `src` is set to `base + '.png'` and un-hidden
+  only on `onload` (which also hides the set-name text) — guarded on
+  `drillProduct` so a late fetch can't paint onto another product. A set whose app
+  name differs from TCGdex's (or that TCGdex hasn't added yet) is pinned in
+  **`SET_LOGO_ALIASES`** (normalised app name → normalised TCGdex name) — the one
+  place to fix a future mismatch. Any miss (offline, blocked, CORS, unmatched set,
+  404) leaves the **set-name text identity** as the fallback — **never a broken
+  image**. Logos are **hotlinked, not re-hosted** (a deliberate licensing choice);
+  the footer carries the non-affiliation + TCGdex attribution notice. Tests stub
+  `api.tcgdex.net` → `[]` in `tests/local-cdn.mjs` (hermetic; the smoke spec pins
+  `#drill-logo` hidden **and** the set-name + type badge visible). Sealed-product
+  *photos* (a real box photo, Phase 1) remain unbuilt — no source cleanly licenses
+  the images for commercial redisplay, so the path is a self-hosted, admin-uploaded
+  photo per product (see `docs/sealed-product-photos-research.md` and
+  `IMPLEMENTATION.md` #9).
 - **The What-If sandbox lives in the drill-down**, always scoped to the product
   on screen — it is *not* an Analysis section. The markup (same ids: `sv-slider`,
   `price-slider`, `out-svb`/`out-score`/`out-signal`, `scenario-reset`, …) sits

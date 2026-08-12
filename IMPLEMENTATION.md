@@ -88,12 +88,22 @@ with a strengthened non-affiliation + attribution notice in the page footer
 (the Collectr-style disclaimer). This is a considered risk decision, not a
 licence; the investigation below records what that risk is.
 
-**Product photos — still parked.** *Sealed*-product photography (booster-box /
-ETB / bundle box art) has **no clean automated source**: the card-image APIs
-carry set logos and card scans, not sealed-product photos, and marketplaces
-restrict their listing images. So that half stays manual / unbuilt until a
-licensed source exists. *Board-row / set-grouping logos are a later, optional
-extension of the shipped drill-down work.*
+**Product photos — Phase 0 shipped, Phase 1 (real photos) parked.** *Sealed*-product
+photography (booster-box / ETB / bundle box art) has **no source that cleanly
+licenses the images for commercial redisplay** (see
+`docs/sealed-product-photos-research.md`): the card-image APIs carry set logos and
+card scans, not sealed-product photos; TCGplayer's catalogue (free TCGCSV mirror)
+*has* the photos but its ToS bars commercial reuse; official art is
+non-commercial-only. The catalogue is small (~40–80 products), so the answer is
+self-curation, not a feed. **Phase 0 (shipped):** the drill-down header is an
+always-on **set-identity block** — a category-tinted accent + set name + type badge
+(`renderDrillIdentity()` / `#drill-identity`), with the TCGdex logo swapping in as a
+best-effort upgrade; zero third-party-image rights, never a blank title. **Phase 1
+(parked):** a **self-hosted, admin-uploaded photo per product** (Supabase Storage,
+`products.image_path`, an upload control in Data Entry beside CM ID / Exp ID),
+first-party/licensed imagery only — never re-hosted publisher/marketplace art.
+*Board-row / set-grouping logos are a later, optional extension of the shipped
+drill-down work.*
 
 #### Licensing & rights — the real blocker (investigation, 2026-08)
 

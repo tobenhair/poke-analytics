@@ -66,10 +66,12 @@ expand any section whenever you want it.
 The board shows **product · price · fair price** on a narrow screen, with the
 product name frozen in place so swiping sideways for the rest can't lose your
 row. The columns it leaves out — type, set value, per-booster price, SV/booster, age,
-score — are all in the product drill-down, one tap away. The drill-down also
-shows the **set logo** (from the free [TCGdex](https://tcgdex.dev) API, for
-identification only) and carries **Cardmarket** and **eBay** links for the
-product, so you can jump straight to the source to check listings or buy.
+score — are all in the product drill-down, one tap away. The drill-down opens
+with a **set-identity header** — the product type and set name, colour-coded by
+type, with the **set logo** (from the free [TCGdex](https://tcgdex.dev) API, for
+identification only) shown when available — and carries **Cardmarket** and
+**eBay** links for the product, so you can jump straight to the source to check
+listings or buy.
 
 ### Keyboard and screen-reader use
 

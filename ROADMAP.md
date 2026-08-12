@@ -618,14 +618,16 @@ stance). What still stands unbuilt:
   the pictures are TPCi's (non-commercial only) or a marketplace's (not theirs to
   sublicense), so **there is no automated source that is clean for a commercial
   build.** The lever is that the catalogue is **small (~40–80 products)**, so
-  automation isn't needed. Recommended phasing: **Phase 0** — a generated
-  **set-identity placeholder** (the set logo we already fetch + a type-coloured
-  card + badge; **zero** third-party rights, ships the "looks finished" win now);
-  **Phase 1** — a **self-hosted, admin-uploaded photo per product** (Supabase
-  Storage, first-party/licensed imagery), never re-hosted publisher/marketplace
-  art. A TPCi licensing enquiry stays the only clean route to *official* art in a
-  paid tier. Full copyright/trademark + enforcement analysis in the research doc
-  and `IMPLEMENTATION.md` item 9.
+  automation isn't needed. Recommended phasing: **Phase 0 — ✅ SHIPPED:** the
+  drill-down header is now an always-on **set-identity block** (`#drill-identity`,
+  `renderDrillIdentity()`) — a category-tinted accent + set name + type badge, with
+  the TCGdex set logo swapping in as a best-effort upgrade; a product is never a
+  blank title and it carries **zero** third-party-image rights. **Phase 1 (open)** —
+  a **self-hosted, admin-uploaded photo per product** (Supabase Storage,
+  first-party/licensed imagery), never re-hosted publisher/marketplace art; a TPCi
+  licensing enquiry stays the only clean route to *official* art in a paid tier.
+  Full copyright/trademark + enforcement analysis in the research doc and
+  `IMPLEMENTATION.md` item 9.
 
 - **Navigation & overview at catalogue scale (breadth — the UX side).**
   *(Feature; approach decided later.)* The board is a flat list, so as coverage
