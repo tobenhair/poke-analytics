@@ -162,9 +162,11 @@ export const NEWS_SOURCES = [
   //     Reddit needs the descriptive UA.
   { source: 'r/PokeInvesting', category: 'investing', scoped: true, kind: 'reddit',
     url: 'https://www.reddit.com/r/PokeInvesting/.rss', ua: FEED_UA },
-  // 3 — Pokémon business / owner-company results.
+  // 3 — Pokémon business / owner-company. Broadened past earnings-only (rarely
+  //     fresh) to Pokémon-business generally; every clause names Pokémon/TPC so
+  //     it stays on-topic despite scoped:true.
   { source: 'Google News', category: 'business', scoped: true, kind: 'gnews',
-    url: 'https://news.google.com/rss/search?q=%22Pokemon+Company%22+(earnings+OR+revenue+OR+financial)+OR+(Nintendo+earnings)&hl=en-US&gl=US&ceid=US:en' },
+    url: 'https://news.google.com/rss/search?q=%22Pokemon+Company%22+OR+%22The+Pokemon+Company%22+OR+(Pokemon+revenue)+OR+(Pokemon+sales)+OR+(Pokemon+earnings)+OR+(Pokemon+business)+OR+(Pokemon+Nintendo)&hl=en-US&gl=US&ceid=US:en' },
 ];
 
 // Category display order + labels — TCG first everywhere (the stated priority).
