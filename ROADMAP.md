@@ -608,14 +608,24 @@ The **set-logo** half of the one remaining design item has now shipped (TCGdex,
 drill-down — see **Done** and `IMPLEMENTATION.md` item 9 for the licensing
 stance). What still stands unbuilt:
 
-- **Sealed-product photos (booster-box / ETB / bundle box art).** The card-image
-  APIs (TCGdex, pokemontcg.io) carry *set logos* and *card* images, not
-  photographs of the sealed products this app tracks; those live only on
-  marketplaces, whose terms restrict reuse. So there is **no clean automated
-  source** for this half — it stays parked (manual, or an image-light set
-  identity via colour chips + type badges) until a licensed source exists. The
-  full copyright/trademark investigation behind the decision is in
-  `IMPLEMENTATION.md` item 9.
+- **Sealed-product photos (booster-box / ETB / bundle box art).** *(Researched
+  2026-08 — [`docs/sealed-product-photos-research.md`](docs/sealed-product-photos-research.md);
+  a buildable path now exists.)* The card-image APIs (TCGdex, pokemontcg.io)
+  carry *set logos* and *card* images, not sealed-product photos — confirmed, and
+  TCGdex has **no product interface at all**. Sealed photos *do* exist
+  automatically via **TCGplayer's catalogue (free TCGCSV mirror)**, but no
+  reachable feed conveys redistributable **image** rights: data is licensable,
+  the pictures are TPCi's (non-commercial only) or a marketplace's (not theirs to
+  sublicense), so **there is no automated source that is clean for a commercial
+  build.** The lever is that the catalogue is **small (~40–80 products)**, so
+  automation isn't needed. Recommended phasing: **Phase 0** — a generated
+  **set-identity placeholder** (the set logo we already fetch + a type-coloured
+  card + badge; **zero** third-party rights, ships the "looks finished" win now);
+  **Phase 1** — a **self-hosted, admin-uploaded photo per product** (Supabase
+  Storage, first-party/licensed imagery), never re-hosted publisher/marketplace
+  art. A TPCi licensing enquiry stays the only clean route to *official* art in a
+  paid tier. Full copyright/trademark + enforcement analysis in the research doc
+  and `IMPLEMENTATION.md` item 9.
 
 - **Navigation & overview at catalogue scale (breadth — the UX side).**
   *(Feature; approach decided later.)* The board is a flat list, so as coverage
