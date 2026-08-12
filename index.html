@@ -7638,14 +7638,14 @@ function wireAuthControls() {
       const uid = session ? session.user.id : null;
       if (uid && uid !== sbLoadedUserId) {
         sbLoadedUserId = uid;
-        // A signed-in session lands on the answer, not on the pitch. The
-        // Welcome tab is a map of the app; Analysis now opens on "best deals
-        // right now", which is what someone signs in for. Deliberately scoped
-        // to *this* branch — a token refresh fires onAuthStateChange too, and
+        // A signed-in session lands on the Welcome tab — the signed-in landing
+        // (where-to-go map + latest-news teaser), which is also the markup
+        // default, so first paint and post-login agree. Deliberately scoped to
+        // *this* branch — a token refresh fires onAuthStateChange too, and
         // yanking the user off whatever tab they were reading would be a bug.
         // A click rather than activateTab() so the reveal-on-scroll handler,
         // which listens for clicks, replays for the pane it lands on.
-        document.getElementById('tabbtn-analysis').click();
+        document.getElementById('tabbtn-welcome').click();
         loadFromSupabase().catch(err => {
           console.error('Cloud load failed:', err);
           reportClientError({ message: 'Cloud load failed: ' + (err.message || err), stack: err.stack });

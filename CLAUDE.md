@@ -474,12 +474,15 @@ explanation exists in two places:
   `.method-open` / `.glossary-open` — precisely so a third caller costs nothing
   and no surface can define SV/Booster its own way. `#fair-fit-note` on the
   board is one of the `.method-open` callers.
-- **Signing in lands on Analysis**, not Welcome — the pitch is read once, logged
-  out, and Analysis opens on the answer. It is wired in the
-  `uid !== sbLoadedUserId` branch of `onAuthStateChange` on purpose: a token
-  refresh fires that handler too, and switching tabs under a reading user would
-  be a bug. It dispatches a **click** rather than calling `activateTab()`, so
-  the reveal-on-scroll handler (which listens for clicks) replays.
+- **Signing in lands on the Welcome tab** — the signed-in landing (the
+  where-to-go map + the latest-news teaser), which is also the markup default
+  (`tabbtn-welcome` is `active`/`aria-selected`), so first paint and post-login
+  agree. It is wired in the `uid !== sbLoadedUserId` branch of
+  `onAuthStateChange` on purpose: a token refresh fires that handler too, and
+  switching tabs under a reading user would be a bug. It dispatches a **click**
+  (`tabbtn-welcome`) rather than calling `activateTab()`, so the reveal-on-scroll
+  handler (which listens for clicks) replays. (This reversed an earlier choice to
+  land on Analysis; news lives on Welcome, so the landing shows it.)
 
 **What the demo must not do: show a fair price or a verdict.** Both are read off
 `linearFit()` across *every* product's age, and the anon RLS scope is three
