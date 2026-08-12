@@ -6522,7 +6522,12 @@ function ensureSetLogos() {
 // match no logo. Any set whose name differs from TCGdex's — or that TCGdex
 // hasn't added yet — is pinned in SET_LOGO_ALIASES (normalised app set name →
 // normalised TCGdex set name), the one place to fix a future mismatch.
-const SET_LOGO_SKU_RE = /\s+(Elite Trainer Box|Booster Box|Booster Bundle|Booster Pack|Booster Display|ETB|Bundle|Display|Box|Pack)\s*$/i;
+// Strips a trailing *sequence* of SKU tokens, not just one: a "Booster Bundle
+// Display" SKU is two tokens (Booster Bundle + Display), so a single-token strip
+// left "… Booster Bundle" and matched no set logo (and split the Display product
+// into its own board set-group). The (?:…)+ repetition peels every trailing
+// token — longer variants first so "Booster Bundle" wins over "Bundle".
+const SET_LOGO_SKU_RE = /(?:\s+(?:Elite Trainer Box|Booster Box|Booster Bundle|Booster Pack|Booster Display|ETB|Bundle|Display|Box|Pack))+\s*$/i;
 const SET_LOGO_ALIASES = {
   // 'appnormalisedsetname': 'tcgdexnormalisedsetname',
 };
