@@ -29,15 +29,16 @@ type Source = { source: string; category: 'tcg' | 'investing' | 'business'; scop
 
 // The v1 source set — TCG is the priority. scoped:true = already Pokémon-locked
 // (dedicated site or a Pokémon query) so it skips the relevance filter.
+// Google News was dropped: it returns HTTP 503 to the Edge runtime's datacenter
+// IP regardless of User-Agent, so its TCG safety-net and business queries never
+// delivered. PokéBeach covers TCG; the business category has no reachable feed
+// for now and simply stays empty (the client skips empty categories).
 const NEWS_SOURCES: Source[] = [
   // Dedicated TCG news (PokéBeach) via a GitHub Pages mirror — static hosting,
-  // so no datacenter 503 and no UA sensitivity. The reliable, non-Google primary.
+  // so no datacenter 503 and no UA sensitivity. The reliable primary.
   { source: 'PokéBeach',       category: 'tcg',       scoped: true, url: 'https://kaprestridge.github.io/pokebeach-news-feed/feed.xml' },
-  // Google News safety net so the priority category always fills. Needs a browser UA.
-  { source: 'Google News',     category: 'tcg',       scoped: true, url: 'https://news.google.com/rss/search?q=%22Pokemon+TCG%22+OR+%22Pokemon+cards%22&hl=en-US&gl=US&ceid=US:en' },
   // Reddit keeps the descriptive UA — a browser one gets 429'd here.
   { source: 'r/PokeInvesting', category: 'investing', scoped: true, url: 'https://www.reddit.com/r/PokeInvesting/.rss', ua: FEED_UA },
-  { source: 'Google News',     category: 'business',  scoped: true, url: 'https://news.google.com/rss/search?q=%22Pokemon+Company%22+(earnings+OR+revenue+OR+financial)+OR+(Nintendo+earnings)&hl=en-US&gl=US&ceid=US:en' },
 ];
 
 const POKEMON_KEYWORDS = ['pokemon', 'pokémon', 'tcg', 'booster', 'elite trainer', 'etb', 'pokemon company', 'pokémon company'];

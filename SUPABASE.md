@@ -360,15 +360,16 @@ scheduled server job does it and the client reads a table.
    secret). `pg_cron` then calls `news-fetch` hourly at :07. Test once via the
    function's **Invoke** button. Optionally set an `INGEST_SECRET` env var on the
    function and send it as `x-ingest-secret` to lock down manual invocation.
-4. **Verify the feeds first.** The source URLs (PokéBeach, r/PokeInvesting,
-   two Google News queries) should be curl-checked once — confirm each returns
-   valid RSS/Atom with recent items — before relying on them; a dead feed is
-   isolated (the run continues) but yields nothing. `node scripts/news-fetch.mjs`
-   previews what the feeds currently return from a machine that can reach them.
-   The **Invoke** button's `perSource` JSON is the fastest check per source.
-   Note the per-source **User-Agent**: Reddit needs the descriptive agent, Google
-   News needs a browser one (it returns **HTTP 503** to a bot agent from a
-   datacenter IP — the cause if a Google News source shows `error: HTTP 503`).
+4. **Verify the feeds first.** The source URLs (PokéBeach, r/PokeInvesting)
+   should be curl-checked once — confirm each returns valid RSS/Atom with recent
+   items — before relying on them; a dead feed is isolated (the run continues)
+   but yields nothing. `node scripts/news-fetch.mjs` previews what the feeds
+   currently return from a machine that can reach them. The **Invoke** button's
+   `perSource` JSON is the fastest check per source. Note the per-source
+   **User-Agent**: Reddit needs the descriptive agent (it 429s a browser one).
+   **Google News was dropped** — it returns **HTTP 503** to the Edge runtime's
+   datacenter IP regardless of UA, so the **business** category has no source for
+   now and stays empty until a datacenter-friendly feed is added.
 
 The parse/relevance/dedupe logic is the unit-tested `scripts/news-lib.mjs`
 (`tests/unit/news-lib.test.mjs`); the Edge Function mirrors it. If the feed is
