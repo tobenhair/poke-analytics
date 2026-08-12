@@ -240,6 +240,30 @@ test('the board consolidates into one panel with a Value / Relative / Momentum l
   await expect(page.locator('#board-lens-chart')).toBeHidden();
 });
 
+test('the boot splash covers first paint and clears once data is ready', async ({ page }) => {
+  // The splash hides the transient sample→cloud swap (and its banner/status
+  // flicker) behind an opaque logo screen, then clears the instant data loads.
+  await routeLocalLibs(page);
+  await forceStaticMode(page);
+  // Hold the workbook briefly so the splash is observably up before it clears
+  // (well inside the 8s failsafe).
+  await page.route('**/pokemon_data.xlsx', async (route) => {
+    await new Promise((r) => setTimeout(r, 800));
+    route.continue();
+  });
+  await page.goto('/', { waitUntil: 'commit' });
+
+  // Present on first paint.
+  await expect(page.locator('#app-loader')).toBeVisible();
+
+  // Clears once the workbook resolves, revealing the rendered board behind it.
+  await expect(page.locator('#app-loader')).toBeHidden({ timeout: 6000 });
+  await expect(page.locator('#product-tbody .grp-era').first()).toBeAttached();
+
+  // The success-status pill is gone — the splash is the load signal now.
+  await expect(page.locator('#analysis-status')).toBeHidden();
+});
+
 test('a missing workbook says so instead of passing sample data off as real', async ({ page }) => {
   // The dangerous failure: the page boots with a small hardcoded dataset so
   // nothing is blank, and until now a 404 left those numbers on screen looking

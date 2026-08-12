@@ -1124,6 +1124,54 @@
   }
   .guide-btn:hover { border-color: var(--accent3); color: var(--accent3); }
 
+  /* ── Boot splash (see #app-loader) ──
+     Opaque so the first paint and the sample→cloud transient never show
+     through; fades out once data is ready. Above every overlay, below the
+     missing-library guard (9999). */
+  .app-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    transition: opacity 0.35s var(--ease);
+  }
+  .app-loader--out { opacity: 0; pointer-events: none; }
+  .app-loader-inner { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .app-loader-mark {
+    width: 60px; height: 60px;
+    border-radius: 12px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 16px -4px rgba(0,0,0,0.6);
+    display: block;
+  }
+  /* The three bars breathe left-to-right — a "live chart" cue, not a spinner. */
+  .app-loader-mark rect { animation: loader-bar 1.2s var(--ease) infinite; }
+  .app-loader-mark rect:nth-of-type(2) { animation-delay: 0.15s; }
+  .app-loader-mark rect:nth-of-type(3) { animation-delay: 0.3s; }
+  @keyframes loader-bar { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+  .app-loader-word {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: var(--display-sm);
+    letter-spacing: 0.08em;
+    line-height: 1;
+    color: var(--text);
+  }
+  .app-loader-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: var(--text-xs);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .app-loader { transition: none; }
+    .app-loader-mark rect { animation: none; opacity: 1; }
+  }
+
   /* ── Format guide modal ── */
   .modal-overlay {
     display: none;
@@ -1790,6 +1838,48 @@
 </style>
 </head>
 <body>
+
+<!-- ═══════════ BOOT SPLASH ═══════════
+     Covers the very first paint with an opaque --bg screen so the transient
+     sample→cloud data swap (and its data-source banner / status pill) never
+     flickers into view. Hidden the instant the initial data resolves —
+     window.__hideAppLoader(), called from tryAutoLoad / loadFromSupabase /
+     loadDemo — with an 8s failsafe (below) so it can never hang. The three-bar
+     logo mark pulses left-to-right (a "live chart" cue), stilled under
+     prefers-reduced-motion. role="status" so a screen reader hears "Loading".
+     z-index sits above the auth overlay (1000) and demo page (900), below the
+     missing-library guard (9999). -->
+<div id="app-loader" class="app-loader" role="status" aria-live="polite" aria-label="Loading Sealed Analytics">
+  <div class="app-loader-inner">
+    <svg class="app-loader-mark" viewBox="0 0 64 64" aria-hidden="true">
+      <rect x="16" y="34" width="7" height="16" rx="2" fill="#5cc7f2"/>
+      <rect x="28" y="24" width="7" height="26" rx="2" fill="#f4c651"/>
+      <rect x="40" y="16" width="7" height="34" rx="2" fill="#7fd493"/>
+    </svg>
+    <div class="app-loader-word">Sealed Analytics</div>
+    <div class="app-loader-sub">Loading…</div>
+  </div>
+</div>
+<script>
+(function () {
+  // Failsafe hide for the boot splash. The app calls this the instant its data
+  // is ready; the timeout guarantees the splash clears even if that path stalls
+  // or throws. A classic (non-module) script so it exists independently of the
+  // app module — same buffer-then-drain pattern as the early error reporter.
+  window.__hideAppLoader = function () {
+    var el = document.getElementById('app-loader');
+    if (!el || el.dataset.out) return;
+    el.dataset.out = '1';
+    var done = function () { el.hidden = true; };
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.classList.add('app-loader--out');
+    if (reduce) { done(); return; }             // no fade to wait on
+    el.addEventListener('transitionend', done, { once: true });
+    setTimeout(done, 600);                       // in case transitionend never fires
+  };
+  setTimeout(window.__hideAppLoader, 8000);
+})();
+</script>
 
 <!-- ═══════════ ICON SPRITE ═══════════
      One inline sprite, referenced with <use href="#i-name">. Replaces the
@@ -6920,11 +7010,14 @@ async function tryAutoLoad() {
     const result = parseXlsx(buf);
     applyNewData(result);
     setDataSource('workbook');
-    setStatus('analysis-status', '✓ Auto-loaded pokemon_data.xlsx from repo — ' + result.newProducts.length + ' products', false);
+    // Success is silent: the boot splash covered the load and its removal is the
+    // "ready" signal, so a status pill here was just noise (the user's ask).
   } catch (err) {
     console.warn('Auto-load failed:', err.message);
     reportClientError({ message: 'Workbook auto-load failed: ' + (err.message || err) });
     setDataSource('sample', `The tracked workbook didn't load: ${err.message || err}`);
+  } finally {
+    if (window.__hideAppLoader) window.__hideAppLoader();
   }
 }
 
@@ -7237,11 +7330,14 @@ async function loadFromSupabase() {
     // to stay up — this is exactly the case where it would be mistaken for real.
     setDataSource('sample', 'Your cloud account has no products yet — add them in Data Entry, then “Save to cloud”.');
     setStatus('analysis-status', 'Signed in — no cloud data yet. Add products in Data Entry, then “Save to cloud”.', false);
+    if (window.__hideAppLoader) window.__hideAppLoader();
     return;
   }
   applyNewData({ newProducts: usable, newHistoricalData, newHistDates, newLinks });
   setDataSource('cloud');
-  setStatus('analysis-status', 'Loaded ' + usable.length + ' products from your cloud account', false);
+  // No "Loaded N products" pill — the boot splash covered the load, and its
+  // removal signals ready; the status pill disrupted the aesthetics (the ask).
+  if (window.__hideAppLoader) window.__hideAppLoader();
   loadNews();   // fire-and-forget; renders the news teaser/overlay when it returns
 }
 
@@ -7293,6 +7389,7 @@ async function loadDemo() {
                     .sort((a, b) => b.svPerBooster - a.svPerBooster),
   }));
   renderDemo(groups);
+  if (window.__hideAppLoader) window.__hideAppLoader();   // demo is ready — drop the splash
   loadNews();   // public-read: the demo page shows the same TCG-first teaser
 }
 

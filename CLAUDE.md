@@ -513,6 +513,25 @@ Base rule that came out of it: **`[hidden] { display: none !important }`**. A
 class that sets `display` beats the UA's `[hidden]` rule on specificity, so a
 component can otherwise stay visible while claiming to be hidden.
 
+**The boot splash hides the transient, not the honesty.** `dataSource` starts at
+`sample` (the hardcoded fallback renders first), so for the split second before
+the workbook/cloud data arrives the "sample data" banner would flicker in and
+out — and the old `Loaded N products…` / `Auto-loaded pokemon_data.xlsx` status
+pills read as noise. `#app-loader` (a `<body>`-level opaque logo splash, in the
+markup so it covers the *first* paint; `z-index: 2000`, above the auth overlay
+and demo page, below the missing-library guard) sits over all of it until the
+initial data resolves. **`window.__hideAppLoader()`** — defined in a small
+classic (non-module) inline script right after the splash, the same
+buffer-then-drain pattern as the early error reporter — fades it out; the app
+calls it at every terminal load state (`tryAutoLoad` **finally**,
+`loadFromSupabase` success **and** the empty-account branch, `loadDemo` end), and
+an **8s failsafe timeout** in that same script guarantees it never hangs even if
+a load path throws. The two success status pills were removed with it (the splash
+*is* the "loading → ready" signal now); the honest **sample-data banner stays** —
+if a load genuinely falls back to sample, the splash clears to reveal it, no
+longer a flicker but a real state. Reduced-motion stills the bar pulse and snaps
+the fade. `tests/smoke.spec.mjs` pins show-on-first-paint → clear-on-ready.
+
 ### Fair price, and how it says what it's worth
 
 `fitConfidence(r2)` in `metrics.js` turns the age fit's R² into a band —
