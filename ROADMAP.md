@@ -583,6 +583,20 @@ right but poorly built) or **Feature** (something new).
     On the trimmed set the linear fit already tightens (R² 0.39 → 0.44). Would
     stay pure + unit-tested in `metrics.js`, invertible and floored, with
     `fitConfidence()`/`fairPriceTrusted()` unchanged. Not yet scheduled.
+  - **⟳ Old-set fair-price suppression — SHIPPED.** The related failure at the
+    *old* extreme is fixed: inverting the decayed fit for vintage sets (age past
+    the point where expected SV/Booster nears zero) produced absurd fair prices
+    (on the live 185-product catalogue, Ancient Origins Booster Box read a €50,743
+    fair price vs €4,910 live). `fairPrice()` now **suppresses** the number once
+    the fit's expected SV/Booster falls below `FAIR_PRICE_MIN_EXPECTED_FRAC` (0.25)
+    of its intercept — a fit-relative floor, **not a hardcoded age**, so the limit
+    (`fairPriceMaxAge()`, ~8.5 yr / ~28% of the catalogue today) **moves on its own
+    as the model refits** each load. Suppression, not a clamp: vintage sealed is
+    collector-priced and off the value-density line, so a guessed number is worse
+    than none. Pure + unit-tested; the drill-down shows `beyond age model (~N yr)`.
+    (This also confirmed the catalogue already reaches back to 2014, which lifted
+    the live fit to R² 0.51 — more old data helped the fit but can't fix the
+    inversion, which is why the suppression is the right tool.)
 
 _Otherwise nothing open in this theme — the rest is under **Then** and **Later**.
 The **Backup & restore** item that used to live here is deferred by maintainer
@@ -608,13 +622,25 @@ The **set-logo** half of the one remaining design item has now shipped (TCGdex,
 drill-down — see **Done** and `IMPLEMENTATION.md` item 9 for the licensing
 stance). What still stands unbuilt:
 
-- **Sealed-product photos (booster-box / ETB / bundle box art).** The card-image
-  APIs (TCGdex, pokemontcg.io) carry *set logos* and *card* images, not
-  photographs of the sealed products this app tracks; those live only on
-  marketplaces, whose terms restrict reuse. So there is **no clean automated
-  source** for this half — it stays parked (manual, or an image-light set
-  identity via colour chips + type badges) until a licensed source exists. The
-  full copyright/trademark investigation behind the decision is in
+- **Sealed-product photos (booster-box / ETB / bundle box art).** *(Researched
+  2026-08 — [`docs/sealed-product-photos-research.md`](docs/sealed-product-photos-research.md);
+  a buildable path now exists.)* The card-image APIs (TCGdex, pokemontcg.io)
+  carry *set logos* and *card* images, not sealed-product photos — confirmed, and
+  TCGdex has **no product interface at all**. Sealed photos *do* exist
+  automatically via **TCGplayer's catalogue (free TCGCSV mirror)**, but no
+  reachable feed conveys redistributable **image** rights: data is licensable,
+  the pictures are TPCi's (non-commercial only) or a marketplace's (not theirs to
+  sublicense), so **there is no automated source that is clean for a commercial
+  build.** The lever is that the catalogue is **small (~40–80 products)**, so
+  automation isn't needed. Recommended phasing: **Phase 0 — ✅ SHIPPED:** the
+  drill-down header is now an always-on **set-identity block** (`#drill-identity`,
+  `renderDrillIdentity()`) — a category-tinted accent + set name + type badge, with
+  the TCGdex set logo swapping in as a best-effort upgrade; a product is never a
+  blank title and it carries **zero** third-party-image rights. **Phase 1 (open)** —
+  a **self-hosted, admin-uploaded photo per product** (Supabase Storage,
+  first-party/licensed imagery), never re-hosted publisher/marketplace art; a TPCi
+  licensing enquiry stays the only clean route to *official* art in a paid tier.
+  Full copyright/trademark + enforcement analysis in the research doc and
   `IMPLEMENTATION.md` item 9.
 
 - **Navigation & overview at catalogue scale (breadth — the UX side).**

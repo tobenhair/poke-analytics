@@ -88,12 +88,22 @@ with a strengthened non-affiliation + attribution notice in the page footer
 (the Collectr-style disclaimer). This is a considered risk decision, not a
 licence; the investigation below records what that risk is.
 
-**Product photos — still parked.** *Sealed*-product photography (booster-box /
-ETB / bundle box art) has **no clean automated source**: the card-image APIs
-carry set logos and card scans, not sealed-product photos, and marketplaces
-restrict their listing images. So that half stays manual / unbuilt until a
-licensed source exists. *Board-row / set-grouping logos are a later, optional
-extension of the shipped drill-down work.*
+**Product photos — Phase 0 shipped, Phase 1 (real photos) parked.** *Sealed*-product
+photography (booster-box / ETB / bundle box art) has **no source that cleanly
+licenses the images for commercial redisplay** (see
+`docs/sealed-product-photos-research.md`): the card-image APIs carry set logos and
+card scans, not sealed-product photos; TCGplayer's catalogue (free TCGCSV mirror)
+*has* the photos but its ToS bars commercial reuse; official art is
+non-commercial-only. The catalogue is small (~40–80 products), so the answer is
+self-curation, not a feed. **Phase 0 (shipped):** the drill-down header is an
+always-on **set-identity block** — a category-tinted accent + set name + type badge
+(`renderDrillIdentity()` / `#drill-identity`), with the TCGdex logo swapping in as a
+best-effort upgrade; zero third-party-image rights, never a blank title. **Phase 1
+(parked):** a **self-hosted, admin-uploaded photo per product** (Supabase Storage,
+`products.image_path`, an upload control in Data Entry beside CM ID / Exp ID),
+first-party/licensed imagery only — never re-hosted publisher/marketplace art.
+*Board-row / set-grouping logos are a later, optional extension of the shipped
+drill-down work.*
 
 #### Licensing & rights — the real blocker (investigation, 2026-08)
 
@@ -149,24 +159,32 @@ changes the answer. Findings so far:
   over hosting publisher artwork; stay image-light where a badge/colour-chip does
   the job.
 
-**Open questions to resolve before building (investigate further):**
-1. **TCGdex asset terms** — does its licence actually permit redisplaying set
-   logos, and does it permit *commercial* redisplay? Confirm in the 14b spike
-   (and re-scope: the question is bigger than "one vendor's terms" — TPCi is the
-   upstream rights holder).
-2. **Any sublicensable image rights?** Does *any* reachable feed (TCGdex,
-   TCGplayer, Pokémon TCG API) grant redistribution/redisplay rights we can rely
-   on for a paid product — or only for non-commercial use?
-3. **Split the asset classes.** Are **product photos** (user/seller-supplied,
-   copyright-only) meaningfully safer than **set logos** (copyright + trademark)?
-   If so, phase 1 could be photos-only and logos stay parked.
-4. **Images-light alternative** — quantify the UX gain of real logos vs a
-   designed set-identity system (colour chip + type badge + set abbreviation)
-   that carries **zero** third-party rights. This may be the right answer for a
-   commercial launch even if logos are "nicer."
-5. **If we do want real fair prices/logos the honest way** — a direct licensing
-   enquiry to TPCi, or a paid asset licence, is the only path that survives
-   commercialisation; price that before committing.
+**Open questions — now answered by the 2026-08 deep-dive
+([`docs/sealed-product-photos-research.md`](docs/sealed-product-photos-research.md)):**
+1. **Any sublicensable image rights?** *No.* No reachable feed conveys
+   redistributable *image* rights. The data/image split is the whole story:
+   PriceCharting / PokemonPriceTracker Business / JustTCG will licence *pricing
+   data* commercially, but the pictures are TPCi's (official, non-commercial
+   only) or a marketplace/aggregator's (photos they don't own to sublicense).
+2. **Sealed photos do exist automatically — via TCGplayer's catalogue (free
+   TCGCSV mirror), `tcgplayer-cdn.tcgplayer.com/product/{id}_200w.jpg`** — but
+   re-using them commercially violates TCGplayer's ToS; clean only for a
+   free/non-commercial build, hotlinked, and must be off before any paywall.
+3. **TCGdex is confirmed dead for sealed photos** — its schema has no product/box
+   interface, logos and card scans only. (Still fine as our logo source.)
+4. **Product photos *are* meaningfully safer than logos** on the *trademark*
+   axis (nominative fair use fits an identification/comparison tool), but that
+   doctrine does not license the copyrighted **artwork** — so re-hosting anyone's
+   box photo is still copyright exposure a disclaimer can't cure.
+5. **The catalogue is small (~40–80 sealed products), so automation isn't
+   required** — the recommendation is Phase 0 a **generated set-identity
+   placeholder** (set logo + type-coloured card + badge; zero third-party
+   rights) and Phase 1 a **self-hosted, admin-uploaded photo per product** in
+   Supabase Storage (first-party / licensed imagery), never re-hosted publisher
+   or marketplace art. Enforcement is funding-keyed (TPCi's ex-CLO: they act
+   "once they get funded"), so the free grey-zone route and the paid build must
+   diverge. A TPCi licensing enquiry stays the only clean path to *official* art
+   in a paid tier — price it before committing.
 
 *Not legal advice — this is a research summary to scope the item; a real
 commercial launch with this imagery warrants a lawyer's review.*

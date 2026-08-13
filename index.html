@@ -863,10 +863,26 @@
     padding: 10px 14px; border-radius: 10px; border: 1px solid var(--hairline);
     border-left-width: 2px; background: var(--bg3); margin-bottom: 22px;
   }
-  /* Set logo in the drill-down header — an identity aid, subordinate to the
-     numbers. Height-capped, hidden until the image actually loads (never a
-     broken image; text title is the fallback). Sourced from TCGdex; see footer. */
-  .drill-logo { height: 42px; width: auto; max-width: 200px; object-fit: contain; display: block; margin: 0 0 14px; }
+  /* Set-identity header — always present so a product is never a blank title.
+     Mirrors .drill-verdict's accent-left-on-bg3 pattern; the category hue is set
+     inline (categoryColor). Carries the type badge always, and the set name as a
+     mono label; the set logo (TCGdex, best-effort) swaps in over that name when
+     it loads — never a broken image. See footer for the logo attribution. */
+  .set-identity {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; margin-bottom: 18px;
+    background: var(--bg3); border: 1px solid var(--hairline);
+    border-left-width: 3px; border-radius: var(--radius-sm);
+  }
+  .set-identity-name {
+    font-family: 'DM Mono', monospace; font-size: var(--text-sm);
+    color: var(--muted); letter-spacing: 0.02em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  }
+  .set-identity #drill-type-badge { margin-left: auto; flex: none; }
+  /* Height-capped logo; hidden until it actually loads (text set name is the
+     fallback). No bottom margin — the .set-identity row owns the spacing. */
+  .drill-logo { height: 40px; width: auto; max-width: 200px; object-fit: contain; display: block; margin: 0; }
   .drill-stats {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 12px; margin-bottom: 30px;
@@ -1260,6 +1276,7 @@
   .col-table td:first-child { font-family: 'DM Mono', monospace; color: var(--accent); font-size: var(--text-sm); }
   .col-table td:last-child  { color: var(--muted); font-size: var(--text-sm); }
   .tag-req  { display:inline-block; padding:2px 8px; border-radius: var(--radius-pill); font-size: var(--text-2xs); font-family:'DM Mono',monospace; background:rgba(239,106,96,0.12); color:var(--accent2); border:1px solid rgba(239,106,96,0.2); }
+  .tag-opt  { display:inline-block; padding:2px 8px; border-radius: var(--radius-pill); font-size: var(--text-2xs); font-family:'DM Mono',monospace; background:var(--bg3); color:var(--muted); border:1px solid var(--border); }
   .modal-note {
     background: var(--bg3);
     border: 1px solid var(--hairline);
@@ -1993,6 +2010,7 @@
           <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Full product name — must also appear in Historical Data sheet</td></tr>
           <tr><td>Type</td><td><span class="tag-req">required</span></td><td>Exactly one of: <b>BOX</b> (36 packs), <b>ETB</b> (9), <b>ETB10</b> (10), <b>ETB8</b> (8), <b>BUNDLE</b> (6), <b>BUNDLEDISPLAY</b> (60), or <b>PACK</b> (1). The pack count sets the booster maths; the <b>ETB*</b> variants filter under Elite Trainer and the <b>BUNDLE*</b> under Bundle. A <b>PACK</b> (a loose single booster) is reference-only: it is kept out of the rankings and charts and shown as the <em>Loose pack price</em> in the drill-down of the same set's sealed products.</td></tr>
           <tr><td>Release Date</td><td><span class="tag-req">required</span></td><td>Date value or text in YYYY-MM-DD format</td></tr>
+          <tr><td>Promo Value (€)</td><td><span class="tag-opt">optional</span></td><td>Value of a promo card bundled into the product (e.g. an ETB's stamped promo) that isn't part of the set's singles. Subtracted from Price for the per-booster maths so the product is judged on its boosters. Blank or 0 = none.</td></tr>
           <tr><td>Age (years)</td><td><span class="tag-req">required</span></td><td>Decimal number, e.g. 1.47</td></tr>
           <tr><td>Current Price (€)</td><td><span class="tag-req">required</span></td><td>Number in cents or euros — must be consistent across rows</td></tr>
           <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Total set value — same unit as price</td></tr>
@@ -2042,6 +2060,11 @@
       value a product of this age would be expected to have. Turn that expectation back into euros and
       you get the <strong>fair price</strong>: what this product would cost if it traded like its
       same-age peers. Under it is cheap for its age; over it is expensive.</p>
+      <p class="method-text">Very old sets get <strong>no fair price</strong>. Once a set is old enough that
+      the line has fallen close to zero, turning that tiny expectation back into euros blows the number up
+      into nonsense — and vintage sealed boxes are priced as collectibles, not by their card value, so they
+      no longer follow the line at all. Rather than guess, the app shows nothing there. The age at which it
+      stops is set by the line itself, so it shifts on its own as more history is tracked.</p>
     </div>
 
     <div class="modal-section">
@@ -2161,7 +2184,11 @@
 <div class="modal-overlay" id="drill-modal">
   <div class="modal" style="max-width:820px;" role="dialog" aria-modal="true" aria-labelledby="drill-title" tabindex="-1">
     <button class="modal-close" id="drill-close" type="button" aria-label="Close product details">✕</button>
-    <img id="drill-logo" class="drill-logo" alt="" hidden>
+    <div class="set-identity" id="drill-identity">
+      <img id="drill-logo" class="drill-logo" alt="" hidden>
+      <span class="set-identity-name" id="drill-set-name"></span>
+      <span id="drill-type-badge"></span>
+    </div>
     <h2 id="drill-title">Product</h2>
     <div id="drill-verdict" class="drill-verdict"></div>
     <div id="drill-stats" class="drill-stats"></div>
@@ -2946,6 +2973,7 @@
                 <th></th>
                 <th>CM ID</th>
                 <th>Exp ID</th>
+                <th>Promo (€)</th>
                 <th>Product</th>
                 <th>Type</th>
                 <th>Last Price (€)</th>
@@ -3072,7 +3100,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange } from './metrics.js';
+import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -4417,6 +4445,13 @@ function parseXlsx(arrayBuffer) {
         errors.push(`Summary ${label}: Release Date "${rawRelease}" is not a valid date`);
     }
 
+    // Promo Value (€) — optional. The value of a promo card bundled into the
+    // product (e.g. an ETB's stamped promo) that isn't part of the set's
+    // singles; subtracted from price for the pack economics. Blank = none (0).
+    const rawPromo = col(row, 'Promo Value (€)', 'Promo Value');
+    if (rawPromo != null && (isNaN(parseFloat(rawPromo)) || parseFloat(rawPromo) < 0))
+      errors.push(`Summary ${label}: Promo Value must be a non-negative number (got "${rawPromo}")`);
+
     if (errors.length === 0) {
       const releaseStr = rawRelease instanceof Date
         ? rawRelease.toISOString().slice(0,10)
@@ -4425,6 +4460,7 @@ function parseXlsx(arrayBuffer) {
         name: String(name).trim(),
         type: String(type).toUpperCase(),
         release: releaseStr,
+        promoValue: rawPromo != null ? parseFloat(rawPromo) : 0,
         // boosters read from Historical Data below
         boosters: null,
         age: null, price: null, setVal: null,
@@ -4808,7 +4844,7 @@ function renderPortfolio() {
     <div class="portfolio-tile">
       <div class="lbl">Current value</div>
       <div class="val">${money(totalNow)}</div>
-      <div class="sub" style="color:var(--muted)">7d ${chgSpan(valChg.change7d)} · 30d ${chgSpan(valChg.change30d)}</div>
+      <div class="sub" style="color:var(--muted)">1d ${chgSpan(valChg.change1d)} · 7d ${chgSpan(valChg.change7d)} · 30d ${chgSpan(valChg.change30d)}</div>
     </div>
     <div class="portfolio-tile">
       <div class="lbl">Unrealised P&L</div>
@@ -5665,6 +5701,11 @@ let productCmIds = {};
 // whose singles make up Set Value. The catalog-refresh Edge Function reads these
 // to know which expansions' card lists to cache. Edited in Data Entry, saved to cloud.
 let productExpIds = {};
+// Promo card value (€): { productName -> number } — a promo bundled into the
+// product (e.g. an ETB's stamped promo) that isn't part of the set's singles.
+// Subtracted from price for the pack economics (Price/Booster, SV/Booster, fair
+// price). Edited in Data Entry, saved to products.promo_value. Absent = 0.
+let productPromo = {};
 // Price lock: { productName -> true } — when locked, the automated Cardmarket
 // ingestion leaves this product's price alone (admin sets it by hand); the
 // manual override for thin-liquidity products. Persisted to products.price_locked.
@@ -5908,6 +5949,12 @@ function renderEntryTable() {
           data-product="${p.name}"
           value="${productExpIds[p.name] != null ? productExpIds[p.name] : ''}">
       </td>
+      <td style="width:80px;">
+        <input class="entry-input promo-input" type="number" min="0" step="0.01" placeholder="0"
+          aria-label="${p.name} — promo card value in euros (excluded from pack value)"
+          data-product="${p.name}"
+          value="${productPromo[p.name] != null ? productPromo[p.name] : ''}">
+      </td>
       <td class="entry-product-name" title="${p.name}">${p.name}</td>
       <td>${typeBadge(p.type)}</td>
       <td class="entry-last-price">${last.price != null ? '€' + last.price.toLocaleString('de-DE') : '—'}${thinNote}</td>
@@ -5989,6 +6036,18 @@ function renderEntryTable() {
       const raw = e.target.value.trim();
       if (raw === '') delete productExpIds[name];
       else productExpIds[name] = parseInt(raw, 10);
+    });
+  });
+
+  // Promo value cell — edits the productPromo map (saved to products.promo_value).
+  // Euro amount or blank (= none). Subtracted from price for the pack economics.
+  tbody.querySelectorAll('.promo-input').forEach(input => {
+    input.addEventListener('input', e => {
+      const name = e.target.dataset.product;
+      const raw = e.target.value.trim();
+      const val = parseFloat(raw);
+      if (raw === '' || isNaN(val) || val < 0) delete productPromo[name];
+      else productPromo[name] = val;
     });
   });
 
@@ -6247,10 +6306,16 @@ function exportXlsx() {
   const allExistingProducts = [...products];
   const newOnes = pendingProducts.filter(p => !allExistingProducts.find(ep => ep.name === p.name));
 
+  // Promo Value (€): the Data Entry buffer wins over the derived value, so a
+  // buffered edit exports even before it's saved to cloud. Blank when 0/none.
+  const promoOf = (p) => {
+    const v = productPromo[p.name] != null ? productPromo[p.name] : p.promoValue;
+    return v ? v : '';
+  };
   const summaryRows = [
-    ['Product', 'Type', 'Release Date'],
-    ...allExistingProducts.map(p => [p.name, p.type, p.release]),
-    ...newOnes.map(p => [p.name, p.type, p.release]),
+    ['Product', 'Type', 'Release Date', 'Promo Value (€)'],
+    ...allExistingProducts.map(p => [p.name, p.type, p.release, promoOf(p)]),
+    ...newOnes.map(p => [p.name, p.type, p.release, promoOf(p)]),
   ];
 
   // ── Build Historical Data sheet rows ──
@@ -6535,17 +6600,31 @@ function setLogoKey(productName) {
   const key = normSetName(productName.replace(SET_LOGO_SKU_RE, '').trim());
   return SET_LOGO_ALIASES[key] || key;
 }
-function renderDrillLogo(p) {
-  const img = document.getElementById('drill-logo');
+// The drill-down's set-identity header. Always renders — a category-tinted
+// accent (categoryColor), the set name as a mono label, and the type badge — so
+// a product is never a blank title, and carries zero third-party-image rights.
+// The TCGdex set logo is a best-effort *upgrade*: it swaps in over the set-name
+// text on load, guarded on drillProduct so a late fetch can't paint onto another
+// product; any miss (offline/blocked/unmatched/404) leaves the text identity.
+function renderDrillIdentity(p) {
+  const img    = document.getElementById('drill-logo');
+  const nameEl = document.getElementById('drill-set-name');
+  const setName = p.name.replace(SET_LOGO_SKU_RE, '').trim();
+
+  document.getElementById('drill-identity').style.borderLeftColor = categoryColor(p.type);
+  nameEl.textContent = setName;
+  nameEl.hidden = false;
+  document.getElementById('drill-type-badge').innerHTML = typeBadge(p.type);
+
   img.hidden = true;
   img.removeAttribute('src');
   ensureSetLogos().then(map => {
     if (drillProduct !== p.name) return;
     const base = map[setLogoKey(p.name)];
-    if (!base) return;                                   // unmatched → text fallback
-    img.onload  = () => { if (drillProduct === p.name) img.hidden = false; };
-    img.onerror = () => { img.hidden = true; };
-    img.alt = p.name.replace(SET_LOGO_SKU_RE, '').trim() + ' set logo';
+    if (!base) return;                                   // unmatched → set-name text stays
+    img.onload  = () => { if (drillProduct === p.name) { img.hidden = false; nameEl.hidden = true; } };
+    img.onerror = () => { img.hidden = true; nameEl.hidden = false; };
+    img.alt = setName + ' set logo';
     img.src = base + '.png';
   });
 }
@@ -6557,7 +6636,7 @@ function renderDrill() {
   const v = p.verdict;
 
   document.getElementById('drill-title').textContent = p.name;
-  renderDrillLogo(p);
+  renderDrillIdentity(p);
 
   // Verdict banner
   const vb = document.getElementById('drill-verdict');
@@ -6568,7 +6647,14 @@ function renderDrill() {
 
   // Stat tiles
   const trusted = fairPriceTrusted();
-  const gapTxt = p.fairGap == null ? '—'
+  // Old sets past the fit's moving age limit get no fair price (vintage sealed is
+  // collector-priced, off the value-density line — inverting the decayed fit would
+  // invent a number). Explain that rather than a bare "—". The limit is derived
+  // from the current fit, so it moves as the model refits (fairPriceMaxAge()).
+  const maxAge = fairPriceMaxAge(ageFit);
+  const beyondModel = p.fairPrice == null && maxAge != null && p.age != null && p.age > maxAge;
+  const gapTxt = beyondModel ? `beyond age model (~${fmt(maxAge, 0)} yr)`
+    : p.fairGap == null ? '—'
     : p.fairGap === 0 ? 'at fair'
     : `${Math.abs(p.fairGap)}% ${p.fairGap < 0 ? 'under' : 'over'}`;
   const gapCol = p.fairGap == null || !trusted ? 'var(--muted)' : p.fairGap < 0 ? 'var(--accent4)' : 'var(--accent2)';
@@ -6578,8 +6664,12 @@ function renderDrill() {
   const ageTxt = p.age == null ? '' : p.age < 0 ? 'upcoming' : `${fmt(p.age, 1)} yr old`;
   const stat = (k, v, s = '', vcol = 'var(--text)') =>
     `<div class="drill-stat"><div class="k">${k}</div><div class="v" style="color:${vcol}">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
+  // A bundled promo card (e.g. an ETB's stamped promo) isn't part of the set's
+  // singles, so it's subtracted from the price for the pack economics; note it
+  // on the Live Price so the ex-promo booster maths is explained, not hidden.
+  const promoNote = p.promoValue > 0 ? `${money(p.promoValue)} promo excluded from value` : '';
   const tiles = [
-    stat('Live Price', p.price != null ? money(p.price) : '—'),
+    stat('Live Price', p.price != null ? money(p.price) : '—', promoNote),
     stat('Fair Price', p.fairPrice != null ? money(p.fairPrice) : '—', gapTxt + (trusted ? '' : ' · low fit'), gapCol),
     stat('SV / Booster', `${fmt(p.svPerBooster, 1)}×`, `set value ${pct(m?.svSinceFirst)}`),
     stat('Set Value', p.setVal != null ? money(p.setVal) : '—', 'value of the set’s singles'),
@@ -7236,13 +7326,36 @@ function renderNews() {
   if (btn) btn.hidden = !has;
 }
 
+// Supabase/PostgREST caps a single response at the project's "Max rows" setting
+// (1000 by default). The snapshots table passed that a while ago, so a plain
+// select('*') silently returned a truncated, arbitrarily-ordered ~1000-row
+// subset — dropping many products' most recent daily rows and breaking the
+// short price-change windows (1d/7d need the very latest snapshots). Page through
+// with an explicit total order so every row loads regardless of the cap. (This is
+// also the "Data volume at scale" item — here it was an active correctness bug.)
+async function fetchAllRows(makeQuery, pageSize = 1000) {
+  const all = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await makeQuery().range(from, from + pageSize - 1);
+    if (error) return { data: null, error };
+    all.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return { data: all, error: null };
+}
+
+// A total order for stable snapshot pagination: (product_id, snapshot_date) is
+// unique per the schema (one reading per product per date).
+const allSnapshots = () => fetchAllRows(() => sbClient.from('snapshots').select('*')
+  .order('snapshot_date', { ascending: true }).order('product_id', { ascending: true }));
+
 // Load every product + snapshot for the signed-in user and hand them to the
 // same applyNewData() path the .xlsx loader uses. Pivots the normalized
 // snapshot rows back into the aligned price[]/setVal[] arrays the app expects.
 async function loadFromSupabase() {
   const [prodRes, snapRes, setRes, holdRes, alertRes] = await Promise.all([
     sbClient.from('products').select('*').order('release', { ascending: true }),
-    sbClient.from('snapshots').select('*'),
+    allSnapshots(),
     sbClient.from('user_settings').select('*').maybeSingle(),
     sbClient.from('holdings').select('*'),
     sbClient.from('alerts').select('*'),
@@ -7273,6 +7386,7 @@ async function loadFromSupabase() {
   sbProductIds = {};
   productCmIds = {};
   productExpIds = {};
+  productPromo = {};
   productLocked = {};
   productPriceRef = {};
   const newHistoricalData = {};
@@ -7281,6 +7395,7 @@ async function loadFromSupabase() {
     sbProductIds[p.name] = p.id;
     if (p.cardmarket_product_id != null) productCmIds[p.name] = p.cardmarket_product_id;
     if (p.cardmarket_expansion_id != null) productExpIds[p.name] = p.cardmarket_expansion_id;
+    if (p.promo_value != null && Number(p.promo_value) > 0) productPromo[p.name] = Number(p.promo_value);
     if (p.price_locked) productLocked[p.name] = true;
     const byDate = {};
     snapList.filter(s => s.product_id === p.id).forEach(r => { byDate[r.snapshot_date] = r; });
@@ -7301,6 +7416,7 @@ async function loadFromSupabase() {
     if (p.cardmarket_url) newLinks[p.name] = p.cardmarket_url;
     return {
       name: p.name, type: String(p.type).toUpperCase(), release: p.release,
+      promoValue: p.promo_value != null ? Number(p.promo_value) : 0,
       boosters: null, age: null, price: null, setVal: null,
       pricePerBooster: null, svPerBooster: null, ageWeight: null, score: null,
     };
@@ -7355,7 +7471,7 @@ async function loadDemo() {
   try {
     const [prodRes, snapRes] = await Promise.all([
       sbClient.from('products').select('*'),
-      sbClient.from('snapshots').select('*'),
+      allSnapshots(),   // paginated — RLS still scopes anon to the demo slice
     ]);
     if (prodRes.error) throw prodRes.error;
     if (snapRes.error) throw snapRes.error;
@@ -7377,6 +7493,7 @@ async function loadDemo() {
     };
     return {
       name: p.name, type: String(p.type).toUpperCase(), release: p.release,
+      promoValue: p.promo_value != null ? Number(p.promo_value) : 0,
       boosters: null, age: null, price: null, setVal: null,
       pricePerBooster: null, svPerBooster: null, ageWeight: null, score: null,
     };
@@ -7478,6 +7595,7 @@ async function saveToSupabase() {
                   cardmarket_url: productUrls[p.name] || null,
                   cardmarket_product_id: productCmIds[p.name] ?? null,
                   cardmarket_expansion_id: productExpIds[p.name] ?? null,
+                  promo_value: productPromo[p.name] ?? 0,
                   price_locked: !!productLocked[p.name] })
         .select('id').single();
       if (error) throw error;
@@ -7486,7 +7604,7 @@ async function saveToSupabase() {
 
     // 2. Update Cardmarket link + product/expansion ids + price-lock on existing
     //    products (whichever the admin has touched).
-    const metaNames = new Set([...Object.keys(productUrls), ...Object.keys(productCmIds), ...Object.keys(productExpIds), ...Object.keys(productLocked)]);
+    const metaNames = new Set([...Object.keys(productUrls), ...Object.keys(productCmIds), ...Object.keys(productExpIds), ...Object.keys(productPromo), ...Object.keys(productLocked)]);
     for (const name of metaNames) {
       const id = sbProductIds[name];
       if (!id || newOnes.find(p => p.name === name)) continue;
@@ -7494,6 +7612,7 @@ async function saveToSupabase() {
         .update({ cardmarket_url: productUrls[name] || null,
                   cardmarket_product_id: productCmIds[name] ?? null,
                   cardmarket_expansion_id: productExpIds[name] ?? null,
+                  promo_value: productPromo[name] ?? 0,
                   price_locked: !!productLocked[name] })
         .eq('id', id);
       if (error) throw error;

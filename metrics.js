@@ -68,6 +68,17 @@ export function typeLabel(type) {
   return t ? t.label : (type != null ? String(type) : '');
 }
 
+// The promo-card value (€) actually applied to a product's pack economics:
+// a non-negative number strictly below the price (so the ex-promo price stays
+// positive). Returns 0 for a missing/invalid/oversized value, so a product
+// without a promo — or with bad data — behaves exactly as before this existed.
+export function appliedPromo(promoValue, price) {
+  const v = Number(promoValue);
+  if (!isFinite(v) || v <= 0) return 0;
+  if (!isFinite(price) || price == null || v >= price) return 0;
+  return v;
+}
+
 // 0–1 penalty for products younger than `ageThreshold` years:
 //   age >= threshold → full weight (no penalty)
 //   age <  threshold → linear scale from 0.10 to 1.0
@@ -127,6 +138,29 @@ export function linearFit(pts) {
 // the UI still shows it, but greyed, and flags the low confidence.
 export const FAIR_PRICE_MIN_R2 = 0.25;
 
+// The fair price *inverts* the age fit (setVal × boosters ÷ expected SV/Booster),
+// so for the oldest sets — where the downward fit has decayed toward zero — the
+// division amplifies ordinary fit noise into a meaningless figure (a €5k vintage
+// box showing a €50k "fair price"). Vintage sealed is collector-priced and
+// genuinely off the value-density line, so past a point we suppress the fair
+// price rather than guess. The threshold is a fraction of the fit's *intercept*
+// (its value at the young, reliable end), NOT a hardcoded age — so it is
+// unit-free and, because recomputeFit() re-runs on every data load, the implied
+// age limit moves automatically as the catalogue grows and the model is refit.
+// See fairPriceMaxAge() for that limit in years.
+export const FAIR_PRICE_MIN_EXPECTED_FRAC = 0.25;
+
+// The age (years) beyond which the fair price is suppressed on the *current*
+// fit: where the fit's expected SV/Booster falls below FAIR_PRICE_MIN_EXPECTED_
+// FRAC of its intercept. Null when there's no fit or the fit doesn't decline with
+// age (no cutoff needed then). Pure and derived entirely from the fit, so it
+// tracks the model — this is the "moving age limit". For display/explanation.
+export function fairPriceMaxAge(fit) {
+  if (!fit || fit.a <= 0 || fit.b >= 0) return null;
+  const minExpected = FAIR_PRICE_MIN_EXPECTED_FRAC * fit.a;
+  return (fit.a - minExpected) / (-fit.b); // age where expected == minExpected
+}
+
 // How much to trust the fair price, in words rather than a statistic.
 //
 // The board used to render a bare "R² 0.39". R² is a term most buyers don't
@@ -169,8 +203,17 @@ export function expectedSvPerBooster(fit, age) {
 export function fairPrice(product, fit) {
   const expected = expectedSvPerBooster(fit, product.age);
   if (expected == null || expected <= 0) return null;
+  // Too far down the decayed fit to invert reliably → don't guess a fair price.
+  // Fraction-of-intercept floor, so the age limit self-adjusts with the fit
+  // (fairPriceMaxAge()). fit is non-null here (expectedSvPerBooster returned one).
+  if (fit.a > 0 && expected < FAIR_PRICE_MIN_EXPECTED_FRAC * fit.a) return null;
   if (product.setVal == null || !product.boosters) return null;
-  const fair = (product.setVal * product.boosters) / expected;
+  // The fit is over ex-promo SV/Booster, so setVal×boosters/expected is the fair
+  // *ex-promo* (booster) price. Add the promo back so the fair price is on the
+  // same basis as the full live price it's compared to — a fairly-priced
+  // product then reads gap 0 (its ex-promo price == fair booster price).
+  const promo = appliedPromo(product.promoValue, product.price ?? null);
+  const fair = (product.setVal * product.boosters) / expected + promo;
   if (!isFinite(fair) || fair <= 0) return null;
   const gapPct = product.price != null && product.price > 0
     ? ((product.price - fair) / fair) * 100
@@ -602,11 +645,19 @@ export function deriveProducts(newProducts, newHistoricalData) {
       const releaseDate = new Date(p.release);
       const ageYears    = parseFloat(((today - releaseDate) / (1000 * 60 * 60 * 24 * 365.25)).toFixed(2));
       const ageWeight   = parseFloat((ageYears >= 3 ? 1.0 : Math.max(0.10, ageYears / 3)).toFixed(2));
-      const pricePerBooster = latestPrice / boosters;
+      // A promo card bundled into the product (an ETB's stamped promo, say) is
+      // NOT part of the set's singles, so its cost inflates the price against the
+      // boosters it's judged on. Subtract it to isolate the pack economics; the
+      // full price stays on p.price (what the buyer pays — portfolio/alerts/
+      // display need it). appliedPromo() clamps to [0, price) so a bad/oversized
+      // value can never drive the ex-promo price to zero or negative.
+      const promoEur        = appliedPromo(p.promoValue, latestPrice);
+      const pricePerBooster = (latestPrice - promoEur) / boosters;
       const svPerBooster    = latestSetVal / pricePerBooster;
       const score           = parseFloat((svPerBooster * ageWeight).toFixed(1));
 
       p.boosters        = boosters;
+      p.promoValue      = promoEur;                 // normalised (0 when none/invalid)
       p.age             = ageYears;
       p.price           = latestPrice;
       p.setVal          = latestSetVal;
@@ -711,7 +762,7 @@ export function portfolioValueSeries(holdings, historicalData, dateCount) {
   return any ? totals : [];
 }
 
-// Trailing 7d / 30d % change of the current holdings' total value. Values the
+// Trailing 1d / 7d / 30d % change of the current holdings' total value. Values the
 // holdings at every tracked snapshot (portfolioValueSeries — current quantities
 // valued back across history, same basis as the value-over-time chart) and
 // measures the change by *calendar date* with the same window rule as
@@ -720,12 +771,17 @@ export function portfolioValueSeries(holdings, historicalData, dateCount) {
 // window is covered (or when there are no holdings). % is FX-neutral (a ratio),
 // so no currency conversion is involved.
 export function portfolioValueChange(holdings, historicalData, dates) {
-  if (!Array.isArray(dates) || dates.length < 2) return { change7d: null, change30d: null };
+  const empty = { change1d: null, change7d: null, change30d: null };
+  if (!Array.isArray(dates) || dates.length < 2) return empty;
   const totals = portfolioValueSeries(holdings, historicalData, dates.length);
-  if (!totals.length) return { change7d: null, change30d: null };
+  if (!totals.length) return empty;
   const series = [];
   for (let i = 0; i < totals.length; i++) {
     if (totals[i] != null) series.push({ t: Date.parse(dates[i]), price: totals[i] });
   }
-  return { change7d: pctChangeOverDays(series, 7), change30d: pctChangeOverDays(series, 30) };
+  return {
+    change1d:  pctChangeOverDays(series, 1),
+    change7d:  pctChangeOverDays(series, 7),
+    change30d: pctChangeOverDays(series, 30),
+  };
 }

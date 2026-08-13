@@ -8,7 +8,7 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 
 ## What it does
 
-- **Answers "is this fairly priced?"** — a **fair price in euros** per product (the expected-value-for-age fit inverted) and a plain-language verdict on the board. The board says in words how much to trust that fit — *strong fit* / *moderate fit* / *rough estimate* — and tapping it explains the method.
+- **Answers "is this fairly priced?"** — a **fair price in euros** per product (the expected-value-for-age fit inverted) and a plain-language verdict on the board. The board says in words how much to trust that fit — *strong fit* / *moderate fit* / *rough estimate* — and tapping it explains the method. **Very old sets show no fair price** — once the fit has decayed near zero, inverting it produces nonsense, and vintage sealed is collector-priced rather than value-driven, so the app declines to guess; the age at which it stops is derived from the fit and shifts automatically as more history is tracked.
 - **Opens on the answer** — the Analysis tab leads with *Where to start*: one shortlist you can rank three ways — **Safe pick** (age-weighted score), **Best deal** (under fair price), or **Best value** (set value per booster) — with brand-new sets flagged so a shiny-but-unsettled release can't masquerade as the top buy.
 - **Ranks every product** by an age-weighted value score so newer and older releases can be compared fairly.
 - **Surfaces buy signals** when a product's price drops while its set value holds steady — a possible mispricing.
@@ -66,10 +66,12 @@ expand any section whenever you want it.
 The board shows **product · price · fair price** on a narrow screen, with the
 product name frozen in place so swiping sideways for the rest can't lose your
 row. The columns it leaves out — type, set value, per-booster price, SV/booster, age,
-score — are all in the product drill-down, one tap away. The drill-down also
-shows the **set logo** (from the free [TCGdex](https://tcgdex.dev) API, for
-identification only) and carries **Cardmarket** and **eBay** links for the
-product, so you can jump straight to the source to check listings or buy.
+score — are all in the product drill-down, one tap away. The drill-down opens
+with a **set-identity header** — the product type and set name, colour-coded by
+type, with the **set logo** (from the free [TCGdex](https://tcgdex.dev) API, for
+identification only) shown when available — and carries **Cardmarket** and
+**eBay** links for the product, so you can jump straight to the source to check
+listings or buy.
 
 ### Keyboard and screen-reader use
 
@@ -148,7 +150,9 @@ frontend on GitHub Pages. This is off unless you fill in `SUPABASE_CONFIG` in
 
 ### Sheet 1 — `Summary` (one row per product)
 
-`Product` · `Type` · `Release Date` · `Age (years)` · `Current Price (€)` · `Set Value (€)` · `Price / Booster (€)` · `SV / Booster` · `Age Weight` · `Wtd. Score`
+`Product` · `Type` · `Release Date` · `Promo Value (€)` *(optional)* · `Age (years)` · `Current Price (€)` · `Set Value (€)` · `Price / Booster (€)` · `SV / Booster` · `Age Weight` · `Wtd. Score`
+
+`Promo Value (€)` is optional: the value of a promo card bundled into the product (e.g. an ETB's stamped promo) that isn't part of the set's singles. It's **subtracted from price** for the per-booster maths so the product is judged on its boosters, not the extras; blank or `0` means none. (Cloud/Data Entry has the same field.)
 
 `Type` is one of: `BOX` (36 packs) · `ETB` (9) · `ETB10` (10) · `ETB8` (8) · `BUNDLE` (6) · `BUNDLEDISPLAY` (60) · `PACK` (1). The pack count drives the booster maths; the Elite Trainer Box variants (`ETB`/`ETB10`/`ETB8`) filter together under **Elite Trainer**, and the Bundle variants (`BUNDLE`/`BUNDLEDISPLAY`) under **Bundle**.
 
@@ -163,7 +167,7 @@ The in-app **File Format Guide** (the **Format Guide** button on the **Analysis*
 ## Key concepts
 
 - **Set Value** — the total market value of all cards in a complete set.
-- **Price / Booster** — product price ÷ boosters inside, set by Type (BOX = 36, ETB = 9, BUNDLE = 6, plus the variants ETB10 = 10, ETB8 = 8, BUNDLEDISPLAY = 60, PACK = 1).
+- **Price / Booster** — product price ÷ boosters inside, set by Type (BOX = 36, ETB = 9, BUNDLE = 6, plus the variants ETB10 = 10, ETB8 = 8, BUNDLEDISPLAY = 60, PACK = 1). If a product has a **Promo Value**, that promo card's value is subtracted from the price first, so the per-booster figure reflects only the boosters (an ETB isn't penalised for the promo it also includes).
 - **SV / Booster** — Set Value ÷ Price/Booster. Reads as a value-for-money **×multiple** — how many times the price of a *single booster* the whole set is worth (e.g. `185×`), **not** a euro-per-pack amount. The core comparability metric; works across all product types.
 - **Age Weight** — 0–1 multiplier. Products under a year old are penalised; ≥3 years = 1.0.
 - **Wtd. Score** — SV / Booster × Age Weight. The headline ranking metric.

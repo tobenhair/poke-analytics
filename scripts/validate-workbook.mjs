@@ -92,6 +92,14 @@ summaryRows.forEach((row, i) => {
   } else if (name) {
     productReleases.set(String(name).trim(), toISO(rawRelease));
   }
+
+  // Promo Value (€) — optional; a non-negative number if present. Mirrors
+  // parseXlsx(): the value of a bundled promo card subtracted from price for
+  // the pack economics.
+  const rawPromo = col(row, 'Promo Value (€)', 'Promo Value');
+  if (rawPromo !== null && (isNaN(parseFloat(rawPromo)) || parseFloat(rawPromo) < 0)) {
+    errors.push(`Summary ${label}: Promo Value must be a non-negative number (got "${rawPromo}")`);
+  }
 });
 if (errors.length) fail();
 

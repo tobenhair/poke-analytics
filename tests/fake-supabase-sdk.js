@@ -11,7 +11,7 @@
 //   auth: onAuthStateChange (INITIAL_SESSION semantics), signInWithPassword,
 //         signUp, signOut, updateUser, resetPasswordForEmail
 //         (+ window.__sbRecovery(email) to stand in for the emailed link)
-//   from(table): select('*') [.order()] [.maybeSingle()]
+//   from(table): select('*') [.order()] [.range()] [.limit()] [.maybeSingle()]
 //                insert(row) [.select('id').single()]
 //                update(row).eq(...)
 //                upsert(rowOrRows, { onConflict })
@@ -162,6 +162,9 @@
         }
         if (q.single) return { data: rows[0] || null, error: null };
         if (q.limit != null) rows = rows.slice(0, q.limit);
+        // .range(from, to) — inclusive, mirrors PostgREST; used by the app's
+        // paginated snapshot load (fetchAllRows).
+        if (q.range != null) rows = rows.slice(q.range.from, q.range.to + 1);
         return { data: rows, error: null };
       }
       if (q.op === 'insert') {
@@ -199,10 +202,11 @@
     }
 
     function from(table) {
-      var q = { table: table, op: 'select', filters: [], single: null, orderBy: null, payload: null, opts: null };
+      var q = { table: table, op: 'select', filters: [], single: null, orderBy: null, range: null, payload: null, opts: null };
       var api = {
         select: function () { return api; }, // column list is irrelevant to the fixtures
         order: function (col, opts) { q.orderBy = { col: col, ascending: !opts || opts.ascending !== false }; return api; },
+        range: function (from, to) { q.range = { from: from, to: to }; return api; },
         limit: function (n) { q.limit = n; return api; },
         maybeSingle: function () { q.single = true; return api; },
         single: function () { q.single = true; return api; },

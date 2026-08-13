@@ -220,7 +220,7 @@ inputs live in the database:
 
 | Table | Purpose | Access | Key columns |
 |-------|---------|--------|-------------|
-| `products` | one row per tracked product | read: all signed-in · write: admin | `name`, `type`, `release`, `cardmarket_url`, `cardmarket_product_id`, `cardmarket_expansion_id`, `price_locked` |
+| `products` | one row per tracked product | read: all signed-in · write: admin | `name`, `type`, `release`, `cardmarket_url`, `cardmarket_product_id`, `cardmarket_expansion_id`, `promo_value`, `price_locked` |
 | `snapshots` | one row per product per date | read: all signed-in · write: admin | `product_id`, `snapshot_date`, `price`, `set_value`, `low_liquidity`, `price_avg`, `price_low` |
 | `cardmarket_expansion_singles` | ingestion cache: expansion → its single-card ids | service-role only (no client policy) | `id_expansion`, `single_product_ids` |
 | `user_settings` | per-user preferences | read/write: own row | `age_threshold`, `currency` |
@@ -290,6 +290,12 @@ enter in Data Entry and save with **☁ Save to cloud**:
   `idProduct`; the daily job reads this product's Box Price directly from it.
 - **`cardmarket_expansion_id`** (the **"Exp ID"** column) — the set whose singles
   make up Set Value. The catalog refresh uses it to cache that set's card list.
+- **`promo_value`** (the **"Promo (€)"** column) — the € value of a promo card
+  bundled into the product (e.g. an ETB's stamped promo) that isn't part of the
+  set's singles. Subtracted from Price for the per-booster maths so the product
+  is judged on its boosters, not the extras. Per-product raw input, `0` = none;
+  applied client-side only (the daily ingestion job is unaffected — it still
+  writes the raw market Price and Set Value).
 
 You don't hand-source these — click **Resolve ids** (below) and both are filled
 by name-matching. Type them in only to override a specific product; a value you

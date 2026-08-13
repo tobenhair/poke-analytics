@@ -74,8 +74,13 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   await expect(page.locator('#drill-modal')).toHaveClass(/open/);
   await expect(page.locator('#drill-stats .drill-stat')).toHaveCount(8);
   // Set logo is best-effort: with the TCGdex API stubbed empty it stays hidden
-  // (text title is the fallback) — the page must not show a broken image.
+  // — the page must not show a broken image.
   await expect(page.locator('#drill-logo')).toBeHidden();
+  // …but the set-identity header always renders: with no logo it falls back to
+  // the set-name label and the type badge (never a blank title).
+  await expect(page.locator('#drill-set-name')).toBeVisible();
+  await expect(page.locator('#drill-set-name')).not.toBeEmpty();
+  await expect(page.locator('#drill-type-badge .type-badge')).toBeVisible();
   // Poll: Chart.js sizes the canvas on a frame *after* the dialog becomes
   // visible, so a single boundingBox() here can catch it at zero width.
   await expect
