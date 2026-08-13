@@ -476,11 +476,56 @@ explanation exists in two places:
 
 - **`#demo-page` is the pitch** — the only "what this is / how to read it"
   surface. Order is the argument: the question (`.hero-title`), then the three
-  ideas needed to read an answer (`.steps`), then the sample rows. Prose goes
-  here, not on Welcome.
+  ideas needed to read an answer (`.steps`), then a **Where-to-start teaser**,
+  then the sample rows. Prose goes here, not on Welcome.
+- **The demo's Where-to-start teaser is the Analysis shortlist, value-live and
+  fit-lenses locked.** `renderDemoStart()` (state `demoStartLens`, pool
+  `demoStartPool` set from the demo slice in `loadDemo()`) shows the same
+  `#start-lens`-style pill toggle, but only **Best value** (SV/Booster,
+  fit-independent) ranks for real — reusing `startPrimary(p,'value')` in a
+  non-interactive `demoPickCard()` (no `.row-open` drill button: the drill-down
+  lives behind sign-in). **Safe pick** and **Best deal** render a locked
+  `.overview-empty` panel (an `#i-lock` icon + a `.signin-open` "Sign in to rank
+  by…") because both read the catalogue-wide age fit the 3-set slice can't
+  reproduce — the concrete answer to *what an account buys*, and it keeps the
+  no-fair-price/verdict honesty rule below. The locked panel also lists the
+  **unlock-toolkit tiles** (`.unlock-grid`/`.unlock-tile` + sprite icons) — the
+  five things an account buys. The `.signin-open` handler is **delegated** (one
+  document listener) so the dynamically-injected locked-panel button opens the
+  auth overlay like the static ones.
+- **The demo has an animated "See how it reads a product" panel** —
+  `mountDemoVizzes()` injects three **sample** SVG charts (`scatterVizSVG` value
+  vs age + fit, `fairPriceVizSVG` actual vs fair-price line, `momentumVizSVG`
+  30-day diverging bars) into `#demo-viz-scatter/-fair/-momentum` and reveals them
+  on scroll via its own IntersectionObserver (the tab-pane reveal handler doesn't
+  cover `#demo-page`). Motion is **CSS-only**, gated on `.in-view` — the classes
+  `viz-draw`/`viz-fade`/`viz-pop`/`viz-grow`/`viz-pulse` map to keyframes, timed
+  per element by the inline `--d` custom property — and every animation collapses
+  under `prefers-reduced-motion` (elements shown in their final state). **The data
+  is illustrative and every chart is badged `Sample`**, so no real product's fair
+  price is shown (the demo honesty rule holds). Token-only (var() colours, scale
+  font-sizes; chart-internal text uses SVG `font-size` attributes, not CSS, so the
+  design-token check is satisfied). Two layout/timing notes: the three charts sit
+  in a **2-up grid** (`.demo-viz-grid` — scatter + fair-price side by side,
+  momentum full-width; one column ≤720px), and the attention `viz-pulse` is
+  **finite** (a few pulses, then invisible) — an *infinite* animation never
+  resolves its `getAnimations()` finished promise and hangs the a11y `settle()`
+  helper.
 - **`#tab-welcome` is a signed-in landing** — where to go, and links to the same
   explanations. It must not grow a second pitch; if you find yourself writing
   what the app is *for* on this tab, it belongs on the demo page.
+- **The "At a glance" KPI strip lives on Welcome, not Analysis.** The four-tile
+  `.kpi-row` (Products Tracked · Top Score age-weighted · Best Value/Booster ·
+  Newest Release) is a *dataset teaser*, not the answer — two of its tiles just
+  restate the Where-to-start Safe/Value #1 — so it sits under the Welcome hero
+  behind an **"At a glance"** `.section-eyebrow`, and Analysis opens straight on
+  the Where-to-start shortlist with no KPI row above it. `updateKPIs()` fills the
+  tiles **by id** (location-independent), so the move needed no wiring change;
+  `kpi-total` is set separately from `analysisProducts().length`. The strip's
+  `.kpi-intro` points at the shared **What the numbers mean** glossary (the
+  `.glossary-open` button lower on the tab) rather than defining a term twice —
+  keep it that way (shared-explanation rule). Don't restore a KPI row above the
+  Analysis answer.
 - **The explanations are shared dialogs.** `#method-modal` (the fair-price
   method) and `#glossary-modal` (every term) are opened by **class**, not id —
   `.method-open` / `.glossary-open` — precisely so a third caller costs nothing

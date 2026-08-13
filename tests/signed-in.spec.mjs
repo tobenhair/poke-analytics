@@ -139,6 +139,54 @@ test('the demo page pitches before it lists, and is honest about what it withhol
   expect(pageErrors).toEqual([]);
 });
 
+test('the demo Where-to-start teaser ranks by value live and locks the fit-based lenses', async ({ page }) => {
+  // The signed-in Analysis tab opens on the Where-to-start shortlist; the demo
+  // shows the same block but only Best value (SV/Booster, fit-independent) is
+  // live — Safe pick and Best deal are locked behind sign-in, because both read
+  // a catalogue-wide fit the 3-set demo slice can't reproduce (the demo's
+  // no-fair-price/verdict honesty rule). This is the concrete "why sign in".
+  const pageErrors = await boot(page);
+  await expect(page.locator('#demo-page')).toBeVisible();
+
+  // Best value is the default and it renders real ranked cards, headline ×value.
+  await expect(page.locator('#demo-start-lens .pill[data-lens="value"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#demo-start-list .pick-item').first()).toBeVisible();
+  await expect(page.locator('#demo-start-list .pick-score').first()).toContainText('value');
+  // Honesty rule: no fair price / verdict leaks into the live value lens.
+  await expect(page.locator('#demo-start-list')).not.toContainText('fair');
+
+  // Safe pick and Best deal are locked — no cards, the unlock-toolkit tiles, and
+  // a sign-in that opens auth.
+  for (const lens of ['safe', 'deal']) {
+    await page.locator(`#demo-start-lens .pill[data-lens="${lens}"]`).click();
+    await expect(page.locator('#demo-start-list .pick-item')).toHaveCount(0);
+    await expect(page.locator('#demo-start-list')).toContainText('Sign in');
+    await expect(page.locator('#demo-start-list .unlock-tile')).toHaveCount(5);
+  }
+  await page.locator('#demo-start-list .signin-open').click();
+  await expect(page.locator('#auth-overlay')).toBeVisible();
+
+  expect(pageErrors).toEqual([]);
+});
+
+test('the demo mounts three "see it in action" sample charts, drawn on scroll', async ({ page }) => {
+  // Illustrative SVG charts (value-vs-age scatter, fair-price line, momentum
+  // bars) that teach the pitch; badged Sample, so no real product's fair price
+  // is shown (the demo honesty rule). They animate on scroll into view via
+  // mountDemoVizzes()'s IntersectionObserver.
+  const pageErrors = await boot(page);
+  await expect(page.locator('#demo-viz-scatter svg')).toBeVisible();
+  await expect(page.locator('#demo-viz-fair svg')).toBeVisible();
+  await expect(page.locator('#demo-viz-momentum svg')).toBeVisible();
+  // Each is labelled a Sample, keeping the no-real-fair-price rule visible.
+  await expect(page.locator('.demo-viz .demo-viz-badge').first()).toHaveText('Sample');
+  // Scrolling a chart into view triggers its reveal (draw-on) class.
+  const firstViz = page.locator('.demo-viz').first();
+  await firstViz.scrollIntoViewIfNeeded();
+  await expect(firstViz).toHaveClass(/in-view/);
+  expect(pageErrors).toEqual([]);
+});
+
 test('signing in lands on the Welcome tab, which shares the demo page explanations', async ({ page }) => {
   const pageErrors = await boot(page);
   await signIn(page, 'user@test.local');

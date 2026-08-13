@@ -358,7 +358,7 @@ test('section explainers start collapsed at every width and remember the choice'
   await openTab(page, 'analysis');
 
   const shown = () => page.evaluate(() =>
-    [...document.querySelectorAll('#tab-analysis .section-desc, #tab-analysis .kpi-intro')].filter((d) => !d.hidden).length);
+    [...document.querySelectorAll('#tab-analysis .section-desc')].filter((d) => !d.hidden).length);
   const firstToggle = page.locator('#tab-analysis .desc-toggle').first();
 
   expect(await shown(), 'explainers start collapsed').toBe(0);
@@ -375,19 +375,19 @@ test('section explainers start collapsed at every width and remember the choice'
   await page.locator('#desc-toggle-all').click();
   expect(await shown(), 'the global control hides every explainer').toBe(0);
 
-  // From all-collapsed it shows every one. (Four numbered sections' .section-desc
-  // plus the KPI intro — Relative Value and Momentum folded into §01 The Board's
+  // From all-collapsed it shows every one. (The four numbered sections'
+  // .section-desc — Relative Value and Momentum folded into §01 The Board's
   // Value/Relative/Momentum lens toggle, and the redundant Value-Per-Booster bar
-  // chart was retired, so the analysis tab now has four sections.)
+  // chart was retired; the KPI intro moved to the Welcome landing with its strip.)
   await expect(page.locator('#desc-toggle-all')).toHaveText('Show explanations');
   await page.locator('#desc-toggle-all').click();
-  expect(await shown()).toBe(5);
+  expect(await shown()).toBe(4);
 
   // The choice survives a reload — the whole point of persisting it.
   await page.reload();
   await expect(page.locator('#product-tbody tr').first()).toBeAttached();
   await openTab(page, 'analysis');
-  expect(await shown(), 'expanded state should persist').toBe(5);
+  expect(await shown(), 'expanded state should persist').toBe(4);
 
   // A desktop visitor with nothing stored gets the same condensed page — the
   // default is width-independent, so the first view is the numbers.
@@ -398,7 +398,7 @@ test('section explainers start collapsed at every width and remember the choice'
   await freshPage.goto('/?admin=1');
   await expect(freshPage.locator('#product-tbody tr').first()).toBeAttached();
   const desktopShown = await freshPage.evaluate(() =>
-    [...document.querySelectorAll('#tab-analysis .section-desc, #tab-analysis .kpi-intro')].filter((d) => !d.hidden).length);
+    [...document.querySelectorAll('#tab-analysis .section-desc')].filter((d) => !d.hidden).length);
   expect(desktopShown, 'desktop starts collapsed too').toBe(0);
   // …and the ⓘ that stands in for each one is visible, not hover-gated.
   const markOpacity = await freshPage.locator('#tab-analysis .desc-toggle').first().evaluate((e) => getComputedStyle(e).opacity);

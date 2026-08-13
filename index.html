@@ -1840,6 +1840,62 @@
     font-size: var(--text-xl); color: var(--text); line-height: 1.6;
   }
   .demo-block { margin-bottom: 18px; }
+  /* ── Demo "see it in action" animated illustrations ──
+     Sample SVG charts (clearly badged; illustrative data, never a real product's
+     fair price — the demo honesty rule) that draw on when scrolled into view
+     (.in-view, set by a small IntersectionObserver). They teach the pitch's
+     ideas — value vs age, fair price, timing. Token-only; reduced-motion safe. */
+  .demo-viz { padding: 16px 20px 18px; }
+  /* Two-up on wider screens (scatter + fair-price side by side, momentum full
+     width below) so the illustrations stay contained; one column on a phone. */
+  .demo-viz-grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .demo-viz-grid > .demo-viz:nth-child(2) { border-left: 1px solid var(--hairline); }
+  .demo-viz-grid > .demo-viz:nth-child(3) { grid-column: 1 / -1; border-top: 1px solid var(--hairline); }
+  @media (max-width: 720px) {
+    .demo-viz-grid { grid-template-columns: 1fr; }
+    .demo-viz-grid > .demo-viz:nth-child(2) { border-left: none; border-top: 1px solid var(--hairline); }
+  }
+  .demo-viz-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 2px; }
+  .demo-viz-title { font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--text); }
+  .demo-viz-badge { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 2px 9px; flex: none; }
+  .demo-viz-sub { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--muted); margin: 0 0 6px; line-height: 1.5; }
+  .viz-svg { width: 100%; height: auto; display: block; }
+  .viz-svg .ax { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); fill: var(--muted); }
+  .viz-svg .grid line { stroke: var(--hairline); stroke-width: 1; }
+  .viz-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--muted); }
+  .viz-legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid currentColor; vertical-align: middle; margin-right: 6px; }
+  .viz-legend b { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; margin-right: 6px; }
+  /* Resting (pre-in-view) states, so nothing flashes before it animates. */
+  .viz-draw { stroke-dasharray: 1; stroke-dashoffset: 1; }
+  .viz-fade { opacity: 0; }
+  .viz-pop  { opacity: 0; transform-box: fill-box; transform-origin: center; transform: scale(0.1); }
+  .viz-grow { transform-box: fill-box; transform-origin: var(--go, left) center; transform: scaleX(0); }
+  /* Play once, only after scrolled into view. Per-element delay via --d. */
+  .demo-viz.in-view .viz-draw { animation: vizDraw 1.3s var(--ease) var(--d, 0s) forwards; }
+  .demo-viz.in-view .viz-fade { animation: vizFade 0.6s var(--ease) var(--d, 0s) forwards; }
+  .demo-viz.in-view .viz-pop  { animation: vizPop 0.45s var(--ease) var(--d, 0s) forwards; }
+  .demo-viz.in-view .viz-grow { animation: vizGrow 0.55s var(--ease) var(--d, 0s) forwards; }
+  /* Finite (not infinite): a few attention pulses, then hold invisible. An
+     infinite animation never resolves its getAnimations() finished promise,
+     which would hang the a11y settle() helper. */
+  .demo-viz.in-view .viz-pulse { animation: vizPulse 1.8s ease-out var(--d, 1.5s) 3 forwards; }
+  @keyframes vizDraw  { to { stroke-dashoffset: 0; } }
+  @keyframes vizFade  { to { opacity: 1; } }
+  @keyframes vizPop   { to { opacity: 1; transform: scale(1); } }
+  @keyframes vizGrow  { to { transform: scaleX(1); } }
+  @keyframes vizPulse { 0% { opacity: 0.55; transform: scale(0.6); } 70% { opacity: 0; transform: scale(2.3); } 100% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .demo-viz .viz-draw { stroke-dashoffset: 0; }
+    .demo-viz .viz-fade, .demo-viz .viz-pop, .demo-viz .viz-grow { opacity: 1; transform: none; }
+    .demo-viz .viz-pulse { animation: none; opacity: 0; }
+  }
+  /* Unlock-toolkit tiles (the locked-lens "what an account buys"). */
+  .unlock-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); gap: 10px; }
+  .unlock-tile { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--bg3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); }
+  .unlock-ic { flex: none; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: rgba(244,198,81,0.10); border: 1px solid rgba(244,198,81,0.22); }
+  .unlock-ic .icon { color: var(--accent); }
+  .unlock-t { font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--text); }
+  .unlock-d { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--muted); margin-top: 2px; }
   /* A row of text-weight actions. Shared by the demo page and the Welcome tab,
      which open the same two dialogs. */
   .link-row { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 40px; }
@@ -2348,10 +2404,51 @@
       </div>
     </div>
 
+    <!-- See it in action — the three ideas above, drawn on as you reach them.
+         Illustrative (Sample-badged) SVG charts, mounted + revealed by
+         mountDemoVizzes(); no real product's fair price is shown here. -->
+    <h2 class="section-eyebrow">See how it reads a product</h2>
+    <div class="panel demo-block demo-viz-grid">
+      <div class="demo-viz">
+        <div class="demo-viz-head"><span class="demo-viz-title">Value, not price — and age moves the bar</span><span class="demo-viz-badge">Sample</span></div>
+        <p class="demo-viz-sub">Every product plotted by value density against age. The line is what's normal for each age — below it is a deal.</p>
+        <div id="demo-viz-scatter"></div>
+        <div class="viz-legend"><span style="color:var(--accent3)"><b style="background:var(--accent3)"></b>Box</span><span style="color:var(--accent4)"><b style="background:var(--accent4)"></b>ETB</span><span style="color:var(--accent)"><b style="background:var(--accent)"></b>Bundle</span></div>
+      </div>
+      <div class="demo-viz">
+        <div class="demo-viz-head"><span class="demo-viz-title">The verdict — actual price vs. fair price</span><span class="demo-viz-badge">Sample</span></div>
+        <p class="demo-viz-sub">Read that expectation back into euros and track it over time. Under the fair-price line is a buying window.</p>
+        <div id="demo-viz-fair"></div>
+        <div class="viz-legend"><span style="color:var(--accent)"><i></i>Actual price</span><span style="color:var(--accent4)"><i style="border-top-style:dashed"></i>Fair price for its age</span></div>
+      </div>
+      <div class="demo-viz">
+        <div class="demo-viz-head"><span class="demo-viz-title">When to buy — spot the dips</span><span class="demo-viz-badge">Sample</span></div>
+        <p class="demo-viz-sub">30-day price change by set. The biggest dips down from a peak are a possible buying window.</p>
+        <div id="demo-viz-momentum"></div>
+      </div>
+    </div>
+
     <p class="link-row">
       <button type="button" class="text-link method-open" aria-haspopup="dialog">How the fair price works</button>
       <button type="button" class="text-link glossary-open" aria-haspopup="dialog">What the numbers mean</button>
     </p>
+
+    <!-- Where to start — the same three-lens shortlist the signed-in Analysis tab
+         opens on. Only Best value (SV/Booster, fit-independent) ranks for real
+         here; Safe pick and Best deal show a locked "sign in to rank by…" state,
+         because both read a fit across the whole catalogue, which the 3-set demo
+         slice can't reproduce (the demo's fair-price/verdict honesty rule). It is
+         the concrete answer to "why make an account". -->
+    <h2 class="section-eyebrow">Where to start</h2>
+    <div class="panel demo-block">
+      <div class="pill-group" id="demo-start-lens" role="group" aria-label="Rank the shortlist by" style="padding:18px 24px 0;">
+        <button class="pill active" type="button" data-lens="value" aria-pressed="true">Best value</button>
+        <button class="pill" type="button" data-lens="safe" aria-pressed="false">Safe pick</button>
+        <button class="pill" type="button" data-lens="deal" aria-pressed="false">Best deal</button>
+      </div>
+      <p class="overview-lead" id="demo-start-lead"></p>
+      <div id="demo-start-list"></div>
+    </div>
 
     <!-- Latest news teaser (TCG-first) — same shared component and #news-modal
          as the signed-in app, so a logged-out visitor gets a reason to return. -->
@@ -2493,6 +2590,36 @@
         </p>
       </div>
 
+      <!-- Dataset-orientation banner. Relocated here from the Analysis tab: it's
+           a teaser of the dataset, not the answer, so the landing is its home and
+           Analysis keeps opening on the answer. Same tile ids, so updateKPIs()
+           still fills them. Definitions live in the shared glossary, not a
+           second copy here. -->
+      <h2 class="section-eyebrow">At a glance</h2>
+      <p class="kpi-intro" style="margin-top:0">Your tracked dataset in four numbers. What each one means is in <em>What the numbers mean</em>, below.</p>
+      <div class="kpi-row fade-in" style="animation-delay:0.05s">
+        <div class="kpi" style="--kpi-color: var(--accent)">
+          <div class="kpi-label">Products Tracked</div>
+          <div class="kpi-value" id="kpi-total">31</div>
+          <div class="kpi-sub">Box · ETB · Bundle · Pack</div>
+        </div>
+        <div class="kpi" style="--kpi-color: var(--accent3)">
+          <div class="kpi-label">Top Score (Age-Weighted)</div>
+          <div class="kpi-value" id="kpi-top">—</div>
+          <div class="kpi-sub" id="kpi-top-name">—</div>
+        </div>
+        <div class="kpi" style="--kpi-color: var(--accent4)">
+          <div class="kpi-label">Best Value / Booster</div>
+          <div class="kpi-value" id="kpi-best-val">—</div>
+          <div class="kpi-sub" id="kpi-best-val-name">—</div>
+        </div>
+        <div class="kpi" style="--kpi-color: var(--accent2)">
+          <div class="kpi-label">Newest Release</div>
+          <div class="kpi-value" id="kpi-newest">—</div>
+          <div class="kpi-sub" id="kpi-newest-name">—</div>
+        </div>
+      </div>
+
       <h2 class="section-eyebrow">Where to go</h2>
       <div class="welcome-cards">
 
@@ -2605,31 +2732,9 @@
     <div id="overview-unproven"></div>
   </div>
 
-  <!-- KPIs -->
-  <p class="kpi-intro"><strong>At-a-glance headline metrics.</strong> <em>Products Tracked</em> is the size of your dataset · <em>Top Score</em> is the current #1 by Weighted Score · <em>Best Value / Booster</em> is the highest SV/Booster (set value as a multiple of one booster's cost) · <em>Newest Release</em> flags the most recent set. Every metric is explained in the numbered sections below.</p>
-  <div class="kpi-row fade-in" style="animation-delay:0.05s">
-    <div class="kpi" style="--kpi-color: var(--accent)">
-      <div class="kpi-label">Products Tracked</div>
-      <div class="kpi-value" id="kpi-total">31</div>
-      <div class="kpi-sub">Box · ETB · Bundle · Pack</div>
-    </div>
-    <div class="kpi" style="--kpi-color: var(--accent3)">
-      <div class="kpi-label">Top Score (Age-Weighted)</div>
-      <div class="kpi-value" id="kpi-top">—</div>
-      <div class="kpi-sub" id="kpi-top-name">—</div>
-    </div>
-    <div class="kpi" style="--kpi-color: var(--accent4)">
-      <div class="kpi-label">Best Value / Booster</div>
-      <div class="kpi-value" id="kpi-best-val">—</div>
-      <div class="kpi-sub" id="kpi-best-val-name">—</div>
-    </div>
-    <div class="kpi" style="--kpi-color: var(--accent2)">
-      <div class="kpi-label">Newest Release</div>
-      <div class="kpi-value" id="kpi-newest">—</div>
-      <div class="kpi-sub" id="kpi-newest-name">—</div>
-    </div>
-  </div>
-
+  <!-- The KPI summary strip moved to the Welcome landing (dataset orientation
+       belongs there; on Analysis its Top-Score / Best-Value tiles just restated
+       the Where-to-start #1, and it pushed the answer down). -->
 
   <!-- Filters -->
   <div class="filters fade-in" style="animation-delay:0.1s">
@@ -7465,6 +7570,173 @@ async function loadFromSupabase() {
   loadNews();   // fire-and-forget; renders the news teaser/overlay when it returns
 }
 
+// ── Demo "Where to start" teaser ──
+// The signed-in Analysis tab opens on the three-lens Where-to-start shortlist
+// (renderOverview / startLens). The demo shows the same block, honouring the rule
+// that the demo never shows a fair price or a verdict — its 3-release-date RLS
+// slice can't reproduce the catalogue-wide age fit. So only **Best value**
+// (SV/Booster, fit-independent) ranks for real; **Safe pick** and **Best deal**
+// show a locked "sign in to rank by…" state — the concrete answer to what an
+// account buys. Demo-only render path; reuses the pick-card components.
+let demoStartLens = 'value';   // 'value' is the only fit-independent lens → default + only live one
+let demoStartPool = [];        // the demo slice (set in loadDemo), ranked by svPerBooster
+
+function syncDemoLensPills(active) {
+  document.querySelectorAll('#demo-start-lens .pill').forEach(p => {
+    const on = p.dataset.lens === active;
+    p.classList.toggle('active', on);
+    p.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+// A demo pick card: non-interactive (the drill-down lives behind sign-in) and
+// value-headline only — no score or fair-price gap, keeping the honesty rule.
+function demoPickCard(p, rank) {
+  const medal = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+  return `
+    <div class="pick-item">
+      <div class="pick-rank ${medal}">${rank}</div>
+      <div class="pick-info">
+        <div class="pick-name">${p.name}</div>
+        <div class="pick-meta">${typeLabel(p.type)} · ${money(p.price)}</div>
+      </div>
+      ${startPrimary(p, 'value')}
+    </div>`;
+}
+
+function renderDemoStart() {
+  const lead = document.getElementById('demo-start-lead');
+  const list = document.getElementById('demo-start-list');
+  if (!lead || !list) return;
+  syncDemoLensPills(demoStartLens);
+
+  if (demoStartLens === 'value') {
+    lead.innerHTML = `Ranked by <strong>value per booster</strong> — the most set value for each booster's price. This ranking needs no catalogue-wide fit, so it's live here.`;
+    const ranked = [...demoStartPool].sort((a, b) => b.svPerBooster - a.svPerBooster).slice(0, START_COUNT);
+    list.innerHTML = ranked.length
+      ? ranked.map((p, i) => demoPickCard(p, i + 1)).join('')
+      : `<div class="overview-empty">Preview unavailable right now.</div>`;
+    return;
+  }
+  // Safe pick / Best deal both read the catalogue-wide fit → locked in the demo.
+  const label = demoStartLens === 'safe' ? 'age-weighted score' : 'fair price';
+  const why = demoStartLens === 'safe'
+    ? 'weighs value against how settled each set is'
+    : 'measures how far under fair price each product sits';
+  lead.innerHTML = `Ranked by <strong>${label}</strong> — ${why}, read from a fit across every tracked set.`;
+  const tiles = [
+    ['i-deal', 'Fair price', 'the € it should cost for its age'],
+    ['i-info', 'Buy / avoid verdict', 'in plain words'],
+    ['i-analysis', 'Price history', 'every tracked snapshot'],
+    ['i-portfolio', 'Portfolio & P&L', 'value your own holdings'],
+    ['i-bell', 'Price alerts', 'buy-below targets'],
+  ].map(([ic, t, d]) => `<div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#${ic}"/></svg></span><div><div class="unlock-t">${t}</div><div class="unlock-d">${d}</div></div></div>`).join('');
+  list.innerHTML = `
+    <div class="overview-empty" style="display:flex; align-items:center; gap:12px; padding-bottom:14px;">
+      <svg class="icon icon-lg" aria-hidden="true" style="flex:none"><use href="#i-lock"/></svg>
+      <span>This ranking reads the whole catalogue, which the preview can't show. <button type="button" class="text-link signin-open" aria-haspopup="dialog">Sign in</button> to rank by ${label} — and unlock the full toolkit:</span>
+    </div>
+    <div class="unlock-grid" style="padding:0 24px 22px;">${tiles}</div>`;
+}
+
+// ── Demo "see it in action" illustrations ──
+// Three sample SVG charts that draw on when scrolled into view, teaching the
+// pitch's ideas. Illustrative data only, badged "Sample" — never a real
+// product's fair price, so the demo honesty rule holds. Animation is CSS-driven,
+// gated on `.in-view` (mountDemoVizzes's IntersectionObserver) and reduced-motion
+// safe. The classes viz-draw/viz-fade/viz-pop/viz-grow/viz-pulse map to keyframes
+// in the stylesheet; per-element timing is the inline `--d` custom property.
+
+// Chart 1 — value density vs age, with the "normal for age" fit line and one
+// under-the-line highlight (steps "value, not price" + "age moves the bar").
+function scatterVizSVG() {
+  const pts = [[0.3,150,'a4'],[0.5,182,'a3'],[0.8,206,'a'],[1.0,170,'a3'],[1.3,146,'a4'],[1.6,152,'a3'],
+    [1.9,96,'a4',1],[2.2,150,'a3'],[2.6,140,'a'],[3.0,130,'a3'],[3.5,120,'a4'],[4.2,96,'a3'],[5.0,86,'a'],[6.0,62,'a3']];
+  const col = { a:'var(--accent)', a3:'var(--accent3)', a4:'var(--accent4)' };
+  const X0=66,X1=610,Y0=40,Y1=214, AX=6.5, VLO=40,VHI=215;
+  const xAt=a=>X0+(a/AX)*(X1-X0), yAt=v=>Y1-((v-VLO)/(VHI-VLO))*(Y1-Y0), fitY=a=>190-21*a;
+  const grid=[70,110,150,190].map(v=>`<line x1="${X0}" y1="${yAt(v).toFixed(1)}" x2="${X1}" y2="${yAt(v).toFixed(1)}"/>`).join('');
+  const xl=[0,1,2,3,4,5,6].map(a=>`<text class="ax" x="${xAt(a).toFixed(1)}" y="234" text-anchor="middle">${a}${a===6?'yr':''}</text>`).join('');
+  const dots=pts.map(([a,v,c,hl],i)=>{
+    const x=xAt(a).toFixed(1), y=yAt(v).toFixed(1), d=(0.06+i*0.05).toFixed(2);
+    const ring=hl?`<circle class="viz-pop viz-pulse" style="--d:1.5s" cx="${x}" cy="${y}" r="12" fill="none" stroke="${col[c]}" stroke-width="2"/>`:'';
+    return `${ring}<circle class="viz-pop" style="--d:${d}s" cx="${x}" cy="${y}" r="${hl?6.5:6}" fill="${col[c]}" fill-opacity="${hl?1:0.85}" stroke="var(--bg)" stroke-width="1.5"/>`;
+  }).join('');
+  const hx=xAt(1.9), hy=yAt(96);
+  return `<svg class="viz-svg" viewBox="0 0 640 244" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Sample chart: value per booster versus age, with a fitted line">
+    <text class="ax" x="66" y="30">value / booster</text><text class="ax" x="610" y="234" text-anchor="end">age →</text>
+    <g class="grid">${grid}</g>${xl}
+    <path class="viz-draw" style="--d:.55s" d="M${xAt(0).toFixed(1)},${yAt(fitY(0)).toFixed(1)} L${xAt(AX).toFixed(1)},${yAt(fitY(AX)).toFixed(1)}" pathLength="1" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="6 5"/>
+    ${dots}
+    <g class="viz-fade" style="--d:1.7s"><rect x="${(hx+16).toFixed(0)}" y="${(hy-14).toFixed(0)}" width="182" height="34" rx="8" fill="var(--bg3)" stroke="var(--hairline)"/>
+      <text x="${(hx+28).toFixed(0)}" y="${(hy+1).toFixed(0)}" font-size="12.5" fill="var(--accent4)" font-weight="600">Under the line</text>
+      <text x="${(hx+28).toFixed(0)}" y="${(hy+15).toFixed(0)}" font-size="11" fill="var(--muted)">underpriced for its age</text></g>
+  </svg>`;
+}
+
+// Chart 2 — actual price (draws on) vs the fair-price line, ending under fair.
+function fairPriceVizSVG() {
+  const price=[182,178,171,151,141,133,129,136,143,139,130], fair=[166,165,164,162,160,158,156,155,153,151,150];
+  const X0=64,X1=612,Y0=40,Y1=206, LO=118,HI=192;
+  const xAt=i=>X0+(i/(price.length-1))*(X1-X0), yAt=v=>Y1-((v-LO)/(HI-LO))*(Y1-Y0);
+  const ln=a=>a.map((v,i)=>`${i?'L':'M'}${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
+  const dx=xAt(price.length-1), dy=yAt(price[price.length-1]);
+  const grid=[130,150,170,190].map(v=>`<line x1="${X0}" y1="${yAt(v).toFixed(1)}" x2="${X1}" y2="${yAt(v).toFixed(1)}"/>`).join('');
+  const months=['Jan','','Mar','','May','','Jul','','Sep','','Now'];
+  const xl=months.map((m,i)=>m?`<text class="ax" x="${xAt(i).toFixed(1)}" y="228" text-anchor="middle">${m}</text>`:'').join('');
+  return `<svg class="viz-svg" viewBox="0 0 640 238" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Sample chart: actual price versus fair price over time">
+    <defs><linearGradient id="vfpg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity="0.20"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    <g class="grid">${grid}</g>${xl}
+    <path class="viz-fade" style="--d:.85s" d="${ln(price)} L${X1},${Y1} L${X0},${Y1} Z" fill="url(#vfpg)"/>
+    <path class="viz-fade" style="--d:.35s" d="${ln(fair)}" fill="none" stroke="var(--accent4)" stroke-width="2" stroke-dasharray="7 5"/>
+    <path class="viz-draw" d="${ln(price)}" pathLength="1" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle class="viz-pulse" style="--d:1.5s" cx="${dx.toFixed(1)}" cy="${dy.toFixed(1)}" r="5" fill="var(--accent)"/>
+    <circle class="viz-pop" style="--d:1.2s" cx="${dx.toFixed(1)}" cy="${dy.toFixed(1)}" r="4.5" fill="var(--accent)" stroke="var(--bg)" stroke-width="2"/>
+    <g class="viz-fade" style="--d:1.45s"><rect x="${(dx-190).toFixed(0)}" y="${(dy-44).toFixed(0)}" width="180" height="34" rx="8" fill="var(--bg3)" stroke="var(--hairline)"/>
+      <text x="${(dx-178).toFixed(0)}" y="${(dy-28).toFixed(0)}" font-size="12.5" fill="var(--accent4)" font-weight="600">€130 · 13% under fair</text>
+      <text x="${(dx-178).toFixed(0)}" y="${(dy-15).toFixed(0)}" font-size="11" fill="var(--muted)">a buying window</text></g>
+  </svg>`;
+}
+
+// Chart 3 — 30-day change by set as diverging bars (grow from the centre line);
+// green up / red down, the biggest dip flagged as a buying window.
+function momentumVizSVG() {
+  const rows=[['Prismatic',9],['Surging',4],['151',-3],['Obsidian',-8],['Paldea',-14],['Twilight',-18]];
+  const CX=316, BAR=176, MAXABS=20, Y0=22, RH=30, H=Y0+rows.length*RH+6;
+  const bars=rows.map(([name,chg],i)=>{
+    const y=Y0+i*RH, w=Math.min(Math.abs(chg)/MAXABS,1)*BAR, pos=chg>=0;
+    const x=pos?CX:CX-w, go=pos?'left':'right', col=pos?'var(--accent4)':'var(--accent2)';
+    const dip=chg===-18;
+    return `<g>
+      <text class="ax" x="8" y="${y+12}">${name}</text>
+      <rect class="viz-grow" style="--go:${go}; --d:${(0.1+i*0.08).toFixed(2)}s" x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="16" rx="3" fill="${col}" fill-opacity="${dip?1:0.85}"/>
+      <text class="viz-fade" style="--d:${(0.55+i*0.08).toFixed(2)}s" x="${(pos?CX+w+8:CX-w-8).toFixed(1)}" y="${y+12}" text-anchor="${pos?'start':'end'}" font-size="12" fill="${col}">${pos?'+':''}${chg}%${dip?' · a dip':''}</text>
+    </g>`;
+  }).join('');
+  return `<svg class="viz-svg" viewBox="0 0 640 ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Sample chart: 30-day price change by set">
+    <line x1="${CX}" y1="14" x2="${CX}" y2="${H-8}" stroke="var(--hairline)"/>
+    <text class="ax" x="${CX}" y="12" text-anchor="middle">30-day change</text>
+    ${bars}
+  </svg>`;
+}
+
+// Mount the sample charts into their placeholders and reveal-on-scroll (drawing
+// them on only when reached). Idempotent; falls back to shown-immediately without
+// IntersectionObserver.
+function mountDemoVizzes() {
+  const map = { 'demo-viz-scatter': scatterVizSVG, 'demo-viz-fair': fairPriceVizSVG, 'demo-viz-momentum': momentumVizSVG };
+  Object.entries(map).forEach(([id, fn]) => {
+    const el = document.getElementById(id);
+    if (el && !el.dataset.mounted) { el.innerHTML = fn(); el.dataset.mounted = '1'; }
+  });
+  const vizzes = [...document.querySelectorAll('.demo-viz')];
+  if (!('IntersectionObserver' in window)) { vizzes.forEach(v => v.classList.add('in-view')); return; }
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in-view'); io.unobserve(e.target); } });
+  }, { threshold: 0.25 });
+  vizzes.forEach(v => { if (!v.classList.contains('in-view')) io.observe(v); });
+}
+
 // ── Pre-login demo ──
 // Loads whatever the anon RLS policy exposes (the 3 newest release-date sets),
 // derives the same metrics as the full app, groups by set, and renders read-only
@@ -7514,6 +7786,9 @@ async function loadDemo() {
                     .sort((a, b) => b.svPerBooster - a.svPerBooster),
   }));
   renderDemo(groups);
+  demoStartPool = usable;   // the Where-to-start teaser ranks the same slice by value
+  renderDemoStart();
+  mountDemoVizzes();        // sample "see it in action" charts, revealed on scroll
   if (window.__hideAppLoader) window.__hideAppLoader();   // demo is ready — drop the splash
   loadNews();   // public-read: the demo page shows the same TCG-first teaser
 }
@@ -7722,11 +7997,16 @@ function wireAuthControls() {
   // Open the sign-in overlay from the demo page; close it back to the demo.
   // Two openers — the header button and the one closing the pitch — because
   // the page is long enough that scrolling back up to sign in is friction.
-  [...document.querySelectorAll('.signin-open')].forEach(btn => {
-    btn.addEventListener('click', () => {
-      showAuthError('');
-      showAuthOverlay(true);   // moves focus to the first field itself
-    });
+  // Delegated so it also covers the sign-in button the demo Where-to-start
+  // teaser injects into a locked lens (rendered after this runs).
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.signin-open')) return;
+    showAuthError('');
+    showAuthOverlay(true);   // moves focus to the first field itself
+  });
+  // Demo Where-to-start lens toggle (Best value live; Safe/Deal locked).
+  document.querySelectorAll('#demo-start-lens .pill').forEach(pill => {
+    pill.addEventListener('click', () => { demoStartLens = pill.dataset.lens; renderDemoStart(); });
   });
   document.getElementById('auth-close').addEventListener('click', () => showAuthOverlay(false));
 
