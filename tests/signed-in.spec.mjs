@@ -280,6 +280,21 @@ test('a regular user gets portfolio + alerts but not Data Entry, and edits auto-
     product_id: 'p4', alert_type: 'fixed', target_price: 55,
   });
 
+  // Phone reflow (WCAG 1.4.10): the holding cards must not force horizontal
+  // scroll at 320px. Regressed once because the card grid floored its track at
+  // minmax(280px,1fr) — wider than a small phone — so a card overflowed the
+  // viewport (worst with longer currency strings). Now minmax(min(280px,100%),
+  // 1fr) + the grid item's min-width:0 keep every card inside the viewport.
+  await page.setViewportSize({ width: 320, height: 780 });
+  await expect(page.locator('.holding-card').first()).toBeVisible();
+  const overflow = await page.evaluate(() => {
+    const vw = document.documentElement.clientWidth;
+    const cards = [...document.querySelectorAll('.holding-card')];
+    const widest = Math.max(0, ...cards.map((c) => c.getBoundingClientRect().right));
+    return { pageScrolls: document.documentElement.scrollWidth > vw, cardPast: widest > vw + 0.5 };
+  });
+  expect(overflow).toEqual({ pageScrolls: false, cardPast: false });
+
   expect(pageErrors).toEqual([]);
 });
 
