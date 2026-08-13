@@ -1846,7 +1846,15 @@
      (.in-view, set by a small IntersectionObserver). They teach the pitch's
      ideas — value vs age, fair price, timing. Token-only; reduced-motion safe. */
   .demo-viz { padding: 16px 20px 18px; }
-  .demo-viz + .demo-viz { border-top: 1px solid var(--hairline); }
+  /* Two-up on wider screens (scatter + fair-price side by side, momentum full
+     width below) so the illustrations stay contained; one column on a phone. */
+  .demo-viz-grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .demo-viz-grid > .demo-viz:nth-child(2) { border-left: 1px solid var(--hairline); }
+  .demo-viz-grid > .demo-viz:nth-child(3) { grid-column: 1 / -1; border-top: 1px solid var(--hairline); }
+  @media (max-width: 720px) {
+    .demo-viz-grid { grid-template-columns: 1fr; }
+    .demo-viz-grid > .demo-viz:nth-child(2) { border-left: none; border-top: 1px solid var(--hairline); }
+  }
   .demo-viz-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 2px; }
   .demo-viz-title { font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--text); }
   .demo-viz-badge { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 2px 9px; flex: none; }
@@ -1867,7 +1875,10 @@
   .demo-viz.in-view .viz-fade { animation: vizFade 0.6s var(--ease) var(--d, 0s) forwards; }
   .demo-viz.in-view .viz-pop  { animation: vizPop 0.45s var(--ease) var(--d, 0s) forwards; }
   .demo-viz.in-view .viz-grow { animation: vizGrow 0.55s var(--ease) var(--d, 0s) forwards; }
-  .demo-viz.in-view .viz-pulse { animation: vizPulse 2s ease-out var(--d, 2s) infinite; }
+  /* Finite (not infinite): a few attention pulses, then hold invisible. An
+     infinite animation never resolves its getAnimations() finished promise,
+     which would hang the a11y settle() helper. */
+  .demo-viz.in-view .viz-pulse { animation: vizPulse 1.8s ease-out var(--d, 1.5s) 3 forwards; }
   @keyframes vizDraw  { to { stroke-dashoffset: 0; } }
   @keyframes vizFade  { to { opacity: 1; } }
   @keyframes vizPop   { to { opacity: 1; transform: scale(1); } }
@@ -2397,7 +2408,7 @@
          Illustrative (Sample-badged) SVG charts, mounted + revealed by
          mountDemoVizzes(); no real product's fair price is shown here. -->
     <h2 class="section-eyebrow">See how it reads a product</h2>
-    <div class="panel demo-block">
+    <div class="panel demo-block demo-viz-grid">
       <div class="demo-viz">
         <div class="demo-viz-head"><span class="demo-viz-title">Value, not price — and age moves the bar</span><span class="demo-viz-badge">Sample</span></div>
         <p class="demo-viz-sub">Every product plotted by value density against age. The line is what's normal for each age — below it is a deal.</p>

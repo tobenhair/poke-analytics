@@ -505,7 +505,12 @@ explanation exists in two places:
   is illustrative and every chart is badged `Sample`**, so no real product's fair
   price is shown (the demo honesty rule holds). Token-only (var() colours, scale
   font-sizes; chart-internal text uses SVG `font-size` attributes, not CSS, so the
-  design-token check is satisfied).
+  design-token check is satisfied). Two layout/timing notes: the three charts sit
+  in a **2-up grid** (`.demo-viz-grid` — scatter + fair-price side by side,
+  momentum full-width; one column ≤720px), and the attention `viz-pulse` is
+  **finite** (a few pulses, then invisible) — an *infinite* animation never
+  resolves its `getAnimations()` finished promise and hangs the a11y `settle()`
+  helper.
 - **`#tab-welcome` is a signed-in landing** — where to go, and links to the same
   explanations. It must not grow a second pitch; if you find yourself writing
   what the app is *for* on this tab, it belongs on the demo page.
