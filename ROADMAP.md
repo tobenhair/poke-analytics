@@ -708,8 +708,14 @@ stance). What still stands unbuilt:
     pick** and **Best deal** show a **locked "sign in to rank by…" state** (an
     `#i-lock` panel + `.signin-open`) — honouring the rule that the demo shows no
     fair price or verdict (the 3-set anon slice can't reproduce the catalogue-wide
-    fit), and giving the concrete answer to *what an account buys*. Reuses the
-    pick-card components; guarded in `tests/signed-in.spec.mjs`.
+    fit), and giving the concrete answer to *what an account buys* (the locked
+    panel also lists the unlock-toolkit tiles). Reuses the pick-card components.
+    Paired with an animated **"See how it reads a product"** panel — three
+    *Sample*-badged SVG charts (value-vs-age scatter + fit, actual-vs-fair-price
+    line, 30-day momentum diverging bars) that draw on when scrolled into view
+    (CSS-only, reduced-motion safe; illustrative data, so the no-real-fair-price
+    rule holds) — turning the "how to read it" pitch into show-don't-tell.
+    Guarded in `tests/signed-in.spec.mjs`.
   - **Relocate the KPI summary strip.** The Analysis KPI row (Products Tracked ·
     Top Score · Best Value/Booster · Newest Release) is now a *dataset teaser*, and
     two tiles (Top Score age-weighted, Best Value/Booster) merely restate the

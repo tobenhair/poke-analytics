@@ -488,9 +488,24 @@ explanation exists in two places:
   `.overview-empty` panel (an `#i-lock` icon + a `.signin-open` "Sign in to rank
   by…") because both read the catalogue-wide age fit the 3-set slice can't
   reproduce — the concrete answer to *what an account buys*, and it keeps the
-  no-fair-price/verdict honesty rule below. The `.signin-open` handler is
-  **delegated** (one document listener) so the dynamically-injected locked-panel
-  button opens the auth overlay like the static ones.
+  no-fair-price/verdict honesty rule below. The locked panel also lists the
+  **unlock-toolkit tiles** (`.unlock-grid`/`.unlock-tile` + sprite icons) — the
+  five things an account buys. The `.signin-open` handler is **delegated** (one
+  document listener) so the dynamically-injected locked-panel button opens the
+  auth overlay like the static ones.
+- **The demo has an animated "See how it reads a product" panel** —
+  `mountDemoVizzes()` injects three **sample** SVG charts (`scatterVizSVG` value
+  vs age + fit, `fairPriceVizSVG` actual vs fair-price line, `momentumVizSVG`
+  30-day diverging bars) into `#demo-viz-scatter/-fair/-momentum` and reveals them
+  on scroll via its own IntersectionObserver (the tab-pane reveal handler doesn't
+  cover `#demo-page`). Motion is **CSS-only**, gated on `.in-view` — the classes
+  `viz-draw`/`viz-fade`/`viz-pop`/`viz-grow`/`viz-pulse` map to keyframes, timed
+  per element by the inline `--d` custom property — and every animation collapses
+  under `prefers-reduced-motion` (elements shown in their final state). **The data
+  is illustrative and every chart is badged `Sample`**, so no real product's fair
+  price is shown (the demo honesty rule holds). Token-only (var() colours, scale
+  font-sizes; chart-internal text uses SVG `font-size` attributes, not CSS, so the
+  design-token check is satisfied).
 - **`#tab-welcome` is a signed-in landing** — where to go, and links to the same
   explanations. It must not grow a second pitch; if you find yourself writing
   what the app is *for* on this tab, it belongs on the demo page.

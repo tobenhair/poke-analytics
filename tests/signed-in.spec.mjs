@@ -155,15 +155,35 @@ test('the demo Where-to-start teaser ranks by value live and locks the fit-based
   // Honesty rule: no fair price / verdict leaks into the live value lens.
   await expect(page.locator('#demo-start-list')).not.toContainText('fair');
 
-  // Safe pick and Best deal are locked — no cards, a sign-in that opens auth.
+  // Safe pick and Best deal are locked — no cards, the unlock-toolkit tiles, and
+  // a sign-in that opens auth.
   for (const lens of ['safe', 'deal']) {
     await page.locator(`#demo-start-lens .pill[data-lens="${lens}"]`).click();
     await expect(page.locator('#demo-start-list .pick-item')).toHaveCount(0);
     await expect(page.locator('#demo-start-list')).toContainText('Sign in');
+    await expect(page.locator('#demo-start-list .unlock-tile')).toHaveCount(5);
   }
   await page.locator('#demo-start-list .signin-open').click();
   await expect(page.locator('#auth-overlay')).toBeVisible();
 
+  expect(pageErrors).toEqual([]);
+});
+
+test('the demo mounts three "see it in action" sample charts, drawn on scroll', async ({ page }) => {
+  // Illustrative SVG charts (value-vs-age scatter, fair-price line, momentum
+  // bars) that teach the pitch; badged Sample, so no real product's fair price
+  // is shown (the demo honesty rule). They animate on scroll into view via
+  // mountDemoVizzes()'s IntersectionObserver.
+  const pageErrors = await boot(page);
+  await expect(page.locator('#demo-viz-scatter svg')).toBeVisible();
+  await expect(page.locator('#demo-viz-fair svg')).toBeVisible();
+  await expect(page.locator('#demo-viz-momentum svg')).toBeVisible();
+  // Each is labelled a Sample, keeping the no-real-fair-price rule visible.
+  await expect(page.locator('.demo-viz .demo-viz-badge').first()).toHaveText('Sample');
+  // Scrolling a chart into view triggers its reveal (draw-on) class.
+  const firstViz = page.locator('.demo-viz').first();
+  await firstViz.scrollIntoViewIfNeeded();
+  await expect(firstViz).toHaveClass(/in-view/);
   expect(pageErrors).toEqual([]);
 });
 
