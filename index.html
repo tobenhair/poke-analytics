@@ -1870,24 +1870,31 @@
   .viz-fade { opacity: 0; }
   .viz-pop  { opacity: 0; transform-box: fill-box; transform-origin: center; transform: scale(0.1); }
   .viz-grow { transform-box: fill-box; transform-origin: var(--go, left) center; transform: scaleX(0); }
-  /* Play once, only after scrolled into view. Per-element delay via --d. */
-  .demo-viz.in-view .viz-draw { animation: vizDraw 1.3s var(--ease) var(--d, 0s) forwards; }
-  .demo-viz.in-view .viz-fade { animation: vizFade 0.6s var(--ease) var(--d, 0s) forwards; }
-  .demo-viz.in-view .viz-pop  { animation: vizPop 0.45s var(--ease) var(--d, 0s) forwards; }
-  .demo-viz.in-view .viz-grow { animation: vizGrow 0.55s var(--ease) var(--d, 0s) forwards; }
-  /* Finite (not infinite): a few attention pulses, then hold invisible. An
-     infinite animation never resolves its getAnimations() finished promise,
-     which would hang the a11y settle() helper. */
-  .demo-viz.in-view .viz-pulse { animation: vizPulse 1.8s ease-out var(--d, 1.5s) 3 forwards; }
+  /* The build plays after scrolling into view, and mountDemoVizzes() *replays*
+     it on a slow cycle (removing/re-adding .in-view) so a visitor who arrives
+     mid-scroll still sees it — the loop is JS-driven, not CSS `infinite`, so each
+     iteration is finite and resolves its getAnimations() finished promise (an
+     infinite CSS animation would hang the a11y settle() helper). Durations are
+     deliberately unhurried so each step reads; per-element start delay via --d. */
+  .demo-viz.in-view .viz-draw { animation: vizDraw 2s var(--ease) var(--d, 0s) forwards; }
+  .demo-viz.in-view .viz-fade { animation: vizFade 1s var(--ease) var(--d, 0s) forwards; }
+  .demo-viz.in-view .viz-pop  { animation: vizPop 0.7s var(--ease) var(--d, 0s) forwards; }
+  .demo-viz.in-view .viz-grow { animation: vizGrow 0.9s var(--ease) var(--d, 0s) forwards; }
+  .demo-viz.in-view .viz-pulse { animation: vizPulse 2.2s ease-out var(--d, 1.5s) 2 forwards; }
   @keyframes vizDraw  { to { stroke-dashoffset: 0; } }
   @keyframes vizFade  { to { opacity: 1; } }
   @keyframes vizPop   { to { opacity: 1; transform: scale(1); } }
   @keyframes vizGrow  { to { transform: scaleX(1); } }
   @keyframes vizPulse { 0% { opacity: 0.55; transform: scale(0.6); } 70% { opacity: 0; transform: scale(2.3); } 100% { opacity: 0; } }
+  /* Reduced motion: no build, no replay — the finished charts, held static. The
+     selectors match .in-view too (equal specificity to the play rules) so they
+     truly win, and mountDemoVizzes() skips the replay timer here. */
   @media (prefers-reduced-motion: reduce) {
-    .demo-viz .viz-draw { stroke-dashoffset: 0; }
-    .demo-viz .viz-fade, .demo-viz .viz-pop, .demo-viz .viz-grow { opacity: 1; transform: none; }
-    .demo-viz .viz-pulse { animation: none; opacity: 0; }
+    .demo-viz .viz-draw, .demo-viz.in-view .viz-draw { animation: none; stroke-dashoffset: 0; }
+    .demo-viz .viz-fade, .demo-viz.in-view .viz-fade,
+    .demo-viz .viz-pop,  .demo-viz.in-view .viz-pop,
+    .demo-viz .viz-grow, .demo-viz.in-view .viz-grow { animation: none; opacity: 1; transform: none; }
+    .demo-viz .viz-pulse, .demo-viz.in-view .viz-pulse { animation: none; opacity: 0; }
   }
   /* Unlock-toolkit tiles (the locked-lens "what an account buys"). */
   .unlock-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); gap: 10px; }
@@ -7658,17 +7665,17 @@ function scatterVizSVG() {
   const grid=[70,110,150,190].map(v=>`<line x1="${X0}" y1="${yAt(v).toFixed(1)}" x2="${X1}" y2="${yAt(v).toFixed(1)}"/>`).join('');
   const xl=[0,1,2,3,4,5,6].map(a=>`<text class="ax" x="${xAt(a).toFixed(1)}" y="234" text-anchor="middle">${a}${a===6?'yr':''}</text>`).join('');
   const dots=pts.map(([a,v,c,hl],i)=>{
-    const x=xAt(a).toFixed(1), y=yAt(v).toFixed(1), d=(0.06+i*0.05).toFixed(2);
-    const ring=hl?`<circle class="viz-pop viz-pulse" style="--d:1.5s" cx="${x}" cy="${y}" r="12" fill="none" stroke="${col[c]}" stroke-width="2"/>`:'';
+    const x=xAt(a).toFixed(1), y=yAt(v).toFixed(1), d=(0.1+i*0.09).toFixed(2);
+    const ring=hl?`<circle class="viz-pop viz-pulse" style="--d:2.1s" cx="${x}" cy="${y}" r="12" fill="none" stroke="${col[c]}" stroke-width="2"/>`:'';
     return `${ring}<circle class="viz-pop" style="--d:${d}s" cx="${x}" cy="${y}" r="${hl?6.5:6}" fill="${col[c]}" fill-opacity="${hl?1:0.85}" stroke="var(--bg)" stroke-width="1.5"/>`;
   }).join('');
   const hx=xAt(1.9), hy=yAt(96);
   return `<svg class="viz-svg" viewBox="0 0 640 244" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Sample chart: value per booster versus age, with a fitted line">
     <text class="ax" x="66" y="30">value / booster</text><text class="ax" x="610" y="234" text-anchor="end">age →</text>
     <g class="grid">${grid}</g>${xl}
-    <path class="viz-draw" style="--d:.55s" d="M${xAt(0).toFixed(1)},${yAt(fitY(0)).toFixed(1)} L${xAt(AX).toFixed(1)},${yAt(fitY(AX)).toFixed(1)}" pathLength="1" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="6 5"/>
+    <path class="viz-draw" style="--d:.8s" d="M${xAt(0).toFixed(1)},${yAt(fitY(0)).toFixed(1)} L${xAt(AX).toFixed(1)},${yAt(fitY(AX)).toFixed(1)}" pathLength="1" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="6 5"/>
     ${dots}
-    <g class="viz-fade" style="--d:1.7s"><rect x="${(hx+16).toFixed(0)}" y="${(hy-14).toFixed(0)}" width="182" height="34" rx="8" fill="var(--bg3)" stroke="var(--hairline)"/>
+    <g class="viz-fade" style="--d:2.4s"><rect x="${(hx+16).toFixed(0)}" y="${(hy-14).toFixed(0)}" width="182" height="34" rx="8" fill="var(--bg3)" stroke="var(--hairline)"/>
       <text x="${(hx+28).toFixed(0)}" y="${(hy+1).toFixed(0)}" font-size="12.5" fill="var(--accent4)" font-weight="600">Under the line</text>
       <text x="${(hx+28).toFixed(0)}" y="${(hy+15).toFixed(0)}" font-size="11" fill="var(--muted)">underpriced for its age</text></g>
   </svg>`;
@@ -7687,12 +7694,12 @@ function fairPriceVizSVG() {
   return `<svg class="viz-svg" viewBox="0 0 640 238" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Sample chart: actual price versus fair price over time">
     <defs><linearGradient id="vfpg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity="0.20"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
     <g class="grid">${grid}</g>${xl}
-    <path class="viz-fade" style="--d:.85s" d="${ln(price)} L${X1},${Y1} L${X0},${Y1} Z" fill="url(#vfpg)"/>
-    <path class="viz-fade" style="--d:.35s" d="${ln(fair)}" fill="none" stroke="var(--accent4)" stroke-width="2" stroke-dasharray="7 5"/>
-    <path class="viz-draw" d="${ln(price)}" pathLength="1" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle class="viz-pulse" style="--d:1.5s" cx="${dx.toFixed(1)}" cy="${dy.toFixed(1)}" r="5" fill="var(--accent)"/>
-    <circle class="viz-pop" style="--d:1.2s" cx="${dx.toFixed(1)}" cy="${dy.toFixed(1)}" r="4.5" fill="var(--accent)" stroke="var(--bg)" stroke-width="2"/>
-    <g class="viz-fade" style="--d:1.45s"><rect x="${(dx-190).toFixed(0)}" y="${(dy-44).toFixed(0)}" width="180" height="34" rx="8" fill="var(--bg3)" stroke="var(--hairline)"/>
+    <path class="viz-fade" style="--d:1.2s" d="${ln(price)} L${X1},${Y1} L${X0},${Y1} Z" fill="url(#vfpg)"/>
+    <path class="viz-fade" style="--d:.5s" d="${ln(fair)}" fill="none" stroke="var(--accent4)" stroke-width="2" stroke-dasharray="7 5"/>
+    <path class="viz-draw" style="--d:.5s" d="${ln(price)}" pathLength="1" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle class="viz-pulse" style="--d:2.5s" cx="${dx.toFixed(1)}" cy="${dy.toFixed(1)}" r="5" fill="var(--accent)"/>
+    <circle class="viz-pop" style="--d:2.2s" cx="${dx.toFixed(1)}" cy="${dy.toFixed(1)}" r="4.5" fill="var(--accent)" stroke="var(--bg)" stroke-width="2"/>
+    <g class="viz-fade" style="--d:2.5s"><rect x="${(dx-190).toFixed(0)}" y="${(dy-44).toFixed(0)}" width="180" height="34" rx="8" fill="var(--bg3)" stroke="var(--hairline)"/>
       <text x="${(dx-178).toFixed(0)}" y="${(dy-28).toFixed(0)}" font-size="12.5" fill="var(--accent4)" font-weight="600">€130 · 13% under fair</text>
       <text x="${(dx-178).toFixed(0)}" y="${(dy-15).toFixed(0)}" font-size="11" fill="var(--muted)">a buying window</text></g>
   </svg>`;
@@ -7709,8 +7716,8 @@ function momentumVizSVG() {
     const dip=chg===-18;
     return `<g>
       <text class="ax" x="8" y="${y+12}">${name}</text>
-      <rect class="viz-grow" style="--go:${go}; --d:${(0.1+i*0.08).toFixed(2)}s" x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="16" rx="3" fill="${col}" fill-opacity="${dip?1:0.85}"/>
-      <text class="viz-fade" style="--d:${(0.55+i*0.08).toFixed(2)}s" x="${(pos?CX+w+8:CX-w-8).toFixed(1)}" y="${y+12}" text-anchor="${pos?'start':'end'}" font-size="12" fill="${col}">${pos?'+':''}${chg}%${dip?' · a dip':''}</text>
+      <rect class="viz-grow" style="--go:${go}; --d:${(0.15+i*0.14).toFixed(2)}s" x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="16" rx="3" fill="${col}" fill-opacity="${dip?1:0.85}"/>
+      <text class="viz-fade" style="--d:${(0.9+i*0.14).toFixed(2)}s" x="${(pos?CX+w+8:CX-w-8).toFixed(1)}" y="${y+12}" text-anchor="${pos?'start':'end'}" font-size="12" fill="${col}">${pos?'+':''}${chg}%${dip?' · a dip':''}</text>
     </g>`;
   }).join('');
   return `<svg class="viz-svg" viewBox="0 0 640 ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Sample chart: 30-day price change by set">
@@ -7721,8 +7728,14 @@ function momentumVizSVG() {
 }
 
 // Mount the sample charts into their placeholders and reveal-on-scroll (drawing
-// them on only when reached). Idempotent; falls back to shown-immediately without
-// IntersectionObserver.
+// them on only when reached), then *replay* the build on a slow loop so a visitor
+// who scrolls past mid-build — or lingers — keeps seeing it read the product. The
+// loop is JS-driven (remove/re-add .in-view, each iteration finite) rather than
+// CSS `infinite`, so it never hangs the a11y settle() helper; it pauses while the
+// panel is off-screen and is skipped entirely under reduced motion (the CSS then
+// holds the finished charts static). Idempotent; falls back to shown-immediately
+// without IntersectionObserver.
+const VIZ_REPLAY_MS = 6500;   // build (~3.4s) + a beat to read, then reset & replay
 function mountDemoVizzes() {
   const map = { 'demo-viz-scatter': scatterVizSVG, 'demo-viz-fair': fairPriceVizSVG, 'demo-viz-momentum': momentumVizSVG };
   Object.entries(map).forEach(([id, fn]) => {
@@ -7731,10 +7744,25 @@ function mountDemoVizzes() {
   });
   const vizzes = [...document.querySelectorAll('.demo-viz')];
   if (!('IntersectionObserver' in window)) { vizzes.forEach(v => v.classList.add('in-view')); return; }
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const io = new IntersectionObserver((entries) => {
-    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in-view'); io.unobserve(e.target); } });
+    entries.forEach(e => {
+      const v = e.target;
+      if (e.isIntersecting) {
+        v.classList.add('in-view');
+        if (!reduce && !v._vizTimer) {
+          v._vizTimer = setInterval(() => {
+            v.classList.remove('in-view');
+            void v.offsetWidth;           // force reflow so the CSS animations restart
+            v.classList.add('in-view');
+          }, VIZ_REPLAY_MS);
+        }
+      } else if (v._vizTimer) {
+        clearInterval(v._vizTimer); v._vizTimer = null;   // pause the loop off-screen
+      }
+    });
   }, { threshold: 0.25 });
-  vizzes.forEach(v => { if (!v.classList.contains('in-view')) io.observe(v); });
+  vizzes.forEach(v => io.observe(v));
 }
 
 // ── Pre-login demo ──

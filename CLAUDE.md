@@ -498,19 +498,29 @@ explanation exists in two places:
   vs age + fit, `fairPriceVizSVG` actual vs fair-price line, `momentumVizSVG`
   30-day diverging bars) into `#demo-viz-scatter/-fair/-momentum` and reveals them
   on scroll via its own IntersectionObserver (the tab-pane reveal handler doesn't
-  cover `#demo-page`). Motion is **CSS-only**, gated on `.in-view` — the classes
-  `viz-draw`/`viz-fade`/`viz-pop`/`viz-grow`/`viz-pulse` map to keyframes, timed
-  per element by the inline `--d` custom property — and every animation collapses
-  under `prefers-reduced-motion` (elements shown in their final state). **The data
+  cover `#demo-page`). The build is **CSS-driven**, gated on `.in-view` — the
+  classes `viz-draw`/`viz-fade`/`viz-pop`/`viz-grow`/`viz-pulse` map to keyframes,
+  timed per element by the inline `--d` custom property, with unhurried durations
+  so each step reads — and every animation collapses under
+  `prefers-reduced-motion` (elements shown in their final state). **The data
   is illustrative and every chart is badged `Sample`**, so no real product's fair
   price is shown (the demo honesty rule holds). Token-only (var() colours, scale
   font-sizes; chart-internal text uses SVG `font-size` attributes, not CSS, so the
-  design-token check is satisfied). Two layout/timing notes: the three charts sit
-  in a **2-up grid** (`.demo-viz-grid` — scatter + fair-price side by side,
-  momentum full-width; one column ≤720px), and the attention `viz-pulse` is
-  **finite** (a few pulses, then invisible) — an *infinite* animation never
-  resolves its `getAnimations()` finished promise and hangs the a11y `settle()`
-  helper.
+  design-token check is satisfied). Layout/timing notes worth not re-learning:
+  - The three charts sit in a **2-up grid** (`.demo-viz-grid` — scatter +
+    fair-price side by side, momentum full-width; one column ≤720px).
+  - **The build *replays on a loop* so a mid-scroll visitor still catches it.**
+    The loop is **JS-driven, not CSS `infinite`**: `mountDemoVizzes()` arms a
+    per-panel `setInterval` (`_vizTimer`, `VIZ_REPLAY_MS`) that removes `.in-view`,
+    forces a reflow, and re-adds it — each iteration is a *finite* animation that
+    resolves its `getAnimations()` finished promise, so it never hangs the a11y
+    `settle()` helper the way an infinite CSS animation would (the same reason the
+    attention `viz-pulse` runs a fixed iteration count, not `infinite`). The timer
+    is **skipped under reduced motion** and **paused while the panel is
+    off-screen** (cleared when the observer reports it non-intersecting). The
+    reduced-motion `@media` block matches `.in-view` too (equal specificity to the
+    play rules) so it genuinely wins and holds the finished charts static.
+    `tests/signed-in.spec.mjs` asserts the timer is armed after reveal.
 - **`#tab-welcome` is a signed-in landing** — where to go, and links to the same
   explanations. It must not grow a second pitch; if you find yourself writing
   what the app is *for* on this tab, it belongs on the demo page.
