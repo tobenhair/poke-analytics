@@ -698,7 +698,7 @@ stance). What still stands unbuilt:
     Supabase view/RPC) — see **Data volume at scale**.
 
 - **"Where to start" teaser on the demo + summary-strip relocation.** *(Feature;
-  demo teaser **shipped**, KPI-strip relocation still open.)* The signed-in
+  **shipped** — demo teaser + KPI-strip relocation.)* The signed-in
   Analysis tab opens on the **Where to start** shortlist (Safe pick / Best deal /
   Best value — `renderOverview`, `startLens`). Two follow-ups pull that value onto
   the logged-out landing without breaking the demo's honesty rules:
@@ -716,15 +716,20 @@ stance). What still stands unbuilt:
     (CSS-only, reduced-motion safe; illustrative data, so the no-real-fair-price
     rule holds) — turning the "how to read it" pitch into show-don't-tell.
     Guarded in `tests/signed-in.spec.mjs`.
-  - **Relocate the KPI summary strip.** The Analysis KPI row (Products Tracked ·
-    Top Score · Best Value/Booster · Newest Release) is now a *dataset teaser*, and
-    two tiles (Top Score age-weighted, Best Value/Booster) merely restate the
-    block's Safe/Value #1. Move it to the demo / Welcome landing as an orientation
-    banner (the demo drops the age-weighted **Top Score** tile — it needs the full
-    fit); on Analysis, drop it or keep a slimmed, non-redundant version **below**
-    the answer — never above it, so the tab keeps opening on the answer, not the
-    dataset. Keep the shared-explanation rule (`.method-open` / `.glossary-open`);
-    don't grow a second pitch on the Welcome tab.
+  - **Relocate the KPI summary strip. ✅ SHIPPED.** The Analysis KPI row (Products
+    Tracked · Top Score · Best Value/Booster · Newest Release) is a *dataset
+    teaser*, and two tiles (Top Score age-weighted, Best Value/Booster) merely
+    restated the block's Safe/Value #1 — so it sat *above* the answer on the tab
+    whose job is to open on the answer. It now lives on the **Welcome landing**
+    under an **"At a glance"** eyebrow (same tile ids, so `updateKPIs()` fills it
+    unchanged; `kpi-total` set from `analysisProducts().length`), and Analysis
+    drops it entirely so the tab opens straight on **Where to start**. The KPI
+    intro points at the shared **What the numbers mean** glossary rather than
+    defining a term twice, honouring the shared-explanation rule and not growing a
+    second pitch on Welcome. (A demo-page KPI variant was considered and skipped:
+    the 3-set anon slice can't reproduce the age-weighted Top Score, and Best
+    Value already leads the demo teaser.) Guarded in `tests/a11y.spec.mjs` (the
+    Analysis explainer count drops 5→4) and the Welcome-landing spec.
 
 ## Later — reach & launch readiness
 

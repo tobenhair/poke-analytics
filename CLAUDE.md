@@ -514,6 +514,18 @@ explanation exists in two places:
 - **`#tab-welcome` is a signed-in landing** — where to go, and links to the same
   explanations. It must not grow a second pitch; if you find yourself writing
   what the app is *for* on this tab, it belongs on the demo page.
+- **The "At a glance" KPI strip lives on Welcome, not Analysis.** The four-tile
+  `.kpi-row` (Products Tracked · Top Score age-weighted · Best Value/Booster ·
+  Newest Release) is a *dataset teaser*, not the answer — two of its tiles just
+  restate the Where-to-start Safe/Value #1 — so it sits under the Welcome hero
+  behind an **"At a glance"** `.section-eyebrow`, and Analysis opens straight on
+  the Where-to-start shortlist with no KPI row above it. `updateKPIs()` fills the
+  tiles **by id** (location-independent), so the move needed no wiring change;
+  `kpi-total` is set separately from `analysisProducts().length`. The strip's
+  `.kpi-intro` points at the shared **What the numbers mean** glossary (the
+  `.glossary-open` button lower on the tab) rather than defining a term twice —
+  keep it that way (shared-explanation rule). Don't restore a KPI row above the
+  Analysis answer.
 - **The explanations are shared dialogs.** `#method-modal` (the fair-price
   method) and `#glossary-modal` (every term) are opened by **class**, not id —
   `.method-open` / `.glossary-open` — precisely so a third caller costs nothing

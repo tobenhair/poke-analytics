@@ -2590,6 +2590,36 @@
         </p>
       </div>
 
+      <!-- Dataset-orientation banner. Relocated here from the Analysis tab: it's
+           a teaser of the dataset, not the answer, so the landing is its home and
+           Analysis keeps opening on the answer. Same tile ids, so updateKPIs()
+           still fills them. Definitions live in the shared glossary, not a
+           second copy here. -->
+      <h2 class="section-eyebrow">At a glance</h2>
+      <p class="kpi-intro" style="margin-top:0">Your tracked dataset in four numbers. What each one means is in <em>What the numbers mean</em>, below.</p>
+      <div class="kpi-row fade-in" style="animation-delay:0.05s">
+        <div class="kpi" style="--kpi-color: var(--accent)">
+          <div class="kpi-label">Products Tracked</div>
+          <div class="kpi-value" id="kpi-total">31</div>
+          <div class="kpi-sub">Box · ETB · Bundle · Pack</div>
+        </div>
+        <div class="kpi" style="--kpi-color: var(--accent3)">
+          <div class="kpi-label">Top Score (Age-Weighted)</div>
+          <div class="kpi-value" id="kpi-top">—</div>
+          <div class="kpi-sub" id="kpi-top-name">—</div>
+        </div>
+        <div class="kpi" style="--kpi-color: var(--accent4)">
+          <div class="kpi-label">Best Value / Booster</div>
+          <div class="kpi-value" id="kpi-best-val">—</div>
+          <div class="kpi-sub" id="kpi-best-val-name">—</div>
+        </div>
+        <div class="kpi" style="--kpi-color: var(--accent2)">
+          <div class="kpi-label">Newest Release</div>
+          <div class="kpi-value" id="kpi-newest">—</div>
+          <div class="kpi-sub" id="kpi-newest-name">—</div>
+        </div>
+      </div>
+
       <h2 class="section-eyebrow">Where to go</h2>
       <div class="welcome-cards">
 
@@ -2702,31 +2732,9 @@
     <div id="overview-unproven"></div>
   </div>
 
-  <!-- KPIs -->
-  <p class="kpi-intro"><strong>At-a-glance headline metrics.</strong> <em>Products Tracked</em> is the size of your dataset · <em>Top Score</em> is the current #1 by Weighted Score · <em>Best Value / Booster</em> is the highest SV/Booster (set value as a multiple of one booster's cost) · <em>Newest Release</em> flags the most recent set. Every metric is explained in the numbered sections below.</p>
-  <div class="kpi-row fade-in" style="animation-delay:0.05s">
-    <div class="kpi" style="--kpi-color: var(--accent)">
-      <div class="kpi-label">Products Tracked</div>
-      <div class="kpi-value" id="kpi-total">31</div>
-      <div class="kpi-sub">Box · ETB · Bundle · Pack</div>
-    </div>
-    <div class="kpi" style="--kpi-color: var(--accent3)">
-      <div class="kpi-label">Top Score (Age-Weighted)</div>
-      <div class="kpi-value" id="kpi-top">—</div>
-      <div class="kpi-sub" id="kpi-top-name">—</div>
-    </div>
-    <div class="kpi" style="--kpi-color: var(--accent4)">
-      <div class="kpi-label">Best Value / Booster</div>
-      <div class="kpi-value" id="kpi-best-val">—</div>
-      <div class="kpi-sub" id="kpi-best-val-name">—</div>
-    </div>
-    <div class="kpi" style="--kpi-color: var(--accent2)">
-      <div class="kpi-label">Newest Release</div>
-      <div class="kpi-value" id="kpi-newest">—</div>
-      <div class="kpi-sub" id="kpi-newest-name">—</div>
-    </div>
-  </div>
-
+  <!-- The KPI summary strip moved to the Welcome landing (dataset orientation
+       belongs there; on Analysis its Top-Score / Best-Value tiles just restated
+       the Where-to-start #1, and it pushed the answer down). -->
 
   <!-- Filters -->
   <div class="filters fade-in" style="animation-delay:0.1s">
