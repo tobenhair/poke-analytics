@@ -291,9 +291,11 @@ test('the admin sees Data Entry and cloud-save writes the entered snapshot', asy
   await page.locator('.tab-btn[data-tab="entry"]').click();
   await expect(page.locator('#entry-tbody tr')).toHaveCount(4);
 
-  // Enter one price (within the 30% delta guard) for a fixed snapshot date.
+  // Enter one price (within the 30% delta guard) for a fixed snapshot date,
+  // plus a promo-card value (the ETB-style extra excluded from pack value).
   await page.locator('#snapshot-label').fill('2026-07-18');
   await page.locator('.entry-input[data-product="Beta Booster Box"][data-field="price"]').fill('175');
+  await page.locator('.promo-input[data-product="Beta Booster Box"]').fill('5');
   await page.locator('#save-cloud-btn').click();
   // Data Entry actions report to their own footer pill, not the Analysis tab's.
   await expect(page.locator('#entry-status')).toContainText('Saved to cloud');
@@ -305,6 +307,9 @@ test('the admin sees Data Entry and cloud-save writes the entered snapshot', asy
   expect(snapWrites.at(-1).payload).toMatchObject([
     { product_id: 'p2', snapshot_date: '2026-07-18', price: 175 },
   ]);
+  // The promo edit is written to products.promo_value (per-product raw input).
+  const prodUpdates = await writes(page, 'products', 'update');
+  expect(prodUpdates.some((w) => w.payload && w.payload.promo_value === 5)).toBe(true);
   expect((await writes(page, 'user_settings', 'upsert')).length).toBeGreaterThan(0);
 
   // The save reloads cloud state: the new snapshot is now the latest tracked

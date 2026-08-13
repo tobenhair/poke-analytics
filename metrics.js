@@ -68,6 +68,17 @@ export function typeLabel(type) {
   return t ? t.label : (type != null ? String(type) : '');
 }
 
+// The promo-card value (€) actually applied to a product's pack economics:
+// a non-negative number strictly below the price (so the ex-promo price stays
+// positive). Returns 0 for a missing/invalid/oversized value, so a product
+// without a promo — or with bad data — behaves exactly as before this existed.
+export function appliedPromo(promoValue, price) {
+  const v = Number(promoValue);
+  if (!isFinite(v) || v <= 0) return 0;
+  if (!isFinite(price) || price == null || v >= price) return 0;
+  return v;
+}
+
 // 0–1 penalty for products younger than `ageThreshold` years:
 //   age >= threshold → full weight (no penalty)
 //   age <  threshold → linear scale from 0.10 to 1.0
@@ -170,7 +181,12 @@ export function fairPrice(product, fit) {
   const expected = expectedSvPerBooster(fit, product.age);
   if (expected == null || expected <= 0) return null;
   if (product.setVal == null || !product.boosters) return null;
-  const fair = (product.setVal * product.boosters) / expected;
+  // The fit is over ex-promo SV/Booster, so setVal×boosters/expected is the fair
+  // *ex-promo* (booster) price. Add the promo back so the fair price is on the
+  // same basis as the full live price it's compared to — a fairly-priced
+  // product then reads gap 0 (its ex-promo price == fair booster price).
+  const promo = appliedPromo(product.promoValue, product.price ?? null);
+  const fair = (product.setVal * product.boosters) / expected + promo;
   if (!isFinite(fair) || fair <= 0) return null;
   const gapPct = product.price != null && product.price > 0
     ? ((product.price - fair) / fair) * 100
@@ -602,11 +618,19 @@ export function deriveProducts(newProducts, newHistoricalData) {
       const releaseDate = new Date(p.release);
       const ageYears    = parseFloat(((today - releaseDate) / (1000 * 60 * 60 * 24 * 365.25)).toFixed(2));
       const ageWeight   = parseFloat((ageYears >= 3 ? 1.0 : Math.max(0.10, ageYears / 3)).toFixed(2));
-      const pricePerBooster = latestPrice / boosters;
+      // A promo card bundled into the product (an ETB's stamped promo, say) is
+      // NOT part of the set's singles, so its cost inflates the price against the
+      // boosters it's judged on. Subtract it to isolate the pack economics; the
+      // full price stays on p.price (what the buyer pays — portfolio/alerts/
+      // display need it). appliedPromo() clamps to [0, price) so a bad/oversized
+      // value can never drive the ex-promo price to zero or negative.
+      const promoEur        = appliedPromo(p.promoValue, latestPrice);
+      const pricePerBooster = (latestPrice - promoEur) / boosters;
       const svPerBooster    = latestSetVal / pricePerBooster;
       const score           = parseFloat((svPerBooster * ageWeight).toFixed(1));
 
       p.boosters        = boosters;
+      p.promoValue      = promoEur;                 // normalised (0 when none/invalid)
       p.age             = ageYears;
       p.price           = latestPrice;
       p.setVal          = latestSetVal;

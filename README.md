@@ -150,7 +150,9 @@ frontend on GitHub Pages. This is off unless you fill in `SUPABASE_CONFIG` in
 
 ### Sheet 1 — `Summary` (one row per product)
 
-`Product` · `Type` · `Release Date` · `Age (years)` · `Current Price (€)` · `Set Value (€)` · `Price / Booster (€)` · `SV / Booster` · `Age Weight` · `Wtd. Score`
+`Product` · `Type` · `Release Date` · `Promo Value (€)` *(optional)* · `Age (years)` · `Current Price (€)` · `Set Value (€)` · `Price / Booster (€)` · `SV / Booster` · `Age Weight` · `Wtd. Score`
+
+`Promo Value (€)` is optional: the value of a promo card bundled into the product (e.g. an ETB's stamped promo) that isn't part of the set's singles. It's **subtracted from price** for the per-booster maths so the product is judged on its boosters, not the extras; blank or `0` means none. (Cloud/Data Entry has the same field.)
 
 `Type` is one of: `BOX` (36 packs) · `ETB` (9) · `ETB10` (10) · `ETB8` (8) · `BUNDLE` (6) · `BUNDLEDISPLAY` (60) · `PACK` (1). The pack count drives the booster maths; the Elite Trainer Box variants (`ETB`/`ETB10`/`ETB8`) filter together under **Elite Trainer**, and the Bundle variants (`BUNDLE`/`BUNDLEDISPLAY`) under **Bundle**.
 
@@ -165,7 +167,7 @@ The in-app **File Format Guide** (the **Format Guide** button on the **Analysis*
 ## Key concepts
 
 - **Set Value** — the total market value of all cards in a complete set.
-- **Price / Booster** — product price ÷ boosters inside, set by Type (BOX = 36, ETB = 9, BUNDLE = 6, plus the variants ETB10 = 10, ETB8 = 8, BUNDLEDISPLAY = 60, PACK = 1).
+- **Price / Booster** — product price ÷ boosters inside, set by Type (BOX = 36, ETB = 9, BUNDLE = 6, plus the variants ETB10 = 10, ETB8 = 8, BUNDLEDISPLAY = 60, PACK = 1). If a product has a **Promo Value**, that promo card's value is subtracted from the price first, so the per-booster figure reflects only the boosters (an ETB isn't penalised for the promo it also includes).
 - **SV / Booster** — Set Value ÷ Price/Booster. Reads as a value-for-money **×multiple** — how many times the price of a *single booster* the whole set is worth (e.g. `185×`), **not** a euro-per-pack amount. The core comparability metric; works across all product types.
 - **Age Weight** — 0–1 multiplier. Products under a year old are penalised; ≥3 years = 1.0.
 - **Wtd. Score** — SV / Booster × Age Weight. The headline ranking metric.

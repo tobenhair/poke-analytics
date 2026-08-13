@@ -19,6 +19,7 @@ import {
   calcAgeWeight,
   recomputeScores,
   deriveProducts,
+  appliedPromo,
   linearFit,
   expectedSvPerBooster,
   fairPrice,
@@ -199,6 +200,36 @@ test('deriveProducts reports a product absent from historical data', () => {
   assert.equal(errors.length, 2); // no price and no set value
 });
 
+// ── promo card: subtracted from price for the pack economics only ──
+test('appliedPromo normalises to a non-negative value strictly below price', () => {
+  assert.equal(appliedPromo(10, 100), 10);   // valid
+  assert.equal(appliedPromo(0, 100), 0);     // none
+  assert.equal(appliedPromo(-5, 100), 0);    // negative → ignored
+  assert.equal(appliedPromo('x', 100), 0);   // non-numeric → ignored
+  assert.equal(appliedPromo(100, 100), 0);   // == price → ignored (would zero the boosters)
+  assert.equal(appliedPromo(150, 100), 0);   // > price → ignored
+  assert.equal(appliedPromo(10, null), 0);   // no price to clamp against → ignored
+});
+
+test('deriveProducts subtracts the promo from price for pack economics, not from p.price', () => {
+  // ETB (9 packs): €135 price, €9 promo → €126 ex-promo → €14/booster.
+  const products = [{ name: 'Promo ETB', type: 'ETB', release: '2000-01-01', promoValue: 9 }];
+  deriveProducts(products, { 'Promo ETB': { price: [135], setVal: [252] } });
+  const p = products[0];
+  assert.equal(p.price, 135);            // full price preserved (what you pay)
+  assert.equal(p.promoValue, 9);         // normalised promo stored
+  assert.equal(p.pricePerBooster, 14);   // (135 − 9) / 9
+  assert.equal(p.svPerBooster, 18);      // 252 / 14  (vs 12 without the promo cut)
+});
+
+test('deriveProducts ignores a promo with no value and matches the pre-promo numbers', () => {
+  const { products, hist } = box('No Promo', 360, 720);
+  deriveProducts(products, hist);
+  assert.equal(products[0].promoValue, 0);
+  assert.equal(products[0].pricePerBooster, 10); // unchanged: 360 / 36
+  assert.equal(products[0].svPerBooster, 72);
+});
+
 // ── linearFit: least-squares slope/intercept + R² ──────────────
 test('linearFit needs at least two points', () => {
   assert.equal(linearFit([]), null);
@@ -266,6 +297,16 @@ test('fairPrice reports a positive gap when priced over fair', () => {
   const fit = { a: 72, b: 0, r2: 1 };
   const fp = fairPrice({ age: 4, setVal: 720, boosters: 36, price: 450 }, fit);
   assert.equal(fp.gapPct, 25); // (450 − 360) / 360 → 25% over fair
+});
+
+test('fairPrice adds the promo back so it stays comparable to the full price', () => {
+  // Expected SV/Booster 72, setVal 720, 36 boosters → fair booster price €360.
+  // With a €40 promo the fair *full* price is €400, and a product priced at €400
+  // (whose €360 ex-promo boosters sit exactly on the line) reads gap 0.
+  const fit = { a: 72, b: 0, r2: 1 };
+  const fp = fairPrice({ age: 4, setVal: 720, boosters: 36, price: 400, promoValue: 40 }, fit);
+  assert.equal(fp.fair, 400);   // 720 × 36 ÷ 72 + 40
+  assert.equal(fp.gapPct, 0);   // (400 − 400) / 400
 });
 
 test('fairPrice is null when the expected value is non-positive', () => {

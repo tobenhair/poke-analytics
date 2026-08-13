@@ -40,6 +40,12 @@ create table if not exists public.products (
   -- for thin-liquidity products whose sales-based price is unreliable. Set Value
   -- is still auto-updated. Written by the admin only (see RLS below).
   price_locked   boolean not null default false,
+  -- Value (€) of a promo card bundled into the product (e.g. an ETB's stamped
+  -- promo) that is NOT part of the set's singles. Subtracted from Price for the
+  -- pack economics (Price/Booster, SV/Booster, fair price) so an ETB is judged
+  -- on its boosters, not the extras. Per-product raw input, entered by the admin
+  -- in Data Entry; 0 = none. Display currency is €, the canonical stored unit.
+  promo_value    numeric not null default 0 check (promo_value >= 0),
   created_at     timestamptz not null default now(),
   -- product names are unique per user (matches the app's duplicate-name rule)
   unique (user_id, name)
@@ -48,6 +54,7 @@ create table if not exists public.products (
 alter table public.products add column if not exists cardmarket_product_id bigint;
 alter table public.products add column if not exists cardmarket_expansion_id bigint;
 alter table public.products add column if not exists price_locked boolean not null default false;
+alter table public.products add column if not exists promo_value numeric not null default 0;
 -- Widen the Type check to the pack-count variants (ETB10/ETB8/BUNDLEDISPLAY/PACK)
 -- for deployments created before they existed. Drop + re-add so it's idempotent.
 alter table public.products drop constraint if exists products_type_check;
