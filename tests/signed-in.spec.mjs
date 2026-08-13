@@ -139,6 +139,34 @@ test('the demo page pitches before it lists, and is honest about what it withhol
   expect(pageErrors).toEqual([]);
 });
 
+test('the demo Where-to-start teaser ranks by value live and locks the fit-based lenses', async ({ page }) => {
+  // The signed-in Analysis tab opens on the Where-to-start shortlist; the demo
+  // shows the same block but only Best value (SV/Booster, fit-independent) is
+  // live — Safe pick and Best deal are locked behind sign-in, because both read
+  // a catalogue-wide fit the 3-set demo slice can't reproduce (the demo's
+  // no-fair-price/verdict honesty rule). This is the concrete "why sign in".
+  const pageErrors = await boot(page);
+  await expect(page.locator('#demo-page')).toBeVisible();
+
+  // Best value is the default and it renders real ranked cards, headline ×value.
+  await expect(page.locator('#demo-start-lens .pill[data-lens="value"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#demo-start-list .pick-item').first()).toBeVisible();
+  await expect(page.locator('#demo-start-list .pick-score').first()).toContainText('value');
+  // Honesty rule: no fair price / verdict leaks into the live value lens.
+  await expect(page.locator('#demo-start-list')).not.toContainText('fair');
+
+  // Safe pick and Best deal are locked — no cards, a sign-in that opens auth.
+  for (const lens of ['safe', 'deal']) {
+    await page.locator(`#demo-start-lens .pill[data-lens="${lens}"]`).click();
+    await expect(page.locator('#demo-start-list .pick-item')).toHaveCount(0);
+    await expect(page.locator('#demo-start-list')).toContainText('Sign in');
+  }
+  await page.locator('#demo-start-list .signin-open').click();
+  await expect(page.locator('#auth-overlay')).toBeVisible();
+
+  expect(pageErrors).toEqual([]);
+});
+
 test('signing in lands on the Welcome tab, which shares the demo page explanations', async ({ page }) => {
   const pageErrors = await boot(page);
   await signIn(page, 'user@test.local');

@@ -476,8 +476,21 @@ explanation exists in two places:
 
 - **`#demo-page` is the pitch** — the only "what this is / how to read it"
   surface. Order is the argument: the question (`.hero-title`), then the three
-  ideas needed to read an answer (`.steps`), then the sample rows. Prose goes
-  here, not on Welcome.
+  ideas needed to read an answer (`.steps`), then a **Where-to-start teaser**,
+  then the sample rows. Prose goes here, not on Welcome.
+- **The demo's Where-to-start teaser is the Analysis shortlist, value-live and
+  fit-lenses locked.** `renderDemoStart()` (state `demoStartLens`, pool
+  `demoStartPool` set from the demo slice in `loadDemo()`) shows the same
+  `#start-lens`-style pill toggle, but only **Best value** (SV/Booster,
+  fit-independent) ranks for real — reusing `startPrimary(p,'value')` in a
+  non-interactive `demoPickCard()` (no `.row-open` drill button: the drill-down
+  lives behind sign-in). **Safe pick** and **Best deal** render a locked
+  `.overview-empty` panel (an `#i-lock` icon + a `.signin-open` "Sign in to rank
+  by…") because both read the catalogue-wide age fit the 3-set slice can't
+  reproduce — the concrete answer to *what an account buys*, and it keeps the
+  no-fair-price/verdict honesty rule below. The `.signin-open` handler is
+  **delegated** (one document listener) so the dynamically-injected locked-panel
+  button opens the auth overlay like the static ones.
 - **`#tab-welcome` is a signed-in landing** — where to go, and links to the same
   explanations. It must not grow a second pitch; if you find yourself writing
   what the app is *for* on this tab, it belongs on the demo page.

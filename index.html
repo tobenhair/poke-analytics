@@ -2353,6 +2353,23 @@
       <button type="button" class="text-link glossary-open" aria-haspopup="dialog">What the numbers mean</button>
     </p>
 
+    <!-- Where to start — the same three-lens shortlist the signed-in Analysis tab
+         opens on. Only Best value (SV/Booster, fit-independent) ranks for real
+         here; Safe pick and Best deal show a locked "sign in to rank by…" state,
+         because both read a fit across the whole catalogue, which the 3-set demo
+         slice can't reproduce (the demo's fair-price/verdict honesty rule). It is
+         the concrete answer to "why make an account". -->
+    <h2 class="section-eyebrow">Where to start</h2>
+    <div class="panel demo-block">
+      <div class="pill-group" id="demo-start-lens" role="group" aria-label="Rank the shortlist by" style="padding:18px 24px 0;">
+        <button class="pill active" type="button" data-lens="value" aria-pressed="true">Best value</button>
+        <button class="pill" type="button" data-lens="safe" aria-pressed="false">Safe pick</button>
+        <button class="pill" type="button" data-lens="deal" aria-pressed="false">Best deal</button>
+      </div>
+      <p class="overview-lead" id="demo-start-lead"></p>
+      <div id="demo-start-list"></div>
+    </div>
+
     <!-- Latest news teaser (TCG-first) — same shared component and #news-modal
          as the signed-in app, so a logged-out visitor gets a reason to return. -->
     <section class="news-teaser" hidden>
@@ -7465,6 +7482,67 @@ async function loadFromSupabase() {
   loadNews();   // fire-and-forget; renders the news teaser/overlay when it returns
 }
 
+// ── Demo "Where to start" teaser ──
+// The signed-in Analysis tab opens on the three-lens Where-to-start shortlist
+// (renderOverview / startLens). The demo shows the same block, honouring the rule
+// that the demo never shows a fair price or a verdict — its 3-release-date RLS
+// slice can't reproduce the catalogue-wide age fit. So only **Best value**
+// (SV/Booster, fit-independent) ranks for real; **Safe pick** and **Best deal**
+// show a locked "sign in to rank by…" state — the concrete answer to what an
+// account buys. Demo-only render path; reuses the pick-card components.
+let demoStartLens = 'value';   // 'value' is the only fit-independent lens → default + only live one
+let demoStartPool = [];        // the demo slice (set in loadDemo), ranked by svPerBooster
+
+function syncDemoLensPills(active) {
+  document.querySelectorAll('#demo-start-lens .pill').forEach(p => {
+    const on = p.dataset.lens === active;
+    p.classList.toggle('active', on);
+    p.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+// A demo pick card: non-interactive (the drill-down lives behind sign-in) and
+// value-headline only — no score or fair-price gap, keeping the honesty rule.
+function demoPickCard(p, rank) {
+  const medal = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+  return `
+    <div class="pick-item">
+      <div class="pick-rank ${medal}">${rank}</div>
+      <div class="pick-info">
+        <div class="pick-name">${p.name}</div>
+        <div class="pick-meta">${typeLabel(p.type)} · ${money(p.price)}</div>
+      </div>
+      ${startPrimary(p, 'value')}
+    </div>`;
+}
+
+function renderDemoStart() {
+  const lead = document.getElementById('demo-start-lead');
+  const list = document.getElementById('demo-start-list');
+  if (!lead || !list) return;
+  syncDemoLensPills(demoStartLens);
+
+  if (demoStartLens === 'value') {
+    lead.innerHTML = `Ranked by <strong>value per booster</strong> — the most set value for each booster's price. This ranking needs no catalogue-wide fit, so it's live here.`;
+    const ranked = [...demoStartPool].sort((a, b) => b.svPerBooster - a.svPerBooster).slice(0, START_COUNT);
+    list.innerHTML = ranked.length
+      ? ranked.map((p, i) => demoPickCard(p, i + 1)).join('')
+      : `<div class="overview-empty">Preview unavailable right now.</div>`;
+    return;
+  }
+  // Safe pick / Best deal both read the catalogue-wide fit → locked in the demo.
+  const label = demoStartLens === 'safe' ? 'age-weighted score' : 'fair price';
+  const why = demoStartLens === 'safe'
+    ? 'weighs value against how settled each set is'
+    : 'measures how far under fair price each product sits';
+  lead.innerHTML = `Ranked by <strong>${label}</strong> — ${why}, read from a fit across every tracked set.`;
+  list.innerHTML = `
+    <div class="overview-empty" style="display:flex; align-items:center; gap:14px;">
+      <svg class="icon icon-lg" aria-hidden="true" style="flex:none"><use href="#i-lock"/></svg>
+      <span>This ranking reads the whole catalogue, which the preview can't show. <button type="button" class="text-link signin-open" aria-haspopup="dialog">Sign in</button> to rank by ${label}.</span>
+    </div>`;
+}
+
 // ── Pre-login demo ──
 // Loads whatever the anon RLS policy exposes (the 3 newest release-date sets),
 // derives the same metrics as the full app, groups by set, and renders read-only
@@ -7514,6 +7592,8 @@ async function loadDemo() {
                     .sort((a, b) => b.svPerBooster - a.svPerBooster),
   }));
   renderDemo(groups);
+  demoStartPool = usable;   // the Where-to-start teaser ranks the same slice by value
+  renderDemoStart();
   if (window.__hideAppLoader) window.__hideAppLoader();   // demo is ready — drop the splash
   loadNews();   // public-read: the demo page shows the same TCG-first teaser
 }
@@ -7722,11 +7802,16 @@ function wireAuthControls() {
   // Open the sign-in overlay from the demo page; close it back to the demo.
   // Two openers — the header button and the one closing the pitch — because
   // the page is long enough that scrolling back up to sign in is friction.
-  [...document.querySelectorAll('.signin-open')].forEach(btn => {
-    btn.addEventListener('click', () => {
-      showAuthError('');
-      showAuthOverlay(true);   // moves focus to the first field itself
-    });
+  // Delegated so it also covers the sign-in button the demo Where-to-start
+  // teaser injects into a locked lens (rendered after this runs).
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.signin-open')) return;
+    showAuthError('');
+    showAuthOverlay(true);   // moves focus to the first field itself
+  });
+  // Demo Where-to-start lens toggle (Best value live; Safe/Deal locked).
+  document.querySelectorAll('#demo-start-lens .pill').forEach(pill => {
+    pill.addEventListener('click', () => { demoStartLens = pill.dataset.lens; renderDemoStart(); });
   });
   document.getElementById('auth-close').addEventListener('click', () => showAuthOverlay(false));
 
