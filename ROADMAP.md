@@ -583,6 +583,20 @@ right but poorly built) or **Feature** (something new).
     On the trimmed set the linear fit already tightens (R² 0.39 → 0.44). Would
     stay pure + unit-tested in `metrics.js`, invertible and floored, with
     `fitConfidence()`/`fairPriceTrusted()` unchanged. Not yet scheduled.
+  - **⟳ Old-set fair-price suppression — SHIPPED.** The related failure at the
+    *old* extreme is fixed: inverting the decayed fit for vintage sets (age past
+    the point where expected SV/Booster nears zero) produced absurd fair prices
+    (on the live 185-product catalogue, Ancient Origins Booster Box read a €50,743
+    fair price vs €4,910 live). `fairPrice()` now **suppresses** the number once
+    the fit's expected SV/Booster falls below `FAIR_PRICE_MIN_EXPECTED_FRAC` (0.25)
+    of its intercept — a fit-relative floor, **not a hardcoded age**, so the limit
+    (`fairPriceMaxAge()`, ~8.5 yr / ~28% of the catalogue today) **moves on its own
+    as the model refits** each load. Suppression, not a clamp: vintage sealed is
+    collector-priced and off the value-density line, so a guessed number is worse
+    than none. Pure + unit-tested; the drill-down shows `beyond age model (~N yr)`.
+    (This also confirmed the catalogue already reaches back to 2014, which lifted
+    the live fit to R² 0.51 — more old data helped the fit but can't fix the
+    inversion, which is why the suppression is the right tool.)
 
 _Otherwise nothing open in this theme — the rest is under **Then** and **Later**.
 The **Backup & restore** item that used to live here is deferred by maintainer

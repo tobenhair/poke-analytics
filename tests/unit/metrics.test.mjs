@@ -23,6 +23,8 @@ import {
   linearFit,
   expectedSvPerBooster,
   fairPrice,
+  fairPriceMaxAge,
+  FAIR_PRICE_MIN_EXPECTED_FRAC,
   fairAlertTarget,
   FAIR_PRICE_MIN_R2,
   momentum,
@@ -319,6 +321,30 @@ test('fairPrice is null without a fit or when inputs are missing', () => {
   const fit = { a: 72, b: 0, r2: 1 };
   assert.equal(fairPrice({ age: 4, setVal: null, boosters: 36, price: 360 }, fit), null);
   assert.equal(fairPrice({ age: 4, setVal: 720, boosters: null, price: 360 }, fit), null);
+});
+
+// ── Old-set suppression: don't invert a fit that's decayed near zero ──
+test('fairPriceMaxAge is the fit age where expected drops below the fraction floor', () => {
+  // a=100, b=-10, floor = 0.25·100 = 25, so expected hits 25 at age (100−25)/10 = 7.5.
+  assert.equal(fairPriceMaxAge({ a: 100, b: -10, r2: 1 }), 7.5);
+  assert.equal(FAIR_PRICE_MIN_EXPECTED_FRAC, 0.25);
+});
+
+test('fairPriceMaxAge is null without a fit, a flat/rising fit, or a non-positive intercept', () => {
+  assert.equal(fairPriceMaxAge(null), null);
+  assert.equal(fairPriceMaxAge({ a: 100, b: 0, r2: 1 }), null);   // never declines
+  assert.equal(fairPriceMaxAge({ a: 100, b: 5, r2: 1 }), null);   // rises with age
+  assert.equal(fairPriceMaxAge({ a: -5, b: -10, r2: 1 }), null);  // degenerate intercept
+});
+
+test('fairPrice suppresses old sets past the moving age limit, keeps younger ones', () => {
+  const fit = { a: 100, b: -10, r2: 1 }; // limit at age 7.5 (expected 25)
+  // Age 8 → expected 20 < 25 → suppressed (don't guess a vintage box's fair price).
+  assert.equal(fairPrice({ age: 8, setVal: 720, boosters: 36, price: 4000 }, fit), null);
+  // Age 7 → expected 30 ≥ 25 → a fair price is still stamped.
+  const fp = fairPrice({ age: 7, setVal: 720, boosters: 36, price: 800 }, fit);
+  assert.ok(fp && fp.fair > 0);
+  assert.equal(fp.expected, 30);
 });
 
 test('FAIR_PRICE_MIN_R2 is a sensible 0–1 confidence threshold', () => {

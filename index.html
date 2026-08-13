@@ -2060,6 +2060,11 @@
       value a product of this age would be expected to have. Turn that expectation back into euros and
       you get the <strong>fair price</strong>: what this product would cost if it traded like its
       same-age peers. Under it is cheap for its age; over it is expensive.</p>
+      <p class="method-text">Very old sets get <strong>no fair price</strong>. Once a set is old enough that
+      the line has fallen close to zero, turning that tiny expectation back into euros blows the number up
+      into nonsense — and vintage sealed boxes are priced as collectibles, not by their card value, so they
+      no longer follow the line at all. Rather than guess, the app shows nothing there. The age at which it
+      stops is set by the line itself, so it shifts on its own as more history is tracked.</p>
     </div>
 
     <div class="modal-section">
@@ -3095,7 +3100,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange } from './metrics.js';
+import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -6642,7 +6647,14 @@ function renderDrill() {
 
   // Stat tiles
   const trusted = fairPriceTrusted();
-  const gapTxt = p.fairGap == null ? '—'
+  // Old sets past the fit's moving age limit get no fair price (vintage sealed is
+  // collector-priced, off the value-density line — inverting the decayed fit would
+  // invent a number). Explain that rather than a bare "—". The limit is derived
+  // from the current fit, so it moves as the model refits (fairPriceMaxAge()).
+  const maxAge = fairPriceMaxAge(ageFit);
+  const beyondModel = p.fairPrice == null && maxAge != null && p.age != null && p.age > maxAge;
+  const gapTxt = beyondModel ? `beyond age model (~${fmt(maxAge, 0)} yr)`
+    : p.fairGap == null ? '—'
     : p.fairGap === 0 ? 'at fair'
     : `${Math.abs(p.fairGap)}% ${p.fairGap < 0 ? 'under' : 'over'}`;
   const gapCol = p.fairGap == null || !trusted ? 'var(--muted)' : p.fairGap < 0 ? 'var(--accent4)' : 'var(--accent2)';

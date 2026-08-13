@@ -8,7 +8,7 @@ A single-page dashboard for tracking sealed trading-card **product** (Booster Bo
 
 ## What it does
 
-- **Answers "is this fairly priced?"** — a **fair price in euros** per product (the expected-value-for-age fit inverted) and a plain-language verdict on the board. The board says in words how much to trust that fit — *strong fit* / *moderate fit* / *rough estimate* — and tapping it explains the method.
+- **Answers "is this fairly priced?"** — a **fair price in euros** per product (the expected-value-for-age fit inverted) and a plain-language verdict on the board. The board says in words how much to trust that fit — *strong fit* / *moderate fit* / *rough estimate* — and tapping it explains the method. **Very old sets show no fair price** — once the fit has decayed near zero, inverting it produces nonsense, and vintage sealed is collector-priced rather than value-driven, so the app declines to guess; the age at which it stops is derived from the fit and shifts automatically as more history is tracked.
 - **Opens on the answer** — the Analysis tab leads with *Where to start*: one shortlist you can rank three ways — **Safe pick** (age-weighted score), **Best deal** (under fair price), or **Best value** (set value per booster) — with brand-new sets flagged so a shiny-but-unsettled release can't masquerade as the top buy.
 - **Ranks every product** by an age-weighted value score so newer and older releases can be compared fairly.
 - **Surfaces buy signals** when a product's price drops while its set value holds steady — a possible mispricing.

@@ -559,6 +559,25 @@ the fade. `tests/smoke.spec.mjs` pins show-on-first-paint → clear-on-ready.
 The word is a button opening `#method-modal` — the method has to be reachable
 without a hover, which a `title` never is on touch.
 
+**Old sets get *no* fair price — a moving, fit-derived age limit.** `fitConfidence`
+is a *global* trust gate (is the whole fit good enough?); separately, the fair
+price is the fit **inverted** (`setVal × boosters ÷ expected SV/Booster`), and for
+the oldest sets — where the downward fit has decayed toward zero — that division
+amplifies ordinary fit noise into a meaningless figure (a €5k vintage box showing
+a €50k "fair price"; ~28% of the live catalogue sits in this zone). Vintage sealed
+is collector-priced and genuinely off the value-density line, so **`fairPrice()`
+suppresses the number rather than guess** once the fit's expected SV/Booster falls
+below `FAIR_PRICE_MIN_EXPECTED_FRAC` (0.25) of its **intercept** (the value at the
+young, reliable end). Crucially the threshold is a fraction of the *current* fit,
+**not a hardcoded age** — and `recomputeFit()` re-runs on every data load — so the
+implied age limit **moves automatically as the catalogue grows and the fit
+refits**. `fairPriceMaxAge(fit)` exposes that limit in years (pure, derived from
+the fit); the drill-down's Fair Price tile shows `beyond age model (~N yr)` in
+place of a number for a suppressed product, and the board/verdict fall back to the
+momentum signals (fairGap is null, so no fair claim is made). This is deliberately
+*suppression, not a clamp*: an unreliable number we don't show beats a plausible-
+looking one we can't stand behind.
+
 **Data maturity — the per-product companion, and where we stop.** `fitConfidence`
 is a *global* signal (one age fit for the whole catalogue); it says nothing about
 whether *this* product's own inputs have settled. A new release's set value is

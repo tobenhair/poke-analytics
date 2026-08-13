@@ -138,6 +138,29 @@ export function linearFit(pts) {
 // the UI still shows it, but greyed, and flags the low confidence.
 export const FAIR_PRICE_MIN_R2 = 0.25;
 
+// The fair price *inverts* the age fit (setVal × boosters ÷ expected SV/Booster),
+// so for the oldest sets — where the downward fit has decayed toward zero — the
+// division amplifies ordinary fit noise into a meaningless figure (a €5k vintage
+// box showing a €50k "fair price"). Vintage sealed is collector-priced and
+// genuinely off the value-density line, so past a point we suppress the fair
+// price rather than guess. The threshold is a fraction of the fit's *intercept*
+// (its value at the young, reliable end), NOT a hardcoded age — so it is
+// unit-free and, because recomputeFit() re-runs on every data load, the implied
+// age limit moves automatically as the catalogue grows and the model is refit.
+// See fairPriceMaxAge() for that limit in years.
+export const FAIR_PRICE_MIN_EXPECTED_FRAC = 0.25;
+
+// The age (years) beyond which the fair price is suppressed on the *current*
+// fit: where the fit's expected SV/Booster falls below FAIR_PRICE_MIN_EXPECTED_
+// FRAC of its intercept. Null when there's no fit or the fit doesn't decline with
+// age (no cutoff needed then). Pure and derived entirely from the fit, so it
+// tracks the model — this is the "moving age limit". For display/explanation.
+export function fairPriceMaxAge(fit) {
+  if (!fit || fit.a <= 0 || fit.b >= 0) return null;
+  const minExpected = FAIR_PRICE_MIN_EXPECTED_FRAC * fit.a;
+  return (fit.a - minExpected) / (-fit.b); // age where expected == minExpected
+}
+
 // How much to trust the fair price, in words rather than a statistic.
 //
 // The board used to render a bare "R² 0.39". R² is a term most buyers don't
@@ -180,6 +203,10 @@ export function expectedSvPerBooster(fit, age) {
 export function fairPrice(product, fit) {
   const expected = expectedSvPerBooster(fit, product.age);
   if (expected == null || expected <= 0) return null;
+  // Too far down the decayed fit to invert reliably → don't guess a fair price.
+  // Fraction-of-intercept floor, so the age limit self-adjusts with the fit
+  // (fairPriceMaxAge()). fit is non-null here (expectedSvPerBooster returned one).
+  if (fit.a > 0 && expected < FAIR_PRICE_MIN_EXPECTED_FRAC * fit.a) return null;
   if (product.setVal == null || !product.boosters) return null;
   // The fit is over ex-promo SV/Booster, so setVal×boosters/expected is the fair
   // *ex-promo* (booster) price. Add the promo back so the fair price is on the
