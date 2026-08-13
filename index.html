@@ -4844,7 +4844,7 @@ function renderPortfolio() {
     <div class="portfolio-tile">
       <div class="lbl">Current value</div>
       <div class="val">${money(totalNow)}</div>
-      <div class="sub" style="color:var(--muted)">7d ${chgSpan(valChg.change7d)} · 30d ${chgSpan(valChg.change30d)}</div>
+      <div class="sub" style="color:var(--muted)">1d ${chgSpan(valChg.change1d)} · 7d ${chgSpan(valChg.change7d)} · 30d ${chgSpan(valChg.change30d)}</div>
     </div>
     <div class="portfolio-tile">
       <div class="lbl">Unrealised P&L</div>
@@ -7326,13 +7326,36 @@ function renderNews() {
   if (btn) btn.hidden = !has;
 }
 
+// Supabase/PostgREST caps a single response at the project's "Max rows" setting
+// (1000 by default). The snapshots table passed that a while ago, so a plain
+// select('*') silently returned a truncated, arbitrarily-ordered ~1000-row
+// subset — dropping many products' most recent daily rows and breaking the
+// short price-change windows (1d/7d need the very latest snapshots). Page through
+// with an explicit total order so every row loads regardless of the cap. (This is
+// also the "Data volume at scale" item — here it was an active correctness bug.)
+async function fetchAllRows(makeQuery, pageSize = 1000) {
+  const all = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await makeQuery().range(from, from + pageSize - 1);
+    if (error) return { data: null, error };
+    all.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return { data: all, error: null };
+}
+
+// A total order for stable snapshot pagination: (product_id, snapshot_date) is
+// unique per the schema (one reading per product per date).
+const allSnapshots = () => fetchAllRows(() => sbClient.from('snapshots').select('*')
+  .order('snapshot_date', { ascending: true }).order('product_id', { ascending: true }));
+
 // Load every product + snapshot for the signed-in user and hand them to the
 // same applyNewData() path the .xlsx loader uses. Pivots the normalized
 // snapshot rows back into the aligned price[]/setVal[] arrays the app expects.
 async function loadFromSupabase() {
   const [prodRes, snapRes, setRes, holdRes, alertRes] = await Promise.all([
     sbClient.from('products').select('*').order('release', { ascending: true }),
-    sbClient.from('snapshots').select('*'),
+    allSnapshots(),
     sbClient.from('user_settings').select('*').maybeSingle(),
     sbClient.from('holdings').select('*'),
     sbClient.from('alerts').select('*'),
@@ -7448,7 +7471,7 @@ async function loadDemo() {
   try {
     const [prodRes, snapRes] = await Promise.all([
       sbClient.from('products').select('*'),
-      sbClient.from('snapshots').select('*'),
+      allSnapshots(),   // paginated — RLS still scopes anon to the demo slice
     ]);
     if (prodRes.error) throw prodRes.error;
     if (snapRes.error) throw snapRes.error;

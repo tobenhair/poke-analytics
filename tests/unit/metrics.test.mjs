@@ -561,13 +561,14 @@ test('portfolioValueChange measures the basket value change by calendar date', (
   // 30d: 130 vs 100 = +30%; 7d: 130 vs 123 (2026-03-24).
   assert.equal(c.change30d, 30);
   assert.ok(Math.abs(c.change7d - ((130 - 123) / 123) * 100) < 1e-9);
+  assert.ok(Math.abs(c.change1d - ((130 - 129) / 129) * 100) < 1e-9); // 1d: 130 vs 129
 });
 
 test('portfolioValueChange is null with no holdings, no dates, or an uncovered window', () => {
   const dates = ['2026-03-01', '2026-03-08'];
-  assert.deepEqual(portfolioValueChange({}, {}, dates), { change7d: null, change30d: null });
+  assert.deepEqual(portfolioValueChange({}, {}, dates), { change1d: null, change7d: null, change30d: null });
   assert.deepEqual(portfolioValueChange({ A: { quantity: 1 } }, { A: { price: [1, 2] } }, null),
-    { change7d: null, change30d: null });
+    { change1d: null, change7d: null, change30d: null });
   // 7 days of history covers 7d but not 30d.
   const c = portfolioValueChange({ A: { quantity: 1 } }, { A: { price: [1, 2] } }, dates);
   assert.ok(c.change7d != null);

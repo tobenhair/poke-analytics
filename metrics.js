@@ -762,7 +762,7 @@ export function portfolioValueSeries(holdings, historicalData, dateCount) {
   return any ? totals : [];
 }
 
-// Trailing 7d / 30d % change of the current holdings' total value. Values the
+// Trailing 1d / 7d / 30d % change of the current holdings' total value. Values the
 // holdings at every tracked snapshot (portfolioValueSeries — current quantities
 // valued back across history, same basis as the value-over-time chart) and
 // measures the change by *calendar date* with the same window rule as
@@ -771,12 +771,17 @@ export function portfolioValueSeries(holdings, historicalData, dateCount) {
 // window is covered (or when there are no holdings). % is FX-neutral (a ratio),
 // so no currency conversion is involved.
 export function portfolioValueChange(holdings, historicalData, dates) {
-  if (!Array.isArray(dates) || dates.length < 2) return { change7d: null, change30d: null };
+  const empty = { change1d: null, change7d: null, change30d: null };
+  if (!Array.isArray(dates) || dates.length < 2) return empty;
   const totals = portfolioValueSeries(holdings, historicalData, dates.length);
-  if (!totals.length) return { change7d: null, change30d: null };
+  if (!totals.length) return empty;
   const series = [];
   for (let i = 0; i < totals.length; i++) {
     if (totals[i] != null) series.push({ t: Date.parse(dates[i]), price: totals[i] });
   }
-  return { change7d: pctChangeOverDays(series, 7), change30d: pctChangeOverDays(series, 30) };
+  return {
+    change1d:  pctChangeOverDays(series, 1),
+    change7d:  pctChangeOverDays(series, 7),
+    change30d: pctChangeOverDays(series, 30),
+  };
 }
