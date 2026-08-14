@@ -484,15 +484,17 @@ explanation exists in two places:
   `#start-lens`-style pill toggle, but only **Best value** (SV/Booster,
   fit-independent) ranks for real — reusing `startPrimary(p,'value')` in a
   non-interactive `demoPickCard()` (no `.row-open` drill button: the drill-down
-  lives behind sign-in). **Safe pick** and **Best deal** render a locked
-  `.overview-empty` panel (an `#i-lock` icon + a `.signin-open` "Sign in to rank
-  by…") because both read the catalogue-wide age fit the 3-set slice can't
-  reproduce — the concrete answer to *what an account buys*, and it keeps the
-  no-fair-price/verdict honesty rule below. The locked panel also lists the
-  **unlock-toolkit tiles** (`.unlock-grid`/`.unlock-tile` + sprite icons) — the
-  five things an account buys. The `.signin-open` handler is **delegated** (one
-  document listener) so the dynamically-injected locked-panel button opens the
-  auth overlay like the static ones.
+  lives behind sign-in). **Safe pick** and **Best deal** render a **slim** locked
+  `.overview-empty` note (an `#i-lock` icon + a one-line `.signin-open` "Sign in
+  to rank by…") because both read the catalogue-wide age fit the 3-set slice
+  can't reproduce — keeping the no-fair-price/verdict honesty rule. The
+  **unlock-toolkit tiles** (`.unlock-grid`/`.unlock-tile` + sprite icons — the
+  five things an account buys: fair price, verdict, price history, portfolio,
+  alerts) are **not** duplicated inside each locked lens; they live **once**, as
+  a standalone **"What a free account unlocks"** section (static markup, right
+  below the Where-to-start block). The `.signin-open` handler is **delegated**
+  (one document listener) so the dynamically-injected locked-lens button opens
+  the auth overlay like the static ones.
 - **The demo has an animated "See how it reads a product" panel** —
   `mountDemoVizzes()` injects three **sample** SVG charts (`scatterVizSVG` value
   vs age + fit, `fairPriceVizSVG` actual vs fair-price line, `momentumVizSVG`

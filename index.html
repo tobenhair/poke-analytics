@@ -2457,6 +2457,19 @@
       <div id="demo-start-list"></div>
     </div>
 
+    <!-- What a free account unlocks — the five tools the locked lenses point to.
+         Shown once as its own section, not duplicated inside each locked lens. -->
+    <h2 class="section-eyebrow">What a free account unlocks</h2>
+    <div class="panel demo-block">
+      <div class="unlock-grid" style="padding:22px 24px;">
+        <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-deal"/></svg></span><div><div class="unlock-t">Fair price</div><div class="unlock-d">the € it should cost for its age</div></div></div>
+        <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg></span><div><div class="unlock-t">Buy / avoid verdict</div><div class="unlock-d">in plain words</div></div></div>
+        <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-analysis"/></svg></span><div><div class="unlock-t">Price history</div><div class="unlock-d">every tracked snapshot</div></div></div>
+        <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-portfolio"/></svg></span><div><div class="unlock-t">Portfolio & P&L</div><div class="unlock-d">value your own holdings</div></div></div>
+        <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg></span><div><div class="unlock-t">Price alerts</div><div class="unlock-d">buy-below targets</div></div></div>
+      </div>
+    </div>
+
     <!-- Latest news teaser (TCG-first) — same shared component and #news-modal
          as the signed-in app, so a logged-out visitor gets a reason to return. -->
     <section class="news-teaser" hidden>
@@ -7631,19 +7644,11 @@ function renderDemoStart() {
     ? 'weighs value against how settled each set is'
     : 'measures how far under fair price each product sits';
   lead.innerHTML = `Ranked by <strong>${label}</strong> — ${why}, read from a fit across every tracked set.`;
-  const tiles = [
-    ['i-deal', 'Fair price', 'the € it should cost for its age'],
-    ['i-info', 'Buy / avoid verdict', 'in plain words'],
-    ['i-analysis', 'Price history', 'every tracked snapshot'],
-    ['i-portfolio', 'Portfolio & P&L', 'value your own holdings'],
-    ['i-bell', 'Price alerts', 'buy-below targets'],
-  ].map(([ic, t, d]) => `<div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#${ic}"/></svg></span><div><div class="unlock-t">${t}</div><div class="unlock-d">${d}</div></div></div>`).join('');
   list.innerHTML = `
-    <div class="overview-empty" style="display:flex; align-items:center; gap:12px; padding-bottom:14px;">
+    <div class="overview-empty" style="display:flex; align-items:center; gap:12px;">
       <svg class="icon icon-lg" aria-hidden="true" style="flex:none"><use href="#i-lock"/></svg>
-      <span>This ranking reads the whole catalogue, which the preview can't show. <button type="button" class="text-link signin-open" aria-haspopup="dialog">Sign in</button> to rank by ${label} — and unlock the full toolkit:</span>
-    </div>
-    <div class="unlock-grid" style="padding:0 24px 22px;">${tiles}</div>`;
+      <span>This ranking reads the whole catalogue, which the preview can't show. <button type="button" class="text-link signin-open" aria-haspopup="dialog">Sign in</button> to rank by ${label}.</span>
+    </div>`;
 }
 
 // ── Demo "see it in action" illustrations ──

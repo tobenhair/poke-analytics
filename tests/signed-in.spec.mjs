@@ -155,16 +155,21 @@ test('the demo Where-to-start teaser ranks by value live and locks the fit-based
   // Honesty rule: no fair price / verdict leaks into the live value lens.
   await expect(page.locator('#demo-start-list')).not.toContainText('fair');
 
-  // Safe pick and Best deal are locked — no cards, the unlock-toolkit tiles, and
-  // a sign-in that opens auth.
+  // Safe pick and Best deal are locked — no ranked cards, a slim one-line "sign
+  // in to rank by…" note (no feature grid duplicated inside the ranking widget).
   for (const lens of ['safe', 'deal']) {
     await page.locator(`#demo-start-lens .pill[data-lens="${lens}"]`).click();
     await expect(page.locator('#demo-start-list .pick-item')).toHaveCount(0);
     await expect(page.locator('#demo-start-list')).toContainText('Sign in');
-    await expect(page.locator('#demo-start-list .unlock-tile')).toHaveCount(5);
+    await expect(page.locator('#demo-start-list .unlock-tile')).toHaveCount(0);
   }
   await page.locator('#demo-start-list .signin-open').click();
   await expect(page.locator('#auth-overlay')).toBeVisible();
+
+  // The unlock-toolkit tiles live once, in their own standalone section on the
+  // demo page — not inside the ranking widget.
+  await expect(page.locator('#demo-page .unlock-tile')).toHaveCount(5);
+  await expect(page.locator('#demo-start-list .unlock-tile')).toHaveCount(0);
 
   expect(pageErrors).toEqual([]);
 });
