@@ -3007,9 +3007,12 @@
 
     <span id="portfolio-status" class="status-pill" role="status" style="display:none"></span>
 
-    <!-- ── Section: portfolio ── -->
+    <!-- ── Section: overview (summary + value over time) ──
+         The summary tiles and the value-over-time trajectory sit together at the
+         top of the tab: the headline numbers and the chart that plots them belong
+         side by side. The holdings editor + cards follow in their own section. -->
     <h2 class="section-eyebrow">Your Portfolio</h2>
-    <p class="section-desc"><strong>What:</strong> what you own and what it's worth now. <strong>How to read:</strong> <em>Add / buy more</em> tops up a holding and blends the cost basis to a weighted average; use the <svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg> button on a row to correct the exact quantity or cost. <em>Unrealised P&amp;L</em> compares your cost basis to each product's latest tracked price. Private to your account, saved automatically.</p>
+    <p class="section-desc"><strong>What:</strong> what your holdings are worth now, and how that value has moved. <strong>How to read:</strong> the summary totals your current value and <em>unrealised P&amp;L</em> (cost basis vs. each product's latest tracked price); the chart plots your <em>current</em> holdings valued at every tracked snapshot against your flat <em>cost basis</em> — the gap between the lines is your gain (above cost) or loss (below). Values current quantities back across history; purchase dates aren't tracked. Private to your account, saved automatically.</p>
     <div class="panel">
       <div class="panel-header">
         <h3 class="panel-title">Portfolio</h3>
@@ -3020,6 +3023,16 @@
 
       <div class="portfolio-summary" id="portfolio-summary"></div>
 
+      <div class="chart-panel" id="portfolio-value-chart-wrap" style="padding: 20px 24px;">
+        <canvas id="portfolio-value-chart" style="max-height: 280px;"></canvas>
+      </div>
+      <div id="portfolio-value-empty" class="balancer-empty" style="display:none;">Add holdings below to see how their value has moved across the tracked snapshots.</div>
+    </div>
+
+    <!-- ── Section: holdings (editor + cards) ── -->
+    <h2 class="section-eyebrow">Holdings</h2>
+    <p class="section-desc"><strong>What:</strong> the products you hold, and adding or correcting them. <strong>How to read:</strong> <em>Add / buy more</em> tops up a holding and blends the cost basis to a weighted average; use the <svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg> button on a row to correct the exact quantity or cost. Each card shows its current value and unrealised P&amp;L. Private to your account, saved automatically.</p>
+    <div class="panel">
       <div class="portfolio-editor">
         <select class="field-select" id="portfolio-product-select" aria-label="Product to add to your portfolio"></select>
         <input class="field-input" id="portfolio-qty" type="number" min="0" step="1" placeholder="Qty" aria-label="Quantity held">
@@ -3034,16 +3047,6 @@
            value/P&L mid-row. Each card carries the same figures plus a
            fair-price chip. Built by renderPortfolio(). -->
       <div class="holding-grid" id="portfolio-cards"></div>
-    </div>
-
-    <!-- ── Section: portfolio value over time ── -->
-    <h2 class="section-eyebrow">Value Over Time</h2>
-    <p class="section-desc"><strong>What:</strong> what your <em>current</em> holdings would have been worth across every tracked snapshot — the <em>portfolio value</em> line against your flat <em>cost basis</em>, so unrealised P&amp;L reads as a trajectory rather than just today's number. <strong>How to read:</strong> the gap between the lines is your gain (value above cost) or loss (below); a rising value line means the basket you hold has appreciated. Values your current quantities back across history — purchase dates aren't tracked.</p>
-    <div class="panel">
-      <div class="chart-panel" id="portfolio-value-chart-wrap" style="padding: 20px 24px;">
-        <canvas id="portfolio-value-chart" style="max-height: 280px;"></canvas>
-      </div>
-      <div id="portfolio-value-empty" class="balancer-empty" style="display:none;">Add holdings above to see how their value has moved across the tracked snapshots.</div>
     </div>
 
     <!-- ── Section: concentration & rebalance (portfolio balancer) ── -->
