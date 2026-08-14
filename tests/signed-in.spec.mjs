@@ -184,6 +184,9 @@ test('the demo mounts three "see it in action" sample charts, drawn on scroll', 
   const firstViz = page.locator('.demo-viz').first();
   await firstViz.scrollIntoViewIfNeeded();
   await expect(firstViz).toHaveClass(/in-view/);
+  // …and the build replays on a slow loop so a mid-scroll visitor still catches
+  // it — mountDemoVizzes() arms a replay timer (skipped under reduced motion).
+  await expect.poll(() => firstViz.evaluate(el => !!el._vizTimer)).toBe(true);
   expect(pageErrors).toEqual([]);
 });
 
