@@ -264,7 +264,13 @@ memory limit:
   the huge singles file. It **streams** that file (reads it chunk by chunk, one
   record at a time) so it too stays inside the memory limit no matter the file
   size, and reports each set's card count + max single price so a mis-categorised
-  sealed item would show up. Run it after adding a product/set.
+  sealed item would show up. Run it after adding a product/set. It also **drops
+  any id in `public.cardmarket_excluded_singles`** before caching — an
+  admin-managed list of cards Cardmarket mis-tags into a set but that must never
+  count toward Set Value (e.g. the €2,500 promo Gengar wrongly tagged to Sword &
+  Shield base). To exclude a card: `insert into public.cardmarket_excluded_singles
+  (id_product, reason) values (<idProduct>, '<why>');` then re-run Sync catalog.
+  Because it drops them at cache-build time, a re-sync can never re-add them.
 
 All three derive/​match identically to the unit-tested `scripts/cardmarket-lib.mjs`,
 so the automated values match. (`scripts/cardmarket-ingest.mjs` mirrors the same

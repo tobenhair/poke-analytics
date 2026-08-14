@@ -149,12 +149,21 @@ export function resolveIds(map, nonsinglesRecords) {
 // (cardmarket_expansion_singles), so the daily Edge Function can sum Set Value
 // without ever loading this large singles file itself. Returns
 // Map(String(idExpansion) → number[] of single idProducts).
-export function singlesByExpansion(singlesRecords) {
+//
+// `excludeIds` (a Set/array of idProducts, compared as strings) drops cards that
+// Cardmarket tags to an expansion but that must never enter a Set Value — the
+// promo Gengar (~€2,500) mis-tagged into Sword & Shield's base set that 5×'d it.
+// Dropping them here (at cache-build time) is the durable cause-fix: a re-sync
+// can't re-add them. The live list lives in public.cardmarket_excluded_singles;
+// the offline path uses cardmarket-map.json's `excludeSingles`.
+export function singlesByExpansion(singlesRecords, excludeIds = []) {
+  const exclude = new Set([...(excludeIds || [])].map(String));
   const byExp = new Map();
   for (const r of singlesRecords) {
     const exp = pick(r, FIELD_ALIASES.expansion);
     const id = pick(r, FIELD_ALIASES.id);
     if (exp == null || id == null) continue;
+    if (exclude.has(String(id))) continue;   // excluded single — never cached or summed
     const key = String(exp);
     if (!byExp.has(key)) byExp.set(key, []);
     byExp.get(key).push(Number(id));
@@ -180,13 +189,13 @@ export function singlesByExpansion(singlesRecords) {
 //                  lowLiquidity }. avgPrice/lowPrice are the guide's avg/low,
 //                  stored for the Data Entry low-liquidity review.
 export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords, opts = {}) {
-  const { boxPriceField = 'trend', svField = 'avg30', thinGap = 0.2, trendFallbackGap = 0.30 } = opts;
+  const { boxPriceField = 'trend', svField = 'avg30', thinGap = 0.2, trendFallbackGap = 0.30, excludeIds } = opts;
   const pgById = new Map();
   for (const r of priceGuideRecords) {
     const id = pick(r, FIELD_ALIASES.id);
     if (id != null) pgById.set(String(id), r);
   }
-  const singlesByExp = singlesByExpansion(singlesRecords);
+  const singlesByExp = singlesByExpansion(singlesRecords, excludeIds);
   // Value of a record for a chosen field, falling back through the price aliases
   // when that field is empty (e.g. sealed products have no avg30).
   const valueOf = (rec, field) => {

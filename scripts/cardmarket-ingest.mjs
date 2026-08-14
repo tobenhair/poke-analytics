@@ -108,13 +108,25 @@ async function main() {
   const singleRecs = toRecords(singles).records;
   const resolved = resolveIds(workingMap, nsRecords);
 
+  // Singles Cardmarket mis-tags into a tracked expansion that must never enter a
+  // Set Value (a €2,500 promo Gengar 5×'d Sword & Shield). The DB table is the
+  // source of truth; the offline map copy is the fallback with no DB creds.
+  let excludeIds = [];
+  if (sb) {
+    const { data, error } = await sb.from('cardmarket_excluded_singles').select('id_product');
+    if (error) throw new Error(`reading excluded singles: ${error.message}`);
+    excludeIds = (data ?? []).map((r) => r.id_product);
+  } else {
+    excludeIds = overrides.excludeSingles ?? [];
+  }
+
   // ── Catalog sync (precompute): resolve each product's expansion id and cache
   //    the expansion's single-card ids in Supabase, so the daily Edge Function
   //    never loads the huge singles file. Also fills a missing product id. This
   //    is the memory-heavy step (it reads the whole singles file) — run it here,
   //    in a memory-rich environment, not in the ~256 MB Edge runtime.
   if (REFRESH_CATALOG) {
-    const byExp = singlesByExpansion(singleRecs);
+    const byExp = singlesByExpansion(singleRecs, excludeIds);
     const expansionsInUse = new Set();
     const unresolved = [];
     let prodUpdates = 0;
@@ -145,7 +157,7 @@ async function main() {
     return;
   }
 
-  const derived = deriveProducts(workingMap, resolved, toRecords(priceGuide).records, singleRecs);
+  const derived = deriveProducts(workingMap, resolved, toRecords(priceGuide).records, singleRecs, { excludeIds });
 
   // ── Backfill: write each confidently-resolved idProduct onto the DB product
   //    that lacks one, so the DB becomes self-sufficient (no name-matching after).

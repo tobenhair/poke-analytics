@@ -144,6 +144,20 @@ test('singlesByExpansion groups single ids by expansion (the precomputed catalog
   // for expansion 10 = 50 + 10 = 60, matching the deriveProducts assertion above.
 });
 
+test('singlesByExpansion drops excluded ids (the mis-tagged-single exclusion list)', () => {
+  assert.deepEqual(singlesByExpansion(singles, [1001]).get('10'), [1002]); // number id dropped
+  assert.deepEqual(singlesByExpansion(singles, new Set(['1001'])).get('10'), [1002]); // string/Set too
+  assert.deepEqual(singlesByExpansion(singles, [1001]).get('20'), [2001]); // other expansions untouched
+});
+
+test('deriveProducts: excludeIds drops a mis-tagged single from the Set Value sum', () => {
+  const resolved = resolveIds(map, nonsingles);
+  const d = deriveProducts(map, resolved, priceGuide, singles, { excludeIds: [1001] });
+  // Evolving Skies SV without the excluded 1001 (avg30 50) = 10, over 1 single
+  assert.equal(d['Evolving Skies Booster Box'].setValue, 10);
+  assert.equal(d['Evolving Skies Booster Box'].nSingles, 1);
+});
+
 test('guardSetValue holds a big single-day RISE (the mis-tagged-card artefact)', () => {
   // The Sword & Shield case: €635 → €3,132 overnight (4.93×) from one promo card
   // wrongly summed into the set. The guard holds the previous value instead.

@@ -107,6 +107,19 @@ create table if not exists public.cardmarket_expansion_singles (
   updated_at         timestamptz not null default now()
 );
 
+-- ── Excluded singles ──
+-- idProducts Cardmarket tags to a tracked expansion but that must NEVER be
+-- summed into a Set Value (a mis-tagged high-value card — the real case: a promo
+-- Gengar idProduct 895476, ~€2,500, wrongly tagged to the Sword & Shield base
+-- expansion, which 5×'d that set's value). The catalog refresh drops these
+-- before caching, so a re-sync can't re-add them (RLS below; the service-role
+-- daily/refresh jobs bypass RLS).
+create table if not exists public.cardmarket_excluded_singles (
+  id_product bigint primary key,
+  reason     text,
+  created_at timestamptz not null default now()
+);
+
 -- ── Per-user settings ──
 create table if not exists public.user_settings (
   user_id       uuid primary key references auth.users(id) on delete cascade default auth.uid(),
@@ -218,11 +231,14 @@ alter table public.holdings      enable row level security;
 alter table public.alerts        enable row level security;
 alter table public.client_errors enable row level security;
 alter table public.cardmarket_expansion_singles enable row level security;
+alter table public.cardmarket_excluded_singles enable row level security;
 alter table public.news enable row level security;
--- No client policy: the catalog cache is ingestion infrastructure written by the
--- service-role catalog-sync job (which bypasses RLS) and read by the service-role
--- daily Edge Function. With RLS on and no policy, no anon/authenticated client
--- can touch it — exactly what we want.
+-- No client policy on cardmarket_expansion_singles: the catalog cache is
+-- ingestion infrastructure written by the service-role catalog-sync job (which
+-- bypasses RLS) and read by the service-role daily Edge Function. With RLS on
+-- and no policy, no anon/authenticated client can touch it — exactly what we
+-- want. cardmarket_excluded_singles is admin-managed (policies below the
+-- is_admin() definition), also read by the service-role jobs.
 
 -- Shared-dataset model:
 --   * Product data (products + snapshots) is READ by any signed-in user, but
@@ -254,6 +270,14 @@ create policy "admin writes products" on public.products
   for all to authenticated
   using (public.is_admin())
   with check (public.is_admin());
+
+-- ── cardmarket_excluded_singles: admin-managed (service-role jobs bypass RLS) ──
+drop policy if exists "excluded singles read (admin)" on public.cardmarket_excluded_singles;
+create policy "excluded singles read (admin)" on public.cardmarket_excluded_singles
+  for select using (public.is_admin());
+drop policy if exists "excluded singles write (admin)" on public.cardmarket_excluded_singles;
+create policy "excluded singles write (admin)" on public.cardmarket_excluded_singles
+  for all using (public.is_admin()) with check (public.is_admin());
 
 -- ── snapshots: read = any signed-in user; write = admin only ──
 drop policy if exists "own snapshots" on public.snapshots;

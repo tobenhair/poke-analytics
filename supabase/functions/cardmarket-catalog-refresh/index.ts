@@ -105,6 +105,14 @@ Deno.serve(async (req) => {
 
     const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
 
+    // Singles Cardmarket mis-tags into a tracked expansion that must never enter
+    // a Set Value (a €2,500 promo Gengar 5×'d Sword & Shield). Dropping them here
+    // — at cache-build time — is the durable cause-fix: a re-sync can't re-add
+    // them. public.cardmarket_excluded_singles is the source of truth.
+    const { data: exRows, error: exErr } = await sb.from('cardmarket_excluded_singles').select('id_product');
+    if (exErr) return json({ error: `reading excluded singles: ${exErr.message}` }, 500);
+    const excluded = new Set((exRows ?? []).map((r) => String(r.id_product)));
+
     // Which expansions to cache: an explicit list, else every distinct expansion
     // id on the products table.
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
@@ -126,7 +134,9 @@ Deno.serve(async (req) => {
     await streamArray(SINGLES_URL, (r) => {
       const exp = r.idExpansion ?? r.expansionId ?? r.idExpansionLocalized;
       const id = r.idProduct ?? r.productId ?? r.id;
-      if (exp != null && id != null && members.has(String(exp))) members.get(String(exp))!.push(Number(id));
+      if (exp != null && id != null && members.has(String(exp)) && !excluded.has(String(id))) {
+        members.get(String(exp))!.push(Number(id));
+      }
     });
 
     // 2. Guardrail: max single price per expansion (a box-sized figure here would
@@ -168,6 +178,7 @@ Deno.serve(async (req) => {
         maxSinglePrice: maxPrice.get(String(r.id_expansion)) ?? null,
       })),
       emptyExpansions: emptyExpansions.length ? emptyExpansions : undefined,
+      excludedSingles: excluded.size || undefined,
     });
   } catch (e) {
     return json({ error: String(e instanceof Error ? e.message : e) }, 500);
