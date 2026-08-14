@@ -668,9 +668,11 @@ stance). What still stands unbuilt:
     Violet" narrows the board, scatter, overview, both analytical lenses and the
     comparison views alike (pinned in `tests/smoke.spec.mjs`). It deliberately
     leaves the age-fit (fair prices stay whole-catalogue) and the KPI strip alone.
-    *Still open here:* the same as a **set** scope filter (era is the coarse axis;
-    set-level scoping would be finer), plus the **perf win** (a collapsed group
-    renders one row — cheap virtualisation) is realised for the tables only.
+    *Still open here:* the **perf win** (a collapsed group renders one row — cheap
+    virtualisation) is realised for the tables only. (A **set**-level scope filter
+    was considered and dropped — era is the coarse axis, and a single set is
+    already reachable three ways: expand it in the board tree, pick it as a Sets
+    series in the charts, or type its name in the board search.)
     - *Decided: era/set stay **derived**, not stored on the product row.* Era is a
       pure function of `release` (the `ERAS` boundary ranges), so a stored `era`
       column could only ever *duplicate* the date and drift from it — a silent
@@ -704,6 +706,27 @@ stance). What still stands unbuilt:
     a new component — and preserve the phone column-priority rules (`.col-detail`).
     The efficient source for the headline rows is server-side aggregation (a
     Supabase view/RPC) — see **Data volume at scale**.
+
+- **Cross-filtering — a shared product selection drives the charts (PowerBI-style).**
+  *(Feature; approach to decide.)* Today each comparison chart (§03 Price History,
+  §04 SV/Booster Trend) has its **own** add-a-series picker, so charting the same
+  few products in both means finding them twice. Idea: a **checkbox on every board
+  row** that builds one **shared selection** of products, and every chart reacts to
+  it — the way clicking an item in a PowerBI visual cross-filters the others.
+  Concretely: the selection feeds both comparison charts' Products mode (replacing
+  or augmenting their pickers), and **cross-highlights the §02 scatter** (selected
+  points lit, the rest dimmed — highlight, not filter, so the age-fit context
+  stays). Open design decisions: (1) **replace vs augment** the existing
+  chip-pickers — the charts also have Sets/Eras roll-up modes that don't map to a
+  row checkbox, so the selection likely drives *Product* mode while roll-ups keep
+  their own control; (2) **the 6-series palette cap** — a checkbox multi-select can
+  exceed it, so it needs a cap + "N more selected" affordance, or a distinct
+  "selected" styling; (3) **scatter = highlight vs filter** (PowerBI highlights);
+  (4) **where the checkbox lives** in the board's phone column-priority (a leading
+  column frozen with the name). A real `<input type=checkbox>` per row with a
+  label, a module-level `selected` Set shared across views (session-only), and a
+  "clear selection" control. Keep it inside the dark table/chart system — no new
+  component or token — and currency-correct like every other chart path.
 
 - **"Where to start" teaser on the demo + summary-strip relocation.** *(Feature;
   **shipped** — demo teaser + KPI-strip relocation.)* The signed-in
