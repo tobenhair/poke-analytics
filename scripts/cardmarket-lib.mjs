@@ -274,3 +274,31 @@ export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords,
   }
   return out;
 }
+
+// Day-over-day Set Value guardrail.
+//
+// A Set Value is the sum of ~250 singles' avg30, so it is *very* stable day to
+// day — a real market shift moves it a few percent, never multiples. A large
+// single-day RISE is therefore almost always a data artefact: one mis-tagged
+// high-value card entering the expansion's singles list. The real case this
+// exists for: a promo Gengar (~€2,500) tagged into Cardmarket's Sword & Shield
+// base expansion 5×'d that set's value overnight (€635 → €3,132) with no price
+// move, and stuck there until fixed by hand.
+//
+// So when today's computed Set Value is more than `maxJump` (default 50%) ABOVE
+// the previous tracked value, HOLD the previous value instead of writing the
+// spike, and report it (`held`) for review. Deliberately one-directional — a
+// *fall* is let through, because that is how a fixed artefact self-corrects
+// (once the bad card is removed the recomputed value drops back to normal, and a
+// down-guard would trap the set at the inflated value forever). With no usable
+// previous value it is a no-op. Pure; mirrored in cardmarket-daily/index.ts and
+// scripts/cardmarket-ingest.mjs, pinned by cardmarket-lib.test.mjs.
+export const SV_MAX_DAILY_JUMP = 0.5;
+export function guardSetValue(newSetValue, prevSetValue, { maxJump = SV_MAX_DAILY_JUMP } = {}) {
+  const val = newSetValue != null && Number.isFinite(Number(newSetValue)) ? Number(newSetValue) : null;
+  const prev = prevSetValue != null && Number.isFinite(Number(prevSetValue)) ? Number(prevSetValue) : null;
+  if (val == null || prev == null || prev <= 0) return { value: val, held: false, ratio: null };
+  const ratio = val / prev;
+  const held = ratio > 1 + maxJump;
+  return { value: held ? prev : val, held, ratio: +ratio.toFixed(4) };
+}

@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveIds, deriveProducts, norm, score, singlesByExpansion } from '../../scripts/cardmarket-lib.mjs';
+import { resolveIds, deriveProducts, norm, score, singlesByExpansion, guardSetValue, SV_MAX_DAILY_JUMP } from '../../scripts/cardmarket-lib.mjs';
 
 // A tiny stand-in for cardmarket-map.json.
 const map = {
@@ -142,4 +142,39 @@ test('singlesByExpansion groups single ids by expansion (the precomputed catalog
   assert.equal(byExp.has('99'), false);
   // this is exactly the Edge Function's Set Value input: Σ avg30 over these ids
   // for expansion 10 = 50 + 10 = 60, matching the deriveProducts assertion above.
+});
+
+test('guardSetValue holds a big single-day RISE (the mis-tagged-card artefact)', () => {
+  // The Sword & Shield case: €635 → €3,132 overnight (4.93×) from one promo card
+  // wrongly summed into the set. The guard holds the previous value instead.
+  const g = guardSetValue(3131.6, 635.51);
+  assert.equal(g.held, true);
+  assert.equal(g.value, 635.51);       // held at the previous good value, not the spike
+  assert.equal(g.ratio, 4.9277);
+});
+
+test('guardSetValue lets an ordinary day-to-day move through', () => {
+  const g = guardSetValue(648, 635.51);   // ~2% up
+  assert.equal(g.held, false);
+  assert.equal(g.value, 648);
+});
+
+test('guardSetValue lets a FALL through so a fixed artefact self-corrects', () => {
+  // Once the bad card is removed the recomputed value drops back; a down-guard
+  // would trap the set at the inflated value, so falls are always accepted.
+  const g = guardSetValue(632, 3131.6);
+  assert.equal(g.held, false);
+  assert.equal(g.value, 632);
+});
+
+test('guardSetValue is a no-op with no usable previous value', () => {
+  assert.deepEqual(guardSetValue(3000, null), { value: 3000, held: false, ratio: null });
+  assert.deepEqual(guardSetValue(3000, 0), { value: 3000, held: false, ratio: null });
+  assert.equal(guardSetValue(null, 635).value, null);
+});
+
+test('guardSetValue boundary: exactly at the threshold is allowed, just over is held', () => {
+  const atCap = 635.51 * (1 + SV_MAX_DAILY_JUMP);
+  assert.equal(guardSetValue(atCap, 635.51).held, false);              // == +50% passes
+  assert.equal(guardSetValue(atCap + 1, 635.51).held, true);           // just over is held
 });

@@ -42,7 +42,7 @@
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
-import { loadFile, toRecords, readMap, resolveIds, deriveProducts, singlesByExpansion } from './cardmarket-lib.mjs';
+import { loadFile, toRecords, readMap, resolveIds, deriveProducts, singlesByExpansion, guardSetValue } from './cardmarket-lib.mjs';
 
 const argv = process.argv.slice(2);
 const has = (f) => argv.includes(`--${f}`);
@@ -197,15 +197,40 @@ async function main() {
     return;
   }
 
+  // Each product's most recent PRIOR Set Value, for the day-over-day guard
+  // (mirror of the daily Edge Function): a short window reduced to the latest
+  // per product, paginated under a stable order.
+  const prevSv = new Map();
+  {
+    const ids = usable.map((p) => dbByName.get(p.name)?.id).filter(Boolean);
+    const since = new Date(new Date(DATE).getTime() - 7 * 864e5).toISOString().slice(0, 10);
+    const PAGE = 1000;
+    for (let from = 0; ids.length; from += PAGE) {
+      const { data, error } = await sb.from('snapshots')
+        .select('product_id, set_value, snapshot_date')
+        .in('product_id', ids).lt('snapshot_date', DATE).gte('snapshot_date', since)
+        .not('set_value', 'is', null)
+        .order('snapshot_date', { ascending: false }).order('product_id', { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(`reading prior snapshots: ${error.message}`);
+      for (const r of data ?? []) { const k = String(r.product_id); if (!prevSv.has(k)) prevSv.set(k, Number(r.set_value)); }
+      if (!data || data.length < PAGE) break;
+    }
+  }
+
   // Build snapshot rows. Locked products omit `price` (kept as the admin's manual
   // value); everyone gets set_value + low_liquidity.
   const withPrice = [];
   const withoutPrice = [];
   const missing = [];
+  const held = [];
   for (const p of usable) {
     const row = dbByName.get(p.name);
     if (!row) { missing.push(p.name); continue; }
-    const base = { user_id: row.user_id, product_id: row.id, snapshot_date: DATE, set_value: p.setValue, low_liquidity: p.lowLiquidity, price_avg: p.avgPrice, price_low: p.lowPrice };
+    // Day-over-day guard: hold a >50% one-day rise (a mis-tagged-card artefact).
+    const g = guardSetValue(p.setValue, prevSv.get(String(row.id)) ?? null);
+    if (g.held) held.push(`${p.name} (${Math.round((g.ratio ?? 0) * 100)}% of prev — held at ${g.value})`);
+    const base = { user_id: row.user_id, product_id: row.id, snapshot_date: DATE, set_value: g.value, low_liquidity: p.lowLiquidity, price_avg: p.avgPrice, price_low: p.lowPrice };
     if (row.price_locked || p.price == null) withoutPrice.push(base);
     else withPrice.push({ ...base, price: p.price });
   }
@@ -220,6 +245,7 @@ async function main() {
   }
 
   console.log(`\nWrote ${written} snapshot(s) for ${DATE} (${withoutPrice.length} price-locked/no-price).`);
+  if (held.length) console.warn(`Set Value held (>50% one-day jump — review): ${held.join(', ')}`);
   if (missing.length) console.warn(`Not in Supabase (seed via Data Entry) — skipped: ${missing.join(', ')}`);
 }
 

@@ -274,7 +274,13 @@ as a local fallback, but production needs no GitHub.)
 **What the daily job writes, per tracked product:**
 
 - **Set Value** = the sum of every single in the set (`avg30`, the 30-day
-  average) — the all-cards EU value.
+  average) — the all-cards EU value. A **day-over-day guardrail** protects this
+  sum: because it adds up ~250 singles, a >50% single-day *rise* is almost always
+  a data artefact (one mis-tagged high-value card entering the set's singles list
+  — e.g. a €2,500 promo Gengar that once 5×'d Sword & Shield overnight), so the
+  job **holds the previous value** instead of writing the spike and reports it as
+  `setValueHeld` in the run output for you to review. A *fall* is allowed through,
+  so once the bad card is removed the value self-corrects on the next run.
 - **Box Price** = the midpoint of Cardmarket's `trend` and `avg` (a 50/50 blend).
   For thin-liquidity boxes the true price sits between the smoothed `trend` and
   the sales `avg`; for liquid boxes the two nearly coincide, so the blend ≈
