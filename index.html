@@ -807,6 +807,31 @@
      line with min-width:0 lets the button shrink and clip its own text
      instead, exactly as the bare text did before. */
   .pn-head { display: flex; align-items: baseline; gap: 4px; min-width: 0; }
+  /* Cross-filter row checkbox: ticks a product into the shared chart selection.
+     Centred in the baseline-aligned name line, on-accent, ≥24px hit area via
+     padding cancelled by margin (WCAG 2.5.8) without shifting the layout. */
+  /* Custom checkbox: a 24×24 hit target (WCAG 2.5.8) with a 16px visual box — a
+     native checkbox ignores padding for its box size, so it's drawn in tokens.
+     Negative margins keep the 24px control from shifting the name line's layout. */
+  .sel-check {
+    flex: none; align-self: center; box-sizing: border-box;
+    -webkit-appearance: none; appearance: none; position: relative;
+    width: 24px; height: 24px; margin: -4px 0 -4px -4px; padding: 0;
+    background: none; border: 0; cursor: pointer;
+  }
+  .sel-check::before {
+    content: ''; position: absolute; inset: 4px;
+    border: 1.5px solid var(--border); border-radius: 4px; background: var(--bg3);
+  }
+  .sel-check:checked::before { background: var(--accent); border-color: var(--accent); }
+  .sel-check:checked::after {
+    content: ''; position: absolute; left: 9px; top: 5px; width: 4px; height: 8px;
+    border: solid var(--on-accent); border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  /* Selection indicator in the filter bar (count + clear + cap note). */
+  .chart-sel { display: inline-flex; align-items: center; gap: 8px; font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted); }
+  .chart-sel .icon { color: var(--accent); }
+  #selection-note { color: var(--accent2); }
   .row-open {
     font: inherit;
     color: inherit;
@@ -2843,6 +2868,17 @@
       <option value="age">Sort: Age ↓</option>
       <option value="newest">Sort: Newest First</option>
     </select>
+
+    <!-- Cross-filter selection indicator. The checkbox on each board row builds a
+         shared selection that drives the comparison charts + highlights the
+         scatter (see selectedProducts / refreshSelectionViews). Hidden until a
+         product is ticked, so it never shows a dead control. -->
+    <span id="chart-selection" class="chart-sel" hidden>
+      <svg class="icon" aria-hidden="true"><use href="#i-analysis"/></svg>
+      <span id="selection-count">0 products selected</span>
+      <button type="button" id="clear-selection" class="text-link">Clear</button>
+      <span id="selection-note" role="status" hidden></span>
+    </span>
   </div>
 
   <!-- ── Section: The Board — one table, three lenses (full width) ──
@@ -3351,6 +3387,12 @@ let activeEra = "ALL";     // Era scope filter (an ERAS key or 'ALL') — a seco
 let sortKey = "score";
 let searchTerm = "";      // Board name/set search (case-insensitive substring)
 let verdictFilter = "all"; // Board filter by verdict tone: all | good | neutral | bad
+// Cross-filtering (PowerBI-style): one shared selection of product names, edited
+// by a checkbox on every board row *and* the comparison charts' own pickers, that
+// drives every chart at once — both comparison views plot it in Product mode and
+// the §02 scatter cross-highlights it. Session-only. Capped at the chart's series
+// palette (COMPARE_CAP) so the selection and what's charted never diverge.
+const selectedProducts = new Set();
 // The board is a collapsible Era → Set → Product tree. Default: a pure era
 // overview — every era collapsed, so the page opens on ~5 era headline rows and
 // you expand down to sets then products. These hold the *expanded* keys (era key,
@@ -3993,7 +4035,7 @@ function productRowTr(p, maxScore) {
   const trend = getTrend(p.name);
   tr.innerHTML = `
     <td class="product-name" title="${p.name}">
-      <span class="pn-head">${isBuySignal(p.name) ? '<span class="buy-flag" role="img" aria-label="Buy signal" title="Price dropped ≥5% but set value held steady — potential buy opportunity"><svg class="icon" aria-hidden="true"><use href="#i-deal"/></svg></span>' : ''}${alertFlag(p.name)}<button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></span>
+      <span class="pn-head">${selCheckbox(p.name)}${isBuySignal(p.name) ? '<span class="buy-flag" role="img" aria-label="Buy signal" title="Price dropped ≥5% but set value held steady — potential buy opportunity"><svg class="icon" aria-hidden="true"><use href="#i-deal"/></svg></span>' : ''}${alertFlag(p.name)}<button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></span>
       ${verdictLine(p)}
     </td>
     <td class="col-detail">${typeBadge(p.type)}</td>
@@ -4011,7 +4053,7 @@ function productRowTr(p, maxScore) {
       </div>
     </td>
   `;
-  tr.addEventListener('click', () => openDrill(p.name));
+  tr.addEventListener('click', e => { if (e.target.closest('.sel-check')) return; openDrill(p.name); });
   tr.querySelector('.row-open').addEventListener('click', e => { e.stopPropagation(); openDrill(p.name); });
   return tr;
 }
@@ -4101,6 +4143,87 @@ const COMPARE_EXTRA = ['#b39ddb', '#e8975a', '#e5789f'];
 const COMPARE_PALETTE = [COLOR.blue, COLOR.gold, COLOR.green, ...COMPARE_EXTRA];
 const COMPARE_CAP = COMPARE_PALETTE.length;
 
+// ── Cross-filter selection controller ──
+// Every mutation of the shared product selection goes through here, then
+// refreshSelectionViews() re-syncs all the surfaces in one place: the board row
+// checkboxes, both comparison charts (Product mode) and the scatter highlight.
+function toggleSelection(name, on) {
+  if (on) {
+    if (selectedProducts.has(name)) return;
+    if (selectedProducts.size >= COMPARE_CAP) {   // keep the selection == what's chartable
+      syncSelectionCheckboxes();                  // revert the box the user just ticked
+      flashSelectionNote(`Up to ${COMPARE_CAP} products at once — remove one first.`);
+      return;
+    }
+    selectedProducts.add(name);
+  } else {
+    selectedProducts.delete(name);
+  }
+  refreshSelectionViews();
+}
+
+function clearSelection() {
+  if (!selectedProducts.size) return;
+  selectedProducts.clear();
+  refreshSelectionViews();
+}
+
+// Seed a default so the charts aren't empty on first paint (or after a data
+// reload emptied a stale selection) — but never override a live user selection.
+function seedSelectionIfEmpty() {
+  if (selectedProducts.size) return;
+  const pool = analysisProducts().filter(p => historicalData[p.name]);
+  const seed = pool.find(p => p.name === 'Surging Sparks Booster Box') || pool[0];
+  if (seed) selectedProducts.add(seed.name);
+}
+
+// Drop selected names no longer in the data (after a reload), so the count/clear
+// bar and the charts stay honest.
+function pruneSelection() {
+  const names = new Set(products.map(p => p.name));
+  [...selectedProducts].forEach(n => { if (!names.has(n)) selectedProducts.delete(n); });
+}
+
+// Reflect the selection onto every rendered row checkbox (a product added via a
+// chart picker must tick its board box too; a board re-render reads the set).
+function syncSelectionCheckboxes() {
+  document.querySelectorAll('.sel-check').forEach(cb => { cb.checked = selectedProducts.has(cb.dataset.name); });
+}
+
+function refreshSelectionViews() {
+  syncSelectionCheckboxes();
+  cmpHist.syncSelection();     // both comparison views re-pull their Product-mode series
+  cmpSvb.syncSelection();
+  renderScatterChart();        // cross-highlight the selected points
+  renderSelectionBar();        // the count + clear control
+}
+
+let selectionNoteTimer = null;
+function flashSelectionNote(msg) {
+  const el = document.getElementById('selection-note');
+  if (!el) return;
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(selectionNoteTimer);
+  selectionNoteTimer = setTimeout(() => { el.hidden = true; }, 2600);
+}
+
+function renderSelectionBar() {
+  const bar = document.getElementById('chart-selection');
+  if (!bar) return;
+  const n = selectedProducts.size;
+  bar.hidden = n === 0;
+  const count = document.getElementById('selection-count');
+  if (count) count.textContent = n === 1 ? '1 product selected' : `${n} products selected`;
+}
+
+// The board-row checkbox that toggles a product in the shared selection. Product
+// names are already inlined unescaped across the board rows (admin-controlled
+// data), so this matches; escHtml isn't usable here (it's in the TDZ during INIT).
+function selCheckbox(name) {
+  return `<input type="checkbox" class="sel-check" data-name="${name}"${selectedProducts.has(name) ? ' checked' : ''} aria-label="Select ${name} to compare in the charts">`;
+}
+
 function createCompareView(cfg) {
   let mode = 'product';   // 'product' | 'set' | 'era'
   let sel = [];           // product names (product), release dates (set) or era keys (era)
@@ -4151,7 +4274,9 @@ function createCompareView(cfg) {
     if (!host) return;
     host.innerHTML = '';
     if (!sel.length) {
-      host.innerHTML = `<span class="cmp-empty">Add ${article()} ${noun()} to chart it.</span>`;
+      host.innerHTML = mode === 'product'
+        ? `<span class="cmp-empty">No products selected — tick a board row, or add one here.</span>`
+        : `<span class="cmp-empty">Add ${article()} ${noun()} to chart it.</span>`;
       return;
     }
     sel.forEach((key, i) => {
@@ -4161,7 +4286,13 @@ function createCompareView(cfg) {
       chip.className = 'cmp-chip';
       chip.innerHTML = `<span class="dot" style="background:${COMPARE_PALETTE[i % COMPARE_CAP]}"></span>` +
                        `<span>${label}</span><button type="button" aria-label="Remove ${label}" title="Remove">×</button>`;
-      chip.querySelector('button').addEventListener('click', () => { sel = sel.filter(k => k !== key); sync(); });
+      // Product mode is the shared cross-filter selection — removing a chip drops
+      // it everywhere (both charts, the scatter, the board checkbox). Set/Era
+      // roll-ups keep their own per-chart selection.
+      chip.querySelector('button').addEventListener('click', () => {
+        if (mode === 'product') toggleSelection(key, false);
+        else { sel = sel.filter(k => k !== key); sync(); }
+      });
       host.appendChild(chip);
     });
   }
@@ -4225,9 +4356,22 @@ function createCompareView(cfg) {
 
   function sync() { refreshAddSelect(); renderChips(); render(); }
 
-  // Drop selections that vanished (data reload / type filter), seed a default
-  // when empty, then re-sync. Public — called after data loads and on filter change.
+  // Product mode reads the SHARED cross-filter selection (the board checkboxes +
+  // both charts edit one set), scoped to charted products and capped.
+  function pullSharedSel() {
+    const valid = new Set(options().map(o => o.key));   // products with history in the current scope
+    sel = [...selectedProducts].filter(k => valid.has(k)).slice(0, COMPARE_CAP);
+  }
+  // Re-pull the shared selection and re-render — a no-op unless in Product mode.
+  // Called by refreshSelectionViews() whenever the selection changes anywhere.
+  function syncSelection() { if (mode === 'product') { pullSharedSel(); sync(); } }
+
+  // Drop selections that vanished (data reload / type filter), then re-sync.
+  // Product mode mirrors the shared selection; Set/Era keep their own per-chart
+  // selection and seed a default when empty. Public — called after data loads and
+  // on filter change.
   function refresh() {
+    if (mode === 'product') { pullSharedSel(); sync(); return; }
     const valid = new Set(options().map(o => o.key));
     sel = sel.filter(k => valid.has(k));
     if (!sel.length) {
@@ -4256,13 +4400,17 @@ function createCompareView(cfg) {
     const s = el(cfg.addId);
     if (s) s.addEventListener('change', e => {
       const key = e.target.value;
-      if (key && !sel.includes(key) && sel.length < COMPARE_CAP) sel.push(key);
+      if (!key) return;
+      // Product mode adds to the SHARED selection (drives both charts + the
+      // scatter + the board checkbox); Set/Era add to this chart's own selection.
+      if (mode === 'product') { toggleSelection(key, true); e.target.value = ''; return; }
+      if (!sel.includes(key) && sel.length < COMPARE_CAP) sel.push(key);
       sync();
     });
     refresh();
   }
 
-  return { init, refresh, getChart: () => chart };
+  return { init, refresh, syncSelection, getChart: () => chart };
 }
 
 // §06 Price History — price per product, in the active display currency (set
@@ -4329,13 +4477,24 @@ function renderScatterChart() {
   // Empty categories are dropped so a category with no products (e.g. PACK when
   // none are tracked) doesn't add a lonely empty legend entry.
   const cats = activeType === 'ALL' ? TYPE_CATEGORIES : [activeType];
-  const datasets = cats.map(cat => ({
-    label: cat,
-    data: pool.filter(p => typeCategory(p.type) === cat).map(p => ({ x: p.age, y: p.svPerBooster, name: p.name })),
-    backgroundColor: (CATEGORY_COLOR[cat] || COLOR.muted) + 'bb',
-    pointRadius: 6,
-    pointHoverRadius: 8
-  })).filter(d => d.data.length);
+  // Cross-highlight: when products are selected, the picked points stay lit (full
+  // colour, larger, ringed) and the rest dim — a highlight, not a filter, so the
+  // age-fit line keeps its whole-catalogue context (the PowerBI default).
+  const anySel = selectedProducts.size > 0;
+  const datasets = cats.map(cat => {
+    const pts = pool.filter(p => typeCategory(p.type) === cat);
+    const hue = CATEGORY_COLOR[cat] || COLOR.muted;
+    const lit = p => !anySel || selectedProducts.has(p.name);
+    return {
+      label: cat,
+      data: pts.map(p => ({ x: p.age, y: p.svPerBooster, name: p.name })),
+      backgroundColor: pts.map(p => hue + (lit(p) ? 'ee' : '22')),
+      pointRadius: pts.map(p => anySel && selectedProducts.has(p.name) ? 8 : anySel ? 4 : 6),
+      pointBorderColor: pts.map(p => anySel && selectedProducts.has(p.name) ? COLOR.axis : 'transparent'),
+      pointBorderWidth: pts.map(p => anySel && selectedProducts.has(p.name) ? 1.5 : 0),
+      pointHoverRadius: 8
+    };
+  }).filter(d => d.data.length);
 
   // Overlay the fitted "expected value for age" line (the whole-catalogue age
   // trend — kept global so it's a stable reference even when a type is filtered).
@@ -4541,6 +4700,16 @@ document.getElementById('era-filter').addEventListener('change', e => {
   activeEra = e.target.value;
   applyTypeFilter();
 });
+
+// Cross-filter: a board-row checkbox toggles its product in the shared selection
+// that drives every chart. Delegated (one document listener) so it survives every
+// board re-render across all three lenses.
+document.addEventListener('change', e => {
+  const cb = e.target.closest('.sel-check');
+  if (!cb) return;
+  toggleSelection(cb.dataset.name, cb.checked);
+});
+document.getElementById('clear-selection').addEventListener('click', clearSelection);
 
 document.getElementById('board-search').addEventListener('input', e => {
   searchTerm = e.target.value;
@@ -4781,6 +4950,8 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   recomputeScores(products, ageThreshold); // apply the current age threshold to freshly loaded data
   recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
   populateEraFilter();                     // refresh the Era scope dropdown (keeps a still-valid selection)
+  pruneSelection();                        // drop selected products no longer in the data…
+  seedSelectionIfEmpty();                  // …then re-seed a default if that emptied it
   updateKPIs();
   renderOverview();
   applyBoardLens();   // re-render the active board lens (lens state persists across reloads)
@@ -6648,14 +6819,14 @@ function relvalRowTr(r) {
   const tr = document.createElement('tr');
   tr.className = 'grp-product';
   tr.innerHTML = `
-    <td class="product-name" title="${r.name}"><button type="button" class="row-open" aria-haspopup="dialog">${r.name}</button></td>
+    <td class="product-name" title="${r.name}"><span class="pn-head">${selCheckbox(r.name)}<button type="button" class="row-open" aria-haspopup="dialog">${r.name}</button></span></td>
     <td class="col-detail">${typeBadge(r.type)}</td>
     <td class="num col-detail">${fmt(r.age, 1)}</td>
     <td class="num col-detail">${fmt(r.svb, 1)}×</td>
     <td class="num col-detail" style="color:var(--muted)">${fmt(r.expected, 1)}×</td>
     <td class="num" style="color:${color}">${good ? '▲ +' : '▼ '}${fmt(r.residual, 1)}×</td>
   `;
-  tr.addEventListener('click', () => openDrill(r.name));
+  tr.addEventListener('click', e => { if (e.target.closest('.sel-check')) return; openDrill(r.name); });
   tr.querySelector('.row-open').addEventListener('click', e => { e.stopPropagation(); openDrill(r.name); });
   return tr;
 }
@@ -6720,7 +6891,7 @@ function momentumRowTr(p, m) {
   // Phone column priority (like the board): keep Product · 30d · vs Peak; the
   // rest are .col-detail (dropped < 680px) and remain in the drill-down.
   tr.innerHTML = `
-    <td class="product-name" title="${p.name}"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></td>
+    <td class="product-name" title="${p.name}"><span class="pn-head">${selCheckbox(p.name)}<button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></span></td>
     <td class="col-detail">${typeBadge(p.type)}</td>
     <td class="num col-detail">${money(m.price)}</td>
     ${pctCell(m.change7d, 'col-detail')}
@@ -6729,7 +6900,7 @@ function momentumRowTr(p, m) {
     ${ddCell(m.drawdown)}
   `;
   // Whole row opens the drill for the mouse; the named button is the a11y target.
-  tr.addEventListener('click', () => openDrill(p.name));
+  tr.addEventListener('click', e => { if (e.target.closest('.sel-check')) return; openDrill(p.name); });
   tr.querySelector('.row-open').addEventListener('click', e => { e.stopPropagation(); openDrill(p.name); });
   return tr;
 }
@@ -7280,12 +7451,14 @@ Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
 recomputeScores(products, ageThreshold); // apply the default age threshold to the initial data
 recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
 populateEraFilter();                     // fill the Era scope dropdown from the data
+seedSelectionIfEmpty();                  // a default product so the comparison charts aren't empty
 updateKPIs();
 renderOverview();
 applyBoardLens();   // shows + renders the active board lens (Value by default)
 cmpHist.init();
 renderScatterChart();
 cmpSvb.init();
+renderSelectionBar();
 initScenario();
 populateCurrencySelect();
 renderPortfolio();

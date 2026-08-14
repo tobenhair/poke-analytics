@@ -707,26 +707,22 @@ stance). What still stands unbuilt:
     The efficient source for the headline rows is server-side aggregation (a
     Supabase view/RPC) — see **Data volume at scale**.
 
-- **Cross-filtering — a shared product selection drives the charts (PowerBI-style).**
-  *(Feature; approach to decide.)* Today each comparison chart (§03 Price History,
-  §04 SV/Booster Trend) has its **own** add-a-series picker, so charting the same
-  few products in both means finding them twice. Idea: a **checkbox on every board
-  row** that builds one **shared selection** of products, and every chart reacts to
-  it — the way clicking an item in a PowerBI visual cross-filters the others.
-  Concretely: the selection feeds both comparison charts' Products mode (replacing
-  or augmenting their pickers), and **cross-highlights the §02 scatter** (selected
-  points lit, the rest dimmed — highlight, not filter, so the age-fit context
-  stays). Open design decisions: (1) **replace vs augment** the existing
-  chip-pickers — the charts also have Sets/Eras roll-up modes that don't map to a
-  row checkbox, so the selection likely drives *Product* mode while roll-ups keep
-  their own control; (2) **the 6-series palette cap** — a checkbox multi-select can
-  exceed it, so it needs a cap + "N more selected" affordance, or a distinct
-  "selected" styling; (3) **scatter = highlight vs filter** (PowerBI highlights);
-  (4) **where the checkbox lives** in the board's phone column-priority (a leading
-  column frozen with the name). A real `<input type=checkbox>` per row with a
-  label, a module-level `selected` Set shared across views (session-only), and a
-  "clear selection" control. Keep it inside the dark table/chart system — no new
-  component or token — and currency-correct like every other chart path.
+- **Cross-filtering — a shared product selection drives the charts (PowerBI-style). ✅ SHIPPED.**
+  Each comparison chart used to have its **own** add-a-series picker, so charting
+  the same products in both meant finding them twice. Now a **`.sel-check` checkbox
+  on every board row** (all three lenses) toggles a product in the module-level
+  **`selectedProducts`** set — the single source of truth — and `toggleSelection()`
+  → `refreshSelectionViews()` drives every surface at once: **both comparison
+  charts' Product mode** read it (`syncSelection()`/`pullSharedSel()`, so a tick
+  adds a line to §03 *and* §04), the **§02 scatter cross-highlights** (selected
+  points lit, the rest dimmed — highlight, not filter, so the age-fit keeps its
+  context), and the chart chip-pickers edit the *same* set (unified). Capped at
+  `COMPARE_CAP` (6) so the selection never exceeds what the charts can legibly
+  draw; a `#chart-selection` bar shows the count + **Clear**; session-only
+  (`seedSelectionIfEmpty` / `pruneSelection`). The checkbox is a custom
+  `appearance:none` box sized to a 24×24 hit target (WCAG 2.5.8). No new token;
+  currency-correct like every chart path. Guarded in `tests/smoke.spec.mjs` +
+  `tests/a11y.spec.mjs`. Set/Era roll-up modes keep their own per-chart selection.
 
 - **"Where to start" teaser on the demo + summary-strip relocation.** *(Feature;
   **shipped** — demo teaser + KPI-strip relocation.)* The signed-in
