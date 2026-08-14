@@ -245,6 +245,31 @@ test('the board consolidates into one panel with a Value / Relative / Momentum l
   await expect(page.locator('#board-lens-chart')).toBeHidden();
 });
 
+test('the comparison charts roll products up to whole Eras', async ({ page }) => {
+  // §04 Trend Over Time builds one line per selection; Set and Era modes roll
+  // members up with meanSeries. This pins the Eras level (the catalogue-scale
+  // navigation add) — switching to it makes the picker + chips speak in eras.
+  await routeLocalLibs(page);
+  await forceStaticMode(page);
+  await page.goto('/');
+  await page.locator('.tab-btn[data-tab="analysis"]').click();
+  await expect(page.locator('#tab-analysis')).toBeVisible();
+
+  const eraPill = page.locator('#svb-mode .pill[data-mode="era"]');
+  await eraPill.evaluate(el => el.scrollIntoView({ block: 'center' }));
+  // The first click after a tab switch can land mid reveal-animation and miss
+  // (same harness quirk the board-lens test guards) — retry until the mode flips.
+  await expect.poll(async () => {
+    if ((await eraPill.getAttribute('aria-pressed')) !== 'true') await eraPill.click();
+    return eraPill.getAttribute('aria-pressed');
+  }, { timeout: 10_000 }).toBe('true');
+
+  // The picker now offers eras, and a whole-era line is seeded as a chip.
+  await expect(page.locator('#svb-add option').first()).toHaveText('+ Add era…');
+  await expect(page.locator('#svb-chips .cmp-chip').first())
+    .toHaveText(/Mega Evolution|Scarlet & Violet|Sword & Shield|Sun & Moon|XY/);
+});
+
 test('the boot splash covers first paint and clears once data is ready', async ({ page }) => {
   // The splash hides the transient sample→cloud swap (and its banner/status
   // flicker) behind an opaque logo screen, then clears the instant data loads.

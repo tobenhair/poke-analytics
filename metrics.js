@@ -503,6 +503,22 @@ export function groupSets(products) {
   return sets;
 }
 
+// Group products into eras (via eraForRelease) — the Era roll-up level for the
+// comparison charts, analogous to groupSets one level up. Returns
+// [{ key, label, members: [name…] }, …] in ERAS order (newest era first),
+// dropping eras with no member in the (already type-filtered) pool. A product
+// with no release date is skipped (it has no era).
+export function groupEras(products) {
+  const byEra = new Map();
+  for (const p of products) {
+    const era = eraForRelease(p.release);
+    if (!era) continue;
+    if (!byEra.has(era.key)) byEra.set(era.key, { key: era.key, label: era.label, members: [] });
+    byEra.get(era.key).members.push(p.name);
+  }
+  return ERAS.map(e => byEra.get(e.key)).filter(Boolean);
+}
+
 // Aggregate several snapshot-aligned series (same shared date axis) into one
 // mean series: at each index the mean of the non-null values across inputs, or
 // null when every input is null there (a genuine gap the chart should span).

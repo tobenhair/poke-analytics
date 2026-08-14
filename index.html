@@ -2960,14 +2960,15 @@
 
   <!-- ── Section: price history (full width) ── -->
   <h2 class="section-eyebrow">03 — Price History</h2>
-  <p class="section-desc"><strong>What:</strong> tracked <em>price over time</em> — add several products, or switch to <em>Sets</em> to compare whole releases (a set's line is the average price per booster of its products). <strong>How to read:</strong> a falling line means it's getting cheaper; with a single product the set value is overlaid too, so you can pair a price dip with a steady set value to spot a buying window. Click a legend entry to hide that line.</p>
+  <p class="section-desc"><strong>What:</strong> tracked <em>price over time</em> — add several products, or switch to <em>Sets</em> or <em>Eras</em> to compare whole releases or whole eras (a rolled-up line is the average price per booster of its members). <strong>How to read:</strong> a falling line means it's getting cheaper; with a single product the set value is overlaid too, so you can pair a price dip with a steady set value to spot a buying window. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
       <h3 class="panel-title">Price History</h3>
       <div class="cmp-controls">
-        <div class="pill-group" id="hist-mode" role="group" aria-label="Compare by product or by set">
+        <div class="pill-group" id="hist-mode" role="group" aria-label="Compare by product, set or era">
           <button class="pill active" type="button" data-mode="product" aria-pressed="true">Products</button>
           <button class="pill" type="button" data-mode="set" aria-pressed="false">Sets</button>
+          <button class="pill" type="button" data-mode="era" aria-pressed="false">Eras</button>
         </div>
         <select class="trend-select" id="hist-add" style="max-width:220px" aria-label="Add a series to the price history chart"></select>
       </div>
@@ -2981,14 +2982,15 @@
 
   <!-- ── Section: SV/Booster trend over time (full width) ── -->
   <h2 class="section-eyebrow">04 — Trend Over Time</h2>
-  <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> — add several products to compare, or switch to <em>Sets</em> to weigh whole releases head to head (a set's line is the average SV/Booster of its products). <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means the set is worth more relative to a booster's cost (better value); because it's a multiple of booster cost, every product type — box, ETB, bundle or single pack — is directly comparable. Click a legend entry to hide that line.</p>
+  <p class="section-desc"><strong>What:</strong> <em>SV/Booster over time</em> — add several products to compare, or switch to <em>Sets</em> or <em>Eras</em> to weigh whole releases or whole eras head to head (a rolled-up line is the average SV/Booster of its members). <strong>How to read:</strong> a rising line (<span class="up">▲</span>) means the set is worth more relative to a booster's cost (better value); because it's a multiple of booster cost, every product type — box, ETB, bundle or single pack — is directly comparable. Click a legend entry to hide that line.</p>
   <div class="panel">
     <div class="panel-header">
       <h3 class="panel-title">Set Value / Booster — Trend Over Time</h3>
       <div class="cmp-controls">
-        <div class="pill-group" id="svb-mode" role="group" aria-label="Compare by product or by set">
+        <div class="pill-group" id="svb-mode" role="group" aria-label="Compare by product, set or era">
           <button class="pill active" type="button" data-mode="product" aria-pressed="true">Products</button>
           <button class="pill" type="button" data-mode="set" aria-pressed="false">Sets</button>
+          <button class="pill" type="button" data-mode="era" aria-pressed="false">Eras</button>
         </div>
         <select class="trend-select" id="svb-add" style="max-width:220px" aria-label="Add a series to the SV/Booster trend chart"></select>
       </div>
@@ -3260,7 +3262,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange } from './metrics.js';
+import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, groupEras, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -4083,14 +4085,21 @@ const COMPARE_PALETTE = [COLOR.blue, COLOR.gold, COLOR.green, ...COMPARE_EXTRA];
 const COMPARE_CAP = COMPARE_PALETTE.length;
 
 function createCompareView(cfg) {
-  let mode = 'product';   // 'product' | 'set'
-  let sel = [];           // product names (product mode) or release dates (set mode)
+  let mode = 'product';   // 'product' | 'set' | 'era'
+  let sel = [];           // product names (product), release dates (set) or era keys (era)
   let chart = null;
 
   const el = id => document.getElementById(id);
+  // The noun/article for the current mode, for the picker + empty-chip copy.
+  const noun = () => (mode === 'era' ? 'era' : mode === 'set' ? 'set' : 'product');
+  const article = () => (mode === 'era' ? 'an' : 'a');
 
   // Selectable items for the current mode, respecting the global type filter.
+  // Set and Era are both roll-up modes (members averaged); product is the leaf.
   function options() {
+    if (mode === 'era') {
+      return groupEras(visibleProducts()).map(e => ({ key: e.key, label: e.label, members: e.members }));
+    }
     if (mode === 'set') {
       return groupSets(visibleProducts()).map(s => ({ key: s.release, label: s.label, members: s.members }));
     }
@@ -4109,7 +4118,7 @@ function createCompareView(cfg) {
     s.innerHTML = '';
     const ph = document.createElement('option');
     ph.value = '';
-    ph.textContent = atCap ? `Max ${COMPARE_CAP} lines` : (mode === 'set' ? '+ Add set…' : '+ Add product…');
+    ph.textContent = atCap ? `Max ${COMPARE_CAP} lines` : `+ Add ${noun()}…`;
     ph.selected = true;
     s.appendChild(ph);
     avail.forEach(o => {
@@ -4125,7 +4134,7 @@ function createCompareView(cfg) {
     if (!host) return;
     host.innerHTML = '';
     if (!sel.length) {
-      host.innerHTML = `<span class="cmp-empty">Add a ${mode === 'set' ? 'set' : 'product'} to chart it.</span>`;
+      host.innerHTML = `<span class="cmp-empty">Add ${article()} ${noun()} to chart it.</span>`;
       return;
     }
     sel.forEach((key, i) => {
@@ -4140,9 +4149,11 @@ function createCompareView(cfg) {
     });
   }
 
-  // Aligned data array for one selection key in the current mode.
+  // Aligned data array for one selection key in the current mode. Set and Era
+  // both roll their members up with meanSeries (via cfg.setMemberLine); product
+  // is the leaf line.
   function lineFor(key) {
-    if (mode === 'set') {
+    if (mode !== 'product') {
       const o = optByKey(key);
       return o ? meanSeries(o.members.map(cfg.setMemberLine)) : [];
     }
@@ -4172,7 +4183,7 @@ function createCompareView(cfg) {
 
     const scales = Object.assign(
       { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } } },
-      mode === 'set' ? cfg.setScale() : cfg.productScale(hasExtra),
+      mode === 'product' ? cfg.productScale(hasExtra) : cfg.setScale(),   // set + era share the roll-up (per-booster) axis
       extraScales
     );
 
@@ -4288,7 +4299,7 @@ const cmpHist = createCompareView({
       }
     };
   },
-  tooltip: (ctx, mode) => ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? symFmt(ctx.parsed.y) : '—'}${mode === 'set' && ctx.dataset.yAxisID === 'y' ? ' /booster' : ''}`
+  tooltip: (ctx, mode) => ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? symFmt(ctx.parsed.y) : '—'}${mode !== 'product' && ctx.dataset.yAxisID === 'y' ? ' /booster' : ''}`
 });
 
 // ============================================================

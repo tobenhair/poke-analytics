@@ -657,12 +657,15 @@ stance). What still stands unbuilt:
     aggregates (`eraForRelease` / `groupStats` in `metrics.js`, via the shared
     `renderGroupTree()`), opening as a pure era overview. Era was **derived from
     release date** (the `ERAS` boundary table — no new field), resolving the open
-    "era definition" question. *Still open here:* rolling the same grouping into
-    the **charts** proper (era/set-level *series* in the Price-History / SV-trend
-    comparison views), and using an era/set as a **scope filter** for those views
-    (today the grouping only nests the three tables), plus its **perf win** (a
-    collapsed group renders one row — cheap virtualisation) is realised for those
-    tables only.
+    "era definition" question. **The chart-series half now ships too:** the
+    Price-History (§03) and SV-Booster-Trend (§04) comparison views gained an
+    **Eras** roll-up level beside Sets (`groupEras()` in `metrics.js`, one line
+    per era via `meanSeries`), so a **Products ⇄ Sets ⇄ Eras** toggle plots whole
+    eras head to head (`tests/smoke.spec.mjs` pins it). *Still open here:* using an
+    era/set as a **scope filter** for those views (today the roll-up is a series
+    *mode*, not a filter that narrows the pool the way the Type pills do), plus the
+    **perf win** (a collapsed group renders one row — cheap virtualisation) is
+    realised for the tables only.
     - *Decided: era/set stay **derived**, not stored on the product row.* Era is a
       pure function of `release` (the `ERAS` boundary ranges), so a stored `era`
       column could only ever *duplicate* the date and drift from it — a silent
