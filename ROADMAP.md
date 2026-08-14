@@ -661,11 +661,16 @@ stance). What still stands unbuilt:
     Price-History (§03) and SV-Booster-Trend (§04) comparison views gained an
     **Eras** roll-up level beside Sets (`groupEras()` in `metrics.js`, one line
     per era via `meanSeries`), so a **Products ⇄ Sets ⇄ Eras** toggle plots whole
-    eras head to head (`tests/smoke.spec.mjs` pins it). *Still open here:* using an
-    era/set as a **scope filter** for those views (today the roll-up is a series
-    *mode*, not a filter that narrows the pool the way the Type pills do), plus the
-    **perf win** (a collapsed group renders one row — cheap virtualisation) is
-    realised for the tables only.
+    eras head to head (`tests/smoke.spec.mjs` pins it). **The era scope filter now
+    ships too:** an **`#era-filter`** dropdown (`activeEra`, populated by
+    `populateEraFilter()` from the eras present) is a second global scope axis
+    beside the Type pills — applied in `visibleProducts()`, so "only Scarlet &
+    Violet" narrows the board, scatter, overview, both analytical lenses and the
+    comparison views alike (pinned in `tests/smoke.spec.mjs`). It deliberately
+    leaves the age-fit (fair prices stay whole-catalogue) and the KPI strip alone.
+    *Still open here:* the same as a **set** scope filter (era is the coarse axis;
+    set-level scoping would be finer), plus the **perf win** (a collapsed group
+    renders one row — cheap virtualisation) is realised for the tables only.
     - *Decided: era/set stay **derived**, not stored on the product row.* Era is a
       pure function of `release` (the `ERAS` boundary ranges), so a stored `era`
       column could only ever *duplicate* the date and drift from it — a silent

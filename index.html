@@ -2798,6 +2798,16 @@
       <button class="pill" type="button" data-type="BUNDLE" aria-pressed="false">Bundle</button>
     </div>
 
+    <!-- Era scope filter — a second global scoping axis beside Type. Narrows
+         every analytical view (board + charts) to one era via visibleProducts(),
+         the catalogue-scale "show me only Scarlet & Violet" lever. Options are
+         populated from the eras present in the data (populateEraFilter). Applies
+         to every lens, so it is NOT a .value-lens-ctrl. -->
+    <span class="filter-label">Era</span>
+    <select class="sort-select" id="era-filter" style="margin-left:0;" aria-label="Filter by era">
+      <option value="ALL">All eras</option>
+    </select>
+
     <!-- Age weight threshold control -->
     <div class="age-control">
       <span class="filter-label" style="white-space:nowrap;">Age Threshold</span>
@@ -3336,6 +3346,8 @@ let histDates = ["2026-01-18", "2026-02-23", "2026-03-20", "2026-04-20"];
 // STATE
 // ============================================================
 let activeType = "ALL";
+let activeEra = "ALL";     // Era scope filter (an ERAS key or 'ALL') — a second scoping axis
+                           // beside the type filter, narrowing every analytical view via visibleProducts()
 let sortKey = "score";
 let searchTerm = "";      // Board name/set search (case-insensitive substring)
 let verdictFilter = "all"; // Board filter by verdict tone: all | good | neutral | bad
@@ -3455,8 +3467,9 @@ function loosePackFor(p) {
 }
 
 function getFiltered() {
-  const base = analysisProducts();
-  let data = activeType === 'ALL' ? [...base] : base.filter(p => typeCategory(p.type) === activeType);
+  // Start from the shared type+era scoped pool so the board's Value lens narrows
+  // exactly like every chart; then apply the board-only search/verdict/sort.
+  let data = [...visibleProducts()];
   const q = searchTerm.trim().toLowerCase();
   if (q) data = data.filter(p => p.name.toLowerCase().includes(q));
   if (verdictFilter !== 'all') data = data.filter(p => p.verdict && p.verdict.tone === verdictFilter);
@@ -3482,15 +3495,19 @@ function getFiltered() {
   return data;
 }
 
-// The product pool the analytical charts and comparison views render — the
-// global type filter (the board pills, by category) applied, without the
-// board's search/verdict filters or sort. One source of "what's in scope" so
-// "show me only ETBs" holds across every chart, not just the board table.
-// activeType is a category (BOX/ETB/BUNDLE/PACK), so the ETB pill scopes to
-// every Elite Trainer Box variant.
+// The product pool the analytical charts and comparison views render — the two
+// global scope filters (type category + era) applied, without the board's
+// search/verdict filters or sort. One source of "what's in scope" so "show me
+// only ETBs" or "only Scarlet & Violet" holds across every chart, not just the
+// board table. activeType is a category (BOX/ETB/BUNDLE/PACK), so the ETB pill
+// scopes to every Elite Trainer Box variant; activeEra is an ERAS key. The
+// age-fit (fair prices) stays on analysisProducts() — the whole catalogue — so
+// scoping the *display* here never changes a fair price.
 function visibleProducts() {
-  const base = analysisProducts();
-  return activeType === 'ALL' ? base : base.filter(p => typeCategory(p.type) === activeType);
+  let base = analysisProducts();
+  if (activeType !== 'ALL') base = base.filter(p => typeCategory(p.type) === activeType);
+  if (activeEra !== 'ALL') base = base.filter(p => (eraForRelease(p.release) || {}).key === activeEra);
+  return base;
 }
 
 
@@ -4518,6 +4535,13 @@ document.getElementById('sort-select').addEventListener('change', e => {
   updateTable();
 });
 
+// Era scope filter — a second global scoping axis beside the Type pills. Like
+// applyTypeFilter, it re-renders every view that reads visibleProducts().
+document.getElementById('era-filter').addEventListener('change', e => {
+  activeEra = e.target.value;
+  applyTypeFilter();
+});
+
 document.getElementById('board-search').addEventListener('input', e => {
   searchTerm = e.target.value;
   renderBoard();   // search scopes whichever lens is active
@@ -4756,6 +4780,7 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   // Re-render everything
   recomputeScores(products, ageThreshold); // apply the current age threshold to freshly loaded data
   recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
+  populateEraFilter();                     // refresh the Era scope dropdown (keeps a still-valid selection)
   updateKPIs();
   renderOverview();
   applyBoardLens();   // re-render the active board lens (lens state persists across reloads)
@@ -4952,6 +4977,27 @@ function populatePortfolioSelect() {
 
 // Populate the global display-currency picker with € plus any currencies we
 // have a live rate for (falls back to €-only if the FX fetch failed).
+// Fill the Era scope filter from the eras actually present in the data (newest
+// first — groupEras is ERAS-ordered and drops empty eras), preserving the current
+// selection across data reloads. Built with textContent (not escHtml, which is
+// declared after INIT and would be in the temporal dead zone when INIT calls this).
+function populateEraFilter() {
+  const sel = document.getElementById('era-filter');
+  if (!sel) return;
+  const eras = groupEras(analysisProducts());   // all types — the era axis is independent of the Type pill
+  if (activeEra !== 'ALL' && !eras.some(e => e.key === activeEra)) activeEra = 'ALL'; // selected era left the data
+  sel.innerHTML = '';
+  const all = document.createElement('option');
+  all.value = 'ALL'; all.textContent = 'All eras';
+  sel.appendChild(all);
+  eras.forEach(e => {
+    const o = document.createElement('option');
+    o.value = e.key; o.textContent = e.label;
+    sel.appendChild(o);
+  });
+  sel.value = activeEra;
+}
+
 function populateCurrencySelect() {
   const sel = document.getElementById('display-currency');
   if (!sel) return;
@@ -7233,6 +7279,7 @@ Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
 
 recomputeScores(products, ageThreshold); // apply the default age threshold to the initial data
 recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
+populateEraFilter();                     // fill the Era scope dropdown from the data
 updateKPIs();
 renderOverview();
 applyBoardLens();   // shows + renders the active board lens (Value by default)
