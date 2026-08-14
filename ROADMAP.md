@@ -708,8 +708,10 @@ stance). What still stands unbuilt:
     pick** and **Best deal** show a **locked "sign in to rank by…" state** (an
     `#i-lock` panel + `.signin-open`) — honouring the rule that the demo shows no
     fair price or verdict (the 3-set anon slice can't reproduce the catalogue-wide
-    fit), and giving the concrete answer to *what an account buys* (the locked
-    panel also lists the unlock-toolkit tiles). Reuses the pick-card components.
+    fit), and giving the concrete answer to *what an account buys*. The
+    unlock-toolkit tiles (fair price, verdict, price history, portfolio, alerts)
+    live **once**, in a standalone "What a free account unlocks" section rather
+    than duplicated inside each locked lens. Reuses the pick-card components.
     Paired with an animated **"See how it reads a product"** panel — three
     *Sample*-badged SVG charts (value-vs-age scatter + fit, actual-vs-fair-price
     line, 30-day momentum diverging bars) that draw on when scrolled into view
