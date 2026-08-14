@@ -246,6 +246,28 @@ test('signing in lands on the Welcome tab, which shares the demo page explanatio
   expect(pageErrors).toEqual([]);
 });
 
+test('signing in re-shows the boot splash so the sample-data banner never flashes', async ({ page }) => {
+  // The demo hides the boot splash once it loads. Signing in then reveals the app
+  // UI on the still-`sample` hardcoded fallback for a beat before
+  // loadFromSupabase() swaps in cloud data — the "sample data" banner flashed
+  // there. The auth handler now re-shows the splash to cover that transition, and
+  // loadFromSupabase() hides it when the real data lands.
+  const pageErrors = await boot(page);
+  await expect(page.locator('#app-loader')).toBeHidden();   // gone after the demo loads
+
+  // Spy on the re-show before signing in (a live global lookup in the handler).
+  await page.evaluate(() => {
+    window.__splashReshown = false;
+    const orig = window.__showAppLoader;
+    window.__showAppLoader = function () { window.__splashReshown = true; return orig && orig.apply(this, arguments); };
+  });
+  await signIn(page, 'user@test.local');
+
+  expect(await page.evaluate(() => window.__splashReshown), 'sign-in re-shows the splash').toBe(true);
+  await expect(page.locator('#app-loader')).toBeHidden();   // cleared once cloud data is ready, never stuck up
+  expect(pageErrors).toEqual([]);
+});
+
 test('the account actions live in a profile menu that keeps the phone header from overflowing', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 780 }); // an iPhone-ish width
   const pageErrors = await boot(page);

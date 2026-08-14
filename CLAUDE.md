@@ -600,6 +600,18 @@ a load path throws. The two success status pills were removed with it (the splas
 if a load genuinely falls back to sample, the splash clears to reveal it, no
 longer a flicker but a real state. Reduced-motion stills the bar pulse and snaps
 the fade. `tests/smoke.spec.mjs` pins show-on-first-paint → clear-on-ready.
+The same flicker recurs on a *later* transition — **signing in from the demo**,
+after the splash is already hidden: `setAuthedUI()` reveals the app on the still-
+`sample` fallback for a beat before `loadFromSupabase()` swaps in the cloud data.
+So **`window.__showAppLoader()`** (the counterpart in that inline script) re-shows
+the splash, called at the top of the `uid !== sbLoadedUserId` branch of
+`onAuthStateChange`; `loadFromSupabase()` (and every fallback it leads to) hides
+it again when the real data lands, and `__showAppLoader` re-arms its own 8s
+failsafe since the original has long since fired by sign-in time. It un-hides
+while removing `--out` in the same tick, so the splash paints opaque with no
+fade-in (a `display:none`→`flex` change doesn't run the opacity transition) and
+nothing shows through. `tests/signed-in.spec.mjs` pins the sign-in re-show →
+clear.
 
 ### Fair price, and how it says what it's worth
 

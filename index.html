@@ -1973,6 +1973,22 @@
     el.addEventListener('transitionend', done, { once: true });
     setTimeout(done, 600);                       // in case transitionend never fires
   };
+  // Re-show the splash for a *later* transition — signing in from the demo, when
+  // the splash has already been hidden. Without it, setAuthedUI() reveals the
+  // app on the still-`sample` hardcoded fallback and the "sample data" banner
+  // flashes until loadFromSupabase() swaps in the cloud data and hides the splash
+  // again. Un-hiding while removing --out in the same tick paints it opaque with
+  // no fade-in (a display:none→flex change doesn't run the opacity transition),
+  // so nothing shows through. A fresh failsafe re-arms — the original 8s timer
+  // has long since fired by sign-in time — so a stalled load can't leave it up.
+  window.__showAppLoader = function () {
+    var el = document.getElementById('app-loader');
+    if (!el) return;
+    delete el.dataset.out;
+    el.classList.remove('app-loader--out');
+    el.hidden = false;
+    setTimeout(window.__hideAppLoader, 8000);
+  };
   setTimeout(window.__hideAppLoader, 8000);
 })();
 </script>
@@ -8188,6 +8204,13 @@ function wireAuthControls() {
       const uid = session ? session.user.id : null;
       if (uid && uid !== sbLoadedUserId) {
         sbLoadedUserId = uid;
+        // Cover the sign-in → cloud-load transition with the boot splash, so the
+        // brief `sample` state between revealing the app UI and loadFromSupabase()
+        // finishing never flashes its "sample data" banner. loadFromSupabase()
+        // (and every fallback path it leads to) calls __hideAppLoader() when the
+        // real data is ready. Idempotent on the first load — the splash is still
+        // up there, so this is a no-op.
+        if (window.__showAppLoader) window.__showAppLoader();
         // A signed-in session lands on the Welcome tab — the signed-in landing
         // (where-to-go map + latest-news teaser), which is also the markup
         // default, so first paint and post-login agree. Deliberately scoped to
