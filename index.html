@@ -138,6 +138,13 @@
     --radius: 18px;
     --radius-pill: 999px;
     --radius-sm: 8px;
+    /* ── Vertical rhythm ──
+       One gap between top-level sections, used the same way on every tab and on
+       the demo page (was 44 on Analysis, 36–40 on Welcome, 18 on the demo, and
+       effectively nothing on Portfolio — sections there nearly touched). Every
+       section's content block sets its bottom margin to this, so the rhythm is
+       edited in one place. Steps down on a phone via the 680px block. */
+    --section-gap: 40px;
     /* ── Type scale ──
        36 distinct font sizes rendered before this, most of them fractional
        (12.16, 13.12, 11.84 px …) because rem values were picked one at a time
@@ -393,7 +400,7 @@
   .filters {
     display: flex;
     gap: 14px;
-    margin-bottom: 30px;
+    margin-bottom: var(--section-gap);
     flex-wrap: wrap;
     align-items: center;
   }
@@ -513,7 +520,7 @@
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 18px;
-    margin-bottom: 40px;
+    margin-bottom: var(--section-gap);
   }
   .kpi {
     background: var(--card);
@@ -540,8 +547,12 @@
 
 
   /* ── Stacked, single-column analysis sections ── */
-  #tab-analysis > .panel { margin-bottom: 44px; }
+  #tab-analysis > .panel { margin-bottom: var(--section-gap); }
   #tab-analysis > .panel:last-of-type { margin-bottom: 0; }
+  /* Portfolio sections had no inter-section rule at all — its panels sat almost
+     flush against the next eyebrow. Same rhythm as Analysis now. */
+  #tab-portfolio > .panel { margin-bottom: var(--section-gap); }
+  #tab-portfolio > .panel:last-of-type { margin-bottom: 0; }
   /* Real <h2> since Jul 2026 — the Analysis tab had no heading outline at all,
      so a screen-reader user could not jump between its nine sections. The
      class carries the whole look; these two lines just undo the UA defaults
@@ -1015,6 +1026,7 @@
   .chart-zoom-hint { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted); }
 
   /* ── News (teaser + overlay) — headline lists, TCG-first ── */
+  .news-teaser { margin-bottom: var(--section-gap); }   /* on the section rhythm when shown (hidden by default) */
   .news-teaser .panel { padding: 6px 6px 12px; }
   .news-teaser-body { list-style: none; }
   .news-teaser-body li + li { border-top: 1px solid var(--hairline); }
@@ -1579,6 +1591,8 @@
     #tab-welcome div[style*="grid-template-columns: repeat(3"] { grid-template-columns: 1fr !important; }
   }
   @media (max-width: 680px) {
+    /* Section rhythm steps down on a phone — one place, every tab. */
+    :root { --section-gap: 30px; }
     .wrapper { padding: 28px 16px 48px; }
 
     /* ── The board on a phone ──
@@ -1615,7 +1629,7 @@
        instead of clipping mid-word ("· near tracke…"). */
     .verdict-line { white-space: normal; }
     .scroll-hint { display: block; }
-    .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 32px; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 12px; }
     .kpi { padding: 18px 18px; }
     .kpi-value { font-size: var(--display-xl); }
     h1 { font-size: var(--display-lg); }
@@ -1625,10 +1639,9 @@
     /* Once the bar wraps to two rows a full pill radius reads as a mistake. */
     .tab-bar { border-radius: 22px; }
     /* Tighten section chrome so charts/tables keep usable width */
-    #tab-analysis > .panel { margin-bottom: 34px; }
     .panel-header { padding: 18px 18px 14px; }
     .chart-panel { padding: 16px 12px; }
-    .filters { gap: 10px; margin-bottom: 24px; }
+    .filters { gap: 10px; }
     .age-control { margin-left: 0; padding-left: 0; border-left: 0; }
     .sort-select { margin-left: 0; width: 100%; }
     /* Let the tables scroll horizontally on their own without trapping page scroll */
@@ -1741,7 +1754,7 @@
      token guard can see it and the card/step shapes are shared with the demo
      page instead of re-declared. */
   .welcome-inner { max-width: 920px; margin: 0 auto; }
-  .welcome-hero { text-align: center; padding: 24px 0 36px; }
+  .welcome-hero { text-align: center; padding: 24px 0 var(--section-gap); }
   .welcome-lede {
     max-width: 640px; margin: 16px auto 0;
     font-size: var(--text-xl); color: var(--text); line-height: 1.6;
@@ -1751,7 +1764,7 @@
      needs the `html:not(.is-admin)` override the two-card grid used to. */
   .welcome-cards {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 16px; margin-bottom: 36px;
+    gap: 16px; margin-bottom: var(--section-gap);
   }
   .welcome-card { padding: 22px 24px; cursor: pointer; }
   .welcome-card-head {
@@ -1759,7 +1772,7 @@
     color: var(--muted);
   }
   .welcome-card p { font-size: var(--text-lg); color: var(--text); line-height: 1.55; }
-  .welcome-block { margin-bottom: 36px; }
+  .welcome-block { margin-bottom: var(--section-gap); }
   @media (max-width: 760px) { .welcome-cards { grid-template-columns: 1fr; } }
 
   /* Inline file/identifier names in prose. Was two inline style attributes
@@ -1834,12 +1847,12 @@
   .demo-inner { max-width: 1200px; margin: 0 auto; padding: 40px 28px 64px; }
   /* The pitch. Narrower than the tables below it — the argument is prose and
      reads at prose measure, while the sample rows want the full width. */
-  .demo-hero { max-width: 720px; margin: 0 auto; padding: 28px 0 40px; text-align: center; }
+  .demo-hero { max-width: 720px; margin: 0 auto; padding: 28px 0 var(--section-gap); text-align: center; }
   .demo-lede {
     margin-top: 18px;
     font-size: var(--text-xl); color: var(--text); line-height: 1.6;
   }
-  .demo-block { margin-bottom: 18px; }
+  .demo-block { margin-bottom: var(--section-gap); }
   /* ── Demo "see it in action" animated illustrations ──
      Sample SVG charts (clearly badged; illustrative data, never a real product's
      fair price — the demo honesty rule) that draw on when scrolled into view
@@ -1905,8 +1918,8 @@
   .unlock-d { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--muted); margin-top: 2px; }
   /* A row of text-weight actions. Shared by the demo page and the Welcome tab,
      which open the same two dialogs. */
-  .link-row { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 40px; }
-  .demo-cta { text-align: center; margin-top: 8px; }
+  .link-row { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: var(--section-gap); }
+  .demo-cta { text-align: center; margin-top: var(--section-gap); }
   .demo-cta .auth-btn { width: auto; padding: 11px 28px; }
   .demo-foot {
     text-align: center; margin-top: 12px;
@@ -1959,6 +1972,22 @@
     if (reduce) { done(); return; }             // no fade to wait on
     el.addEventListener('transitionend', done, { once: true });
     setTimeout(done, 600);                       // in case transitionend never fires
+  };
+  // Re-show the splash for a *later* transition — signing in from the demo, when
+  // the splash has already been hidden. Without it, setAuthedUI() reveals the
+  // app on the still-`sample` hardcoded fallback and the "sample data" banner
+  // flashes until loadFromSupabase() swaps in the cloud data and hides the splash
+  // again. Un-hiding while removing --out in the same tick paints it opaque with
+  // no fade-in (a display:none→flex change doesn't run the opacity transition),
+  // so nothing shows through. A fresh failsafe re-arms — the original 8s timer
+  // has long since fired by sign-in time — so a stalled load can't leave it up.
+  window.__showAppLoader = function () {
+    var el = document.getElementById('app-loader');
+    if (!el) return;
+    delete el.dataset.out;
+    el.classList.remove('app-loader--out');
+    el.hidden = false;
+    setTimeout(window.__hideAppLoader, 8000);
   };
   setTimeout(window.__hideAppLoader, 8000);
 })();
@@ -2978,9 +3007,12 @@
 
     <span id="portfolio-status" class="status-pill" role="status" style="display:none"></span>
 
-    <!-- ── Section: portfolio ── -->
+    <!-- ── Section: overview (summary + value over time) ──
+         The summary tiles and the value-over-time trajectory sit together at the
+         top of the tab: the headline numbers and the chart that plots them belong
+         side by side. The holdings editor + cards follow in their own section. -->
     <h2 class="section-eyebrow">Your Portfolio</h2>
-    <p class="section-desc"><strong>What:</strong> what you own and what it's worth now. <strong>How to read:</strong> <em>Add / buy more</em> tops up a holding and blends the cost basis to a weighted average; use the <svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg> button on a row to correct the exact quantity or cost. <em>Unrealised P&amp;L</em> compares your cost basis to each product's latest tracked price. Private to your account, saved automatically.</p>
+    <p class="section-desc"><strong>What:</strong> what your holdings are worth now, and how that value has moved. <strong>How to read:</strong> the summary totals your current value and <em>unrealised P&amp;L</em> (cost basis vs. each product's latest tracked price); the chart plots your <em>current</em> holdings valued at every tracked snapshot against your flat <em>cost basis</em> — the gap between the lines is your gain (above cost) or loss (below). Values current quantities back across history; purchase dates aren't tracked. Private to your account, saved automatically.</p>
     <div class="panel">
       <div class="panel-header">
         <h3 class="panel-title">Portfolio</h3>
@@ -2991,6 +3023,16 @@
 
       <div class="portfolio-summary" id="portfolio-summary"></div>
 
+      <div class="chart-panel" id="portfolio-value-chart-wrap" style="padding: 20px 24px;">
+        <canvas id="portfolio-value-chart" style="max-height: 280px;"></canvas>
+      </div>
+      <div id="portfolio-value-empty" class="balancer-empty" style="display:none;">Add holdings below to see how their value has moved across the tracked snapshots.</div>
+    </div>
+
+    <!-- ── Section: holdings (editor + cards) ── -->
+    <h2 class="section-eyebrow">Holdings</h2>
+    <p class="section-desc"><strong>What:</strong> the products you hold, and adding or correcting them. <strong>How to read:</strong> <em>Add / buy more</em> tops up a holding and blends the cost basis to a weighted average; use the <svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg> button on a row to correct the exact quantity or cost. Each card shows its current value and unrealised P&amp;L. Private to your account, saved automatically.</p>
+    <div class="panel">
       <div class="portfolio-editor">
         <select class="field-select" id="portfolio-product-select" aria-label="Product to add to your portfolio"></select>
         <input class="field-input" id="portfolio-qty" type="number" min="0" step="1" placeholder="Qty" aria-label="Quantity held">
@@ -3005,16 +3047,6 @@
            value/P&L mid-row. Each card carries the same figures plus a
            fair-price chip. Built by renderPortfolio(). -->
       <div class="holding-grid" id="portfolio-cards"></div>
-    </div>
-
-    <!-- ── Section: portfolio value over time ── -->
-    <h2 class="section-eyebrow">Value Over Time</h2>
-    <p class="section-desc"><strong>What:</strong> what your <em>current</em> holdings would have been worth across every tracked snapshot — the <em>portfolio value</em> line against your flat <em>cost basis</em>, so unrealised P&amp;L reads as a trajectory rather than just today's number. <strong>How to read:</strong> the gap between the lines is your gain (value above cost) or loss (below); a rising value line means the basket you hold has appreciated. Values your current quantities back across history — purchase dates aren't tracked.</p>
-    <div class="panel">
-      <div class="chart-panel" id="portfolio-value-chart-wrap" style="padding: 20px 24px;">
-        <canvas id="portfolio-value-chart" style="max-height: 280px;"></canvas>
-      </div>
-      <div id="portfolio-value-empty" class="balancer-empty" style="display:none;">Add holdings above to see how their value has moved across the tracked snapshots.</div>
     </div>
 
     <!-- ── Section: concentration & rebalance (portfolio balancer) ── -->
@@ -8175,6 +8207,13 @@ function wireAuthControls() {
       const uid = session ? session.user.id : null;
       if (uid && uid !== sbLoadedUserId) {
         sbLoadedUserId = uid;
+        // Cover the sign-in → cloud-load transition with the boot splash, so the
+        // brief `sample` state between revealing the app UI and loadFromSupabase()
+        // finishing never flashes its "sample data" banner. loadFromSupabase()
+        // (and every fallback path it leads to) calls __hideAppLoader() when the
+        // real data is ready. Idempotent on the first load — the splash is still
+        // up there, so this is a no-op.
+        if (window.__showAppLoader) window.__showAppLoader();
         // A signed-in session lands on the Welcome tab — the signed-in landing
         // (where-to-go map + latest-news teaser), which is also the markup
         // default, so first paint and post-login agree. Deliberately scoped to

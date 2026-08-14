@@ -264,7 +264,13 @@ memory limit:
   the huge singles file. It **streams** that file (reads it chunk by chunk, one
   record at a time) so it too stays inside the memory limit no matter the file
   size, and reports each set's card count + max single price so a mis-categorised
-  sealed item would show up. Run it after adding a product/set.
+  sealed item would show up. Run it after adding a product/set. It also **drops
+  any id in `public.cardmarket_excluded_singles`** before caching — an
+  admin-managed list of cards Cardmarket mis-tags into a set but that must never
+  count toward Set Value (e.g. the €2,500 promo Gengar wrongly tagged to Sword &
+  Shield base). To exclude a card: `insert into public.cardmarket_excluded_singles
+  (id_product, reason) values (<idProduct>, '<why>');` then re-run Sync catalog.
+  Because it drops them at cache-build time, a re-sync can never re-add them.
 
 All three derive/​match identically to the unit-tested `scripts/cardmarket-lib.mjs`,
 so the automated values match. (`scripts/cardmarket-ingest.mjs` mirrors the same
@@ -274,7 +280,13 @@ as a local fallback, but production needs no GitHub.)
 **What the daily job writes, per tracked product:**
 
 - **Set Value** = the sum of every single in the set (`avg30`, the 30-day
-  average) — the all-cards EU value.
+  average) — the all-cards EU value. A **day-over-day guardrail** protects this
+  sum: because it adds up ~250 singles, a >50% single-day *rise* is almost always
+  a data artefact (one mis-tagged high-value card entering the set's singles list
+  — e.g. a €2,500 promo Gengar that once 5×'d Sword & Shield overnight), so the
+  job **holds the previous value** instead of writing the spike and reports it as
+  `setValueHeld` in the run output for you to review. A *fall* is allowed through,
+  so once the bad card is removed the value self-corrects on the next run.
 - **Box Price** = the midpoint of Cardmarket's `trend` and `avg` (a 50/50 blend).
   For thin-liquidity boxes the true price sits between the smoothed `trend` and
   the sales `avg`; for liquid boxes the two nearly coincide, so the blend ≈

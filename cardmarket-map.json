@@ -1,6 +1,8 @@
 {
   "_README": "Curated allowlist: each tracked sealed product -> its Cardmarket productCatalog ids. idProduct resolves the price (price_guide_6.json); idExpansion resolves Set Value (sum this expansion's singles from products_singles_6.json). Run `node scripts/cardmarket-spike.mjs discover` to draft ids (writes cardmarket-map.draft.json for review); pin a tricky product with an explicit `idProduct` (exact) or `nameHint` (match against a given string, e.g. a bundle 'Version 1' variant). Optional `priceOverride` (a EUR number) forces the box Price for thin-liquidity products the `kpi` check flags (their sales-based price is unreliable); Set Value stays derived. Adding a new set = one entry here.",
   "priceField": "avg30",
+  "_excludeSingles_README": "idProducts Cardmarket tags to a tracked expansion but that must never be summed into a Set Value (a mis-tagged high-value card). Dropped at cache-build time. The live source of truth is the DB table public.cardmarket_excluded_singles; this offline copy is used by the CLI when there are no DB creds (--dry-run).",
+  "excludeSingles": [895476],
   "products": {
     "Roaring Skies Booster Box": {
       "type": "BOX",

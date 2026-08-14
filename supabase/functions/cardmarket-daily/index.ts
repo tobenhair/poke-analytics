@@ -54,6 +54,23 @@ const valueOf = (rec: Rec, field: string): number | null => {
   return numOrNull(pick(rec, PRICE_FALLBACK));
 };
 
+// Day-over-day Set Value guardrail — mirror of scripts/cardmarket-lib.mjs
+// guardSetValue (pinned by cardmarket-lib.test.mjs). A Set Value is a sum of
+// ~250 singles, so a >50% single-day RISE is almost always a data artefact (one
+// mis-tagged high-value card entering the expansion's singles list — the €2.5k
+// promo Gengar that 5×'d Sword & Shield). Hold the previous value instead of
+// writing the spike; let a FALL through so a fixed artefact self-corrects.
+const SV_MAX_DAILY_JUMP = 0.5;
+function guardSetValue(newSv: number | null, prevSv: number | null):
+  { value: number | null; held: boolean; ratio: number | null } {
+  const val = newSv != null && Number.isFinite(Number(newSv)) ? Number(newSv) : null;
+  const prev = prevSv != null && Number.isFinite(Number(prevSv)) ? Number(prevSv) : null;
+  if (val == null || prev == null || prev <= 0) return { value: val, held: false, ratio: null };
+  const ratio = val / prev;
+  const held = ratio > 1 + SV_MAX_DAILY_JUMP;
+  return { value: held ? prev : val, held, ratio: +ratio.toFixed(4) };
+}
+
 // Unwrap the bulk file into its records array regardless of the wrapper key.
 const toRecords = (json: unknown): Rec[] => {
   if (Array.isArray(json)) return json as Rec[];
@@ -127,10 +144,35 @@ Deno.serve(async (req) => {
       if (id != null && needed.has(String(id))) pgById.set(String(id), r);
     }
 
+    // 3b. Each product's most recent PRIOR Set Value, for the day-over-day guard.
+    //     A short window (daily cadence) reduced to the latest per product;
+    //     paginated under a stable total order so a >1000-row window is safe.
+    const prevSv = new Map<string, number>();
+    {
+      const since = new Date(new Date(date).getTime() - 7 * 864e5).toISOString().slice(0, 10);
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await sb
+          .from('snapshots')
+          .select('product_id, set_value, snapshot_date')
+          .lt('snapshot_date', date).gte('snapshot_date', since)
+          .not('set_value', 'is', null)
+          .order('snapshot_date', { ascending: false }).order('product_id', { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (error) return json({ error: `reading prior snapshots: ${error.message}` }, 500);
+        for (const r of data ?? []) {
+          const k = String(r.product_id);
+          if (!prevSv.has(k)) prevSv.set(k, Number(r.set_value)); // first seen (desc) = most recent
+        }
+        if (!data || data.length < PAGE) break;
+      }
+    }
+
     // 4. Derive per product.
     const withPrice: Rec[] = [];
     const withoutPrice: Rec[] = [];
     const skipped: string[] = [];
+    const held: string[] = [];
     for (const p of products ?? []) {
       const idP = p.cardmarket_product_id;
       if (idP == null) { skipped.push(`${p.name} (no CM id)`); continue; }
@@ -179,6 +221,14 @@ Deno.serve(async (req) => {
         if (counted) setValue = +sum.toFixed(2);
       }
 
+      // Day-over-day guard: a >50% single-day rise is a mis-tagged-card artefact,
+      // not a market move — hold the previous value and flag it for review.
+      const g = guardSetValue(setValue, prevSv.get(String(p.id)) ?? null);
+      if (g.held) {
+        held.push(`${p.name} (${Math.round((g.ratio ?? 0) * 100)}% of prev — held at ${g.value})`);
+        setValue = g.value;
+      }
+
       if (price == null && setValue == null) { skipped.push(`${p.name} (no price or set value)`); continue; }
       const base: Rec = {
         user_id: p.user_id, product_id: p.id, snapshot_date: date,
@@ -201,6 +251,7 @@ Deno.serve(async (req) => {
     return json({
       date, written,
       priceLockedOrNoPrice: withoutPrice.length,
+      setValueHeld: held.length ? held : undefined,
       skipped: skipped.length ? skipped : undefined,
     });
   } catch (e) {
