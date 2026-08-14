@@ -769,6 +769,13 @@ Markup, styles, and logic share one file, and the JS builds DOM from string temp
   Type is an 11-step scale, `--text-2xs` … `--display-xl`; radii are
   `--radius-pill` / `--radius-sm` / `--radius` (the panel corner). Adding a
   literal instead fails `npm run check:design-tokens`.
+- **Vertical rhythm is one token, `--section-gap`** (40px desktop, 30px on a
+  phone via the 680px block). Every top-level section's content block sets its
+  `margin-bottom` to it, so the gap between sections is identical on all four
+  tabs and the demo page — edited in one place. Before this, the gap was
+  per-surface and inconsistent (Analysis 44, Welcome 36–40, the demo 18, and
+  Portfolio had no rule at all, so its panels nearly touched the next heading).
+  A new section reuses the token; don't reintroduce a bespoke section margin.
 - The All Products table's `.table-wrap` is a capped-height (`70vh`) scroll area with a sticky header; other tables use different wrappers. A `.table-wrap` with **no focusable content inside** needs `tabindex="0"` or it cannot be scrolled by keyboard (the board's Relative and Momentum lens wraps carry it; the Value lens doesn't need it — its rows have `.row-open` buttons).
 
 ## Workflow / deployment

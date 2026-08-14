@@ -37,6 +37,13 @@ step. (The build once carried 36 sizes, most of them 0.16px apart.)
 **Radii** — `--radius-pill` (999px, by far the most used), `--radius-sm` (8px,
 inputs and small surfaces), `--radius` (18px, the panel corner).
 
+**Vertical rhythm** — `--section-gap` is the single gap between top-level
+sections, the same on every tab and on the demo page (steps down on a phone via
+the 680px block). A new section's content block sets `margin-bottom:
+var(--section-gap)` — don't invent a one-off margin, and don't reintroduce the
+old per-tab values (44 on Analysis, 18 on the demo, none on Portfolio) the token
+replaced.
+
 **Charts use the same tokens.** The JS resolves them once into `COLOR`
 (`.gold/.red/.blue/.green/.muted/.axis`) and derives fills with `alpha(hue, a)`
 so a fill can't drift from its line. Never type a colour into a chart config —
