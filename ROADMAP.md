@@ -668,11 +668,11 @@ stance). What still stands unbuilt:
     Violet" narrows the board, scatter, overview, both analytical lenses and the
     comparison views alike (pinned in `tests/smoke.spec.mjs`). It deliberately
     leaves the age-fit (fair prices stay whole-catalogue) and the KPI strip alone.
-    *Still open here:* the **perf win** (a collapsed group renders one row — cheap
-    virtualisation) is realised for the tables only. (A **set**-level scope filter
-    was considered and dropped — era is the coarse axis, and a single set is
-    already reachable three ways: expand it in the board tree, pick it as a Sets
-    series in the charts, or type its name in the board search.)
+    **Faceted filtering + Top-N now ship too** (see the two ✅ bullets below), so
+    the usability half of this item is done; only the **perf win** (a collapsed
+    group renders one row — cheap virtualisation) is left, and it's realised for
+    the tables already. (The earlier "set-level scope filter dropped" note is
+    superseded — a **Set** facet did ship, alongside price/age ranges.)
     - *Decided: era/set stay **derived**, not stored on the product row.* Era is a
       pure function of `release` (the `ERAS` boundary ranges), so a stored `era`
       column could only ever *duplicate* the date and drift from it — a silent
@@ -689,16 +689,26 @@ stance). What still stands unbuilt:
       `SET_LOGO_ALIASES`) into one authority — **not** a free-text `set` column,
       which reintroduces the same drift. Defer until a concrete misgroup (a set
       splitting in the tree, or a logo miss) motivates the full table.
-  - **Scoped-by-default board.** Open on a meaningful slice — in-print / recent
-    releases, or (signed in) portfolio + watchlist — with an explicit "show full
-    catalogue" toggle, flagged like the `#data-source-banner` so the scope is
-    never hidden. Cheapest win; most users never need all N rows at once.
-  - **Faceted filtering with live counts + saved views.** Combinable facets (era,
-    set, type, verdict, price/age range), each showing a count. Power-user
-    efficient; more chrome to keep minimal per `design-review`.
-  - **Top-N + "show all".** Generalise the Overview's best-deals pattern to the
-    board. Trivial; weakest for genuine browsing.
-  - *Constraints for any of these.* Aggregates ship as pure, unit-tested helpers
+  - **Faceted filtering with live counts + saved views — ✅ SHIPPED.** Combinable
+    scope facets — **Type** pills, **Era** + **Set** dropdowns, and **price / age
+    range** inputs — flow through one `passesScope()` predicate into
+    `visibleProducts()`, so every one narrows the board *and* the charts. Each
+    discrete facet shows a **live match count** given the other active facets
+    (`refreshFacetCounts()` counts with that dimension skipped — the pill count
+    span, the `(N)` on every era/set/verdict option). The Set + range facets and a
+    **saved-views** control (name → `localStorage`; save / load / delete, reload
+    re-applies the whole combo incl. lens & sort) live behind a **"More filters"**
+    disclosure (`#advanced-filters`) so the primary row stays uncluttered; a badge
+    counts active advanced facets and a **Reset all filters** clears everything.
+    Price/age inputs are canonical € / years like every typed input. Pinned in
+    `tests/smoke.spec.mjs` ("advanced facets combine and a saved view round-trips").
+  - **Top-N + "show all" — ✅ SHIPPED.** The board leads with the best
+    **`BOARD_TOP_N` (12)** products flat, in the active sort order, and a footer
+    row expands to the full Era→Set→Product tree (`renderBoardList()` — the shared
+    body renderer for all three lenses, generalising the "Where to start"
+    shortlist). A live search bypasses the cap (the tree force-expands so every
+    match shows). Pinned in `tests/smoke.spec.mjs` + the a11y phone-board spec.
+  - *Constraints these met.* Aggregates ship as pure, unit-tested helpers
     (e.g. `setAverages()` / `eraAverages()`) over the `analysisProducts()` pool
     (loose packs excluded), and must be **currency-correct** — only absolute-€
     means convert; ratio metrics (SV/Booster, Wtd. Score) stay put. Keep it inside

@@ -37,12 +37,13 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
   await page.locator('.tab-btn[data-tab="analysis"]').click();
   await expect(page.locator('#tab-analysis')).toBeVisible();
 
-  // Board renders as the grouped Era overview (collapsed to era headline rows) —
-  // empty if data failed to render.
+  // Board leads with the flat Top-N leaderboard (product rows, no era headers yet)
+  // plus a "show all" footer — empty if data failed to render.
   await expect.poll(
-    () => page.locator('#product-tbody .grp-era').count(),
-    { message: 'board should show era rows', timeout: 10_000 },
+    () => page.locator('#product-tbody tr.grp-product').count(),
+    { message: 'board should show top-N product rows', timeout: 10_000 },
   ).toBeGreaterThan(0);
+  await expect(page.locator('#product-tbody .board-more-btn')).toBeVisible();
 
   // The "Where to start" shortlist populated.
   await expect(page.locator('#overview-deals .pick-item').first()).toBeVisible();
@@ -183,7 +184,7 @@ test('the board consolidates into one panel with a Value / Relative / Momentum l
   await page.goto('/');
   await page.locator('.tab-btn[data-tab="analysis"]').click();
   await expect(page.locator('#tab-analysis')).toBeVisible();
-  await expect.poll(() => page.locator('#product-tbody .grp-era').count(),
+  await expect.poll(() => page.locator('#product-tbody tr.grp-product').count(),
     { timeout: 10_000 }).toBeGreaterThan(0);
 
   const lensBtn = (l) => page.locator(`#board-lens .pill[data-lens="${l}"]`);
@@ -212,7 +213,7 @@ test('the board consolidates into one panel with a Value / Relative / Momentum l
   await expect(lensBtn('relative')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#board-view-relative')).toBeVisible();
   await expect(page.locator('#board-view-value')).toBeHidden();
-  await expect(page.locator('#relval-tbody .grp-era').first()).toBeAttached();
+  await expect(page.locator('#relval-tbody tr.grp-product').first()).toBeAttached();
   await expect(page.locator('#board-badge')).toHaveText(/age trend|flat/);
   await expect(page.locator('#sort-select')).toBeHidden();
   await expect(page.locator('#board-lens-chart')).toBeVisible();
@@ -232,7 +233,7 @@ test('the board consolidates into one panel with a Value / Relative / Momentum l
   await switchTo('momentum');
   await expect(page.locator('#board-view-momentum')).toBeVisible();
   await expect(page.locator('#board-view-relative')).toBeHidden();
-  await expect(page.locator('#momentum-tbody .grp-era').first()).toBeAttached();
+  await expect(page.locator('#momentum-tbody tr.grp-product').first()).toBeAttached();
   await expect(page.locator('#board-badge')).toHaveText(/deepest dip/i);
   await expect(page.locator('#board-lens-chart')).toBeVisible();
   await expect(page.locator('#board-chart-cap')).toContainText(/30-day price change/);
@@ -273,14 +274,18 @@ test('the comparison charts roll products up to whole Eras', async ({ page }) =>
 test('the Era scope filter narrows every analytical view to one era', async ({ page }) => {
   // The second half of the navigation item: era as a *scope filter* (narrows the
   // pool via visibleProducts, like the Type pills), not just a series mode. The
-  // board opens as a multi-era overview; scoping to one era leaves one era row.
+  // board leads with a flat Top-N; "show all" reveals the multi-era tree, and
+  // scoping to one era then leaves one era row.
   await routeLocalLibs(page);
   await forceStaticMode(page);
   await page.goto('/');
   await page.locator('.tab-btn[data-tab="analysis"]').click();
   await expect(page.locator('#tab-analysis')).toBeVisible();
-  await expect.poll(() => page.locator('#product-tbody .grp-era').count(),
-    { timeout: 10_000 }).toBeGreaterThan(1);
+  await expect.poll(() => page.locator('#product-tbody tr.grp-product').count(),
+    { timeout: 10_000 }).toBeGreaterThan(0);
+  // Expand to the grouped Era tree (show-all persists across the scope re-renders).
+  await page.locator('#product-tbody .board-more-btn').click();
+  await expect.poll(() => page.locator('#product-tbody .grp-era').count()).toBeGreaterThan(1);
 
   // The dropdown is populated from the eras present; pick the first real one.
   const eraFilter = page.locator('#era-filter');
@@ -327,6 +332,85 @@ test('a checkbox on each board row cross-filters both comparison charts (unified
   await expect(page.locator('#svb-chips .cmp-chip')).toHaveCount(0);
 });
 
+// Parse the board's headline count ("N products") — the live filtered total.
+async function boardCount(page) {
+  const t = await page.locator('#board-badge').textContent();
+  return Number((t.match(/\d+/) || [0])[0]);
+}
+
+test('faceted filtering shows live counts and a Top-N leaderboard with show-all', async ({ page }) => {
+  // Two roadmap items in one flow: (1) every discrete facet shows how many
+  // products it matches, and (2) the board leads with the best Top-N and expands
+  // to the full Era→Set→Product tree on demand.
+  await routeLocalLibs(page);
+  await forceStaticMode(page);
+  await page.goto('/');
+  await page.locator('.tab-btn[data-tab="analysis"]').click();
+  await expect(page.locator('#tab-analysis')).toBeVisible();
+  await expect.poll(() => page.locator('#product-tbody tr.grp-product').count(),
+    { timeout: 10_000 }).toBeGreaterThan(0);
+
+  // Live counts: the "All" type pill carries the full analysis count, and every
+  // era option is labelled with a match count.
+  const allPill = page.locator('#type-filters .pill[data-type="ALL"] .pill-count');
+  await expect(allPill).toHaveText(/^\d+$/);
+  const allCount = Number(await allPill.textContent());
+  expect(allCount).toBeGreaterThan(0);
+  expect(await boardCount(page)).toBe(allCount);
+  await expect(page.locator('#era-filter option').nth(1)).toHaveText(/\(\d+\)$/);
+
+  // Top-N: the board is capped and says so; "show all" reveals the grouped tree.
+  const moreRow = page.locator('#product-tbody .board-more-btn');
+  await expect(moreRow).toContainText(/Showing the top \d+ of \d+/);
+  expect(await page.locator('#product-tbody tr.grp-product').count()).toBeLessThan(allCount);
+  await moreRow.click();
+  await expect.poll(() => page.locator('#product-tbody .grp-era').count()).toBeGreaterThan(0);
+  // …and collapses back to the Top-N leaderboard.
+  await page.locator('#product-tbody .board-more-btn').click();
+  await expect(page.locator('#product-tbody .board-more-btn')).toContainText(/Showing the top/);
+});
+
+test('advanced facets combine and a saved view round-trips', async ({ page }) => {
+  // The Set / price-range facets combine with the primary row, and a whole filter
+  // combo can be named, saved (localStorage), reset, and reloaded.
+  await routeLocalLibs(page);
+  await forceStaticMode(page);
+  await page.goto('/');
+  await page.locator('.tab-btn[data-tab="analysis"]').click();
+  await expect(page.locator('#tab-analysis')).toBeVisible();
+  await expect.poll(() => page.locator('#product-tbody tr.grp-product').count(),
+    { timeout: 10_000 }).toBeGreaterThan(0);
+  const allCount = await boardCount(page);
+
+  // Open the "More filters" disclosure.
+  await page.locator('#more-filters-btn').click();
+  await expect(page.locator('#advanced-filters')).toBeVisible();
+
+  // The Set facet narrows the board and flags one active advanced facet.
+  const setVals = await page.locator('#set-filter option').evaluateAll(
+    os => os.map(o => o.value).filter(v => v !== 'ALL'));
+  expect(setVals.length).toBeGreaterThan(1);
+  await page.locator('#set-filter').selectOption(setVals[0]);
+  await expect(page.locator('#more-filters-badge')).toHaveText('1');
+  const setCount = await boardCount(page);
+  expect(setCount).toBeLessThan(allCount);
+
+  // Save the combo as a named view.
+  await page.locator('#view-name').fill('MyView');
+  await page.locator('#save-view').click();
+  await expect(page.locator('#saved-views option[value="MyView"]')).toHaveCount(1);
+
+  // Reset clears every facet back to the full board.
+  await page.locator('#reset-filters').click();
+  await expect(page.locator('#set-filter')).toHaveValue('ALL');
+  expect(await boardCount(page)).toBe(allCount);
+
+  // Loading the saved view re-applies the exact combo.
+  await page.locator('#saved-views').selectOption('MyView');
+  await expect(page.locator('#set-filter')).toHaveValue(setVals[0]);
+  expect(await boardCount(page)).toBe(setCount);
+});
+
 test('the boot splash covers first paint and clears once data is ready', async ({ page }) => {
   // The splash hides the transient sample→cloud swap (and its banner/status
   // flicker) behind an opaque logo screen, then clears the instant data loads.
@@ -345,7 +429,7 @@ test('the boot splash covers first paint and clears once data is ready', async (
 
   // Clears once the workbook resolves, revealing the rendered board behind it.
   await expect(page.locator('#app-loader')).toBeHidden({ timeout: 6000 });
-  await expect(page.locator('#product-tbody .grp-era').first()).toBeAttached();
+  await expect(page.locator('#product-tbody tr.grp-product').first()).toBeAttached();
 
   // The success-status pill is gone — the splash is the load signal now.
   await expect(page.locator('#analysis-status')).toBeHidden();

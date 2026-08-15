@@ -103,11 +103,14 @@ export async function routeLocalLibs(page) {
   await page.route('**api.tcgdex.net/**', (r) => r.fulfill({ contentType: 'application/json', body: '[]' }));
 }
 
-// The board is a collapsible Era → Set → Product tree that opens collapsed to
-// eras. Reveal every product row by clicking the first still-collapsed group
-// repeatedly — each click re-renders the tbody, so re-query rather than cache —
-// until nothing is collapsed. Finite (one click per era + set) and deterministic.
+// The board leads with a flat Top-N list and expands to a collapsible
+// Era → Set → Product tree. Reveal every product row by (1) clicking the
+// "show all" footer row so the grouped tree renders, then (2) clicking the first
+// still-collapsed group repeatedly — each click re-renders the tbody, so re-query
+// rather than cache — until nothing is collapsed. Finite and deterministic.
 export async function expandBoard(page) {
+  const showAll = page.locator('#product-tbody .board-more-btn');
+  if ((await showAll.count()) > 0) await showAll.first().click();
   for (let i = 0; i < 300; i++) {
     const collapsed = page.locator('#product-tbody .grp-toggle[aria-expanded="false"]').first();
     if ((await collapsed.count()) === 0) break;
