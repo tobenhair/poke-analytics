@@ -234,6 +234,15 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   the class (the drill-down destroys its charts; `chart-zoom-modal` destroys its
   cloned chart). Open an overlay through the helpers, never with a bare
   `classList.add('open')` — that skips focus-in, the trap and focus return.
+- **Time-series line charts are continuous — no default point markers.** The
+  Price-History (§03) and SV/Booster-Trend (§04) comparison lines, the drill-down
+  price + SV/Booster charts, and the Portfolio value chart all set
+  `pointRadius: 0` with `pointHoverRadius: 5`: a clean line by default, and a
+  point surfaces only where you hover a date (the interaction mode is `'index'`,
+  so the whole date lights up with the tooltip — the Collectr pattern). The
+  scatter (§02) is exempt — it *is* a point cloud (age vs value), where the marks
+  are the data. Any new time-series line should follow the `pointRadius: 0` /
+  `pointHoverRadius` convention.
 - **Charts expand to a full-screen, zoomable dialog.** The dense §03 scatter and
   the §05/§07 comparison charts are hard to read inline (worst on a phone), so
   each panel header carries a `.chart-expand-btn` (the `#i-expand` sprite),
@@ -254,7 +263,12 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   plugin UMD auto-registers against the global `Chart`). Inline charts carry no
   `zoom` config, so they never hijack page scroll; `.chart-zoom-body` sets
   `touch-action:none` so the gesture goes to the plugin, and `#chart-zoom-reset`
-  calls `zoomChart.resetZoom()`. Because zoom sets fractional axis bounds, the
+  calls `zoomChart.resetZoom()`. **The clone's `zoom` block also sets `limits`**
+  (`x`/`y` both `min:'original', max:'original'`) so a pan/zoom can never expose
+  axis space beyond the data — these charts hold no negative prices/values, and a
+  negative or empty axis just reads as confusing when zooming. You can still zoom
+  *in* freely; you just can't pan/zoom *out* past the original data extent. Because
+  zoom sets fractional axis bounds, the
   scatter's y-tick callback rounds (`Math.round(v)+'×'`) so a zoomed view can't
   show `214.99999…×`. `tests/smoke.spec.mjs` pins open→tall-canvas→plugin-
   registered→`zoom()` narrows the range→reset→Escape-close; `tests/local-cdn.mjs`
