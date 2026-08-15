@@ -515,6 +515,70 @@
   .board-search::placeholder { color: var(--muted); }
   .board-search:focus { border-color: var(--accent); }
 
+  /* Live match count carried inside a pill / the More-filters toggle. Inherits
+     the pill's colour (gold when active, muted otherwise) and just dims it, so
+     it needs no colour of its own. */
+  .pill-count { margin-left: 7px; font-size: var(--text-2xs); opacity: 0.6; }
+  .pill-count:empty { display: none; }
+  .more-filters-btn { display: inline-flex; align-items: center; gap: 6px; }
+  .more-filters-btn .icon { width: 14px; height: 14px; }
+  .more-filters-btn[aria-expanded="true"] {
+    background: var(--accent-soft); color: var(--accent); border-color: rgba(244,198,81,0.45);
+  }
+
+  /* Advanced-facet row — a disclosure below the primary filter bar. The negative
+     top margin folds it up under the controls (net ~14px gap, whether or not the
+     flex containers' margins collapse) with a hairline separator; when [hidden]
+     it takes no space and the primary row's own margin sets the section rhythm. */
+  .filters-advanced {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: calc(-1 * (var(--section-gap) - 14px));
+    margin-bottom: var(--section-gap);
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .af-group { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .af-num {
+    width: 70px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--hairline);
+    background: var(--bg3);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: var(--text-md);
+    outline: none;
+    transition: border-color 0.2s var(--ease);
+  }
+  .af-num::placeholder { color: var(--muted); }
+  .af-num:focus { border-color: var(--accent); }
+  .af-dash { color: var(--muted); font-family: 'DM Mono', monospace; }
+  .af-view-name { width: 150px; }
+  .af-reset { margin-left: auto; }
+  .af-reset[hidden] { display: none; }
+
+  /* The board's Top-N "show all / show fewer" footer row — a full-width control
+     row inside the table body, styled to read as a table affordance, not a data
+     row. */
+  .board-more-row td { padding: 0; }
+  .board-more-btn {
+    width: 100%;
+    padding: 11px 16px;
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--hairline);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: var(--text-sm);
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: color 0.2s var(--ease), background 0.2s var(--ease);
+  }
+  .board-more-btn:hover { color: var(--accent); background: var(--accent-soft); }
+
   /* ── KPI row ── */
   .kpi-row {
     display: grid;
@@ -2049,6 +2113,7 @@
   <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.5" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
   <symbol id="i-news" viewBox="0 0 24 24"><path d="M4 5.5h12.5v13H5.5A1.5 1.5 0 0 1 4 17z"/><path d="M16.5 9H20v8a1.5 1.5 0 0 1-3.5 0z"/><path d="M7 9h6.5M7 12h6.5M7 15h4"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5.5h16l-6.3 7.4v5.6l-3.4-1.8v-3.8z"/></symbol>
 </svg>
 
 <!-- ═══════════ AUTH / SIGN-IN OVERLAY (Supabase) ═══════════
@@ -2816,11 +2881,15 @@
     <!-- Real buttons, not divs: these carry a click handler, so as <div>s they
          were unreachable by keyboard (same 2.1.1 failure as the board rows).
          The comparison views' mode pills already use .pill on a <button>. -->
+    <!-- Each pill carries a live count (.pill-count) of how many products match
+         if you pick it, given the OTHER active facets — the faceted-count idea,
+         kept on the controls that already exist rather than a new panel.
+         refreshFacetCounts() fills them. -->
     <div class="pill-group" id="type-filters" role="group" aria-label="Filter by product type">
-      <button class="pill active" type="button" data-type="ALL" aria-pressed="true">All</button>
-      <button class="pill" type="button" data-type="BOX" aria-pressed="false">Booster Box</button>
-      <button class="pill" type="button" data-type="ETB" aria-pressed="false">Elite Trainer</button>
-      <button class="pill" type="button" data-type="BUNDLE" aria-pressed="false">Bundle</button>
+      <button class="pill active" type="button" data-type="ALL" aria-pressed="true">All<span class="pill-count"></span></button>
+      <button class="pill" type="button" data-type="BOX" aria-pressed="false">Booster Box<span class="pill-count"></span></button>
+      <button class="pill" type="button" data-type="ETB" aria-pressed="false">Elite Trainer<span class="pill-count"></span></button>
+      <button class="pill" type="button" data-type="BUNDLE" aria-pressed="false">Bundle<span class="pill-count"></span></button>
     </div>
 
     <!-- Era scope filter — a second global scoping axis beside Type. Narrows
@@ -2869,6 +2938,14 @@
       <option value="newest">Sort: Newest First</option>
     </select>
 
+    <!-- The extra facets (set, price/age range) and saved views live behind a
+         disclosure so the primary row stays uncluttered (design-review restraint).
+         The badge counts how many advanced facets are active, so they are never
+         hidden while set. toggleMoreFilters() flips #advanced-filters. -->
+    <button type="button" class="pill more-filters-btn" id="more-filters-btn" aria-expanded="false" aria-controls="advanced-filters">
+      <svg class="icon" aria-hidden="true"><use href="#i-filter"/></svg>More filters<span class="pill-count" id="more-filters-badge"></span>
+    </button>
+
     <!-- Cross-filter selection indicator. The checkbox on each board row builds a
          shared selection that drives the comparison charts + highlights the
          scatter (see selectedProducts / refreshSelectionViews). Hidden until a
@@ -2879,6 +2956,46 @@
       <button type="button" id="clear-selection" class="text-link">Clear</button>
       <span id="selection-note" role="status" hidden></span>
     </span>
+  </div>
+
+  <!-- Advanced facets + saved views — revealed by the "More filters" toggle.
+       Combinable with the primary-row facets (all flow through passesScope /
+       visibleProducts), and each discrete facet shows a live match count. The
+       price/age inputs are canonical € / years, like every other typed input.
+       Saved views persist a whole filter combo to localStorage. -->
+  <div class="filters-advanced" id="advanced-filters" hidden>
+    <div class="af-group">
+      <span class="filter-label">Set</span>
+      <select class="sort-select" id="set-filter" style="margin-left:0;" aria-label="Filter by set">
+        <option value="ALL">All sets</option>
+      </select>
+    </div>
+
+    <div class="af-group">
+      <span class="filter-label">Price €</span>
+      <input type="number" class="af-num" id="price-min" min="0" step="1" inputmode="numeric" placeholder="min" aria-label="Minimum price in euros">
+      <span class="af-dash">–</span>
+      <input type="number" class="af-num" id="price-max" min="0" step="1" inputmode="numeric" placeholder="max" aria-label="Maximum price in euros">
+    </div>
+
+    <div class="af-group">
+      <span class="filter-label">Age yr</span>
+      <input type="number" class="af-num" id="age-min" min="0" step="0.5" inputmode="decimal" placeholder="min" aria-label="Minimum age in years">
+      <span class="af-dash">–</span>
+      <input type="number" class="af-num" id="age-max" min="0" step="0.5" inputmode="decimal" placeholder="max" aria-label="Maximum age in years">
+    </div>
+
+    <div class="af-group af-views">
+      <span class="filter-label">Views</span>
+      <select class="sort-select" id="saved-views" style="margin-left:0;" aria-label="Load a saved view">
+        <option value="">Saved views…</option>
+      </select>
+      <input type="text" class="board-search af-view-name" id="view-name" maxlength="40" placeholder="Name this view" aria-label="Name for the current view">
+      <button type="button" class="pill" id="save-view">Save</button>
+      <button type="button" class="pill" id="delete-view">Delete</button>
+    </div>
+
+    <button type="button" class="text-link af-reset" id="reset-filters" hidden>Reset all filters</button>
   </div>
 
   <!-- ── Section: The Board — one table, three lenses (full width) ──
@@ -3387,6 +3504,14 @@ let activeEra = "ALL";     // Era scope filter (an ERAS key or 'ALL') — a seco
 let sortKey = "score";
 let searchTerm = "";      // Board name/set search (case-insensitive substring)
 let verdictFilter = "all"; // Board filter by verdict tone: all | good | neutral | bad
+// Additional combinable scope facets (faceted filtering). Like activeType/activeEra
+// these are applied in visibleProducts() (via passesScope), so they narrow every
+// analytical view, not just the board. activeSet is a setLogoKey; the price/age
+// ranges are canonical € / years (null = open end) — typed inputs stay € like the
+// rest of Data Entry / cost basis. Each discrete facet shows a live match count.
+let activeSet = "ALL";        // Set scope filter (a setLogoKey or 'ALL')
+let priceMin = null, priceMax = null;   // Price range facet (€)
+let ageMin   = null, ageMax   = null;   // Age range facet (years)
 // Cross-filtering (PowerBI-style): one shared selection of product names, edited
 // by a checkbox on every board row *and* the comparison charts' own pickers, that
 // drives every chart at once — both comparison views plot it in Product mode and
@@ -3411,6 +3536,12 @@ let momentumExpandedSets = new Set();
 // each its own table under a shared pill toggle. This holds the active lens;
 // applyBoardLens() shows the matching table-wrap and renderBoard() renders it.
 let boardLens = 'value'; // 'value' | 'relative' | 'momentum'
+// Top-N + "show all": the board leads with the best BOARD_TOP_N products (flat, in
+// the active sort order) and expands to the full Era→Set→Product tree on demand —
+// generalising the "Where to start" shortlist to every lens. A live search bypasses
+// the cap (it force-expands the tree so all matches show). Shared across lenses.
+let boardShowAll = false;
+let showMoreFilters = false;   // the "More filters" advanced-facet disclosure
 // The Relative/Momentum lenses carry a set-vs-product comparison bar chart
 // (renderBoardLensChart); this is its roll-up mode, Sets by default.
 let boardChartMode = 'set'; // 'set' | 'product'
@@ -3546,10 +3677,28 @@ function getFiltered() {
 // age-fit (fair prices) stays on analysisProducts() — the whole catalogue — so
 // scoping the *display* here never changes a fair price.
 function visibleProducts() {
-  let base = analysisProducts();
-  if (activeType !== 'ALL') base = base.filter(p => typeCategory(p.type) === activeType);
-  if (activeEra !== 'ALL') base = base.filter(p => (eraForRelease(p.release) || {}).key === activeEra);
-  return base;
+  return analysisProducts().filter(p => passesScope(p, null));
+}
+
+// One predicate for every combinable scope facet (type, era, set, price range, age
+// range). `skip` names one facet to ignore — used for faceted counts: "how many
+// match if you pick THIS value, given the other active facets". Search and verdict
+// are board-refinements layered on top in getFiltered(), not scope facets, so they
+// live outside this predicate. The age-fit still reads the whole analysisProducts()
+// catalogue, so scoping the display here never moves a fair price.
+function passesScope(p, skip) {
+  if (skip !== 'type'  && activeType !== 'ALL' && typeCategory(p.type) !== activeType) return false;
+  if (skip !== 'era'   && activeEra  !== 'ALL' && (eraForRelease(p.release) || {}).key !== activeEra) return false;
+  if (skip !== 'set'   && activeSet  !== 'ALL' && setLogoKey(p.name) !== activeSet) return false;
+  if (skip !== 'price') {
+    if (priceMin != null && p.price < priceMin) return false;
+    if (priceMax != null && p.price > priceMax) return false;
+  }
+  if (skip !== 'age') {
+    if (ageMin != null && p.age < ageMin) return false;
+    if (ageMax != null && p.age > ageMax) return false;
+  }
+  return true;
 }
 
 
@@ -3931,7 +4080,7 @@ function updateTable() {
   const maxScore = Math.max(...data.map(p => p.score));
   const searching = searchTerm.trim() !== '';
 
-  renderGroupTree(tbody, data, {
+  renderBoardList(tbody, data, {
     colspan: 9,
     expandedEras, expandedSets,
     rerender: updateTable,
@@ -3971,6 +4120,37 @@ function renderGroupTree(tbody, products, ctx) {
       for (const p of set.products) tbody.appendChild(ctx.leaf(p));
     }
   }
+}
+
+// Top-N + "show all": the shared board body renderer for all three lenses. By
+// default it leads with the best BOARD_TOP_N products (flat, in the incoming sort
+// order) and offers a "show all" row that expands to the full Era→Set→Product tree
+// — generalising the "Where to start" shortlist. A live search bypasses the cap
+// entirely (the tree force-expands so every match is visible). `products` arrives
+// pre-sorted by the caller; `ctx` is the same object renderGroupTree() takes.
+const BOARD_TOP_N = 12;
+function renderBoardList(tbody, products, ctx) {
+  const capped = !ctx.searching && !boardShowAll && products.length > BOARD_TOP_N;
+  if (capped) {
+    products.slice(0, BOARD_TOP_N).forEach(p => tbody.appendChild(ctx.leaf(p)));
+    tbody.appendChild(boardMoreRow(products.length, ctx, true));
+  } else {
+    renderGroupTree(tbody, products, ctx);
+    if (!ctx.searching && products.length > BOARD_TOP_N)
+      tbody.appendChild(boardMoreRow(products.length, ctx, false));
+  }
+}
+
+// The full-width "show all / show fewer" footer row inside the board body.
+function boardMoreRow(total, ctx, showingTopN) {
+  const tr = document.createElement('tr');
+  tr.className = 'board-more-row';
+  const label = showingTopN
+    ? `Showing the top ${BOARD_TOP_N} of ${total} — show all, grouped by era ▾`
+    : `Show the top ${BOARD_TOP_N} only ▴`;
+  tr.innerHTML = `<td colspan="${ctx.colspan}"><button type="button" class="board-more-btn">${label}</button></td>`;
+  tr.querySelector('button').addEventListener('click', () => { boardShowAll = !boardShowAll; ctx.rerender(); });
+  return tr;
 }
 
 // Group a product list into sets by set key (the SKU suffix stripped, so twin
@@ -4668,6 +4848,7 @@ document.querySelectorAll('#board-chart-mode .pill').forEach(pill => {
 // Re-render everything the global type filter scopes: the board plus the
 // analytical charts/tables and the comparison views.
 function applyTypeFilter() {
+  refreshFacetCounts();     // live match counts follow every facet change
   renderOverview();
   renderBoard();            // the active board lens (Value / Relative / Momentum)
   renderScatterChart();
@@ -4713,12 +4894,58 @@ document.getElementById('clear-selection').addEventListener('click', clearSelect
 
 document.getElementById('board-search').addEventListener('input', e => {
   searchTerm = e.target.value;
-  renderBoard();   // search scopes whichever lens is active
+  updateFilterChrome();   // search feeds the reset control's visibility
+  renderBoard();          // search scopes whichever lens is active
 });
 
 document.getElementById('verdict-filter').addEventListener('change', e => {
   verdictFilter = e.target.value;
+  updateFilterChrome();
   updateTable();
+});
+
+// ── Advanced facets ──────────────────────────────────────────
+document.getElementById('more-filters-btn').addEventListener('click', () => setMoreFilters(!showMoreFilters));
+
+document.getElementById('set-filter').addEventListener('change', e => {
+  activeSet = e.target.value;
+  applyTypeFilter();
+});
+
+// Price / age range inputs — canonical € / years, an open end when blank. Each
+// re-scopes every view (like the other facets) via applyTypeFilter.
+['price-min', 'price-max', 'age-min', 'age-max'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    priceMin = readRange('price-min'); priceMax = readRange('price-max');
+    ageMin   = readRange('age-min');   ageMax   = readRange('age-max');
+    applyTypeFilter();
+  });
+});
+
+document.getElementById('reset-filters').addEventListener('click', resetFilters);
+
+// ── Saved views ──────────────────────────────────────────────
+document.getElementById('saved-views').addEventListener('change', e => {
+  const v = loadSavedViews().find(x => x.name === e.target.value);
+  if (v) applyView(v);
+  e.target.value = '';   // the picker is an action, not a persistent selection
+});
+document.getElementById('save-view').addEventListener('click', () => {
+  const input = document.getElementById('view-name');
+  const name = input.value.trim();
+  if (!name) { input.focus(); return; }
+  const views = loadSavedViews().filter(v => v.name !== name);   // replace a same-named view
+  views.push(captureView(name));
+  persistSavedViews(views);
+  renderSavedViews();
+  input.value = '';
+});
+document.getElementById('delete-view').addEventListener('click', () => {
+  const sel = document.getElementById('saved-views');
+  const name = sel.value;
+  if (!name) return;
+  persistSavedViews(loadSavedViews().filter(v => v.name !== name));
+  renderSavedViews();
 });
 
 document.getElementById('age-threshold-slider').addEventListener('input', e => {
@@ -5152,21 +5379,187 @@ function populatePortfolioSelect() {
 // first — groupEras is ERAS-ordered and drops empty eras), preserving the current
 // selection across data reloads. Built with textContent (not escHtml, which is
 // declared after INIT and would be in the temporal dead zone when INIT calls this).
-function populateEraFilter() {
-  const sel = document.getElementById('era-filter');
+// ── Faceted filtering: live match counts on every discrete facet ──────────
+// Each pill/option shows how many products it would match GIVEN the other active
+// facets — passesScope() with that one dimension skipped. Rebuilt on every filter
+// change (refreshFacetCounts), so a count and the board it scopes can never drift.
+function scopedExcept(dim) { return analysisProducts().filter(p => passesScope(p, dim)); }
+
+function fillFacetSelect(sel, items, current) {
   if (!sel) return;
-  const eras = groupEras(analysisProducts());   // all types — the era axis is independent of the Type pill
-  if (activeEra !== 'ALL' && !eras.some(e => e.key === activeEra)) activeEra = 'ALL'; // selected era left the data
   sel.innerHTML = '';
-  const all = document.createElement('option');
-  all.value = 'ALL'; all.textContent = 'All eras';
-  sel.appendChild(all);
-  eras.forEach(e => {
+  items.forEach(it => {
     const o = document.createElement('option');
-    o.value = e.key; o.textContent = e.label;
+    o.value = it.value;
+    o.textContent = `${it.label} (${it.count})`;
     sel.appendChild(o);
   });
-  sel.value = activeEra;
+  sel.value = current;
+}
+
+function refreshFacetCounts() {
+  // Era — independent of the Type pill; counted with era skipped.
+  const eras = groupEras(analysisProducts());
+  if (activeEra !== 'ALL' && !eras.some(e => e.key === activeEra)) activeEra = 'ALL';
+  const eraPool = scopedExcept('era');
+  fillFacetSelect(document.getElementById('era-filter'),
+    [{ value: 'ALL', label: 'All eras', count: eraPool.length },
+     ...eras.map(e => ({ value: e.key, label: e.label,
+       count: eraPool.filter(p => (eraForRelease(p.release) || {}).key === e.key).length }))],
+    activeEra);
+
+  // Set — newest release first, like the board tree.
+  const sets = boardSets(analysisProducts());
+  if (activeSet !== 'ALL' && !sets.some(s => s.key === activeSet)) activeSet = 'ALL';
+  const setPool = scopedExcept('set');
+  fillFacetSelect(document.getElementById('set-filter'),
+    [{ value: 'ALL', label: 'All sets', count: setPool.length },
+     ...sets.map(s => ({ value: s.key, label: s.label,
+       count: setPool.filter(p => setLogoKey(p.name) === s.key).length }))],
+    activeSet);
+
+  // Type pills — counted with type skipped.
+  const typePool = scopedExcept('type');
+  document.querySelectorAll('#type-filters .pill').forEach(pill => {
+    const t = pill.dataset.type;
+    const n = t === 'ALL' ? typePool.length : typePool.filter(p => typeCategory(p.type) === t).length;
+    const span = pill.querySelector('.pill-count');
+    if (span) span.textContent = n;
+  });
+
+  // Verdict — a board refinement over the fully-scoped pool (needs stamped verdicts).
+  const vpool = visibleProducts();
+  const vsel = document.getElementById('verdict-filter');
+  if (vsel) {
+    [['all', 'Verdict: All', null],
+     ['good', 'Verdict: Deals (under fair)', 'good'],
+     ['neutral', 'Verdict: Fair / no edge', 'neutral'],
+     ['bad', 'Verdict: Overpriced', 'bad']].forEach(([value, label, tone], i) => {
+      const n = tone == null ? vpool.length : vpool.filter(p => p.verdict && p.verdict.tone === tone).length;
+      let o = vsel.options[i];
+      if (!o) { o = document.createElement('option'); vsel.appendChild(o); }
+      o.value = value; o.textContent = `${label} (${n})`;
+    });
+    vsel.value = verdictFilter;
+  }
+
+  updateFilterChrome();
+}
+
+// The More-filters badge (count of active advanced facets) and the reset control's
+// visibility. "Advanced" = the facets behind the disclosure (set + the two ranges);
+// type/era/search/verdict sit on the primary row.
+function updateFilterChrome() {
+  const advActive = (activeSet !== 'ALL' ? 1 : 0) +
+    (priceMin != null || priceMax != null ? 1 : 0) +
+    (ageMin != null || ageMax != null ? 1 : 0);
+  const badge = document.getElementById('more-filters-badge');
+  if (badge) badge.textContent = advActive ? String(advActive) : '';
+  const anyActive = advActive > 0 || activeType !== 'ALL' || activeEra !== 'ALL' ||
+    verdictFilter !== 'all' || searchTerm.trim() !== '';
+  const reset = document.getElementById('reset-filters');
+  if (reset) reset.hidden = !anyActive;
+}
+
+// Era + Set dropdowns (with counts) are (re)built by refreshFacetCounts(); this
+// keeps the original name as the data-load entry point (INIT / applyNewData call
+// it) — it also drops a still-selected era/set that left the data.
+function populateEraFilter() { refreshFacetCounts(); }
+
+// ── The advanced-facet disclosure ────────────────────────────
+function setMoreFilters(open) {
+  showMoreFilters = open;
+  const row = document.getElementById('advanced-filters');
+  const btn = document.getElementById('more-filters-btn');
+  if (row) row.hidden = !open;
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+// Read a range <input> as a number, or null when blank/invalid (an open end).
+function readRange(id) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const v = parseFloat(el.value);
+  return Number.isFinite(v) ? v : null;
+}
+
+// Push every filter control's DOM to match the current state — after applyView()
+// or resetFilters(). The era/set/verdict selects are also re-synced by
+// refreshFacetCounts(), but the pills, search box and range inputs are not, so
+// they must be set here.
+function reflectFilterControls() {
+  document.querySelectorAll('#type-filters .pill').forEach(p => {
+    const on = p.dataset.type === activeType;
+    p.classList.toggle('active', on);
+    p.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setVal('era-filter', activeEra);
+  setVal('set-filter', activeSet);
+  setVal('verdict-filter', verdictFilter);
+  setVal('sort-select', sortKey);
+  setVal('board-search', searchTerm);
+  setVal('price-min', priceMin == null ? '' : priceMin);
+  setVal('price-max', priceMax == null ? '' : priceMax);
+  setVal('age-min',   ageMin   == null ? '' : ageMin);
+  setVal('age-max',   ageMax   == null ? '' : ageMax);
+}
+
+function resetFilters() {
+  activeType = 'ALL'; activeEra = 'ALL'; activeSet = 'ALL'; verdictFilter = 'all';
+  priceMin = priceMax = ageMin = ageMax = null;
+  searchTerm = '';
+  boardShowAll = false;
+  // sortKey and the active lens are not filters — leave them as chosen.
+  reflectFilterControls();
+  applyTypeFilter();
+}
+
+// ── Saved views: a whole filter combo, named, persisted to localStorage ────
+const SAVED_VIEWS_KEY = 'sta-saved-views';
+function loadSavedViews() {
+  try { const v = JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY)); return Array.isArray(v) ? v : []; }
+  catch { return []; }
+}
+function persistSavedViews(views) {
+  try { localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views)); } catch (_) {}
+}
+function captureView(name) {
+  return { name, type: activeType, era: activeEra, set: activeSet, verdict: verdictFilter,
+           priceMin, priceMax, ageMin, ageMax, sort: sortKey, search: searchTerm, lens: boardLens };
+}
+function renderSavedViews() {
+  const sel = document.getElementById('saved-views');
+  if (!sel) return;
+  const views = loadSavedViews();
+  sel.innerHTML = '<option value="">Saved views…</option>';
+  views.forEach(v => {
+    const o = document.createElement('option');
+    o.value = v.name; o.textContent = v.name;
+    sel.appendChild(o);
+  });
+  sel.value = '';
+  const del = document.getElementById('delete-view');
+  if (del) del.disabled = views.length === 0;
+}
+function applyView(v) {
+  if (!v) return;
+  activeType    = v.type ?? 'ALL';
+  activeEra     = v.era ?? 'ALL';
+  activeSet     = v.set ?? 'ALL';
+  verdictFilter = v.verdict ?? 'all';
+  priceMin = v.priceMin ?? null; priceMax = v.priceMax ?? null;
+  ageMin   = v.ageMin ?? null;   ageMax   = v.ageMax ?? null;
+  sortKey  = v.sort ?? 'score';
+  searchTerm = v.search ?? '';
+  boardShowAll = false;
+  if (v.lens) boardLens = v.lens;
+  reflectFilterControls();
+  // A view carrying an advanced facet opens the disclosure so it isn't hidden.
+  if (activeSet !== 'ALL' || priceMin != null || priceMax != null || ageMin != null || ageMax != null)
+    setMoreFilters(true);
+  applyBoardLens();    // the lens may have changed
+  applyTypeFilter();   // re-scope, refresh counts, re-render every view
 }
 
 function populateCurrencySelect() {
@@ -6800,7 +7193,7 @@ function renderRelativeValue() {
   const byName = new Map(pool.map(p => [p.name, p]));
   const resByName = new Map(rows.map(r => [r.name, r]));
   const ordered = rows.map(r => byName.get(r.name)).filter(Boolean);
-  renderGroupTree(tbody, ordered, {
+  renderBoardList(tbody, ordered, {
     colspan: 6,
     expandedEras: relvalExpandedEras,
     expandedSets: relvalExpandedSets,
@@ -6863,7 +7256,7 @@ function renderMomentum() {
   // order within a set, keyed back to their computed momentum for the leaf.
   const mByName = new Map(rows.map(r => [r.p.name, r.m]));
   const ordered = rows.map(r => r.p);
-  renderGroupTree(tbody, ordered, {
+  renderBoardList(tbody, ordered, {
     colspan: 7,
     expandedEras: momentumExpandedEras,
     expandedSets: momentumExpandedSets,
@@ -7450,7 +7843,8 @@ Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
 
 recomputeScores(products, ageThreshold); // apply the default age threshold to the initial data
 recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
-populateEraFilter();                     // fill the Era scope dropdown from the data
+populateEraFilter();                     // fill Era + Set dropdowns and every facet count
+renderSavedViews();                      // list any saved filter combos (localStorage)
 seedSelectionIfEmpty();                  // a default product so the comparison charts aren't empty
 updateKPIs();
 renderOverview();
@@ -8517,8 +8911,13 @@ function wireAuthControls() {
     // above it, not a section of its own — and when that explainer is collapsed
     // the toggle *is* the visible stand-in for it, so fading it in separately
     // would hide the only affordance the section has.
+    // #advanced-filters is a toggled disclosure that starts hidden and is shown
+    // AFTER this reveal has already run, so it would never get its .rv-in and
+    // would open invisible (opacity:0). It must appear the instant it's opened,
+    // so it is not a reveal target.
     return Array.prototype.slice.call(pane.children).filter(function (el) {
-      return !el.classList.contains('modal-overlay') && !el.classList.contains('desc-toggle');
+      return !el.classList.contains('modal-overlay') && !el.classList.contains('desc-toggle')
+        && el.id !== 'advanced-filters';
     });
   }
 

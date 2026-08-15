@@ -100,7 +100,7 @@ The pure math lives in **`metrics.js`** (imported by `index.html` and unit-teste
 
 Four tabs (Welcome / Analysis / Portfolio / Data Entry) are `.tab-pane`s toggled by `.tab-btn[data-tab]` — Portfolio (`.sb-only`, signed-in) and Data Entry (`.admin-only`) are conditionally shown. The Analysis tab opens with the unnumbered **Where to start** shortlist (see below), then a single vertically-stacked column of full-width sections, each introduced by a numbered `.section-eyebrow` (01–04) — on-screen title first, internal name second: **01 The Board** (one table, three lenses — see *The board is one panel with three lenses* below), **02 Age vs Value** (the scatter, with a fitted "expected value for age" line), **03 Price History**, **04 Trend Over Time**. What used to be three more sections — Relative Value and Momentum & Drawdown (now **lenses of §01 The Board**) and a "Value Per Booster" Top-10 bar chart (**retired** — redundant with the Where-to-start *Best value* lens, the Board's SV/Booster sort, and the §02 scatter, which plots the same metric against age) — are gone. The **What If / Scenario Explorer** is no longer a tab section either — it lives inside the product drill-down (see below), always scoped to the product on screen. The Portfolio tab has its own sections: **Your Portfolio** (the overview — the summary tiles `#portfolio-summary` and the value-over-time chart `#portfolio-value-chart` together at the top, the headline numbers beside the trajectory that plots them), **Holdings** (the add/buy editor + the `#portfolio-cards` grid), **Concentration & Rebalance**, and **Price Alerts**. (The summary and value chart used to be in separate sections with the holdings editor wedged between them; they were merged into one top overview panel so the numbers and their trend read together.)
 
-Rendering follows a **state + render-function** pattern: module-level state (`activeType` — the global type filter, a *category* (`BOX`/`ETB`/`BUNDLE`/`PACK`, or `ALL`) so an ETB pill scopes to every ETB variant, `sortKey`, `ageThreshold`, …) plus render functions (`updateTable`, `updateKPIs`, `renderOverview`, `renderScatterChart`, `renderRelativeValue`, `renderMomentum`, `initScenario`, …). Chart.js instances live in module-level vars and are **destroyed and recreated** on each re-render. Any new render function must be wired into both `INIT` and `applyNewData()` so it runs on first load and after a data file loads. The Price History (§03) and SV/Booster Trend (§04) comparison views are built by a shared `createCompareView()` controller (instances `cmpHist`/`cmpSvb`) — a **Products ⇄ Sets ⇄ Eras** mode toggle, a capped multi-series picker (chips + a legend that toggles series). **Set and Era are both roll-up modes** (`mode !== 'product'`): a selection's line is `meanSeries()` over its members, so one line per set (`groupSets()`) or per era (`groupEras()` via `eraForRelease`, newest era first) — the catalogue-scale navigation view the collapsed tree can't give as a *chart*. Product mode is the leaf line (and the only one with the single-product Set-Value overlay), and in Product mode the selection **is the shared cross-filter** `selectedProducts` (see below), so both charts always plot the same products. Each instance is `init()`ed in `INIT` and `refresh()`ed in `applyNewData()` and on type-filter change; `syncSelection()` re-pulls the shared selection. *(Only **era** exists as a chart *scope filter*; see `activeEra` below.)* `activeType` scopes the board plus every analytical chart/comparison view via the `visibleProducts()` helper (`applyTypeFilter()`). **`activeEra`** is a **second global scope axis** beside it — an `ERAS` key (or `ALL`) from the `#era-filter` dropdown (`populateEraFilter()` fills it from the eras present in the data, newest first) — also applied in `visibleProducts()`, so "only Scarlet & Violet" narrows the board, scatter, overview, momentum/relative lenses and comparison views alike. `getFiltered()` (the board's Value lens) now starts from `visibleProducts()` so the board shares that exact type+era scope. The era filter deliberately does **not** touch the age-fit (fair prices stay computed over the whole `analysisProducts()` catalogue — scoping the *display* never moves a fair price) nor the Welcome KPI strip (a dataset teaser). Its change handler re-runs `applyTypeFilter()`.
+Rendering follows a **state + render-function** pattern: module-level state (`activeType` — the global type filter, a *category* (`BOX`/`ETB`/`BUNDLE`/`PACK`, or `ALL`) so an ETB pill scopes to every ETB variant, `sortKey`, `ageThreshold`, …) plus render functions (`updateTable`, `updateKPIs`, `renderOverview`, `renderScatterChart`, `renderRelativeValue`, `renderMomentum`, `initScenario`, …). Chart.js instances live in module-level vars and are **destroyed and recreated** on each re-render. Any new render function must be wired into both `INIT` and `applyNewData()` so it runs on first load and after a data file loads. The Price History (§03) and SV/Booster Trend (§04) comparison views are built by a shared `createCompareView()` controller (instances `cmpHist`/`cmpSvb`) — a **Products ⇄ Sets ⇄ Eras** mode toggle, a capped multi-series picker (chips + a legend that toggles series). **Set and Era are both roll-up modes** (`mode !== 'product'`): a selection's line is `meanSeries()` over its members, so one line per set (`groupSets()`) or per era (`groupEras()` via `eraForRelease`, newest era first) — the catalogue-scale navigation view the collapsed tree can't give as a *chart*. Product mode is the leaf line (and the only one with the single-product Set-Value overlay), and in Product mode the selection **is the shared cross-filter** `selectedProducts` (see below), so both charts always plot the same products. Each instance is `init()`ed in `INIT` and `refresh()`ed in `applyNewData()` and on type-filter change; `syncSelection()` re-pulls the shared selection. *(Only **era** exists as a chart *scope filter*; see `activeEra` below.)* `activeType` scopes the board plus every analytical chart/comparison view via the `visibleProducts()` helper (`applyTypeFilter()`). **`activeEra`** is a **second global scope axis** beside it — an `ERAS` key (or `ALL`) from the `#era-filter` dropdown (`populateEraFilter()` fills it from the eras present in the data, newest first) — also applied in `visibleProducts()`, so "only Scarlet & Violet" narrows the board, scatter, overview, momentum/relative lenses and comparison views alike. `getFiltered()` (the board's Value lens) now starts from `visibleProducts()` so the board shares that exact type+era scope. The era filter deliberately does **not** touch the age-fit (fair prices stay computed over the whole `analysisProducts()` catalogue — scoping the *display* never moves a fair price) nor the Welcome KPI strip (a dataset teaser). Its change handler re-runs `applyTypeFilter()`. **`visibleProducts()` now applies more than type+era** — every scope facet (type, era, **set** `activeSet`, **price range** `priceMin`/`priceMax`, **age range** `ageMin`/`ageMax`) flows through a single `passesScope(p, skip)` predicate; see *Faceted filtering* below. The board is also **Top-N by default** (`boardShowAll`/`renderBoardList`), and `applyTypeFilter()` calls `refreshFacetCounts()` first so the live facet counts follow every change.
 
 **Cross-filtering — one shared product selection drives every chart (PowerBI-style).** A `.sel-check` checkbox on **every board row** (all three lenses — `selCheckbox()` inside `.pn-head`, a custom `appearance:none` box sized to a 24×24 hit target for WCAG 2.5.8) toggles a product in the module-level **`selectedProducts`** `Set`, the single source of truth for the selection. Every mutation goes through **`toggleSelection()`** (or `clearSelection()`), then **`refreshSelectionViews()`** re-syncs all surfaces in one place: the row checkboxes (`syncSelectionCheckboxes()`), **both comparison charts** (their Product mode reads `selectedProducts` via `syncSelection()`/`pullSharedSel()` — so ticking a row adds a line to *both* §03 and §04 at once), and the **§02 scatter cross-highlight** (`renderScatterChart()` lights the selected points and dims the rest — a highlight, not a filter, so the age-fit line keeps its whole-catalogue context). The chart pickers edit the *same* set (the add-dropdown → `toggleSelection`, a chip's ✕ → remove), so the board checkboxes and the chart chips are two views of one selection. It's **capped at `COMPARE_CAP` (6)** — the palette length — so the selection can never exceed what the charts can legibly draw (a 7th tick is refused with a `flashSelectionNote()`); the `#chart-selection` bar in the filter row shows the count + a **Clear**. Session-only: `seedSelectionIfEmpty()` seeds a default so the charts aren't empty on first paint / after a reload, `pruneSelection()` drops names no longer in the data. The delegated `change` listener on `.sel-check` survives every board re-render. Set/Era roll-up modes keep their own per-chart selection (a row checkbox can't express a roll-up).
 
@@ -280,9 +280,19 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
 `updateTable()` renders §01 The Board as a **collapsible Era → Set → Product
 tree**, not a flat list — as coverage grew (XY → present) a flat board became a
 wall to scan. `getFiltered()` still does the type/search/verdict filtering and the
-sort; the tree only nests the result. It opens as a **pure era overview** (every
-era collapsed — `expandedEras`/`expandedSets` start empty), so the page leads with
-~5 era headline rows; expand an era to its sets, a set to its product rows.
+sort; the tree only nests the result.
+
+**Top-N + "show all" is the default.** The board leads with the best
+**`BOARD_TOP_N` (12)** products flat, in the active sort order — the quick-scan
+leaderboard, generalising the "Where to start" shortlist — and a `board-more-btn`
+footer row expands to the full Era→Set→Product tree (`boardShowAll` toggle). When
+expanded the tree opens as a **pure era overview** (every era collapsed —
+`expandedEras`/`expandedSets` start empty): ~5 era headline rows, expand an era to
+its sets, a set to its products. A **live search bypasses the cap** (the tree
+force-expands so every match is visible). This is a shared behaviour:
+**`renderBoardList(tbody, products, ctx)`** is the body renderer for all three
+lenses — it either lays out the flat Top-N + footer or delegates to
+`renderGroupTree()`, so the Top-N/tree switch is identical everywhere.
 
 - **Era is derived, not stored.** `eraForRelease(release)` (in `metrics.js`) maps
   a release date to a named era via the `ERAS` boundary table (Mega Evolution /
@@ -306,13 +316,55 @@ era collapsed — `expandedEras`/`expandedSets` start empty), so the page leads 
   to the collapsed state when cleared.
 - **The grouping is a shared helper, not the board's alone.**
   `renderGroupTree(tbody, products, ctx)` does the era→set→product nesting and
-  headline rows; `updateTable()` and the two analytical tables (below) all call
-  it. `ctx` carries everything table-specific: the headline `colspan`, the pair
+  headline rows; `renderBoardList()` (the Top-N wrapper) calls it, and
+  `updateTable()` and the two analytical tables (below) all call `renderBoardList`.
+  `ctx` carries everything table-specific: the headline `colspan`, the pair
   of expand-state `Set`s, the `rerender` to run on toggle, whether a live
   `searching` forces every group open, an optional era `tail` summariser, and the
   `leaf` builder for a product row. `groupRow()` reads its colspan/state/rerender
   off `ctx` too. Products passed in must carry `release`/`svPerBooster`/`fairGap`/
   `price` — `groupStats()` reads them for the headline aggregates.
+
+### Faceted filtering: combinable scope facets, live counts, saved views
+
+The filter bar is **faceted** — every facet combines, and each discrete one shows
+a live match count.
+
+- **One predicate, one scope.** `passesScope(p, skip)` applies every *scope*
+  facet — **Type** (a category), **Era** (an `ERAS` key), **Set** (a
+  `setLogoKey`), and the **price / age ranges** (canonical € / years) — and
+  `visibleProducts()` is just `analysisProducts().filter(p => passesScope(p, null))`.
+  So a facet narrows the board *and* every chart alike (the scatter, overview,
+  comparison views), not just the board. Search + verdict stay **board
+  refinements** layered on in `getFiltered()`, not scope facets. The age-fit still
+  reads the whole `analysisProducts()` catalogue, so scoping the display never
+  moves a fair price. The `skip` argument names one facet to ignore — that's what
+  powers the counts.
+- **Live counts** (`refreshFacetCounts()`): each pill/option shows how many
+  products it would match *given the other active facets* — `passesScope` with
+  that one dimension skipped. It writes the Type pills' `.pill-count` spans, the
+  `(N)` on every Era/Set/Verdict option, the "More filters" badge (count of active
+  advanced facets) and the Reset control's visibility. Called from
+  `applyTypeFilter()` (every facet change) and `populateEraFilter()` (data load —
+  now a thin wrapper that also validates a still-selected era/set survived).
+- **Advanced facets live behind a disclosure.** The primary row keeps
+  Type/Era/age-threshold/search/verdict/sort; **Set**, the **price/age ranges** and
+  the **saved-views** control sit in `#advanced-filters`, toggled by the **More
+  filters** button (`setMoreFilters()`). Kept off the primary row for
+  `design-review` restraint. **`#advanced-filters` is excluded from the
+  reveal-on-scroll targets** (the `targets()` filter, beside modals/`.desc-toggle`)
+  — it's shown *after* the reveal ran, so as an `.rv` target it would open
+  invisible; it must appear the instant it's toggled.
+- **Saved views** persist a whole filter combo (type/era/set/verdict/ranges/sort/
+  search/lens) to **`localStorage` under `sta-saved-views`**. `captureView()` reads
+  state, `applyView()` writes it back and re-`reflectFilterControls()` + re-renders
+  (opening the disclosure if the view carries an advanced facet), `renderSavedViews()`
+  fills the picker. Save (name → replace-by-name), load (the picker is an action,
+  not a persistent selection — it resets to blank after), delete. **Reset all
+  filters** (`resetFilters()`) clears every facet + search + `boardShowAll`.
+- The two ranges are canonical **€ / years** like every typed input; nothing here
+  is currency-sensitive (a €-range facet compares against the stored € price), so
+  `renderCurrencySensitive()` needn't refresh counts.
 
 ### The board is one panel with three lenses (Value / Relative / Momentum)
 
@@ -365,7 +417,8 @@ wiring is intact.
 Each lens still keeps its own independent expand state
 (`relvalExpandedEras`/`relvalExpandedSets`, `momentumExpandedEras`/
 `momentumExpandedSets`, and the board's own `expandedEras`/`expandedSets`), also
-opening as a pure era overview, and feeds the tree **product objects** (so
+leading with the flat Top-N and opening the tree (once "show all" is clicked) as a
+pure era overview, and feeds the tree **product objects** (so
 `groupStats()`/`boardSets()` work unchanged) plus a `leaf` builder
 (`relvalRowTr()` / `momentumRowTr()`). The sort each already computed is preserved
 *within* a set — for Relative Value, `peerResiduals()` returns bare `{name,…}`
@@ -406,10 +459,11 @@ returns `sinceFirst` (unused in the UI now) and remains the source of `drawdown`
 
 Below 680px the All Products table drops its six **`.col-detail`** columns
 (Type, Set Value, €/Booster, SV/Booster, Age, Wtd. Score), freezes the product
-name (`position: sticky; left: 0`), and shows a `.scroll-hint` line. The grouped
-**Era/Set headline rows wrap** on a phone (`.grp-stats` becomes a block) so even
-the collapsed era overview never forces a two-dimensional swipe. Reasons a
-future change should preserve:
+name (`position: sticky; left: 0`), and shows a `.scroll-hint` line. This holds in
+both board states: the default **flat Top-N** rows carry the same `.col-detail`
+column priority, and when expanded the grouped **Era/Set headline rows wrap** on a
+phone (`.grp-stats` becomes a block) so even the era overview never forces a
+two-dimensional swipe. Reasons a future change should preserve:
 
 - The measurement it fixes: 9 columns are **1,098px wide in a 356px window**, so
   a phone saw only the name and type, with **Fair Price — the north-star answer

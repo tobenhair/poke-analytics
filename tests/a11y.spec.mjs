@@ -294,15 +294,17 @@ test('the board gives a phone the answer: column priority, a frozen name, a hint
 
   const board = page.locator('#tab-analysis .table-wrap').first();
 
-  // The board opens as a pure era overview. Its headline rows wrap on a phone, so
-  // even collapsed the board must not force a two-dimensional swipe; the hint is
-  // shown (it matters once you expand to products, which do have hidden columns).
+  // The board opens on the flat Top-N leaderboard (product rows, detail columns
+  // dropped) plus a "show all" footer. Even this default must not force a
+  // two-dimensional swipe on a phone; the hint is shown.
   const overview = await board.evaluate((wrap) => ({
     scrollW: wrap.scrollWidth, clientW: wrap.clientWidth,
-    eraRows: wrap.querySelectorAll('.grp-era').length,
+    topNRows: wrap.querySelectorAll('tr.grp-product').length,
+    showAll: !!wrap.querySelector('.board-more-btn'),
   }));
-  expect(overview.eraRows, 'era headline rows render').toBeGreaterThan(0);
-  expect(overview.scrollW, 'era overview scroll width on a phone').toBeLessThan(overview.clientW * 1.4);
+  expect(overview.topNRows, 'top-N product rows render').toBeGreaterThan(0);
+  expect(overview.showAll, 'show-all footer present').toBe(true);
+  expect(overview.scrollW, 'top-N scroll width on a phone').toBeLessThan(overview.clientW * 1.4);
   await expect(page.locator('#tab-analysis .scroll-hint').first()).toBeVisible();
 
   // Expand to product rows. Measured before column priority existed: 1,098px of
