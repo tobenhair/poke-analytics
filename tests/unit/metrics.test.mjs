@@ -47,6 +47,7 @@ import {
   VERDICT,
   setLabel,
   groupSets,
+  groupEras,
   meanSeries,
   concentrationShares,
   rebalanceSuggestions,
@@ -443,6 +444,28 @@ test('groupSets over a type-filtered pool rolls a set up from members in scope',
   const sets = groupSets(etbsOnly);
   assert.equal(sets.length, 1);
   assert.deepEqual(sets[0].members, ['Surging Sparks Elite Trainer Box']);
+});
+
+// ── groupEras: group products by era, newest era first ─────────
+test('groupEras groups products by their era, newest era first', () => {
+  const products = [
+    { name: 'Surging Sparks Booster Box', type: 'BOX', release: '2024-11-08' },   // Scarlet & Violet
+    { name: 'Prismatic Evolutions Booster Box', type: 'BOX', release: '2025-01-17' }, // Scarlet & Violet
+    { name: 'Sword & Shield Booster Box', type: 'BOX', release: '2020-02-07' },    // Sword & Shield
+  ];
+  const eras = groupEras(products);
+  assert.equal(eras.length, 2);
+  assert.equal(eras[0].label, 'Scarlet & Violet');   // ERAS order = newest first
+  assert.equal(eras[0].key, 'SV');
+  assert.deepEqual(eras[0].members, ['Surging Sparks Booster Box', 'Prismatic Evolutions Booster Box']);
+  assert.equal(eras[1].label, 'Sword & Shield');
+});
+
+test('groupEras drops eras with no member in the (type-filtered) pool', () => {
+  const svOnly = [{ name: 'Surging Sparks ETB', type: 'ETB', release: '2024-11-08' }];
+  const eras = groupEras(svOnly);
+  assert.equal(eras.length, 1);
+  assert.equal(eras[0].key, 'SV');
 });
 
 // ── meanSeries: snapshot-aligned mean with gap preservation ─────

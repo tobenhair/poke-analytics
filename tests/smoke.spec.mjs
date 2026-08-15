@@ -245,6 +245,88 @@ test('the board consolidates into one panel with a Value / Relative / Momentum l
   await expect(page.locator('#board-lens-chart')).toBeHidden();
 });
 
+test('the comparison charts roll products up to whole Eras', async ({ page }) => {
+  // §04 Trend Over Time builds one line per selection; Set and Era modes roll
+  // members up with meanSeries. This pins the Eras level (the catalogue-scale
+  // navigation add) — switching to it makes the picker + chips speak in eras.
+  await routeLocalLibs(page);
+  await forceStaticMode(page);
+  await page.goto('/');
+  await page.locator('.tab-btn[data-tab="analysis"]').click();
+  await expect(page.locator('#tab-analysis')).toBeVisible();
+
+  const eraPill = page.locator('#svb-mode .pill[data-mode="era"]');
+  await eraPill.evaluate(el => el.scrollIntoView({ block: 'center' }));
+  // The first click after a tab switch can land mid reveal-animation and miss
+  // (same harness quirk the board-lens test guards) — retry until the mode flips.
+  await expect.poll(async () => {
+    if ((await eraPill.getAttribute('aria-pressed')) !== 'true') await eraPill.click();
+    return eraPill.getAttribute('aria-pressed');
+  }, { timeout: 10_000 }).toBe('true');
+
+  // The picker now offers eras, and a whole-era line is seeded as a chip.
+  await expect(page.locator('#svb-add option').first()).toHaveText('+ Add era…');
+  await expect(page.locator('#svb-chips .cmp-chip').first())
+    .toHaveText(/Mega Evolution|Scarlet & Violet|Sword & Shield|Sun & Moon|XY/);
+});
+
+test('the Era scope filter narrows every analytical view to one era', async ({ page }) => {
+  // The second half of the navigation item: era as a *scope filter* (narrows the
+  // pool via visibleProducts, like the Type pills), not just a series mode. The
+  // board opens as a multi-era overview; scoping to one era leaves one era row.
+  await routeLocalLibs(page);
+  await forceStaticMode(page);
+  await page.goto('/');
+  await page.locator('.tab-btn[data-tab="analysis"]').click();
+  await expect(page.locator('#tab-analysis')).toBeVisible();
+  await expect.poll(() => page.locator('#product-tbody .grp-era').count(),
+    { timeout: 10_000 }).toBeGreaterThan(1);
+
+  // The dropdown is populated from the eras present; pick the first real one.
+  const eraFilter = page.locator('#era-filter');
+  const eraVals = await eraFilter.locator('option').evaluateAll(
+    os => os.map(o => o.value).filter(v => v !== 'ALL'));
+  expect(eraVals.length).toBeGreaterThan(1);
+  await eraFilter.selectOption(eraVals[0]);
+  await expect.poll(() => page.locator('#product-tbody .grp-era').count()).toBe(1);
+
+  // Back to "All eras" restores the full overview.
+  await eraFilter.selectOption('ALL');
+  await expect.poll(() => page.locator('#product-tbody .grp-era').count()).toBeGreaterThan(1);
+});
+
+test('a checkbox on each board row cross-filters both comparison charts (unified selection)', async ({ page }) => {
+  // PowerBI-style: one shared selection, edited by a row checkbox, drives every
+  // chart. Ticking rows adds the products to BOTH comparison charts at once (the
+  // unified selection) and the scatter cross-highlights them; Clear empties all.
+  await routeLocalLibs(page);
+  await forceStaticMode(page);
+  await page.goto('/');
+  await page.locator('.tab-btn[data-tab="analysis"]').click();
+  await expect(page.locator('#tab-analysis')).toBeVisible();
+  await expandBoard(page);
+
+  const boxes = page.locator('#product-tbody tr.grp-product .sel-check');
+  await boxes.nth(0).check();
+  await boxes.nth(1).check();
+
+  // Both charts show the SAME selection (unified), and there are at least two.
+  const histChips = await page.locator('#hist-chips .cmp-chip').allTextContents();
+  const svbChips = await page.locator('#svb-chips .cmp-chip').allTextContents();
+  expect(svbChips).toEqual(histChips);
+  expect(histChips.length).toBeGreaterThanOrEqual(2);
+
+  // The selection indicator appears with a count.
+  await expect(page.locator('#chart-selection')).toBeVisible();
+  await expect(page.locator('#selection-count')).toHaveText(/\d+ products? selected/);
+
+  // Clear empties the selection everywhere — the indicator hides, chips go.
+  await page.locator('#clear-selection').click();
+  await expect(page.locator('#chart-selection')).toBeHidden();
+  await expect(page.locator('#hist-chips .cmp-chip')).toHaveCount(0);
+  await expect(page.locator('#svb-chips .cmp-chip')).toHaveCount(0);
+});
+
 test('the boot splash covers first paint and clears once data is ready', async ({ page }) => {
   // The splash hides the transient sample→cloud swap (and its banner/status
   // flicker) behind an opaque logo screen, then clears the instant data loads.

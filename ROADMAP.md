@@ -657,12 +657,22 @@ stance). What still stands unbuilt:
     aggregates (`eraForRelease` / `groupStats` in `metrics.js`, via the shared
     `renderGroupTree()`), opening as a pure era overview. Era was **derived from
     release date** (the `ERAS` boundary table — no new field), resolving the open
-    "era definition" question. *Still open here:* rolling the same grouping into
-    the **charts** proper (era/set-level *series* in the Price-History / SV-trend
-    comparison views), and using an era/set as a **scope filter** for those views
-    (today the grouping only nests the three tables), plus its **perf win** (a
-    collapsed group renders one row — cheap virtualisation) is realised for those
-    tables only.
+    "era definition" question. **The chart-series half now ships too:** the
+    Price-History (§03) and SV-Booster-Trend (§04) comparison views gained an
+    **Eras** roll-up level beside Sets (`groupEras()` in `metrics.js`, one line
+    per era via `meanSeries`), so a **Products ⇄ Sets ⇄ Eras** toggle plots whole
+    eras head to head (`tests/smoke.spec.mjs` pins it). **The era scope filter now
+    ships too:** an **`#era-filter`** dropdown (`activeEra`, populated by
+    `populateEraFilter()` from the eras present) is a second global scope axis
+    beside the Type pills — applied in `visibleProducts()`, so "only Scarlet &
+    Violet" narrows the board, scatter, overview, both analytical lenses and the
+    comparison views alike (pinned in `tests/smoke.spec.mjs`). It deliberately
+    leaves the age-fit (fair prices stay whole-catalogue) and the KPI strip alone.
+    *Still open here:* the **perf win** (a collapsed group renders one row — cheap
+    virtualisation) is realised for the tables only. (A **set**-level scope filter
+    was considered and dropped — era is the coarse axis, and a single set is
+    already reachable three ways: expand it in the board tree, pick it as a Sets
+    series in the charts, or type its name in the board search.)
     - *Decided: era/set stay **derived**, not stored on the product row.* Era is a
       pure function of `release` (the `ERAS` boundary ranges), so a stored `era`
       column could only ever *duplicate* the date and drift from it — a silent
@@ -696,6 +706,23 @@ stance). What still stands unbuilt:
     a new component — and preserve the phone column-priority rules (`.col-detail`).
     The efficient source for the headline rows is server-side aggregation (a
     Supabase view/RPC) — see **Data volume at scale**.
+
+- **Cross-filtering — a shared product selection drives the charts (PowerBI-style). ✅ SHIPPED.**
+  Each comparison chart used to have its **own** add-a-series picker, so charting
+  the same products in both meant finding them twice. Now a **`.sel-check` checkbox
+  on every board row** (all three lenses) toggles a product in the module-level
+  **`selectedProducts`** set — the single source of truth — and `toggleSelection()`
+  → `refreshSelectionViews()` drives every surface at once: **both comparison
+  charts' Product mode** read it (`syncSelection()`/`pullSharedSel()`, so a tick
+  adds a line to §03 *and* §04), the **§02 scatter cross-highlights** (selected
+  points lit, the rest dimmed — highlight, not filter, so the age-fit keeps its
+  context), and the chart chip-pickers edit the *same* set (unified). Capped at
+  `COMPARE_CAP` (6) so the selection never exceeds what the charts can legibly
+  draw; a `#chart-selection` bar shows the count + **Clear**; session-only
+  (`seedSelectionIfEmpty` / `pruneSelection`). The checkbox is a custom
+  `appearance:none` box sized to a 24×24 hit target (WCAG 2.5.8). No new token;
+  currency-correct like every chart path. Guarded in `tests/smoke.spec.mjs` +
+  `tests/a11y.spec.mjs`. Set/Era roll-up modes keep their own per-chart selection.
 
 - **"Where to start" teaser on the demo + summary-strip relocation.** *(Feature;
   **shipped** — demo teaser + KPI-strip relocation.)* The signed-in
