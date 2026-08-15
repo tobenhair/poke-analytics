@@ -28,6 +28,15 @@ other way or doesn't ship.
 
 Condensed history — details live in the git log and `CLAUDE.md`.
 
+- **Continuous time-series charts.** The Price-History (§03), SV/Booster-Trend
+  (§04), drill-down and Portfolio value charts dropped their default point
+  markers (`pointRadius: 0` + `pointHoverRadius`) — a clean line, a point only
+  where you hover a date (the Collectr pattern). The full-screen zoom clone now
+  pins both axes to `min/max: 'original'`, so a pan/zoom can't expose a negative
+  or empty axis (these charts hold no negative values). *Still open — flagged
+  for when the history deepens:* a **time-scale selector** on these charts
+  (1D / 7D / 1M / 3M / 6M / MAX), which needs more daily snapshots to be worth
+  the chrome.
 - **Foundations** — CI (workbook validator + unit tests + Playwright smoke
   test on every push/PR); guard skills (`data-integrity`, `metrics-review`,
   `verify-app`, `design-review`) in `.claude/skills/`.

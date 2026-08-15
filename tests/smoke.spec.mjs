@@ -161,17 +161,53 @@ test('an analytical chart expands to a full-screen, zoomable dialog', async ({ p
     c.zoom(2);
     const zoomed = c.scales.x.max - c.scales.x.min;
     c.resetZoom();
+    // Zooming OUT past the data is clamped by the plugin `limits` (min/max
+    // 'original'), so the axis can never reveal negative / empty space.
+    const yMinBefore = c.scales.y.min;
+    c.zoom(0.25);
+    const zoomedOut = c.scales.x.max - c.scales.x.min;
+    const yMinOut = c.scales.y.min;
+    c.resetZoom();
     const reset = c.scales.x.max - c.scales.x.min;
-    return { registered, hammer: typeof window.Hammer, before, zoomed, reset };
+    return { registered, hammer: typeof window.Hammer, before, zoomed, reset, zoomedOut, yMinBefore, yMinOut };
   });
   expect(zoom.registered, 'zoom plugin registered').toBe(true);
   expect(zoom.hammer, 'Hammer loaded for touch gestures').toBe('function');
   expect(zoom.zoomed, 'zooming narrows the axis range').toBeLessThan(zoom.before);
   expect(zoom.reset, 'reset restores the range').toBeCloseTo(zoom.before, 5);
+  // Zoom-out is clamped to the original extent — the range can't grow past it,
+  // and the y-axis floor can't drop below its original (no negative axis).
+  expect(zoom.zoomedOut, 'zoom-out cannot exceed the original range').toBeLessThanOrEqual(zoom.before + 1e-6);
+  expect(zoom.yMinOut, 'y floor cannot drop below the original on zoom-out').toBeGreaterThanOrEqual(zoom.yMinBefore - 1e-6);
   await expect(page.locator('#chart-zoom-reset')).toBeVisible();
 
   await page.keyboard.press('Escape');
   await expect(page.locator('#chart-zoom-modal')).not.toHaveClass(/open/);
+});
+
+test('time-series line charts are continuous — no default point markers', async ({ page }) => {
+  // Price-History (§03) and SV/Booster-Trend (§04) render as clean lines with
+  // pointRadius 0; a point surfaces only on hover (pointHoverRadius). The scatter
+  // is exempt — its marks are the data.
+  await routeLocalLibs(page);
+  await forceStaticMode(page);
+  await page.goto('/');
+  await page.locator('.tab-btn[data-tab="analysis"]').click();
+  await expect(page.locator('#tab-analysis')).toBeVisible();
+  await page.waitForFunction(
+    () => window.Chart && window.Chart.getChart('trend-chart') && window.Chart.getChart('ratio-chart'));
+
+  const style = await page.evaluate(() => {
+    const read = id => window.Chart.getChart(id).data.datasets
+      // skip helper datasets (bands) that already carry pointRadius 0 by design
+      .filter(d => d.label && !d.label.startsWith('__'))
+      .map(d => ({ r: d.pointRadius, hr: d.pointHoverRadius }));
+    return { hist: read('trend-chart'), svb: read('ratio-chart') };
+  });
+  for (const d of [...style.hist, ...style.svb]) {
+    expect(d.r, 'line hides its points by default').toBe(0);
+    expect(d.hr, 'a point surfaces on hover').toBeGreaterThan(0);
+  }
 });
 
 test('the board consolidates into one panel with a Value / Relative / Momentum lens toggle', async ({ page }) => {
@@ -283,8 +319,9 @@ test('the Era scope filter narrows every analytical view to one era', async ({ p
   await expect(page.locator('#tab-analysis')).toBeVisible();
   await expect.poll(() => page.locator('#product-tbody tr.grp-product').count(),
     { timeout: 10_000 }).toBeGreaterThan(0);
+  await settleFx(page);   // let the FX-driven board re-render land before clicking
   // Expand to the grouped Era tree (show-all persists across the scope re-renders).
-  await page.locator('#product-tbody .board-more-btn').click();
+  await toggleBoardMore(page, true);
   await expect.poll(() => page.locator('#product-tbody .grp-era').count()).toBeGreaterThan(1);
 
   // The dropdown is populated from the eras present; pick the first real one.
@@ -309,6 +346,7 @@ test('a checkbox on each board row cross-filters both comparison charts (unified
   await page.goto('/');
   await page.locator('.tab-btn[data-tab="analysis"]').click();
   await expect(page.locator('#tab-analysis')).toBeVisible();
+  await settleFx(page);   // let the FX-driven board re-render land before expanding
   await expandBoard(page);
 
   const boxes = page.locator('#product-tbody tr.grp-product .sel-check');
@@ -338,6 +376,29 @@ async function boardCount(page) {
   return Number((t.match(/\d+/) || [0])[0]);
 }
 
+// The (stubbed) FX fetch resolves shortly after load and fires one
+// renderCurrencySensitive() that re-renders the board. Wait for the extra
+// currencies to appear (EUR → EUR+USD+GBP+SEK) so a rapid board click can't race
+// that re-render and land on the wrong row — an observed flake before this guard.
+async function settleFx(page) {
+  await expect.poll(() => page.locator('#display-currency option').count(),
+    { timeout: 10_000 }).toBeGreaterThan(1);
+}
+
+// Toggle the board's Top-N "show all / show fewer" footer until the board reaches
+// the wanted state (expanded = era rows present). Under parallel-worker CPU
+// contention a single .click() can occasionally miss the toggle (a board
+// re-render detaches the button mid-click); this retries the click only while the
+// state hasn't flipped, so it can't over-toggle. The feature itself is verified
+// working in serial runs — this only absorbs harness timing.
+async function toggleBoardMore(page, wantExpanded) {
+  await expect(async () => {
+    const expanded = (await page.locator('#product-tbody .grp-era').count()) > 0;
+    if (expanded !== wantExpanded) await page.locator('#product-tbody .board-more-btn').click();
+    expect((await page.locator('#product-tbody .grp-era').count()) > 0).toBe(wantExpanded);
+  }).toPass({ timeout: 10_000 });
+}
+
 test('faceted filtering shows live counts and a Top-N leaderboard with show-all', async ({ page }) => {
   // Two roadmap items in one flow: (1) every discrete facet shows how many
   // products it matches, and (2) the board leads with the best Top-N and expands
@@ -349,6 +410,7 @@ test('faceted filtering shows live counts and a Top-N leaderboard with show-all'
   await expect(page.locator('#tab-analysis')).toBeVisible();
   await expect.poll(() => page.locator('#product-tbody tr.grp-product').count(),
     { timeout: 10_000 }).toBeGreaterThan(0);
+  await settleFx(page);   // let the FX-driven board re-render land before clicking
 
   // Live counts: the "All" type pill carries the full analysis count, and every
   // era option is labelled with a match count.
@@ -363,10 +425,10 @@ test('faceted filtering shows live counts and a Top-N leaderboard with show-all'
   const moreRow = page.locator('#product-tbody .board-more-btn');
   await expect(moreRow).toContainText(/Showing the top \d+ of \d+/);
   expect(await page.locator('#product-tbody tr.grp-product').count()).toBeLessThan(allCount);
-  await moreRow.click();
-  await expect.poll(() => page.locator('#product-tbody .grp-era').count()).toBeGreaterThan(0);
+  await toggleBoardMore(page, true);
+  await expect(page.locator('#product-tbody .board-more-btn')).toContainText(/Show the top \d+ only/);
   // …and collapses back to the Top-N leaderboard.
-  await page.locator('#product-tbody .board-more-btn').click();
+  await toggleBoardMore(page, false);
   await expect(page.locator('#product-tbody .board-more-btn')).toContainText(/Showing the top/);
 });
 
@@ -380,11 +442,16 @@ test('advanced facets combine and a saved view round-trips', async ({ page }) =>
   await expect(page.locator('#tab-analysis')).toBeVisible();
   await expect.poll(() => page.locator('#product-tbody tr.grp-product').count(),
     { timeout: 10_000 }).toBeGreaterThan(0);
+  await settleFx(page);
   const allCount = await boardCount(page);
 
-  // Open the "More filters" disclosure.
-  await page.locator('#more-filters-btn').click();
-  await expect(page.locator('#advanced-filters')).toBeVisible();
+  // Open the "More filters" disclosure (retry the toggle click — under
+  // parallel-worker contention a single click can miss, see toggleBoardMore).
+  await expect(async () => {
+    if (!(await page.locator('#advanced-filters').isVisible()))
+      await page.locator('#more-filters-btn').click();
+    await expect(page.locator('#advanced-filters')).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
 
   // The Set facet narrows the board and flags one active advanced facet.
   const setVals = await page.locator('#set-filter option').evaluateAll(
