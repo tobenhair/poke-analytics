@@ -1725,7 +1725,12 @@
     .kpi-value { font-size: var(--display-xl); }
     h1 { font-size: var(--display-lg); }
     header { flex-wrap: wrap; gap: 14px; }
-    .header-meta { text-align: left; }
+    /* On a phone the header wraps: the logo takes row 1 and the meta takes the
+       full width of row 2, so the currency + account controls right-align (their
+       row is justify-content:flex-end). Full width matters for the account menu
+       too — with the trigger at the right edge, its right:0 dropdown opens
+       leftward and stays on screen (left-aligned it overflowed off the edge). */
+    .header-meta { text-align: right; flex-basis: 100%; }
     .tab-btn { padding: 8px 15px; font-size: var(--text-sm); }
     /* Once the bar wraps to two rows a full pill radius reads as a mistake. */
     .tab-bar { border-radius: 22px; }

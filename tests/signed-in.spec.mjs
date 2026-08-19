@@ -304,6 +304,14 @@ test('the account actions live in a profile menu that keeps the phone header fro
   await expect(page.locator('#auth-user-email')).toHaveText('user@test.local');
   await expect(changePw).toBeFocused();
 
+  // The open menu stays within the viewport — on a phone the trigger is at the
+  // right edge and the right:0 dropdown opens leftward (it used to overflow off
+  // the left when the controls were stranded on the left of the wrapped row).
+  const box = await menu.boundingBox();
+  const vw = page.viewportSize().width;
+  expect(box.x, 'menu left edge on screen').toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width, 'menu right edge on screen').toBeLessThanOrEqual(vw);
+
   // Escape closes it and returns focus to the trigger (it's a disclosure).
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
