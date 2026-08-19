@@ -1744,37 +1744,22 @@
        side padding hard so the plot uses almost the full width. */
     .chart-panel { padding: 14px 4px; }
 
-    /* ── Full-bleed charts on a phone (Collectr-style: edge to edge, no axes) ──
-       The portfolio value chart escapes its card AND the .wrapper padding to the
-       exact viewport width. The card must stop clipping (overflow) and drop its
-       side border/radius so the chart isn't framed; the header/summary above it
-       keep their own padding. Axes are dropped in JS (chartAxelessOnMobile). */
-    #portfolio-overview-panel { overflow: visible; border-left: 0; border-right: 0; border-radius: 0; }
-    /* Bleed to the viewport edges by cancelling the .wrapper's 16px side padding
-       (the panel itself has no padding and drops its side border above), NOT with
-       100vw — 100vw includes the scrollbar, so it overflows clientWidth by the
-       scrollbar width and trips the 320px no-sideways-scroll reflow contract. */
-    #portfolio-value-chart-wrap {
-      margin-left: -16px; margin-right: -16px;
-      padding: 8px 0 0;
-      /* Clip on the wrap (itself exactly viewport-wide), not the panel: Chart.js
-         resizes the canvas async via ResizeObserver, so for a frame after a
-         resize the canvas keeps its old, wider pixel width — with the panel now
-         overflow:visible (needed for the bleed) that transient would leak and
-         scroll the page sideways. Clipping here contains it without re-clipping
-         the bleed. */
-      overflow: hidden;
-    }
+    /* Portfolio value chart on a phone: axes off (see chartAxelessOnMobile) so
+       the plot uses the full width of its card — but kept INSIDE the card. A
+       full-viewport bleed read as an odd opaque block, since the bled area sits
+       on the (differently-toned) page background outside the card. Dropping the
+       side padding to 0 already gives it the card's full inner width. */
+    #portfolio-value-chart-wrap { padding: 8px 0 0; }
     #portfolio-value-chart { max-height: 340px; }
 
     /* Dialogs use more of a phone: a slimmer overlay gutter and less inner
-       padding (36px was cramped on a ~360px screen). The drill-chart breakout
-       below is tuned to this 20px modal padding. */
+       padding (36px was cramped on a ~360px screen). */
     .modal-overlay { padding: 12px; }
     .modal { padding: 20px; border-radius: 16px; }
-    /* Drill-down charts go edge to edge within the (nearly full-width) dialog:
-       break out of the .modal padding so the plot spans the modal's inner width. */
-    .drill-chart { height: 220px; margin-left: -20px; margin-right: -20px; }
+    /* Drill-down charts stay within the modal padding and KEEP their axes — the
+       reduced modal padding above already gives them near-full width, and an
+       analytical chart with no hover (touch) needs the axis to be readable. */
+    .drill-chart { height: 220px; }
 
     .filters { gap: 10px; }
     .age-control { margin-left: 0; padding-left: 0; border-left: 0; }
@@ -3249,7 +3234,7 @@
          side by side. The holdings editor + cards follow in their own section. -->
     <h2 class="section-eyebrow">Your Portfolio</h2>
     <p class="section-desc"><strong>What:</strong> what your holdings are worth now, and how that value has moved. <strong>How to read:</strong> the summary totals your current value and <em>unrealised P&amp;L</em> (cost basis vs. each product's latest tracked price); the chart plots your <em>current</em> holdings valued at every tracked snapshot against your flat <em>cost basis</em> — the gap between the lines is your gain (above cost) or loss (below). Values current quantities back across history; purchase dates aren't tracked. Private to your account, saved automatically.</p>
-    <div class="panel" id="portfolio-overview-panel">
+    <div class="panel">
       <div class="panel-header">
         <h3 class="panel-title">Portfolio</h3>
         <!-- The display-currency picker is global now — it lives in the page
@@ -7685,12 +7670,14 @@ function renderDrillPriceChart(p) {
           filter: item => !item.text.startsWith('__') } },
         tooltip: { callbacks: { label: ctx => ctx.dataset.label.startsWith('__') ? null : ` ${ctx.dataset.label}: ${symFmt(ctx.parsed.y)}` } },
       },
-      // Edge-to-edge on a phone (see the drill-chart full-bleed CSS): axes off,
-      // values on hover.
-      scales: chartAxelessOnMobile({
+      // Axes stay at every width: the drill-down is analytical (read a price on a
+      // date) and there's no hover on touch, so a phone user needs the y-axis to
+      // read values. (Only the Portfolio hero chart goes axeless on mobile — its
+      // current-value tiles sit right above it.)
+      scales: {
         x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } },
         y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => symFmt(v) } },
-      }),
+      },
     },
   });
 }
@@ -7714,10 +7701,10 @@ function renderDrillSvbChart(p) {
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(1)}× booster cost` } } },
-      scales: chartAxelessOnMobile({
+      scales: {
         x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } },
         y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } },
-      }),
+      },
     },
   });
 }
