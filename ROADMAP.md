@@ -779,6 +779,62 @@ stance). What still stands unbuilt:
     Value already leads the demo teaser.) Guarded in `tests/a11y.spec.mjs` (the
     Analysis explainer count drops 5→4) and the Welcome-landing spec.
 
+## The sell side — knowing when to exit
+
+*(Feature cluster; not yet designed.)* The whole tool currently answers one
+half of the question — *when to **buy***: buy signals, "Where to start", the
+fair-price gap as a buy gate, price alerts on a target below fair. The mirror
+image is missing. These three items add the **exit** side, reusing the machinery
+that already exists rather than inventing new maths — the same `momentum()`
+(drawdown, 7d/30d change, set-value trend), `verdict`, `fairGap`/`fairPrice`
+and the signed-in `holdings` map. Sequenced buy→hold→sell, they close the loop.
+
+- **Sell signals (the inverse of the buy signal).** Today a buy signal fires
+  when price dropped while set value held (a possible mispricing *down*); the
+  symmetric case is a possible mispricing *up* — flag when a product is
+  **meaningfully above its fair price** (`fairGap` positive past a threshold,
+  gated on `fairPriceTrusted()` exactly like the buy side), and/or shows
+  **inverse momentum** (a strong recent run-up — `momentum().change30d` /
+  `change7d` high, near its peak rather than in drawdown, with the set-value
+  trend flat or falling so the price move isn't backed by fundamentals). Surface
+  it the way the buy signal already is: a board flag (a sibling of `isBuySignal`
+  / the 💰 icon, with its own non-colour cue + `aria-label`), folded into the
+  plain-language **verdict** (an "overpriced — consider selling" tone already
+  half-exists as the `bad` verdict), and a drill-down ingredient line. *Open
+  questions:* the exact thresholds (reuse the verdict's `OVER_SOFT`/`SV_MOVE`
+  constants vs. new ones); whether a sell signal only shows for **held**
+  products (signed in) or catalogue-wide; and the honesty rule — a sell signal
+  on a suppressed/weak fair price must fall back to momentum-only, never a fair
+  claim, mirroring the buy side.
+- **Sold-item tracking in the portfolio (realised P&L).** The portfolio tracks
+  only *open* holdings and *unrealised* P&L. Add a **sold** state: record a
+  disposal (quantity, sale price, date) so the portfolio can show **realised
+  P&L** beside the unrealised, a lifetime/return figure, and a history of
+  closed positions. Schema: either a `holdings.status` + sale fields, or a
+  separate **`sales`** table (RLS-scoped per user like `holdings`), fed from the
+  portfolio editor (a "Sell" action on a holding card that moves some/all of the
+  quantity to a sale and blends nothing back). Feeds the value-over-time chart
+  (realised gains as a floor) and the concentration view (sold items leave the
+  live exposure). All derived client-side from raw inputs, like the rest of the
+  portfolio. *Open question:* partial sales + cost-basis method (the buy editor
+  already blends to a weighted-average cost via `commitHolding()`, so a sale
+  draws down against that average — keep it consistent).
+- **A sell-signal shortlist (the exit-side "Where to start").** The mirror of
+  the Where-to-start buy shortlist: a top-list ranked by sell-signal strength —
+  most over fair / strongest un-backed run-up — scoped, signed in, to the user's
+  **own holdings** first (what *you* could take profit on), with a catalogue-wide
+  view as a secondary lens. Reuses the `renderOverview` / lens-toggle pattern and
+  the `startCard` layout, so it costs a render function and a metric, not a new
+  component. Depends on the sell-signal definition above landing first. *Open
+  question:* whether it's a fourth Portfolio section, a lens on the existing
+  Where-to-start block, or its own small panel — decide once the signal exists.
+
+Constraints (same as every analytical feature here): the new signal/realised-P&L
+maths ships as **pure, unit-tested helpers in `metrics.js`** (no derived number
+without a test), currency-correct (only absolute-€ figures convert; a ratio stays
+put), and honest about a weak fit. Nothing here needs new external data — it's all
+derivable from the prices, set values and holdings already tracked.
+
 ## Later — reach & launch readiness
 
 - **LLM assistant — data & portfolio assessment, reasoning, dialogue.** A

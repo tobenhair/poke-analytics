@@ -1131,12 +1131,14 @@
     cursor: pointer; font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--accent3); }
   .news-all:hover { text-decoration: underline; }
   /* Overlay: same rows, grouped under a small category heading. */
-  #news-list { margin-top: 8px; }
+  /* The grouped full list — shared by the News tab pane and the demo's
+     #news-modal (both carry .news-full). */
+  .news-full { margin-top: 8px; }
   .news-group + .news-group { margin-top: 22px; }
   .news-group-title { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--accent);
     text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 6px; }
-  #news-list ul { list-style: none; }
-  #news-list li + li { border-top: 1px solid var(--hairline); }
+  .news-full ul { list-style: none; }
+  .news-full li + li { border-top: 1px solid var(--hairline); }
   .news-empty { padding: 16px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: var(--text-sm); }
 
   canvas { max-height: 220px; }
@@ -1813,6 +1815,22 @@
   }
   .auth-signout:hover { border-color: var(--accent2); color: var(--text); }
 
+  /* Compact header controls: the currency picker + the account icon sit in one
+     right-aligned row. */
+  .header-controls { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+  /* Currency picker shows just the active symbol, so it sizes to content — no
+     fixed max-width, tighter padding than the analytical selects. */
+  .currency-select { max-width: none; width: auto; padding: 6px 10px; text-align: center; }
+  /* Icon-only buttons (the account trigger): a square ≥24px hit target with a
+     centred icon and a neutral (gold) hover, not the destructive red the shared
+     .auth-signout hover carries. */
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; padding: 0; border-radius: var(--radius-pill);
+  }
+  .icon-btn .icon { width: 18px; height: 18px; }
+  .icon-btn:hover { border-color: rgba(244,198,81,0.5); color: var(--accent); }
+
   /* ── Account profile menu (a disclosure, not a modal) ── */
   .profile-wrap { position: relative; }
   .profile-menu {
@@ -2195,7 +2213,6 @@
           <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Full product name — must also appear in Historical Data sheet</td></tr>
           <tr><td>Type</td><td><span class="tag-req">required</span></td><td>Exactly one of: <b>BOX</b> (36 packs), <b>ETB</b> (9), <b>ETB10</b> (10), <b>ETB8</b> (8), <b>BUNDLE</b> (6), <b>BUNDLEDISPLAY</b> (60), or <b>PACK</b> (1). The pack count sets the booster maths; the <b>ETB*</b> variants filter under Elite Trainer and the <b>BUNDLE*</b> under Bundle. A <b>PACK</b> (a loose single booster) is reference-only: it is kept out of the rankings and charts and shown as the <em>Loose pack price</em> in the drill-down of the same set's sealed products.</td></tr>
           <tr><td>Release Date</td><td><span class="tag-req">required</span></td><td>Date value or text in YYYY-MM-DD format</td></tr>
-          <tr><td>Promo Value (€)</td><td><span class="tag-opt">optional</span></td><td>Value of a promo card bundled into the product (e.g. an ETB's stamped promo) that isn't part of the set's singles. Subtracted from Price for the per-booster maths so the product is judged on its boosters. Blank or 0 = none.</td></tr>
           <tr><td>Age (years)</td><td><span class="tag-req">required</span></td><td>Decimal number, e.g. 1.47</td></tr>
           <tr><td>Current Price (€)</td><td><span class="tag-req">required</span></td><td>Number in cents or euros — must be consistent across rows</td></tr>
           <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Total set value — same unit as price</td></tr>
@@ -2217,6 +2234,7 @@
           <tr><td>Snapshot Date</td><td><span class="tag-req">required</span></td><td>Date label shown on chart axes, must be in <b>YYYY-MM-DD</b> format (ISO 8601), e.g. <b>2026-04-20</b></td></tr>
           <tr><td>Price (€)</td><td><span class="tag-req">required</span></td><td>Product price at that snapshot. Leave blank if not yet tracked.</td></tr>
           <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Set value at that snapshot. Leave blank if not yet tracked.</td></tr>
+          <tr><td>Promo Value (€)</td><td><span class="tag-opt">optional</span></td><td>Value of a promo card bundled into the product (e.g. an ETB's stamped promo) that isn't part of the set's singles, at that snapshot. Subtracted from Price for the per-booster maths so the product is judged on its boosters. In cloud mode the daily ingestion job fetches this from the promo card's Cardmarket id; blank = none.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2356,7 +2374,7 @@
     <button class="modal-close" id="news-close" type="button" aria-label="Close news">✕</button>
     <h2 id="news-heading">News</h2>
     <p class="modal-intro">Pokémon TCG, investing &amp; business — headlines link out to the source.</p>
-    <div id="news-list"></div>
+    <div class="news-full"></div>
   </div>
 </div>
 
@@ -2630,13 +2648,10 @@
       </div>
     </div>
     <div class="header-meta">
-      <div class="last-update" id="last-update-wrap">Last updated: <span id="last-update-date">—</span><span class="stale-note" id="last-update-stale"></span></div>
-      <!-- News (Pokémon TCG-first) — opens the news overlay. Hidden until the
-           `news` table returns rows, so it never shows a dead control (static
-           build has no news). Populated by loadNews() → renderNews(). -->
-      <button class="auth-signout" id="news-btn" type="button" hidden style="margin-top:4px;" aria-haspopup="dialog">
-        <svg class="icon" aria-hidden="true"><use href="#i-news"/></svg> News
-      </button>
+      <!-- "Last updated" moved to the page footer — it's data provenance, not the
+           first thing a visitor should see. Its ids live there now. -->
+      <!-- News lives in its own tab now (revealed once the `news` table returns
+           rows), so the header no longer carries a News button. -->
       <!-- Install (PWA) button. Hidden until the browser fires
            `beforeinstallprompt` (Android/desktop Chromium) and this isn't
            already running installed — so it only ever appears when it's
@@ -2658,25 +2673,25 @@
            populateCurrencySelect(); offers € plus the currencies we hold a live
            rate for (falls back to €-only if the FX fetch failed, and #fx-note
            says why rather than leaving it a mystery). -->
-      <div class="header-currency" style="margin-top:4px; display:flex; align-items:center; gap:8px; justify-content:flex-end;">
-        <label class="cmp-empty" for="display-currency" style="margin:0;">Shown in</label>
-        <select class="trend-select" id="display-currency" style="max-width:120px;" aria-label="Display currency"></select>
+      <!-- Compact controls row: the display-currency shows just the active
+           symbol (€ / $ / £ / kr) — a self-explanatory picker, no "Shown in"
+           label — beside an icon-only account button. Account actions live in a
+           collapsed profile menu (a disclosure, not a modal): the trigger toggles
+           #profile-menu, Escape / an outside click / choosing an item closes it
+           and returns focus. The email span + both action buttons keep their ids
+           so their existing wiring is unchanged. -->
+      <div class="header-controls">
+        <select class="trend-select currency-select" id="display-currency" aria-label="Display currency"></select>
         <span class="cmp-empty" id="fx-note" style="display:none;"></span>
-      </div>
-      <!-- Account actions live in a collapsed profile menu, not spread across the
-           header — the email + two buttons overflowed a phone. A disclosure (not
-           a modal dialog): the trigger toggles #profile-menu, Escape / an outside
-           click / choosing an item closes it and returns focus. The email span
-           and both action buttons keep their ids so their existing wiring is
-           unchanged. -->
-      <div class="sb-only profile-wrap" style="margin-top:8px; display:flex; justify-content:flex-end;">
-        <button class="auth-signout" id="profile-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="profile-menu" aria-label="Account menu">
-          <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg> Account
-        </button>
-        <div class="profile-menu" id="profile-menu" role="group" aria-label="Account" hidden>
-          <span id="auth-user-email" class="profile-email"></span>
-          <button class="profile-menu-item" id="change-pw-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg> Change password</button>
-          <button class="profile-menu-item" id="auth-signout-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-out"/></svg> Sign out</button>
+        <div class="sb-only profile-wrap">
+          <button class="auth-signout icon-btn" id="profile-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="profile-menu" aria-label="Account menu">
+            <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+          </button>
+          <div class="profile-menu" id="profile-menu" role="group" aria-label="Account" hidden>
+            <span id="auth-user-email" class="profile-email"></span>
+            <button class="profile-menu-item" id="change-pw-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg> Change password</button>
+            <button class="profile-menu-item" id="auth-signout-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-out"/></svg> Sign out</button>
+          </div>
         </div>
       </div>
     </div>
@@ -2697,6 +2712,12 @@
   <div class="tab-bar" role="tablist" aria-label="Dashboard sections">
     <button class="tab-btn active" data-tab="welcome" id="tabbtn-welcome" type="button"
       role="tab" aria-selected="true" aria-controls="tab-welcome"><svg class="icon icon-lg" aria-hidden="true"><use href="#i-welcome"/></svg> Welcome</button>
+    <!-- News: its own tab, revealed by renderNews() only once the `news` table
+         returns rows (static/xlsx builds have no news, so no dead tab). Hidden
+         via the `hidden` attribute, which the arrow-key nav already skips
+         (offsetParent test), like the sb-only/admin-only tabs. -->
+    <button class="tab-btn" data-tab="news" id="tabbtn-news" type="button" hidden
+      role="tab" aria-selected="false" aria-controls="tab-news" tabindex="-1"><svg class="icon icon-lg" aria-hidden="true"><use href="#i-news"/></svg> News</button>
     <button class="tab-btn" data-tab="analysis" id="tabbtn-analysis" type="button"
       role="tab" aria-selected="false" aria-controls="tab-analysis" tabindex="-1"><svg class="icon icon-lg" aria-hidden="true"><use href="#i-analysis"/></svg> Analysis</button>
     <button class="tab-btn sb-only" data-tab="portfolio" id="tabbtn-portfolio" type="button"
@@ -2791,16 +2812,8 @@
         </div>
       </div>
 
-      <!-- Latest news teaser (TCG-first). Hidden until the `news` table returns
-           rows; "All news →" opens the shared #news-modal. Populated by
-           renderNews() into every .news-teaser-body on the page. -->
-      <section class="news-teaser" hidden>
-        <h2 class="section-eyebrow">Latest news</h2>
-        <div class="panel">
-          <ul class="news-teaser-body"></ul>
-          <button type="button" class="news-all" aria-haspopup="dialog">All news →</button>
-        </div>
-      </section>
+      <!-- News now has its own tab (between Welcome and Analysis), so the
+           Welcome landing no longer carries a news teaser. -->
 
       <!-- Both open the same dialogs the demo page opens. That shared surface
            is the whole point: two copies of "what SV/Booster means" would drift
@@ -2838,6 +2851,17 @@
     </div>
 
   </div><!-- /tab-welcome -->
+
+  <!-- ═══════════════════ NEWS TAB ═══════════════════ -->
+  <!-- Pokémon TCG-first headlines from the public `news` table (a scheduled
+       server job fetches the feeds; the client only reads). Read-only: headline
+       + source + link, never article bodies. renderNews() fills every .news-full
+       (this pane + the demo's #news-modal) and reveals the tab once rows load. -->
+  <div class="tab-pane" id="tab-news" role="tabpanel" aria-labelledby="tabbtn-news" tabindex="0">
+    <h2 class="section-eyebrow">Latest news</h2>
+    <p class="section-desc">Pokémon TCG, investing &amp; business — headlines link out to the source. Fetched daily; only the headline, source and link are stored.</p>
+    <div class="news-full"></div>
+  </div><!-- /tab-news -->
 
   <!-- ═══════════════════ ANALYSIS TAB ═══════════════════ -->
   <div class="tab-pane" id="tab-analysis" role="tabpanel" aria-labelledby="tabbtn-analysis" tabindex="0">
@@ -3298,7 +3322,7 @@
                 <th></th>
                 <th>CM ID</th>
                 <th>Exp ID</th>
-                <th>Promo (€)</th>
+                <th>Promo ID</th>
                 <th>Product</th>
                 <th>Type</th>
                 <th>Last Price (€)</th>
@@ -3409,6 +3433,7 @@
   </main>
 
   <footer>
+    <div class="last-update" id="last-update-wrap" style="margin-bottom:14px;">Last updated: <span id="last-update-date">—</span><span class="stale-note" id="last-update-stale"></span></div>
     <p style="margin:0 0 10px;">Price data from Cardmarket, Tradera &amp; PriceCharting · Set logos from TCGdex · Always do your own research</p>
     <p style="margin:0 auto; max-width:70ch; line-height:1.7; text-transform:none; letter-spacing:normal;">
       <strong>Not financial advice.</strong> This is a free, unofficial fan-made tool provided “as is” for informational purposes only. Prices and values may be inaccurate or out of date; nothing here is a recommendation to buy or sell. Do your own research before making any purchase.
@@ -5038,13 +5063,6 @@ function parseXlsx(arrayBuffer) {
         errors.push(`Summary ${label}: Release Date "${rawRelease}" is not a valid date`);
     }
 
-    // Promo Value (€) — optional. The value of a promo card bundled into the
-    // product (e.g. an ETB's stamped promo) that isn't part of the set's
-    // singles; subtracted from price for the pack economics. Blank = none (0).
-    const rawPromo = col(row, 'Promo Value (€)', 'Promo Value');
-    if (rawPromo != null && (isNaN(parseFloat(rawPromo)) || parseFloat(rawPromo) < 0))
-      errors.push(`Summary ${label}: Promo Value must be a non-negative number (got "${rawPromo}")`);
-
     if (errors.length === 0) {
       const releaseStr = rawRelease instanceof Date
         ? rawRelease.toISOString().slice(0,10)
@@ -5053,7 +5071,8 @@ function parseXlsx(arrayBuffer) {
         name: String(name).trim(),
         type: String(type).toUpperCase(),
         release: releaseStr,
-        promoValue: rawPromo != null ? parseFloat(rawPromo) : 0,
+        // Promo value is a per-snapshot column in Historical Data now (it moves
+        // over time), read below — not a static Summary field.
         // boosters read from Historical Data below
         boosters: null,
         age: null, price: null, setVal: null,
@@ -5082,25 +5101,32 @@ function parseXlsx(arrayBuffer) {
     const date   = col(row, 'Snapshot Date', 'Date');
     const price  = col(row, 'Price (€)', 'Price');
     const sv     = col(row, 'Set Value (€)', 'Set Value');
+    // Promo Value (€) — optional per-snapshot column: the bundled promo card's
+    // own value on that date (it moves over time), subtracted from price for the
+    // pack economics. Blank = none.
+    const promo  = col(row, 'Promo Value (€)', 'Promo Value');
 
     if (!name && !date) return; // skip fully blank rows
 
     if (!name) { errors.push(`Historical Data row ${rowNum}: missing Product name`); return; }
     if (!date) { errors.push(`Historical Data row ${rowNum}: missing Snapshot Date for "${name}"`); return; }
 
-    // Price and Set Value: if present must be non-negative
+    // Price, Set Value and Promo Value: if present must be non-negative
     if (price !== null && (isNaN(parseFloat(price)) || parseFloat(price) < 0))
       errors.push(`Historical Data row ${rowNum} ("${name}"): Price must be a non-negative number (got "${price}")`);
     if (sv !== null && (isNaN(parseFloat(sv)) || parseFloat(sv) < 0))
       errors.push(`Historical Data row ${rowNum} ("${name}"): Set Value must be a non-negative number (got "${sv}")`);
+    if (promo !== null && (isNaN(parseFloat(promo)) || parseFloat(promo) < 0))
+      errors.push(`Historical Data row ${rowNum} ("${name}"): Promo Value must be a non-negative number (got "${promo}")`);
 
     histNames.add(String(name).trim());
 
     if (!histMap[name]) histMap[name] = {};
     const dateStr = formatISO(date);
-    if (!histMap[name][dateStr]) histMap[name][dateStr] = { price: null, setVal: null };
+    if (!histMap[name][dateStr]) histMap[name][dateStr] = { price: null, setVal: null, promo: null };
     if (price !== null) histMap[name][dateStr].price  = parseFloat(price);
     if (sv    !== null) histMap[name][dateStr].setVal = parseFloat(sv);
+    if (promo !== null) histMap[name][dateStr].promo  = parseFloat(promo);
     if (!dateSet.includes(dateStr)) dateSet.push(dateStr);
   });
 
@@ -5125,6 +5151,7 @@ function parseXlsx(arrayBuffer) {
     newHistoricalData[name] = {
       price:  dateSet.map(d => byDate[d]?.price  ?? null),
       setVal: dateSet.map(d => byDate[d]?.setVal ?? null),
+      promo:  dateSet.map(d => byDate[d]?.promo  ?? null),
     };
   });
 
@@ -5577,7 +5604,9 @@ function populateCurrencySelect() {
     const meta = CURRENCY_META[c];
     const opt = document.createElement('option');
     opt.value = c;
-    opt.textContent = `${(meta.symbol || meta.suffix.trim())} ${c}`.trim();
+    // Symbol only (€ / $ / £ / kr) — the compact header picker shows just the
+    // active symbol; the select's aria-label carries the meaning for AT.
+    opt.textContent = (meta.symbol || meta.suffix.trim());
     sel.appendChild(opt);
   });
   sel.value = displayCurrency;
@@ -6276,9 +6305,9 @@ document.querySelectorAll('.chart-expand-btn').forEach(btn => {
 document.getElementById('chart-zoom-close').addEventListener('click', closeChartZoom);
 document.getElementById('chart-zoom-reset').addEventListener('click', () => { if (zoomChart) zoomChart.resetZoom(); });
 
-// News overlay: header button + every "All news →" teaser link open it; the
-// close button and the shared Escape/backdrop handlers dismiss it.
-document.getElementById('news-btn').addEventListener('click', () => openOverlay('news-modal'));
+// News modal: kept for the logged-out demo page (which has no tab bar), opened
+// by the demo teaser's "All news →" link; the signed-in/static app uses the News
+// tab instead. The close button and the shared Escape/backdrop handlers dismiss it.
 document.getElementById('news-close').addEventListener('click', () => closeOverlay('news-modal'));
 document.querySelectorAll('.news-all').forEach(btn =>
   btn.addEventListener('click', () => openOverlay('news-modal')));
@@ -6493,11 +6522,13 @@ let productCmIds = {};
 // whose singles make up Set Value. The catalog-refresh Edge Function reads these
 // to know which expansions' card lists to cache. Edited in Data Entry, saved to cloud.
 let productExpIds = {};
-// Promo card value (€): { productName -> number } — a promo bundled into the
-// product (e.g. an ETB's stamped promo) that isn't part of the set's singles.
-// Subtracted from price for the pack economics (Price/Booster, SV/Booster, fair
-// price). Edited in Data Entry, saved to products.promo_value. Absent = 0.
-let productPromo = {};
+// Promo card Cardmarket ids (idProduct): { productName -> number } — the promo
+// single bundled into the product (e.g. an ETB's stamped promo) that isn't part
+// of the set's singles. The daily ingestion job fetches this card's avg30 into
+// snapshots.promo_value, which is subtracted from price for the pack economics
+// (Price/Booster, SV/Booster, fair price). Edited in Data Entry, saved to
+// products.cardmarket_promo_product_id. Absent = no promo.
+let productPromoCmIds = {};
 // Price lock: { productName -> true } — when locked, the automated Cardmarket
 // ingestion leaves this product's price alone (admin sets it by hand); the
 // manual override for thin-liquidity products. Persisted to products.price_locked.
@@ -6741,11 +6772,11 @@ function renderEntryTable() {
           data-product="${p.name}"
           value="${productExpIds[p.name] != null ? productExpIds[p.name] : ''}">
       </td>
-      <td style="width:80px;">
-        <input class="entry-input promo-input" type="number" min="0" step="0.01" placeholder="0"
-          aria-label="${p.name} — promo card value in euros (excluded from pack value)"
+      <td style="width:90px;">
+        <input class="entry-input promo-input" type="number" min="0" step="1" placeholder="id"
+          aria-label="${p.name} — promo card Cardmarket product ID (fetched daily, excluded from pack value)"
           data-product="${p.name}"
-          value="${productPromo[p.name] != null ? productPromo[p.name] : ''}">
+          value="${productPromoCmIds[p.name] != null ? productPromoCmIds[p.name] : ''}">
       </td>
       <td class="entry-product-name" title="${p.name}">${p.name}</td>
       <td>${typeBadge(p.type)}</td>
@@ -6831,15 +6862,15 @@ function renderEntryTable() {
     });
   });
 
-  // Promo value cell — edits the productPromo map (saved to products.promo_value).
-  // Euro amount or blank (= none). Subtracted from price for the pack economics.
+  // Promo CM ID cell — edits the productPromoCmIds map (saved to
+  // products.cardmarket_promo_product_id). Integer idProduct or blank (= no
+  // promo). The daily job fetches this card's avg30 into snapshots.promo_value.
   tbody.querySelectorAll('.promo-input').forEach(input => {
     input.addEventListener('input', e => {
       const name = e.target.dataset.product;
       const raw = e.target.value.trim();
-      const val = parseFloat(raw);
-      if (raw === '' || isNaN(val) || val < 0) delete productPromo[name];
-      else productPromo[name] = val;
+      if (raw === '') delete productPromoCmIds[name];
+      else productPromoCmIds[name] = parseInt(raw, 10);
     });
   });
 
@@ -7098,21 +7129,16 @@ function exportXlsx() {
   const allExistingProducts = [...products];
   const newOnes = pendingProducts.filter(p => !allExistingProducts.find(ep => ep.name === p.name));
 
-  // Promo Value (€): the Data Entry buffer wins over the derived value, so a
-  // buffered edit exports even before it's saved to cloud. Blank when 0/none.
-  const promoOf = (p) => {
-    const v = productPromo[p.name] != null ? productPromo[p.name] : p.promoValue;
-    return v ? v : '';
-  };
   const summaryRows = [
-    ['Product', 'Type', 'Release Date', 'Promo Value (€)'],
-    ...allExistingProducts.map(p => [p.name, p.type, p.release, promoOf(p)]),
-    ...newOnes.map(p => [p.name, p.type, p.release, promoOf(p)]),
+    ['Product', 'Type', 'Release Date'],
+    ...allExistingProducts.map(p => [p.name, p.type, p.release]),
+    ...newOnes.map(p => [p.name, p.type, p.release]),
   ];
 
   // ── Build Historical Data sheet rows ──
-  // All existing history first
-  const histRows = [['Product', 'Snapshot Date', 'Price (€)', 'Set Value (€)']];
+  // Promo Value (€) is a per-snapshot column now (the promo card's own moving
+  // value, fetched daily); export whatever the loaded history carries.
+  const histRows = [['Product', 'Snapshot Date', 'Price (€)', 'Set Value (€)', 'Promo Value (€)']];
 
   // Collect all products in order
   const allProductNames = [
@@ -7127,15 +7153,16 @@ function exportXlsx() {
       histDates.forEach((date, i) => {
         const price = h.price[i];
         const sv    = h.setVal[i];
-        if (price != null || sv != null) {
-          histRows.push([name, date, price ?? '', sv ?? '']);
+        const promo = h.promo ? h.promo[i] : null;
+        if (price != null || sv != null || promo != null) {
+          histRows.push([name, date, price ?? '', sv ?? '', promo ?? '']);
         }
       });
     }
-    // Append this month's new entry if filled
+    // Append this month's new entry if filled (promo is fetched, not entered).
     const entry = entryData[name];
     if (entry && (entry.price != null || entry.setVal != null)) {
-      histRows.push([name, snapLabel, entry.price ?? '', entry.setVal ?? '']);
+      histRows.push([name, snapLabel, entry.price ?? '', entry.setVal ?? '', '']);
     }
   });
 
@@ -7147,7 +7174,7 @@ function exportXlsx() {
   XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
 
   const wsHist = XLSX.utils.aoa_to_sheet(histRows);
-  wsHist['!cols'] = [{wch:36},{wch:14},{wch:12},{wch:14}];
+  wsHist['!cols'] = [{wch:36},{wch:14},{wch:12},{wch:14},{wch:14}];
   XLSX.utils.book_append_sheet(wb, wsHist, 'Historical Data');
 
   // ── Build Links sheet ──
@@ -8108,18 +8135,19 @@ function renderNews() {
     const body = sec.querySelector('.news-teaser-body');
     if (body) body.innerHTML = teaser.map(newsRowHtml).join('');
   });
-  // Overlay: grouped by category, TCG first, newest within.
-  const list = document.getElementById('news-list');
-  if (list) {
-    list.innerHTML = has ? NEWS_CATS.map(c => {
-      const items = newsItems.filter(n => n.category === c.key).slice(0, 25);
-      return items.length
-        ? `<div class="news-group"><div class="news-group-title">${c.label}</div><ul>${items.map(newsRowHtml).join('')}</ul></div>`
-        : '';
-    }).join('') : `<div class="news-empty">No news yet.</div>`;
-  }
-  const btn = document.getElementById('news-btn');
-  if (btn) btn.hidden = !has;
+  // The grouped full list, by category (TCG first, newest within) — rendered
+  // into every .news-full: the News tab pane and the demo's #news-modal.
+  const grouped = has ? NEWS_CATS.map(c => {
+    const items = newsItems.filter(n => n.category === c.key).slice(0, 25);
+    return items.length
+      ? `<div class="news-group"><div class="news-group-title">${c.label}</div><ul>${items.map(newsRowHtml).join('')}</ul></div>`
+      : '';
+  }).join('') : `<div class="news-empty">No news yet.</div>`;
+  document.querySelectorAll('.news-full').forEach(el => { el.innerHTML = grouped; });
+  // Reveal the News tab only once there are rows (static/xlsx builds have none,
+  // so no dead tab). The arrow-key nav already skips a `hidden` tab.
+  const newsTab = document.getElementById('tabbtn-news');
+  if (newsTab) newsTab.hidden = !has;
 }
 
 // Supabase/PostgREST caps a single response at the project's "Max rows" setting
@@ -8182,7 +8210,7 @@ async function loadFromSupabase() {
   sbProductIds = {};
   productCmIds = {};
   productExpIds = {};
-  productPromo = {};
+  productPromoCmIds = {};
   productLocked = {};
   productPriceRef = {};
   const newHistoricalData = {};
@@ -8191,13 +8219,16 @@ async function loadFromSupabase() {
     sbProductIds[p.name] = p.id;
     if (p.cardmarket_product_id != null) productCmIds[p.name] = p.cardmarket_product_id;
     if (p.cardmarket_expansion_id != null) productExpIds[p.name] = p.cardmarket_expansion_id;
-    if (p.promo_value != null && Number(p.promo_value) > 0) productPromo[p.name] = Number(p.promo_value);
+    if (p.cardmarket_promo_product_id != null) productPromoCmIds[p.name] = p.cardmarket_promo_product_id;
     if (p.price_locked) productLocked[p.name] = true;
     const byDate = {};
     snapList.filter(s => s.product_id === p.id).forEach(r => { byDate[r.snapshot_date] = r; });
     newHistoricalData[p.name] = {
       price:  newHistDates.map(d => byDate[d]?.price ?? null),
       setVal: newHistDates.map(d => byDate[d]?.set_value ?? null),
+      // Promo card's own moving value per snapshot (fetched daily by the ingestion
+      // job); deriveProducts takes the latest for the ex-promo pack economics.
+      promo:  newHistDates.map(d => byDate[d]?.promo_value ?? null),
     };
     // Latest snapshot's advisory data (thin-liquidity flag + reference prices).
     const lastDate = Object.keys(byDate).sort().at(-1);
@@ -8212,7 +8243,8 @@ async function loadFromSupabase() {
     if (p.cardmarket_url) newLinks[p.name] = p.cardmarket_url;
     return {
       name: p.name, type: String(p.type).toUpperCase(), release: p.release,
-      promoValue: p.promo_value != null ? Number(p.promo_value) : 0,
+      // promoValue is derived from the per-snapshot promo series (hist.promo) in
+      // deriveProducts — no static per-product promo any more.
       boosters: null, age: null, price: null, setVal: null,
       pricePerBooster: null, svPerBooster: null, ageWeight: null, score: null,
     };
@@ -8466,10 +8498,10 @@ async function loadDemo() {
     hist[p.name] = {
       price:  histDatesLocal.map(d => byDate[d]?.price ?? null),
       setVal: histDatesLocal.map(d => byDate[d]?.set_value ?? null),
+      promo:  histDatesLocal.map(d => byDate[d]?.promo_value ?? null),
     };
     return {
       name: p.name, type: String(p.type).toUpperCase(), release: p.release,
-      promoValue: p.promo_value != null ? Number(p.promo_value) : 0,
       boosters: null, age: null, price: null, setVal: null,
       pricePerBooster: null, svPerBooster: null, ageWeight: null, score: null,
     };
@@ -8574,7 +8606,7 @@ async function saveToSupabase() {
                   cardmarket_url: productUrls[p.name] || null,
                   cardmarket_product_id: productCmIds[p.name] ?? null,
                   cardmarket_expansion_id: productExpIds[p.name] ?? null,
-                  promo_value: productPromo[p.name] ?? 0,
+                  cardmarket_promo_product_id: productPromoCmIds[p.name] ?? null,
                   price_locked: !!productLocked[p.name] })
         .select('id').single();
       if (error) throw error;
@@ -8583,7 +8615,7 @@ async function saveToSupabase() {
 
     // 2. Update Cardmarket link + product/expansion ids + price-lock on existing
     //    products (whichever the admin has touched).
-    const metaNames = new Set([...Object.keys(productUrls), ...Object.keys(productCmIds), ...Object.keys(productExpIds), ...Object.keys(productPromo), ...Object.keys(productLocked)]);
+    const metaNames = new Set([...Object.keys(productUrls), ...Object.keys(productCmIds), ...Object.keys(productExpIds), ...Object.keys(productPromoCmIds), ...Object.keys(productLocked)]);
     for (const name of metaNames) {
       const id = sbProductIds[name];
       if (!id || newOnes.find(p => p.name === name)) continue;
@@ -8591,7 +8623,7 @@ async function saveToSupabase() {
         .update({ cardmarket_url: productUrls[name] || null,
                   cardmarket_product_id: productCmIds[name] ?? null,
                   cardmarket_expansion_id: productExpIds[name] ?? null,
-                  promo_value: productPromo[name] ?? 0,
+                  cardmarket_promo_product_id: productPromoCmIds[name] ?? null,
                   price_locked: !!productLocked[name] })
         .eq('id', id);
       if (error) throw error;
@@ -8851,8 +8883,8 @@ function wireAuthControls() {
         // up there, so this is a no-op.
         if (window.__showAppLoader) window.__showAppLoader();
         // A signed-in session lands on the Welcome tab — the signed-in landing
-        // (where-to-go map + latest-news teaser), which is also the markup
-        // default, so first paint and post-login agree. Deliberately scoped to
+        // (the where-to-go map), which is also the markup default, so first paint
+        // and post-login agree. Deliberately scoped to
         // *this* branch — a token refresh fires onAuthStateChange too, and
         // yanking the user off whatever tab they were reading would be a bug.
         // A click rather than activateTab() so the reveal-on-scroll handler,

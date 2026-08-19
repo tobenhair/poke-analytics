@@ -110,7 +110,7 @@ Two are always visible; two appear only with cloud sync enabled and signed in.
 | **Analysis** | always | The decision view — one **board** with a **Value / Relative / Momentum** lens toggle, **grouped Era → Set → Product** (collapsible; opens as an era overview with per-era/-set averages, expand down to the ranked products) with fair price and verdict, KPIs, price/value charts, and buy signals. The lens swaps the ranking and columns without leaving the panel: **Value** (the headline board), **Relative** (SV/Booster vs the expected-for-age line), **Momentum** (recent price action + drawdown). The Relative and Momentum lenses add a **set-vs-product comparison chart** — a diverging bar chart that rolls the metric up so you can compare whole releases at a glance. Click any product (the board, the top picks, or the age-vs-value scatter) to open its drill-down, which carries the full detail plus a what-if scenario sandbox. The denser charts (scatter, price-history and SV/Booster trend) carry an expand button — at any width — that opens a full-screen view you can pinch/scroll to zoom and drag to pan (with a Reset control). |
 | **Portfolio** | signed in | Your private holdings and price alerts — unrealised P&L, concentration balancer, value over time. |
 | **Data Entry** | admin only | The monthly update view — enter the latest prices and set values, add products, edit Cardmarket URLs and product ids (the "CM ID" that drives automated ingestion), review thin-liquidity flags and **lock** a manual price on products whose automated price is unreliable, and export the updated workbook. |
-| **News** | everyone (cloud) | An opt-in headline feed — Pokémon TCG (priority), TCG investing, and Pokémon-business/owner-company results. A **News** button in the header and a TCG-first teaser on the landing/demo open a grouped overlay; headlines link out to the source. Server-fetched (browsers can't read RSS cross-origin) and public, so logged-out demo visitors see it too. Setup in `SUPABASE.md`. |
+| **News** | everyone (cloud) | An opt-in headline feed — Pokémon TCG (priority), TCG investing, and Pokémon-business/owner-company results. It has its own **News** tab (between Welcome and Analysis), shown once the feed has items; headlines link out to the source. The logged-out demo shows a teaser that opens the same grouped list. Server-fetched (browsers can't read RSS cross-origin) and public, so logged-out demo visitors see it too. Setup in `SUPABASE.md`. |
 
 ## Monthly workflow
 
@@ -151,9 +151,7 @@ frontend on GitHub Pages. This is off unless you fill in `SUPABASE_CONFIG` in
 
 ### Sheet 1 — `Summary` (one row per product)
 
-`Product` · `Type` · `Release Date` · `Promo Value (€)` *(optional)* · `Age (years)` · `Current Price (€)` · `Set Value (€)` · `Price / Booster (€)` · `SV / Booster` · `Age Weight` · `Wtd. Score`
-
-`Promo Value (€)` is optional: the value of a promo card bundled into the product (e.g. an ETB's stamped promo) that isn't part of the set's singles. It's **subtracted from price** for the per-booster maths so the product is judged on its boosters, not the extras; blank or `0` means none. (Cloud/Data Entry has the same field.)
+`Product` · `Type` · `Release Date` · `Age (years)` · `Current Price (€)` · `Set Value (€)` · `Price / Booster (€)` · `SV / Booster` · `Age Weight` · `Wtd. Score`
 
 `Type` is one of: `BOX` (36 packs) · `ETB` (9) · `ETB10` (10) · `ETB8` (8) · `BUNDLE` (6) · `BUNDLEDISPLAY` (60) · `PACK` (1). The pack count drives the booster maths; the Elite Trainer Box variants (`ETB`/`ETB10`/`ETB8`) filter together under **Elite Trainer**, and the Bundle variants (`BUNDLE`/`BUNDLEDISPLAY`) under **Bundle**.
 
@@ -161,14 +159,16 @@ A `PACK` is a **loose single booster** and is treated as *reference data, not a 
 
 ### Sheet 2 — `Historical Data` (one row per product per snapshot)
 
-`Product` (must match Summary exactly) · `Snapshot Date` (ISO `YYYY-MM-DD`) · `Price (€)` · `Set Value (€)`
+`Product` (must match Summary exactly) · `Snapshot Date` (ISO `YYYY-MM-DD`) · `Price (€)` · `Set Value (€)` · `Promo Value (€)` *(optional)*
+
+`Promo Value (€)` is the value, at that snapshot, of a promo card bundled into the product (e.g. an ETB's stamped promo) that isn't part of the set's singles. It's **subtracted from price** for the per-booster maths so the product is judged on its boosters, not the extras; blank means none. It's a per-snapshot column because a promo card's own price moves over time — in cloud mode the daily ingestion fetches it from the promo card's Cardmarket id (the Data Entry **Promo ID** column), so you don't type it by hand there.
 
 The in-app **File Format Guide** (the **Format Guide** button on the **Analysis** tab) documents every field in detail.
 
 ## Key concepts
 
 - **Set Value** — the total market value of all cards in a complete set.
-- **Price / Booster** — product price ÷ boosters inside, set by Type (BOX = 36, ETB = 9, BUNDLE = 6, plus the variants ETB10 = 10, ETB8 = 8, BUNDLEDISPLAY = 60, PACK = 1). If a product has a **Promo Value**, that promo card's value is subtracted from the price first, so the per-booster figure reflects only the boosters (an ETB isn't penalised for the promo it also includes).
+- **Price / Booster** — product price ÷ boosters inside, set by Type (BOX = 36, ETB = 9, BUNDLE = 6, plus the variants ETB10 = 10, ETB8 = 8, BUNDLEDISPLAY = 60, PACK = 1). If a product has a **Promo Value** (the bundled promo card's own price, tracked per snapshot — fetched daily from its Cardmarket id in cloud mode), that value is subtracted from the price first, so the per-booster figure reflects only the boosters (an ETB isn't penalised for the promo it also includes).
 - **SV / Booster** — Set Value ÷ Price/Booster. Reads as a value-for-money **×multiple** — how many times the price of a *single booster* the whole set is worth (e.g. `185×`), **not** a euro-per-pack amount. The core comparability metric; works across all product types.
 - **Age Weight** — 0–1 multiplier. Products under a year old are penalised; ≥3 years = 1.0.
 - **Wtd. Score** — SV / Booster × Age Weight. The headline ranking metric.

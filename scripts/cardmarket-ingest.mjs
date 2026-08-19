@@ -79,7 +79,7 @@ async function main() {
   if (sb) {
     const { data: products, error } = await sb
       .from('products')
-      .select('id, name, type, release, cardmarket_url, price_locked, cardmarket_product_id');
+      .select('id, name, type, release, cardmarket_url, price_locked, cardmarket_product_id, cardmarket_promo_product_id');
     if (error) throw new Error(`reading products: ${error.message}`);
     dbByName = new Map(products.map((p) => [p.name, p]));
     workingMap = { products: {} };
@@ -90,6 +90,7 @@ async function main() {
         release: p.release ?? ov.release,
         cardmarket_url: p.cardmarket_url ?? ov.cardmarket_url,
         idProduct: p.cardmarket_product_id ?? ov.idProduct ?? null, // DB id pins; else a map pin
+        promoIdProduct: p.cardmarket_promo_product_id ?? ov.promoIdProduct ?? null,
         nameHint: ov.nameHint,
         priceOverride: ov.priceOverride,
       };
@@ -242,7 +243,7 @@ async function main() {
     // Day-over-day guard: hold a >50% one-day rise (a mis-tagged-card artefact).
     const g = guardSetValue(p.setValue, prevSv.get(String(row.id)) ?? null);
     if (g.held) held.push(`${p.name} (${Math.round((g.ratio ?? 0) * 100)}% of prev — held at ${g.value})`);
-    const base = { user_id: row.user_id, product_id: row.id, snapshot_date: DATE, set_value: g.value, low_liquidity: p.lowLiquidity, price_avg: p.avgPrice, price_low: p.lowPrice };
+    const base = { user_id: row.user_id, product_id: row.id, snapshot_date: DATE, set_value: g.value, low_liquidity: p.lowLiquidity, price_avg: p.avgPrice, price_low: p.lowPrice, promo_value: p.promoValue };
     if (row.price_locked || p.price == null) withoutPrice.push(base);
     else withPrice.push({ ...base, price: p.price });
   }

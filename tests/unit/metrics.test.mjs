@@ -214,13 +214,15 @@ test('appliedPromo normalises to a non-negative value strictly below price', () 
   assert.equal(appliedPromo(10, null), 0);   // no price to clamp against → ignored
 });
 
-test('deriveProducts subtracts the promo from price for pack economics, not from p.price', () => {
-  // ETB (9 packs): €135 price, €9 promo → €126 ex-promo → €14/booster.
-  const products = [{ name: 'Promo ETB', type: 'ETB', release: '2000-01-01', promoValue: 9 }];
-  deriveProducts(products, { 'Promo ETB': { price: [135], setVal: [252] } });
+test('deriveProducts subtracts the LATEST per-snapshot promo from price for pack economics, not from p.price', () => {
+  // ETB (9 packs): €135 price, €9 promo → €126 ex-promo → €14/booster. The promo
+  // is a per-snapshot series now (it moves over time); the latest non-null wins —
+  // here an older €5 then a current €9, so €9 applies.
+  const products = [{ name: 'Promo ETB', type: 'ETB', release: '2000-01-01' }];
+  deriveProducts(products, { 'Promo ETB': { price: [130, 135], setVal: [252, 252], promo: [5, 9] } });
   const p = products[0];
-  assert.equal(p.price, 135);            // full price preserved (what you pay)
-  assert.equal(p.promoValue, 9);         // normalised promo stored
+  assert.equal(p.price, 135);            // full latest price preserved (what you pay)
+  assert.equal(p.promoValue, 9);         // normalised LATEST promo stored
   assert.equal(p.pricePerBooster, 14);   // (135 − 9) / 9
   assert.equal(p.svPerBooster, 18);      // 252 / 14  (vs 12 without the promo cut)
 });

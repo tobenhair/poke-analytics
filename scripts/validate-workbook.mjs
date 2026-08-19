@@ -93,13 +93,6 @@ summaryRows.forEach((row, i) => {
     productReleases.set(String(name).trim(), toISO(rawRelease));
   }
 
-  // Promo Value (€) — optional; a non-negative number if present. Mirrors
-  // parseXlsx(): the value of a bundled promo card subtracted from price for
-  // the pack economics.
-  const rawPromo = col(row, 'Promo Value (€)', 'Promo Value');
-  if (rawPromo !== null && (isNaN(parseFloat(rawPromo)) || parseFloat(rawPromo) < 0)) {
-    errors.push(`Summary ${label}: Promo Value must be a non-negative number (got "${rawPromo}")`);
-  }
 });
 if (errors.length) fail();
 
@@ -126,6 +119,10 @@ histRows.forEach((row, i) => {
   const date = col(row, 'Snapshot Date', 'Date');
   const price = col(row, 'Price (€)', 'Price');
   const sv = col(row, 'Set Value (€)', 'Set Value');
+  // Promo Value (€) — optional per-snapshot column; a non-negative number if
+  // present. Mirrors parseXlsx(): the bundled promo card's value at that
+  // snapshot, subtracted from price for the pack economics.
+  const promo = col(row, 'Promo Value (€)', 'Promo Value');
 
   if (!name && !date) return; // fully blank row, skipped like the app does
 
@@ -134,6 +131,9 @@ histRows.forEach((row, i) => {
 
   if (price !== null && (isNaN(parseFloat(price)) || parseFloat(price) < 0)) {
     errors.push(`Historical Data row ${rowNum} ("${name}"): Price must be a non-negative number (got "${price}")`);
+  }
+  if (promo !== null && (isNaN(parseFloat(promo)) || parseFloat(promo) < 0)) {
+    errors.push(`Historical Data row ${rowNum} ("${name}"): Promo Value must be a non-negative number (got "${promo}")`);
   }
   if (sv !== null && (isNaN(parseFloat(sv)) || parseFloat(sv) < 0)) {
     errors.push(`Historical Data row ${rowNum} ("${name}"): Set Value must be a non-negative number (got "${sv}")`);

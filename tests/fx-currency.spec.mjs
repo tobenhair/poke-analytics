@@ -56,7 +56,8 @@ test('rates load → the picker offers every configured currency', async ({ page
   const hosts = await load(page, (r) => r.fulfill(ratesJson));
 
   await expect.poll(async () => (await options(page)).length).toBe(4);
-  expect(await options(page)).toEqual(['€ EUR', '$ USD', '£ GBP', 'kr SEK']);
+  // The compact header picker shows just the symbol (€ / $ / £ / kr).
+  expect(await options(page)).toEqual(['€', '$', '£', 'kr']);
 
   // Only the current endpoint is called when it answers — no pointless second
   // request to the legacy host.
@@ -82,7 +83,7 @@ test('all endpoints down → € only, and the page says why', async ({ page }) 
   await expect.poll(() => hosts.length).toBe(2);
 
   // Degraded, not broken: € still works as the canonical unit …
-  expect(await options(page)).toEqual(['€ EUR']);
+  expect(await options(page)).toEqual(['€']);
 
   // … and the reason is visible instead of silent, which was the actual defect.
   await expect.poll(() => noteShown(page)).toBe(true);

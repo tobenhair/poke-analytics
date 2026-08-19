@@ -79,6 +79,27 @@ test('deriveProducts: box price = trend/avg blend, Set Value = avg30 singles sum
   assert.equal(d['Mega Evolutions Booster Box'].setValue, 30);
 });
 
+test('deriveProducts: promoValue = the bundled promo single\'s avg30 (its moving value)', () => {
+  // A product that pins a promo single id gets that card's avg30 — the same
+  // basis as Set Value — so the promo tracks the market instead of a static €.
+  const m = { products: { 'Promo ETB': { type: 'ETB', release: '2024-01-01', promoIdProduct: 9001 } } };
+  const ns = [{ idProduct: 500, name: 'Promo ETB', categoryName: 'Elite Trainer Box', idExpansion: 50 }];
+  const pg = [
+    { idProduct: 500, avg: 100, trend: 100, low: 90 },     // the box itself
+    { idProduct: 9001, avg30: 12.5, trend: 14, low: 9 },   // the bundled promo single
+  ];
+  const d = deriveProducts(m, resolveIds(m, ns), pg, []);
+  assert.equal(d['Promo ETB'].promoIdProduct, 9001);
+  assert.equal(d['Promo ETB'].promoValue, 12.5);           // avg30, not a static number
+});
+
+test('deriveProducts: no promo id → promoValue null', () => {
+  const m = { products: { 'Plain Box': { type: 'BOX', release: '2024-01-01' } } };
+  const ns = [{ idProduct: 600, name: 'Plain Box', categoryName: 'Booster Box', idExpansion: 60 }];
+  const d = deriveProducts(m, resolveIds(m, ns), [{ idProduct: 600, avg: 100, trend: 100 }], []);
+  assert.equal(d['Plain Box'].promoValue, null);
+});
+
 test('deriveProducts: a trend far below avg uses avg, not the dragged-down blend', () => {
   const m = { products: { 'Grail Box': { type: 'BOX', release: '2019-01-01' } } };
   const ns = [{ idProduct: 950, name: 'Grail Box', categoryName: 'Booster Box', idExpansion: 95 }];

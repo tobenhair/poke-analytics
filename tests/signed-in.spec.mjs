@@ -74,25 +74,30 @@ test('the news feed shows a TCG-first teaser and opens a grouped, safe-linking o
   await expect(page.locator('#demo-page .news-teaser .news-teaser-body li').first())
     .toContainText('Prismatic Evolutions');
 
-  // "All news →" opens the shared overlay, grouped with Pokémon TCG first.
+  // "All news →" opens the shared overlay (the demo page has no tab bar),
+  // grouped with Pokémon TCG first.
   await page.locator('#demo-page .news-teaser .news-all').click();
   await expect(page.locator('#news-modal')).toHaveClass(/open/);
-  await expect(page.locator('#news-list .news-group-title').first()).toHaveText('Pokémon TCG');
-  await expect(page.locator('#news-list')).toContainText('The Pokemon Company posts record revenue');
+  await expect(page.locator('#news-modal .news-group-title').first()).toHaveText('Pokémon TCG');
+  await expect(page.locator('#news-modal .news-full')).toContainText('The Pokemon Company posts record revenue');
 
   // Headlines link out safely — new tab + noopener.
-  const link = page.locator('#news-list .news-link').first();
+  const link = page.locator('#news-modal .news-link').first();
   await expect(link).toHaveAttribute('target', '_blank');
   await expect(link).toHaveAttribute('rel', /noopener/);
 
   await page.keyboard.press('Escape');
   await expect(page.locator('#news-modal')).not.toHaveClass(/open/);
 
-  // Signed in, the header News button appears and opens the same overlay.
+  // Signed in, news is its OWN tab (between Welcome and Analysis), revealed once
+  // the table returns rows — no header button, no Welcome teaser.
   await signIn(page, 'user@test.local');
-  await expect(page.locator('#news-btn')).toBeVisible();
-  await page.locator('#news-btn').click();
-  await expect(page.locator('#news-modal')).toHaveClass(/open/);
+  await expect(page.locator('#tabbtn-news')).toBeVisible();
+  await expect(page.locator('#tab-welcome .news-teaser')).toHaveCount(0);
+  await page.locator('#tabbtn-news').click();
+  await expect(page.locator('#tab-news')).toBeVisible();
+  await expect(page.locator('#tab-news .news-group-title').first()).toHaveText('Pokémon TCG');
+  await expect(page.locator('#tab-news .news-full')).toContainText('The Pokemon Company posts record revenue');
 
   expect(pageErrors).toEqual([]);
 });
@@ -385,10 +390,10 @@ test('the admin sees Data Entry and cloud-save writes the entered snapshot', asy
   await expect(page.locator('#entry-tbody tr')).toHaveCount(4);
 
   // Enter one price (within the 30% delta guard) for a fixed snapshot date,
-  // plus a promo-card value (the ETB-style extra excluded from pack value).
+  // plus the promo card's Cardmarket id (the daily job fetches its live value).
   await page.locator('#snapshot-label').fill('2026-07-18');
   await page.locator('.entry-input[data-product="Beta Booster Box"][data-field="price"]').fill('175');
-  await page.locator('.promo-input[data-product="Beta Booster Box"]').fill('5');
+  await page.locator('.promo-input[data-product="Beta Booster Box"]').fill('9001');
   await page.locator('#save-cloud-btn').click();
   // Data Entry actions report to their own footer pill, not the Analysis tab's.
   await expect(page.locator('#entry-status')).toContainText('Saved to cloud');
@@ -400,9 +405,10 @@ test('the admin sees Data Entry and cloud-save writes the entered snapshot', asy
   expect(snapWrites.at(-1).payload).toMatchObject([
     { product_id: 'p2', snapshot_date: '2026-07-18', price: 175 },
   ]);
-  // The promo edit is written to products.promo_value (per-product raw input).
+  // The promo edit is written to products.cardmarket_promo_product_id (the id the
+  // daily job prices; the promo € itself is fetched per-snapshot, not entered).
   const prodUpdates = await writes(page, 'products', 'update');
-  expect(prodUpdates.some((w) => w.payload && w.payload.promo_value === 5)).toBe(true);
+  expect(prodUpdates.some((w) => w.payload && w.payload.cardmarket_promo_product_id === 9001)).toBe(true);
   expect((await writes(page, 'user_settings', 'upsert')).length).toBeGreaterThan(0);
 
   // The save reloads cloud state: the new snapshot is now the latest tracked

@@ -220,8 +220,8 @@ inputs live in the database:
 
 | Table | Purpose | Access | Key columns |
 |-------|---------|--------|-------------|
-| `products` | one row per tracked product | read: all signed-in · write: admin | `name`, `type`, `release`, `cardmarket_url`, `cardmarket_product_id`, `cardmarket_expansion_id`, `promo_value`, `price_locked` |
-| `snapshots` | one row per product per date | read: all signed-in · write: admin | `product_id`, `snapshot_date`, `price`, `set_value`, `low_liquidity`, `price_avg`, `price_low` |
+| `products` | one row per tracked product | read: all signed-in · write: admin | `name`, `type`, `release`, `cardmarket_url`, `cardmarket_product_id`, `cardmarket_expansion_id`, `cardmarket_promo_product_id`, `price_locked` |
+| `snapshots` | one row per product per date | read: all signed-in · write: admin | `product_id`, `snapshot_date`, `price`, `set_value`, `low_liquidity`, `price_avg`, `price_low`, `promo_value` |
 | `cardmarket_expansion_singles` | ingestion cache: expansion → its single-card ids | service-role only (no client policy) | `id_expansion`, `single_product_ids` |
 | `user_settings` | per-user preferences | read/write: own row | `age_threshold`, `currency` |
 | `holdings` | per-user portfolio | read/write: own row | `product_id`, `quantity`, `cost_basis` |
@@ -302,18 +302,22 @@ enter in Data Entry and save with **☁ Save to cloud**:
   `idProduct`; the daily job reads this product's Box Price directly from it.
 - **`cardmarket_expansion_id`** (the **"Exp ID"** column) — the set whose singles
   make up Set Value. The catalog refresh uses it to cache that set's card list.
-- **`promo_value`** (the **"Promo (€)"** column) — the € value of a promo card
-  bundled into the product (e.g. an ETB's stamped promo) that isn't part of the
-  set's singles. Subtracted from Price for the per-booster maths so the product
-  is judged on its boosters, not the extras. Per-product raw input, `0` = none;
-  applied client-side only (the daily ingestion job is unaffected — it still
-  writes the raw market Price and Set Value).
+- **`cardmarket_promo_product_id`** (the **"Promo ID"** column) — the Cardmarket
+  `idProduct` of a promo card bundled into the product (e.g. an ETB's stamped
+  promo) that isn't part of the set's singles. The daily job fetches this single
+  card's **avg30** (same basis as Set Value) into `snapshots.promo_value`, which
+  is subtracted from Price for the per-booster maths so the product is judged on
+  its boosters, not the extras. `NULL` = no promo. (This replaced the old static
+  `promo_value` €, which went stale as the promo card's own price moved.)
 
-You don't hand-source these — click **Resolve ids** (below) and both are filled
-by name-matching. Type them in only to override a specific product; a value you
-enter by hand is never overwritten by Resolve ids. `cardmarket-map.json` is now
-only for overrides (`nameHint`, `priceOverride`) and the offline dry-run
-allowlist used by the local `scripts/cardmarket-ingest.mjs` fallback.
+You don't hand-source the CM ID / Exp ID — click **Resolve ids** (below) and both
+are filled by name-matching. Type them in only to override a specific product; a
+value you enter by hand is never overwritten by Resolve ids. **The Promo ID is
+entered by hand** — a promo single isn't in the sealed-product catalogue Resolve
+ids matches against, so look up the promo card on Cardmarket and paste its
+`idProduct`. `cardmarket-map.json` is now only for overrides (`nameHint`,
+`priceOverride`, `promoIdProduct`) and the offline dry-run allowlist used by the
+local `scripts/cardmarket-ingest.mjs` fallback.
 
 **Manual control for thin-liquidity products.** The daily job flags a snapshot
 `low_liquidity` when the guide's `trend` and `avg` diverge ≥20% (thin sales →
@@ -331,9 +335,13 @@ each `supabase/functions/<name>/index.ts`; the CLI `supabase functions deploy
 <name>` works too).
 
 1. Apply the schema (`supabase/schema.sql`) so `products.cardmarket_product_id`,
-   `products.cardmarket_expansion_id`, `products.price_locked`,
-   `snapshots.low_liquidity` and the `cardmarket_expansion_singles` table exist
-   (all idempotent).
+   `products.cardmarket_expansion_id`, `products.cardmarket_promo_product_id`,
+   `products.price_locked`, `snapshots.low_liquidity`, `snapshots.promo_value`
+   and the `cardmarket_expansion_singles` table exist (all idempotent).
+   **Note:** re-applying the schema **drops the old static `products.promo_value`
+   column** (superseded by the fetched per-snapshot `snapshots.promo_value`) — any
+   hand-entered promo € is discarded; re-enter each promo's Cardmarket id in the
+   Data Entry **Promo ID** column so the daily job can price it.
 2. Seed the `products` rows (Data Entry → Save to cloud, or the workbook). A
    product missing from Supabase is skipped by the jobs. You do **not** need to
    hand-enter the Cardmarket ids — step 4 fills them.
