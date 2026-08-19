@@ -1843,7 +1843,10 @@
     z-index: 200;               /* above the sticky .tab-bar (50), below overlays (900+) */
     min-width: 200px; max-width: 80vw;
     display: flex; flex-direction: column; gap: 4px; text-align: left;
-    background: var(--elev); border: 1px solid var(--border);
+    /* A SOLID surface — `--elev` is a box-shadow token, so the old
+       `background: var(--elev)` was invalid and left the menu transparent,
+       showing the (translucent, frosted) tab-bar straight through it. */
+    background: var(--card); border: 1px solid var(--border);
     border-radius: var(--radius-sm); padding: 8px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   }

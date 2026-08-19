@@ -312,6 +312,12 @@ test('the account actions live in a profile menu that keeps the phone header fro
   expect(box.x, 'menu left edge on screen').toBeGreaterThanOrEqual(0);
   expect(box.x + box.width, 'menu right edge on screen').toBeLessThanOrEqual(vw);
 
+  // …and it has a SOLID fill so the (translucent, frosted) tab-bar behind it
+  // can't show through — the old `background: var(--elev)` (a box-shadow token)
+  // left it transparent.
+  const bg = await menu.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(bg, 'menu background must be opaque').not.toMatch(/rgba?\([^)]*,\s*0\)\s*$|transparent/);
+
   // Escape closes it and returns focus to the trigger (it's a disclosure).
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
