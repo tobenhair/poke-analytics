@@ -266,9 +266,24 @@ export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords,
       setValue = counted ? +sum.toFixed(2) : null;
     }
 
+    // Promo value = the avg30 of the bundled promo single (same basis as Set
+    // Value), fetched daily so it tracks the card's moving market price instead
+    // of a stale hand-typed number. The offline map pins the promo id in
+    // `promoIdProduct`; the DB path uses products.cardmarket_promo_product_id.
+    let promoValue = null;
+    const promoId = entry.promoIdProduct ?? null;
+    if (promoId != null) {
+      const promoRec = pgById.get(String(promoId));
+      if (promoRec) {
+        const v = valueOf(promoRec, svField);
+        if (Number.isFinite(v)) promoValue = +Number(v).toFixed(2);
+      }
+    }
+
     out[name] = {
       idProduct: idP,
       idExpansion: idE,
+      promoIdProduct: promoId,
       type: entry.type,
       release: entry.release,
       cardmarket_url: entry.cardmarket_url ?? null,
@@ -277,6 +292,7 @@ export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords,
       avgPrice,
       lowPrice,
       setValue,
+      promoValue,
       nSingles,
       lowLiquidity,
     };

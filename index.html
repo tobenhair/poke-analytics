@@ -2195,7 +2195,6 @@
           <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Full product name — must also appear in Historical Data sheet</td></tr>
           <tr><td>Type</td><td><span class="tag-req">required</span></td><td>Exactly one of: <b>BOX</b> (36 packs), <b>ETB</b> (9), <b>ETB10</b> (10), <b>ETB8</b> (8), <b>BUNDLE</b> (6), <b>BUNDLEDISPLAY</b> (60), or <b>PACK</b> (1). The pack count sets the booster maths; the <b>ETB*</b> variants filter under Elite Trainer and the <b>BUNDLE*</b> under Bundle. A <b>PACK</b> (a loose single booster) is reference-only: it is kept out of the rankings and charts and shown as the <em>Loose pack price</em> in the drill-down of the same set's sealed products.</td></tr>
           <tr><td>Release Date</td><td><span class="tag-req">required</span></td><td>Date value or text in YYYY-MM-DD format</td></tr>
-          <tr><td>Promo Value (€)</td><td><span class="tag-opt">optional</span></td><td>Value of a promo card bundled into the product (e.g. an ETB's stamped promo) that isn't part of the set's singles. Subtracted from Price for the per-booster maths so the product is judged on its boosters. Blank or 0 = none.</td></tr>
           <tr><td>Age (years)</td><td><span class="tag-req">required</span></td><td>Decimal number, e.g. 1.47</td></tr>
           <tr><td>Current Price (€)</td><td><span class="tag-req">required</span></td><td>Number in cents or euros — must be consistent across rows</td></tr>
           <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Total set value — same unit as price</td></tr>
@@ -2217,6 +2216,7 @@
           <tr><td>Snapshot Date</td><td><span class="tag-req">required</span></td><td>Date label shown on chart axes, must be in <b>YYYY-MM-DD</b> format (ISO 8601), e.g. <b>2026-04-20</b></td></tr>
           <tr><td>Price (€)</td><td><span class="tag-req">required</span></td><td>Product price at that snapshot. Leave blank if not yet tracked.</td></tr>
           <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Set value at that snapshot. Leave blank if not yet tracked.</td></tr>
+          <tr><td>Promo Value (€)</td><td><span class="tag-opt">optional</span></td><td>Value of a promo card bundled into the product (e.g. an ETB's stamped promo) that isn't part of the set's singles, at that snapshot. Subtracted from Price for the per-booster maths so the product is judged on its boosters. In cloud mode the daily ingestion job fetches this from the promo card's Cardmarket id; blank = none.</td></tr>
         </tbody>
       </table>
     </div>
@@ -3298,7 +3298,7 @@
                 <th></th>
                 <th>CM ID</th>
                 <th>Exp ID</th>
-                <th>Promo (€)</th>
+                <th>Promo ID</th>
                 <th>Product</th>
                 <th>Type</th>
                 <th>Last Price (€)</th>
@@ -5038,13 +5038,6 @@ function parseXlsx(arrayBuffer) {
         errors.push(`Summary ${label}: Release Date "${rawRelease}" is not a valid date`);
     }
 
-    // Promo Value (€) — optional. The value of a promo card bundled into the
-    // product (e.g. an ETB's stamped promo) that isn't part of the set's
-    // singles; subtracted from price for the pack economics. Blank = none (0).
-    const rawPromo = col(row, 'Promo Value (€)', 'Promo Value');
-    if (rawPromo != null && (isNaN(parseFloat(rawPromo)) || parseFloat(rawPromo) < 0))
-      errors.push(`Summary ${label}: Promo Value must be a non-negative number (got "${rawPromo}")`);
-
     if (errors.length === 0) {
       const releaseStr = rawRelease instanceof Date
         ? rawRelease.toISOString().slice(0,10)
@@ -5053,7 +5046,8 @@ function parseXlsx(arrayBuffer) {
         name: String(name).trim(),
         type: String(type).toUpperCase(),
         release: releaseStr,
-        promoValue: rawPromo != null ? parseFloat(rawPromo) : 0,
+        // Promo value is a per-snapshot column in Historical Data now (it moves
+        // over time), read below — not a static Summary field.
         // boosters read from Historical Data below
         boosters: null,
         age: null, price: null, setVal: null,
@@ -5082,25 +5076,32 @@ function parseXlsx(arrayBuffer) {
     const date   = col(row, 'Snapshot Date', 'Date');
     const price  = col(row, 'Price (€)', 'Price');
     const sv     = col(row, 'Set Value (€)', 'Set Value');
+    // Promo Value (€) — optional per-snapshot column: the bundled promo card's
+    // own value on that date (it moves over time), subtracted from price for the
+    // pack economics. Blank = none.
+    const promo  = col(row, 'Promo Value (€)', 'Promo Value');
 
     if (!name && !date) return; // skip fully blank rows
 
     if (!name) { errors.push(`Historical Data row ${rowNum}: missing Product name`); return; }
     if (!date) { errors.push(`Historical Data row ${rowNum}: missing Snapshot Date for "${name}"`); return; }
 
-    // Price and Set Value: if present must be non-negative
+    // Price, Set Value and Promo Value: if present must be non-negative
     if (price !== null && (isNaN(parseFloat(price)) || parseFloat(price) < 0))
       errors.push(`Historical Data row ${rowNum} ("${name}"): Price must be a non-negative number (got "${price}")`);
     if (sv !== null && (isNaN(parseFloat(sv)) || parseFloat(sv) < 0))
       errors.push(`Historical Data row ${rowNum} ("${name}"): Set Value must be a non-negative number (got "${sv}")`);
+    if (promo !== null && (isNaN(parseFloat(promo)) || parseFloat(promo) < 0))
+      errors.push(`Historical Data row ${rowNum} ("${name}"): Promo Value must be a non-negative number (got "${promo}")`);
 
     histNames.add(String(name).trim());
 
     if (!histMap[name]) histMap[name] = {};
     const dateStr = formatISO(date);
-    if (!histMap[name][dateStr]) histMap[name][dateStr] = { price: null, setVal: null };
+    if (!histMap[name][dateStr]) histMap[name][dateStr] = { price: null, setVal: null, promo: null };
     if (price !== null) histMap[name][dateStr].price  = parseFloat(price);
     if (sv    !== null) histMap[name][dateStr].setVal = parseFloat(sv);
+    if (promo !== null) histMap[name][dateStr].promo  = parseFloat(promo);
     if (!dateSet.includes(dateStr)) dateSet.push(dateStr);
   });
 
@@ -5125,6 +5126,7 @@ function parseXlsx(arrayBuffer) {
     newHistoricalData[name] = {
       price:  dateSet.map(d => byDate[d]?.price  ?? null),
       setVal: dateSet.map(d => byDate[d]?.setVal ?? null),
+      promo:  dateSet.map(d => byDate[d]?.promo  ?? null),
     };
   });
 
@@ -6493,11 +6495,13 @@ let productCmIds = {};
 // whose singles make up Set Value. The catalog-refresh Edge Function reads these
 // to know which expansions' card lists to cache. Edited in Data Entry, saved to cloud.
 let productExpIds = {};
-// Promo card value (€): { productName -> number } — a promo bundled into the
-// product (e.g. an ETB's stamped promo) that isn't part of the set's singles.
-// Subtracted from price for the pack economics (Price/Booster, SV/Booster, fair
-// price). Edited in Data Entry, saved to products.promo_value. Absent = 0.
-let productPromo = {};
+// Promo card Cardmarket ids (idProduct): { productName -> number } — the promo
+// single bundled into the product (e.g. an ETB's stamped promo) that isn't part
+// of the set's singles. The daily ingestion job fetches this card's avg30 into
+// snapshots.promo_value, which is subtracted from price for the pack economics
+// (Price/Booster, SV/Booster, fair price). Edited in Data Entry, saved to
+// products.cardmarket_promo_product_id. Absent = no promo.
+let productPromoCmIds = {};
 // Price lock: { productName -> true } — when locked, the automated Cardmarket
 // ingestion leaves this product's price alone (admin sets it by hand); the
 // manual override for thin-liquidity products. Persisted to products.price_locked.
@@ -6741,11 +6745,11 @@ function renderEntryTable() {
           data-product="${p.name}"
           value="${productExpIds[p.name] != null ? productExpIds[p.name] : ''}">
       </td>
-      <td style="width:80px;">
-        <input class="entry-input promo-input" type="number" min="0" step="0.01" placeholder="0"
-          aria-label="${p.name} — promo card value in euros (excluded from pack value)"
+      <td style="width:90px;">
+        <input class="entry-input promo-input" type="number" min="0" step="1" placeholder="id"
+          aria-label="${p.name} — promo card Cardmarket product ID (fetched daily, excluded from pack value)"
           data-product="${p.name}"
-          value="${productPromo[p.name] != null ? productPromo[p.name] : ''}">
+          value="${productPromoCmIds[p.name] != null ? productPromoCmIds[p.name] : ''}">
       </td>
       <td class="entry-product-name" title="${p.name}">${p.name}</td>
       <td>${typeBadge(p.type)}</td>
@@ -6831,15 +6835,15 @@ function renderEntryTable() {
     });
   });
 
-  // Promo value cell — edits the productPromo map (saved to products.promo_value).
-  // Euro amount or blank (= none). Subtracted from price for the pack economics.
+  // Promo CM ID cell — edits the productPromoCmIds map (saved to
+  // products.cardmarket_promo_product_id). Integer idProduct or blank (= no
+  // promo). The daily job fetches this card's avg30 into snapshots.promo_value.
   tbody.querySelectorAll('.promo-input').forEach(input => {
     input.addEventListener('input', e => {
       const name = e.target.dataset.product;
       const raw = e.target.value.trim();
-      const val = parseFloat(raw);
-      if (raw === '' || isNaN(val) || val < 0) delete productPromo[name];
-      else productPromo[name] = val;
+      if (raw === '') delete productPromoCmIds[name];
+      else productPromoCmIds[name] = parseInt(raw, 10);
     });
   });
 
@@ -7098,21 +7102,16 @@ function exportXlsx() {
   const allExistingProducts = [...products];
   const newOnes = pendingProducts.filter(p => !allExistingProducts.find(ep => ep.name === p.name));
 
-  // Promo Value (€): the Data Entry buffer wins over the derived value, so a
-  // buffered edit exports even before it's saved to cloud. Blank when 0/none.
-  const promoOf = (p) => {
-    const v = productPromo[p.name] != null ? productPromo[p.name] : p.promoValue;
-    return v ? v : '';
-  };
   const summaryRows = [
-    ['Product', 'Type', 'Release Date', 'Promo Value (€)'],
-    ...allExistingProducts.map(p => [p.name, p.type, p.release, promoOf(p)]),
-    ...newOnes.map(p => [p.name, p.type, p.release, promoOf(p)]),
+    ['Product', 'Type', 'Release Date'],
+    ...allExistingProducts.map(p => [p.name, p.type, p.release]),
+    ...newOnes.map(p => [p.name, p.type, p.release]),
   ];
 
   // ── Build Historical Data sheet rows ──
-  // All existing history first
-  const histRows = [['Product', 'Snapshot Date', 'Price (€)', 'Set Value (€)']];
+  // Promo Value (€) is a per-snapshot column now (the promo card's own moving
+  // value, fetched daily); export whatever the loaded history carries.
+  const histRows = [['Product', 'Snapshot Date', 'Price (€)', 'Set Value (€)', 'Promo Value (€)']];
 
   // Collect all products in order
   const allProductNames = [
@@ -7127,15 +7126,16 @@ function exportXlsx() {
       histDates.forEach((date, i) => {
         const price = h.price[i];
         const sv    = h.setVal[i];
-        if (price != null || sv != null) {
-          histRows.push([name, date, price ?? '', sv ?? '']);
+        const promo = h.promo ? h.promo[i] : null;
+        if (price != null || sv != null || promo != null) {
+          histRows.push([name, date, price ?? '', sv ?? '', promo ?? '']);
         }
       });
     }
-    // Append this month's new entry if filled
+    // Append this month's new entry if filled (promo is fetched, not entered).
     const entry = entryData[name];
     if (entry && (entry.price != null || entry.setVal != null)) {
-      histRows.push([name, snapLabel, entry.price ?? '', entry.setVal ?? '']);
+      histRows.push([name, snapLabel, entry.price ?? '', entry.setVal ?? '', '']);
     }
   });
 
@@ -7147,7 +7147,7 @@ function exportXlsx() {
   XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
 
   const wsHist = XLSX.utils.aoa_to_sheet(histRows);
-  wsHist['!cols'] = [{wch:36},{wch:14},{wch:12},{wch:14}];
+  wsHist['!cols'] = [{wch:36},{wch:14},{wch:12},{wch:14},{wch:14}];
   XLSX.utils.book_append_sheet(wb, wsHist, 'Historical Data');
 
   // ── Build Links sheet ──
@@ -8182,7 +8182,7 @@ async function loadFromSupabase() {
   sbProductIds = {};
   productCmIds = {};
   productExpIds = {};
-  productPromo = {};
+  productPromoCmIds = {};
   productLocked = {};
   productPriceRef = {};
   const newHistoricalData = {};
@@ -8191,13 +8191,16 @@ async function loadFromSupabase() {
     sbProductIds[p.name] = p.id;
     if (p.cardmarket_product_id != null) productCmIds[p.name] = p.cardmarket_product_id;
     if (p.cardmarket_expansion_id != null) productExpIds[p.name] = p.cardmarket_expansion_id;
-    if (p.promo_value != null && Number(p.promo_value) > 0) productPromo[p.name] = Number(p.promo_value);
+    if (p.cardmarket_promo_product_id != null) productPromoCmIds[p.name] = p.cardmarket_promo_product_id;
     if (p.price_locked) productLocked[p.name] = true;
     const byDate = {};
     snapList.filter(s => s.product_id === p.id).forEach(r => { byDate[r.snapshot_date] = r; });
     newHistoricalData[p.name] = {
       price:  newHistDates.map(d => byDate[d]?.price ?? null),
       setVal: newHistDates.map(d => byDate[d]?.set_value ?? null),
+      // Promo card's own moving value per snapshot (fetched daily by the ingestion
+      // job); deriveProducts takes the latest for the ex-promo pack economics.
+      promo:  newHistDates.map(d => byDate[d]?.promo_value ?? null),
     };
     // Latest snapshot's advisory data (thin-liquidity flag + reference prices).
     const lastDate = Object.keys(byDate).sort().at(-1);
@@ -8212,7 +8215,8 @@ async function loadFromSupabase() {
     if (p.cardmarket_url) newLinks[p.name] = p.cardmarket_url;
     return {
       name: p.name, type: String(p.type).toUpperCase(), release: p.release,
-      promoValue: p.promo_value != null ? Number(p.promo_value) : 0,
+      // promoValue is derived from the per-snapshot promo series (hist.promo) in
+      // deriveProducts — no static per-product promo any more.
       boosters: null, age: null, price: null, setVal: null,
       pricePerBooster: null, svPerBooster: null, ageWeight: null, score: null,
     };
@@ -8466,10 +8470,10 @@ async function loadDemo() {
     hist[p.name] = {
       price:  histDatesLocal.map(d => byDate[d]?.price ?? null),
       setVal: histDatesLocal.map(d => byDate[d]?.set_value ?? null),
+      promo:  histDatesLocal.map(d => byDate[d]?.promo_value ?? null),
     };
     return {
       name: p.name, type: String(p.type).toUpperCase(), release: p.release,
-      promoValue: p.promo_value != null ? Number(p.promo_value) : 0,
       boosters: null, age: null, price: null, setVal: null,
       pricePerBooster: null, svPerBooster: null, ageWeight: null, score: null,
     };
@@ -8574,7 +8578,7 @@ async function saveToSupabase() {
                   cardmarket_url: productUrls[p.name] || null,
                   cardmarket_product_id: productCmIds[p.name] ?? null,
                   cardmarket_expansion_id: productExpIds[p.name] ?? null,
-                  promo_value: productPromo[p.name] ?? 0,
+                  cardmarket_promo_product_id: productPromoCmIds[p.name] ?? null,
                   price_locked: !!productLocked[p.name] })
         .select('id').single();
       if (error) throw error;
@@ -8583,7 +8587,7 @@ async function saveToSupabase() {
 
     // 2. Update Cardmarket link + product/expansion ids + price-lock on existing
     //    products (whichever the admin has touched).
-    const metaNames = new Set([...Object.keys(productUrls), ...Object.keys(productCmIds), ...Object.keys(productExpIds), ...Object.keys(productPromo), ...Object.keys(productLocked)]);
+    const metaNames = new Set([...Object.keys(productUrls), ...Object.keys(productCmIds), ...Object.keys(productExpIds), ...Object.keys(productPromoCmIds), ...Object.keys(productLocked)]);
     for (const name of metaNames) {
       const id = sbProductIds[name];
       if (!id || newOnes.find(p => p.name === name)) continue;
@@ -8591,7 +8595,7 @@ async function saveToSupabase() {
         .update({ cardmarket_url: productUrls[name] || null,
                   cardmarket_product_id: productCmIds[name] ?? null,
                   cardmarket_expansion_id: productExpIds[name] ?? null,
-                  promo_value: productPromo[name] ?? 0,
+                  cardmarket_promo_product_id: productPromoCmIds[name] ?? null,
                   price_locked: !!productLocked[name] })
         .eq('id', id);
       if (error) throw error;

@@ -40,12 +40,16 @@ create table if not exists public.products (
   -- for thin-liquidity products whose sales-based price is unreliable. Set Value
   -- is still auto-updated. Written by the admin only (see RLS below).
   price_locked   boolean not null default false,
-  -- Value (€) of a promo card bundled into the product (e.g. an ETB's stamped
-  -- promo) that is NOT part of the set's singles. Subtracted from Price for the
-  -- pack economics (Price/Booster, SV/Booster, fair price) so an ETB is judged
-  -- on its boosters, not the extras. Per-product raw input, entered by the admin
-  -- in Data Entry; 0 = none. Display currency is €, the canonical stored unit.
-  promo_value    numeric not null default 0 check (promo_value >= 0),
+  -- Cardmarket catalogue product id (idProduct) of a promo card bundled into the
+  -- product (e.g. an ETB's stamped promo) that is NOT part of the set's singles.
+  -- The daily ingestion job fetches this single card's own moving price (avg30,
+  -- the same basis as Set Value) and writes it to snapshots.promo_value, which is
+  -- then subtracted from Price for the pack economics (Price/Booster, SV/Booster,
+  -- fair price) so an ETB is judged on its boosters, not the extras. Entered by
+  -- the admin in Data Entry. NULL → no promo tracked. (Replaced the old static
+  -- products.promo_value: a promo card's value moves over time, so a hand-typed
+  -- number went stale — see snapshots.promo_value.)
+  cardmarket_promo_product_id bigint,
   created_at     timestamptz not null default now(),
   -- product names are unique per user (matches the app's duplicate-name rule)
   unique (user_id, name)
@@ -54,7 +58,12 @@ create table if not exists public.products (
 alter table public.products add column if not exists cardmarket_product_id bigint;
 alter table public.products add column if not exists cardmarket_expansion_id bigint;
 alter table public.products add column if not exists price_locked boolean not null default false;
-alter table public.products add column if not exists promo_value numeric not null default 0;
+alter table public.products add column if not exists cardmarket_promo_product_id bigint;
+-- The promo value is now a fetched per-snapshot figure (snapshots.promo_value),
+-- not a static per-product number, so the old column is retired. Dropping it
+-- discards any hand-entered promo €; re-enter each promo's Cardmarket id in Data
+-- Entry so the daily job can price it live.
+alter table public.products drop column if exists promo_value;
 -- Widen the Type check to the pack-count variants (ETB10/ETB8/BUNDLEDISPLAY/PACK)
 -- for deployments created before they existed. Drop + re-add so it's idempotent.
 alter table public.products drop constraint if exists products_type_check;
@@ -81,6 +90,11 @@ create table if not exists public.snapshots (
   -- metric — display only.
   price_avg     numeric check (price_avg is null or price_avg >= 0),
   price_low     numeric check (price_low is null or price_low >= 0),
+  -- Fetched value (€) of the product's bundled promo card on this date — the
+  -- avg30 of products.cardmarket_promo_product_id from the same Cardmarket guide.
+  -- Subtracted from Price for the ex-promo pack economics. NULL when the product
+  -- has no promo id or the card had no price that day.
+  promo_value   numeric check (promo_value is null or promo_value >= 0),
   -- the app upserts on this pair (onConflict: 'product_id,snapshot_date')
   unique (product_id, snapshot_date)
 );
@@ -88,6 +102,7 @@ create table if not exists public.snapshots (
 alter table public.snapshots add column if not exists low_liquidity boolean not null default false;
 alter table public.snapshots add column if not exists price_avg numeric check (price_avg is null or price_avg >= 0);
 alter table public.snapshots add column if not exists price_low numeric check (price_low is null or price_low >= 0);
+alter table public.snapshots add column if not exists promo_value numeric check (promo_value is null or promo_value >= 0);
 
 create index if not exists snapshots_product_idx on public.snapshots (product_id);
 

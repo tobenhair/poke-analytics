@@ -653,6 +653,10 @@ export function deriveProducts(newProducts, newHistoricalData) {
     // Latest non-null price and setVal from historical data
     const latestPrice  = hist ? [...hist.price].reverse().find(v => v != null)  : null;
     const latestSetVal = hist ? [...hist.setVal].reverse().find(v => v != null) : null;
+    // Promo value is a per-snapshot series too (the promo card's own moving
+    // market price, fetched daily like price/setVal) — take the latest non-null.
+    // A product with no promo has no `promo` array, so this is null → no promo.
+    const latestPromo  = hist && hist.promo ? [...hist.promo].reverse().find(v => v != null) : null;
 
     if (latestPrice  == null) derivationErrors.push(`"${p.name}": no valid Price found in Historical Data`);
     if (latestSetVal == null) derivationErrors.push(`"${p.name}": no valid Set Value found in Historical Data`);
@@ -663,11 +667,11 @@ export function deriveProducts(newProducts, newHistoricalData) {
       const ageWeight   = parseFloat((ageYears >= 3 ? 1.0 : Math.max(0.10, ageYears / 3)).toFixed(2));
       // A promo card bundled into the product (an ETB's stamped promo, say) is
       // NOT part of the set's singles, so its cost inflates the price against the
-      // boosters it's judged on. Subtract it to isolate the pack economics; the
-      // full price stays on p.price (what the buyer pays — portfolio/alerts/
-      // display need it). appliedPromo() clamps to [0, price) so a bad/oversized
-      // value can never drive the ex-promo price to zero or negative.
-      const promoEur        = appliedPromo(p.promoValue, latestPrice);
+      // boosters it's judged on. Subtract its latest tracked value to isolate the
+      // pack economics; the full price stays on p.price (what the buyer pays —
+      // portfolio/alerts/display need it). appliedPromo() clamps to [0, price) so
+      // a bad/oversized value can never drive the ex-promo price to zero.
+      const promoEur        = appliedPromo(latestPromo, latestPrice);
       const pricePerBooster = (latestPrice - promoEur) / boosters;
       const svPerBooster    = latestSetVal / pricePerBooster;
       const score           = parseFloat((svPerBooster * ageWeight).toFixed(1));
