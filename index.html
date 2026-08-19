@@ -2632,7 +2632,8 @@
       </div>
     </div>
     <div class="header-meta">
-      <div class="last-update" id="last-update-wrap">Last updated: <span id="last-update-date">—</span><span class="stale-note" id="last-update-stale"></span></div>
+      <!-- "Last updated" moved to the page footer — it's data provenance, not the
+           first thing a visitor should see. Its ids live there now. -->
       <!-- News lives in its own tab now (revealed once the `news` table returns
            rows), so the header no longer carries a News button. -->
       <!-- Install (PWA) button. Hidden until the browser fires
@@ -3416,6 +3417,7 @@
   </main>
 
   <footer>
+    <div class="last-update" id="last-update-wrap" style="margin-bottom:14px;">Last updated: <span id="last-update-date">—</span><span class="stale-note" id="last-update-stale"></span></div>
     <p style="margin:0 0 10px;">Price data from Cardmarket, Tradera &amp; PriceCharting · Set logos from TCGdex · Always do your own research</p>
     <p style="margin:0 auto; max-width:70ch; line-height:1.7; text-transform:none; letter-spacing:normal;">
       <strong>Not financial advice.</strong> This is a free, unofficial fan-made tool provided “as is” for informational purposes only. Prices and values may be inaccurate or out of date; nothing here is a recommendation to buy or sell. Do your own research before making any purchase.
