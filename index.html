@@ -1088,6 +1088,10 @@
 
   /* ── Charts ── */
   .chart-panel { padding: 24px 26px; }
+  /* Portfolio value chart: its own padding + height (was inline). On a phone
+     both are overridden in the 680px block so it goes full-bleed. */
+  #portfolio-value-chart-wrap { padding: 20px 24px; }
+  #portfolio-value-chart { max-height: 280px; }
   /* Expand-to-fullscreen affordance — offered at every width (the enlarged view
      is zoomable/pannable, useful on desktop too). margin-left:auto right-aligns
      it after the title/badge/controls. */
@@ -1736,7 +1740,42 @@
     .tab-bar { border-radius: 22px; }
     /* Tighten section chrome so charts/tables keep usable width */
     .panel-header { padding: 18px 18px 14px; }
-    .chart-panel { padding: 16px 12px; }
+    /* Analysis charts (§02/§03/§04): keep the card + axes + legend, but trim the
+       side padding hard so the plot uses almost the full width. */
+    .chart-panel { padding: 14px 4px; }
+
+    /* ── Full-bleed charts on a phone (Collectr-style: edge to edge, no axes) ──
+       The portfolio value chart escapes its card AND the .wrapper padding to the
+       exact viewport width. The card must stop clipping (overflow) and drop its
+       side border/radius so the chart isn't framed; the header/summary above it
+       keep their own padding. Axes are dropped in JS (chartAxelessOnMobile). */
+    #portfolio-overview-panel { overflow: visible; border-left: 0; border-right: 0; border-radius: 0; }
+    /* Bleed to the viewport edges by cancelling the .wrapper's 16px side padding
+       (the panel itself has no padding and drops its side border above), NOT with
+       100vw — 100vw includes the scrollbar, so it overflows clientWidth by the
+       scrollbar width and trips the 320px no-sideways-scroll reflow contract. */
+    #portfolio-value-chart-wrap {
+      margin-left: -16px; margin-right: -16px;
+      padding: 8px 0 0;
+      /* Clip on the wrap (itself exactly viewport-wide), not the panel: Chart.js
+         resizes the canvas async via ResizeObserver, so for a frame after a
+         resize the canvas keeps its old, wider pixel width — with the panel now
+         overflow:visible (needed for the bleed) that transient would leak and
+         scroll the page sideways. Clipping here contains it without re-clipping
+         the bleed. */
+      overflow: hidden;
+    }
+    #portfolio-value-chart { max-height: 340px; }
+
+    /* Dialogs use more of a phone: a slimmer overlay gutter and less inner
+       padding (36px was cramped on a ~360px screen). The drill-chart breakout
+       below is tuned to this 20px modal padding. */
+    .modal-overlay { padding: 12px; }
+    .modal { padding: 20px; border-radius: 16px; }
+    /* Drill-down charts go edge to edge within the (nearly full-width) dialog:
+       break out of the .modal padding so the plot spans the modal's inner width. */
+    .drill-chart { height: 220px; margin-left: -20px; margin-right: -20px; }
+
     .filters { gap: 10px; }
     .age-control { margin-left: 0; padding-left: 0; border-left: 0; }
     .sort-select { margin-left: 0; width: 100%; }
@@ -3192,7 +3231,7 @@
       <button type="button" class="chart-expand-btn" data-chart="svb" aria-label="Expand chart to full screen"><svg class="icon" aria-hidden="true"><use href="#i-expand"/></svg></button>
     </div>
     <div class="cmp-chips" id="svb-chips"></div>
-    <div class="chart-panel" style="padding: 20px 24px;">
+    <div class="chart-panel">
       <canvas id="ratio-chart" style="max-height: 260px;"></canvas>
     </div>
   </div>
@@ -3210,7 +3249,7 @@
          side by side. The holdings editor + cards follow in their own section. -->
     <h2 class="section-eyebrow">Your Portfolio</h2>
     <p class="section-desc"><strong>What:</strong> what your holdings are worth now, and how that value has moved. <strong>How to read:</strong> the summary totals your current value and <em>unrealised P&amp;L</em> (cost basis vs. each product's latest tracked price); the chart plots your <em>current</em> holdings valued at every tracked snapshot against your flat <em>cost basis</em> — the gap between the lines is your gain (above cost) or loss (below). Values current quantities back across history; purchase dates aren't tracked. Private to your account, saved automatically.</p>
-    <div class="panel">
+    <div class="panel" id="portfolio-overview-panel">
       <div class="panel-header">
         <h3 class="panel-title">Portfolio</h3>
         <!-- The display-currency picker is global now — it lives in the page
@@ -3220,8 +3259,10 @@
 
       <div class="portfolio-summary" id="portfolio-summary"></div>
 
-      <div class="chart-panel" id="portfolio-value-chart-wrap" style="padding: 20px 24px;">
-        <canvas id="portfolio-value-chart" style="max-height: 280px;"></canvas>
+      <!-- On a phone this wrap goes full-bleed (edge-to-edge) — see the mobile
+           CSS; padding/height live in CSS so the media query can override them. -->
+      <div class="chart-panel" id="portfolio-value-chart-wrap">
+        <canvas id="portfolio-value-chart"></canvas>
       </div>
       <div id="portfolio-value-empty" class="balancer-empty" style="display:none;">Add holdings below to see how their value has moved across the tracked snapshots.</div>
     </div>
@@ -5762,6 +5803,19 @@ function fillHoldingLogos() {
 // reads as a trend. Currency-aware via money()/the active FX rate; wired through
 // renderPortfolio() so it updates on load, data reload, holding edits and
 // currency changes. One Chart.js instance in the destroy-and-recreate pattern.
+// True on a phone-width viewport — the full-bleed charts (portfolio value +
+// drill-down) drop their axes there so the line reaches the screen edges.
+function isNarrowViewport() { return window.matchMedia('(max-width: 680px)').matches; }
+// Given a Chart.js `scales` object, hide every scale on a narrow viewport (each
+// scale display:false takes no space, so the plot fills the width); pass through
+// unchanged on desktop.
+function chartAxelessOnMobile(scales) {
+  if (!isNarrowViewport()) return scales;
+  const out = {};
+  for (const k of Object.keys(scales)) out[k] = { ...scales[k], display: false };
+  return out;
+}
+
 let portfolioValueChart = null;
 function renderPortfolioValueChart() {
   const wrap  = document.getElementById('portfolio-value-chart-wrap');
@@ -5824,13 +5878,16 @@ function renderPortfolioValueChart() {
           },
         } },
       },
-      scales: {
+      // On a phone this chart goes edge-to-edge (see the .full-bleed CSS), so the
+      // axes are dropped — the line reaches the screen edges and the exact values
+      // live in the hover tooltip (the Collectr pattern). Desktop keeps them.
+      scales: chartAxelessOnMobile({
         x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } },
         y: {
           grid: { color: 'rgba(255,255,255,0.05)' },
           ticks: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, callback: v => money(v / rate) },
         },
-      },
+      }),
     },
   });
 }
@@ -7628,10 +7685,12 @@ function renderDrillPriceChart(p) {
           filter: item => !item.text.startsWith('__') } },
         tooltip: { callbacks: { label: ctx => ctx.dataset.label.startsWith('__') ? null : ` ${ctx.dataset.label}: ${symFmt(ctx.parsed.y)}` } },
       },
-      scales: {
+      // Edge-to-edge on a phone (see the drill-chart full-bleed CSS): axes off,
+      // values on hover.
+      scales: chartAxelessOnMobile({
         x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } },
         y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => symFmt(v) } },
-      },
+      }),
     },
   });
 }
@@ -7655,10 +7714,10 @@ function renderDrillSvbChart(p) {
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(1)}× booster cost` } } },
-      scales: {
+      scales: chartAxelessOnMobile({
         x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } },
         y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } },
-      },
+      }),
     },
   });
 }

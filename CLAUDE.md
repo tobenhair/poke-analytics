@@ -248,6 +248,40 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   scatter (§02) is exempt — it *is* a point cloud (age vs value), where the marks
   are the data. Any new time-series line should follow the `pointRadius: 0` /
   `pointHoverRadius` convention.
+- **On a phone the value charts go full-bleed and drop their axes (Collectr
+  pattern).** Below 680px the **Portfolio value chart** and the **drill-down
+  price + SV/Booster charts** reach the screen edges with no axis labels — the
+  exact values live in the hover tooltip. Two independent pieces make it, both in
+  the `≤680px` CSS block:
+  - **Axes off, via JS not CSS.** `chartAxelessOnMobile(scales)` (a helper beside
+    `renderPortfolioValueChart`) returns the same `scales` object with every scale
+    `display:false` when `isNarrowViewport()` (`matchMedia('(max-width:680px)')`),
+    and passes it through unchanged on desktop. It wraps the `scales:` literal in
+    exactly three render functions — `renderPortfolioValueChart`,
+    `renderDrillPriceChart`, `renderDrillSvbChart`. A `display:false` scale takes
+    no layout space, so the plot fills the width. (The destroy-recreate pattern
+    means it re-evaluates on every render, so rotating a phone across the
+    breakpoint picks up the right axes on the next re-render.) The scatter/compare
+    charts are **not** wrapped — they keep axes at every width (the zoom-clone
+    test reads `chart-zoom-canvas.scales`, so those must stay).
+  - **Edge-to-edge, scrollbar-safe — negative margins, never `100vw`.** The
+    Portfolio value chart's wrap (`#portfolio-value-chart-wrap`) bleeds out with
+    `margin-left/right: -16px` (cancelling the `.wrapper`'s 16px phone side
+    padding; the `.panel` itself has no padding and `#portfolio-overview-panel`
+    drops its side border+radius and goes `overflow:visible` on mobile so the
+    child isn't clipped). **Do not use `width:100vw` here** — `100vw` includes the
+    scrollbar, so it overflows `clientWidth` by the scrollbar width and trips the
+    320px no-sideways-scroll reflow contract (`tests/signed-in.spec.mjs`). And the
+    wrap itself keeps `overflow:hidden`: Chart.js resizes the canvas async
+    (ResizeObserver), so for a frame after a viewport resize the canvas holds its
+    old wider pixel width — with the panel now `overflow:visible` that transient
+    would leak and scroll the page, so the (viewport-wide) wrap clips it. The
+    drill-down charts bleed the same way but out of the **modal** padding
+    (`.drill-chart { margin-left/right: -20px }`, matched to the phone `.modal`
+    padding of 20px; the overlay gutter drops to 12px). The portfolio wrap's
+    desktop `padding`/`max-height` moved from inline styles to CSS
+    (`#portfolio-value-chart-wrap` / `#portfolio-value-chart`) precisely so the
+    media query can override them.
 - **Charts expand to a full-screen, zoomable dialog.** The dense §03 scatter and
   the §05/§07 comparison charts are hard to read inline (worst on a phone), so
   each panel header carries a `.chart-expand-btn` (the `#i-expand` sprite),
