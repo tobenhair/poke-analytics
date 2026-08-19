@@ -148,7 +148,12 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   state.
 - **Account actions live in a profile menu** (`#profile-btn` → `#profile-menu`),
   not spread across the header — the signed-in email + *Change password* +
-  *Sign out* row overflowed a phone (clipped off the right edge). It's a
+  *Sign out* row overflowed a phone (clipped off the right edge). The trigger is
+  now an **icon-only** button (`.icon-btn`, the `#i-user` glyph, `aria-label`
+  "Account menu"), sitting in a compact `.header-controls` row beside the
+  **symbol-only currency picker** (`#display-currency` shows just `€`/`$`/`£`/`kr`
+  — `populateCurrencySelect()` sets the option text to the symbol; the select's
+  `aria-label` carries the meaning). It's a
   **disclosure, not a modal**: `wireProfileMenu()` (inside `wireAuthControls()`)
   toggles `aria-expanded`, moves focus into the menu on open, and closes on
   Escape (focus returns to the trigger) / an outside click / choosing an item.

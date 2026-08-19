@@ -1815,6 +1815,22 @@
   }
   .auth-signout:hover { border-color: var(--accent2); color: var(--text); }
 
+  /* Compact header controls: the currency picker + the account icon sit in one
+     right-aligned row. */
+  .header-controls { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+  /* Currency picker shows just the active symbol, so it sizes to content — no
+     fixed max-width, tighter padding than the analytical selects. */
+  .currency-select { max-width: none; width: auto; padding: 6px 10px; text-align: center; }
+  /* Icon-only buttons (the account trigger): a square ≥24px hit target with a
+     centred icon and a neutral (gold) hover, not the destructive red the shared
+     .auth-signout hover carries. */
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; padding: 0; border-radius: var(--radius-pill);
+  }
+  .icon-btn .icon { width: 18px; height: 18px; }
+  .icon-btn:hover { border-color: rgba(244,198,81,0.5); color: var(--accent); }
+
   /* ── Account profile menu (a disclosure, not a modal) ── */
   .profile-wrap { position: relative; }
   .profile-menu {
@@ -2657,25 +2673,25 @@
            populateCurrencySelect(); offers € plus the currencies we hold a live
            rate for (falls back to €-only if the FX fetch failed, and #fx-note
            says why rather than leaving it a mystery). -->
-      <div class="header-currency" style="margin-top:4px; display:flex; align-items:center; gap:8px; justify-content:flex-end;">
-        <label class="cmp-empty" for="display-currency" style="margin:0;">Shown in</label>
-        <select class="trend-select" id="display-currency" style="max-width:120px;" aria-label="Display currency"></select>
+      <!-- Compact controls row: the display-currency shows just the active
+           symbol (€ / $ / £ / kr) — a self-explanatory picker, no "Shown in"
+           label — beside an icon-only account button. Account actions live in a
+           collapsed profile menu (a disclosure, not a modal): the trigger toggles
+           #profile-menu, Escape / an outside click / choosing an item closes it
+           and returns focus. The email span + both action buttons keep their ids
+           so their existing wiring is unchanged. -->
+      <div class="header-controls">
+        <select class="trend-select currency-select" id="display-currency" aria-label="Display currency"></select>
         <span class="cmp-empty" id="fx-note" style="display:none;"></span>
-      </div>
-      <!-- Account actions live in a collapsed profile menu, not spread across the
-           header — the email + two buttons overflowed a phone. A disclosure (not
-           a modal dialog): the trigger toggles #profile-menu, Escape / an outside
-           click / choosing an item closes it and returns focus. The email span
-           and both action buttons keep their ids so their existing wiring is
-           unchanged. -->
-      <div class="sb-only profile-wrap" style="margin-top:8px; display:flex; justify-content:flex-end;">
-        <button class="auth-signout" id="profile-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="profile-menu" aria-label="Account menu">
-          <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg> Account
-        </button>
-        <div class="profile-menu" id="profile-menu" role="group" aria-label="Account" hidden>
-          <span id="auth-user-email" class="profile-email"></span>
-          <button class="profile-menu-item" id="change-pw-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg> Change password</button>
-          <button class="profile-menu-item" id="auth-signout-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-out"/></svg> Sign out</button>
+        <div class="sb-only profile-wrap">
+          <button class="auth-signout icon-btn" id="profile-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="profile-menu" aria-label="Account menu">
+            <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+          </button>
+          <div class="profile-menu" id="profile-menu" role="group" aria-label="Account" hidden>
+            <span id="auth-user-email" class="profile-email"></span>
+            <button class="profile-menu-item" id="change-pw-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg> Change password</button>
+            <button class="profile-menu-item" id="auth-signout-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-out"/></svg> Sign out</button>
+          </div>
         </div>
       </div>
     </div>
@@ -5588,7 +5604,9 @@ function populateCurrencySelect() {
     const meta = CURRENCY_META[c];
     const opt = document.createElement('option');
     opt.value = c;
-    opt.textContent = `${(meta.symbol || meta.suffix.trim())} ${c}`.trim();
+    // Symbol only (€ / $ / £ / kr) — the compact header picker shows just the
+    // active symbol; the select's aria-label carries the meaning for AT.
+    opt.textContent = (meta.symbol || meta.suffix.trim());
     sel.appendChild(opt);
   });
   sel.value = displayCurrency;
