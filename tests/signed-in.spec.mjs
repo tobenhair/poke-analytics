@@ -74,25 +74,30 @@ test('the news feed shows a TCG-first teaser and opens a grouped, safe-linking o
   await expect(page.locator('#demo-page .news-teaser .news-teaser-body li').first())
     .toContainText('Prismatic Evolutions');
 
-  // "All news →" opens the shared overlay, grouped with Pokémon TCG first.
+  // "All news →" opens the shared overlay (the demo page has no tab bar),
+  // grouped with Pokémon TCG first.
   await page.locator('#demo-page .news-teaser .news-all').click();
   await expect(page.locator('#news-modal')).toHaveClass(/open/);
-  await expect(page.locator('#news-list .news-group-title').first()).toHaveText('Pokémon TCG');
-  await expect(page.locator('#news-list')).toContainText('The Pokemon Company posts record revenue');
+  await expect(page.locator('#news-modal .news-group-title').first()).toHaveText('Pokémon TCG');
+  await expect(page.locator('#news-modal .news-full')).toContainText('The Pokemon Company posts record revenue');
 
   // Headlines link out safely — new tab + noopener.
-  const link = page.locator('#news-list .news-link').first();
+  const link = page.locator('#news-modal .news-link').first();
   await expect(link).toHaveAttribute('target', '_blank');
   await expect(link).toHaveAttribute('rel', /noopener/);
 
   await page.keyboard.press('Escape');
   await expect(page.locator('#news-modal')).not.toHaveClass(/open/);
 
-  // Signed in, the header News button appears and opens the same overlay.
+  // Signed in, news is its OWN tab (between Welcome and Analysis), revealed once
+  // the table returns rows — no header button, no Welcome teaser.
   await signIn(page, 'user@test.local');
-  await expect(page.locator('#news-btn')).toBeVisible();
-  await page.locator('#news-btn').click();
-  await expect(page.locator('#news-modal')).toHaveClass(/open/);
+  await expect(page.locator('#tabbtn-news')).toBeVisible();
+  await expect(page.locator('#tab-welcome .news-teaser')).toHaveCount(0);
+  await page.locator('#tabbtn-news').click();
+  await expect(page.locator('#tab-news')).toBeVisible();
+  await expect(page.locator('#tab-news .news-group-title').first()).toHaveText('Pokémon TCG');
+  await expect(page.locator('#tab-news .news-full')).toContainText('The Pokemon Company posts record revenue');
 
   expect(pageErrors).toEqual([]);
 });

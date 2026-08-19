@@ -1131,12 +1131,14 @@
     cursor: pointer; font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--accent3); }
   .news-all:hover { text-decoration: underline; }
   /* Overlay: same rows, grouped under a small category heading. */
-  #news-list { margin-top: 8px; }
+  /* The grouped full list — shared by the News tab pane and the demo's
+     #news-modal (both carry .news-full). */
+  .news-full { margin-top: 8px; }
   .news-group + .news-group { margin-top: 22px; }
   .news-group-title { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--accent);
     text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 6px; }
-  #news-list ul { list-style: none; }
-  #news-list li + li { border-top: 1px solid var(--hairline); }
+  .news-full ul { list-style: none; }
+  .news-full li + li { border-top: 1px solid var(--hairline); }
   .news-empty { padding: 16px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: var(--text-sm); }
 
   canvas { max-height: 220px; }
@@ -2356,7 +2358,7 @@
     <button class="modal-close" id="news-close" type="button" aria-label="Close news">✕</button>
     <h2 id="news-heading">News</h2>
     <p class="modal-intro">Pokémon TCG, investing &amp; business — headlines link out to the source.</p>
-    <div id="news-list"></div>
+    <div class="news-full"></div>
   </div>
 </div>
 
@@ -2631,12 +2633,8 @@
     </div>
     <div class="header-meta">
       <div class="last-update" id="last-update-wrap">Last updated: <span id="last-update-date">—</span><span class="stale-note" id="last-update-stale"></span></div>
-      <!-- News (Pokémon TCG-first) — opens the news overlay. Hidden until the
-           `news` table returns rows, so it never shows a dead control (static
-           build has no news). Populated by loadNews() → renderNews(). -->
-      <button class="auth-signout" id="news-btn" type="button" hidden style="margin-top:4px;" aria-haspopup="dialog">
-        <svg class="icon" aria-hidden="true"><use href="#i-news"/></svg> News
-      </button>
+      <!-- News lives in its own tab now (revealed once the `news` table returns
+           rows), so the header no longer carries a News button. -->
       <!-- Install (PWA) button. Hidden until the browser fires
            `beforeinstallprompt` (Android/desktop Chromium) and this isn't
            already running installed — so it only ever appears when it's
@@ -2697,6 +2695,12 @@
   <div class="tab-bar" role="tablist" aria-label="Dashboard sections">
     <button class="tab-btn active" data-tab="welcome" id="tabbtn-welcome" type="button"
       role="tab" aria-selected="true" aria-controls="tab-welcome"><svg class="icon icon-lg" aria-hidden="true"><use href="#i-welcome"/></svg> Welcome</button>
+    <!-- News: its own tab, revealed by renderNews() only once the `news` table
+         returns rows (static/xlsx builds have no news, so no dead tab). Hidden
+         via the `hidden` attribute, which the arrow-key nav already skips
+         (offsetParent test), like the sb-only/admin-only tabs. -->
+    <button class="tab-btn" data-tab="news" id="tabbtn-news" type="button" hidden
+      role="tab" aria-selected="false" aria-controls="tab-news" tabindex="-1"><svg class="icon icon-lg" aria-hidden="true"><use href="#i-news"/></svg> News</button>
     <button class="tab-btn" data-tab="analysis" id="tabbtn-analysis" type="button"
       role="tab" aria-selected="false" aria-controls="tab-analysis" tabindex="-1"><svg class="icon icon-lg" aria-hidden="true"><use href="#i-analysis"/></svg> Analysis</button>
     <button class="tab-btn sb-only" data-tab="portfolio" id="tabbtn-portfolio" type="button"
@@ -2791,16 +2795,8 @@
         </div>
       </div>
 
-      <!-- Latest news teaser (TCG-first). Hidden until the `news` table returns
-           rows; "All news →" opens the shared #news-modal. Populated by
-           renderNews() into every .news-teaser-body on the page. -->
-      <section class="news-teaser" hidden>
-        <h2 class="section-eyebrow">Latest news</h2>
-        <div class="panel">
-          <ul class="news-teaser-body"></ul>
-          <button type="button" class="news-all" aria-haspopup="dialog">All news →</button>
-        </div>
-      </section>
+      <!-- News now has its own tab (between Welcome and Analysis), so the
+           Welcome landing no longer carries a news teaser. -->
 
       <!-- Both open the same dialogs the demo page opens. That shared surface
            is the whole point: two copies of "what SV/Booster means" would drift
@@ -2838,6 +2834,17 @@
     </div>
 
   </div><!-- /tab-welcome -->
+
+  <!-- ═══════════════════ NEWS TAB ═══════════════════ -->
+  <!-- Pokémon TCG-first headlines from the public `news` table (a scheduled
+       server job fetches the feeds; the client only reads). Read-only: headline
+       + source + link, never article bodies. renderNews() fills every .news-full
+       (this pane + the demo's #news-modal) and reveals the tab once rows load. -->
+  <div class="tab-pane" id="tab-news" role="tabpanel" aria-labelledby="tabbtn-news" tabindex="0">
+    <h2 class="section-eyebrow">Latest news</h2>
+    <p class="section-desc">Pokémon TCG, investing &amp; business — headlines link out to the source. Fetched daily; only the headline, source and link are stored.</p>
+    <div class="news-full"></div>
+  </div><!-- /tab-news -->
 
   <!-- ═══════════════════ ANALYSIS TAB ═══════════════════ -->
   <div class="tab-pane" id="tab-analysis" role="tabpanel" aria-labelledby="tabbtn-analysis" tabindex="0">
@@ -6278,9 +6285,9 @@ document.querySelectorAll('.chart-expand-btn').forEach(btn => {
 document.getElementById('chart-zoom-close').addEventListener('click', closeChartZoom);
 document.getElementById('chart-zoom-reset').addEventListener('click', () => { if (zoomChart) zoomChart.resetZoom(); });
 
-// News overlay: header button + every "All news →" teaser link open it; the
-// close button and the shared Escape/backdrop handlers dismiss it.
-document.getElementById('news-btn').addEventListener('click', () => openOverlay('news-modal'));
+// News modal: kept for the logged-out demo page (which has no tab bar), opened
+// by the demo teaser's "All news →" link; the signed-in/static app uses the News
+// tab instead. The close button and the shared Escape/backdrop handlers dismiss it.
 document.getElementById('news-close').addEventListener('click', () => closeOverlay('news-modal'));
 document.querySelectorAll('.news-all').forEach(btn =>
   btn.addEventListener('click', () => openOverlay('news-modal')));
@@ -8108,18 +8115,19 @@ function renderNews() {
     const body = sec.querySelector('.news-teaser-body');
     if (body) body.innerHTML = teaser.map(newsRowHtml).join('');
   });
-  // Overlay: grouped by category, TCG first, newest within.
-  const list = document.getElementById('news-list');
-  if (list) {
-    list.innerHTML = has ? NEWS_CATS.map(c => {
-      const items = newsItems.filter(n => n.category === c.key).slice(0, 25);
-      return items.length
-        ? `<div class="news-group"><div class="news-group-title">${c.label}</div><ul>${items.map(newsRowHtml).join('')}</ul></div>`
-        : '';
-    }).join('') : `<div class="news-empty">No news yet.</div>`;
-  }
-  const btn = document.getElementById('news-btn');
-  if (btn) btn.hidden = !has;
+  // The grouped full list, by category (TCG first, newest within) — rendered
+  // into every .news-full: the News tab pane and the demo's #news-modal.
+  const grouped = has ? NEWS_CATS.map(c => {
+    const items = newsItems.filter(n => n.category === c.key).slice(0, 25);
+    return items.length
+      ? `<div class="news-group"><div class="news-group-title">${c.label}</div><ul>${items.map(newsRowHtml).join('')}</ul></div>`
+      : '';
+  }).join('') : `<div class="news-empty">No news yet.</div>`;
+  document.querySelectorAll('.news-full').forEach(el => { el.innerHTML = grouped; });
+  // Reveal the News tab only once there are rows (static/xlsx builds have none,
+  // so no dead tab). The arrow-key nav already skips a `hidden` tab.
+  const newsTab = document.getElementById('tabbtn-news');
+  if (newsTab) newsTab.hidden = !has;
 }
 
 // Supabase/PostgREST caps a single response at the project's "Max rows" setting
@@ -8855,8 +8863,8 @@ function wireAuthControls() {
         // up there, so this is a no-op.
         if (window.__showAppLoader) window.__showAppLoader();
         // A signed-in session lands on the Welcome tab — the signed-in landing
-        // (where-to-go map + latest-news teaser), which is also the markup
-        // default, so first paint and post-login agree. Deliberately scoped to
+        // (the where-to-go map), which is also the markup default, so first paint
+        // and post-login agree. Deliberately scoped to
         // *this* branch — a token refresh fires onAuthStateChange too, and
         // yanking the user off whatever tab they were reading would be a bug.
         // A click rather than activateTab() so the reveal-on-scroll handler,
