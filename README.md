@@ -151,9 +151,11 @@ frontend on GitHub Pages. This is off unless you fill in `SUPABASE_CONFIG` in
 
 ### Sheet 1 — `Summary` (one row per product)
 
-`Product` · `Type` · `Release Date` · `Age (years)` · `Current Price (€)` · `Set Value (€)` · `Price / Booster (€)` · `SV / Booster` · `Age Weight` · `Wtd. Score`
+`Product` · `Type` · `Packs` *(optional)* · `Release Date` · `Age (years)` · `Current Price (€)` · `Set Value (€)` · `Price / Booster (€)` · `SV / Booster` · `Age Weight` · `Wtd. Score`
 
-`Type` is one of: `BOX` (36 packs) · `ETB` (9) · `ETB10` (10) · `ETB8` (8) · `BUNDLE` (6) · `BUNDLEDISPLAY` (60) · `PACK` (1). The pack count drives the booster maths; the Elite Trainer Box variants (`ETB`/`ETB10`/`ETB8`) filter together under **Elite Trainer**, and the Bundle variants (`BUNDLE`/`BUNDLEDISPLAY`) under **Bundle**.
+`Type` is one of: `BOX` (36 packs) · `ETB` (9) · `ETB10` (10) · `ETB8` (8) · `BUNDLE` (6) · `BUNDLEDISPLAY` (60) · `COLLECTION` (varies) · `PACK` (1). The pack count drives the booster maths; the Elite Trainer Box variants (`ETB`/`ETB10`/`ETB8`) filter together under **Elite Trainer**, and the Bundle variants (`BUNDLE`/`BUNDLEDISPLAY`) under **Bundle**. `COLLECTION` filters on its own.
+
+`Packs` *(optional)* is a per-product pack count that overrides the type's default — a whole number ≥ 1. Leave it blank for a fixed-count type; it is **required for `COLLECTION`**, whose pack count varies from one product to the next (a Premium/Special Collection ships anywhere from a couple of packs to a handful).
 
 A `PACK` is a **loose single booster** and is treated as *reference data, not a ranked product*: a loose pack carries none of a sealed box's premium, so on value density it beats every box and would always top the rankings. `PACK` rows are therefore kept out of the board, the charts and the KPIs, and instead surface in the drill-down of the sealed products of the same set (matched by set name) as two reference tiles — **Loose pack price** (with the sealed-vs-loose premium per booster) and **Sealed premium** (the € you pay to buy sealed vs the same number of packs bought loose, `price − loose × boosters`) — without a loose pack ever being flagged as the recommended buy.
 
@@ -168,7 +170,7 @@ The in-app **File Format Guide** (the **Format Guide** button on the **Analysis*
 ## Key concepts
 
 - **Set Value** — the total market value of all cards in a complete set.
-- **Price / Booster** — product price ÷ boosters inside, set by Type (BOX = 36, ETB = 9, BUNDLE = 6, plus the variants ETB10 = 10, ETB8 = 8, BUNDLEDISPLAY = 60, PACK = 1). If a product has a **Promo Value** (the bundled promo card's own price, tracked per snapshot — fetched daily from its Cardmarket id in cloud mode), that value is subtracted from the price first, so the per-booster figure reflects only the boosters (an ETB isn't penalised for the promo it also includes).
+- **Price / Booster** — product price ÷ boosters inside, set by Type (BOX = 36, ETB = 9, BUNDLE = 6, plus the variants ETB10 = 10, ETB8 = 8, BUNDLEDISPLAY = 60, PACK = 1), or by the product's own **Packs** for a variable-pack **COLLECTION**. If a product has a **Promo Value** (the bundled promo card's own price, tracked per snapshot — fetched daily from its Cardmarket id in cloud mode), that value is subtracted from the price first, so the per-booster figure reflects only the boosters (an ETB isn't penalised for the promo it also includes).
 - **SV / Booster** — Set Value ÷ Price/Booster. Reads as a value-for-money **×multiple** — how many times the price of a *single booster* the whole set is worth (e.g. `185×`), **not** a euro-per-pack amount. The core comparability metric; works across all product types.
 - **Age Weight** — 0–1 multiplier. Products under a year old are penalised; ≥3 years = 1.0.
 - **Wtd. Score** — SV / Booster × Age Weight. The headline ranking metric.

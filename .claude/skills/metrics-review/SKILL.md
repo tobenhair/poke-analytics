@@ -16,7 +16,12 @@ convincingly. This skill guards that core.
   `ETB10 = 10`, `ETB8 = 8`, `BUNDLEDISPLAY = 60`, `PACK = 1`. These are physical
   facts about the products; changing one silently reprices everything. A new
   product form is a new entry in `PRODUCT_TYPES` (booster count + a `category`),
-  not a new formula.
+  not a new formula. **`COLLECTION` breaks the fixed-count rule on purpose** — its
+  pack count varies per product, so a product's own `packs` field overrides the
+  type default via **`resolveBoosters(product)`** (what `deriveProducts()` calls,
+  not `boostersFromType()` directly). `boostersFromType('COLLECTION')` is a
+  fallback (4) only. When you touch booster resolution, go through
+  `resolveBoosters()` so the `packs` override is honoured.
 - **Type vs category** — `typeCategory()` maps each type to its filter/colour
   bucket (`BOX`/`ETB`/`BUNDLE`/`PACK`); several types share one (ETB/ETB10/ETB8
   → ETB, BUNDLE/BUNDLEDISPLAY → BUNDLE). `activeType` is a *category*, so all

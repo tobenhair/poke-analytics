@@ -112,6 +112,10 @@
     --accent2: #ef6a60;
     --accent3: #5cc7f2;
     --accent4: #7fd493;
+    /* Fifth category hue (Collection). Not a new colour to the app — it is the
+       purple already used by comparison-series 4 (#b39ddb), promoted to a token
+       so the COLLECTION type badge/points read distinctly from BOX/ETB/BUNDLE. */
+    --accent5: #b39ddb;
     --text: #f0f1f5;
     --muted: #8b8fa3;
     --card: #10131b;
@@ -926,6 +930,8 @@
   .type-BOX { background: rgba(92,199,242,0.12); color: var(--accent3); border: 1px solid rgba(92,199,242,0.22); }
   .type-ETB { background: rgba(127,212,147,0.12); color: var(--accent4); border: 1px solid rgba(127,212,147,0.22); }
   .type-BUNDLE { background: rgba(244,198,81,0.1); color: var(--accent); border: 1px solid rgba(244,198,81,0.22); }
+  /* Collection — purple (--accent5), matching COLOR.purple in charts. */
+  .type-COLLECTION { background: rgba(179,157,219,0.12); color: var(--accent5); border: 1px solid rgba(179,157,219,0.22); }
   /* Single Pack has no semantic hue (the palette's four accents are spoken for) —
      a neutral badge from the surface/border tokens, matching COLOR.muted in charts. */
   .type-PACK { background: var(--bg3); color: var(--muted); border: 1px solid var(--border); }
@@ -2243,7 +2249,8 @@
         <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
         <tbody>
           <tr><td>Product</td><td><span class="tag-req">required</span></td><td>Full product name — must also appear in Historical Data sheet</td></tr>
-          <tr><td>Type</td><td><span class="tag-req">required</span></td><td>Exactly one of: <b>BOX</b> (36 packs), <b>ETB</b> (9), <b>ETB10</b> (10), <b>ETB8</b> (8), <b>BUNDLE</b> (6), <b>BUNDLEDISPLAY</b> (60), or <b>PACK</b> (1). The pack count sets the booster maths; the <b>ETB*</b> variants filter under Elite Trainer and the <b>BUNDLE*</b> under Bundle. A <b>PACK</b> (a loose single booster) is reference-only: it is kept out of the rankings and charts and shown as the <em>Loose pack price</em> in the drill-down of the same set's sealed products.</td></tr>
+          <tr><td>Type</td><td><span class="tag-req">required</span></td><td>Exactly one of: <b>BOX</b> (36 packs), <b>ETB</b> (9), <b>ETB10</b> (10), <b>ETB8</b> (8), <b>BUNDLE</b> (6), <b>BUNDLEDISPLAY</b> (60), <b>COLLECTION</b> (varies — set the <b>Packs</b> column), or <b>PACK</b> (1). The pack count sets the booster maths; the <b>ETB*</b> variants filter under Elite Trainer and the <b>BUNDLE*</b> under Bundle. A <b>PACK</b> (a loose single booster) is reference-only: it is kept out of the rankings and charts and shown as the <em>Loose pack price</em> in the drill-down of the same set's sealed products.</td></tr>
+          <tr><td>Packs</td><td><span class="tag-opt">optional</span></td><td>Whole number ≥ 1 — overrides the type's default pack count for a product whose count differs. <b>Required for COLLECTION</b> (a Premium/Special Collection ships a varying number of packs). Blank = use the Type's default.</td></tr>
           <tr><td>Release Date</td><td><span class="tag-req">required</span></td><td>Date value or text in YYYY-MM-DD format</td></tr>
           <tr><td>Age (years)</td><td><span class="tag-req">required</span></td><td>Decimal number, e.g. 1.47</td></tr>
           <tr><td>Current Price (€)</td><td><span class="tag-req">required</span></td><td>Number in cents or euros — must be consistent across rows</td></tr>
@@ -2339,7 +2346,7 @@
           </tr>
           <tr>
             <th scope="row">Price / Booster</th>
-            <td>The product price ÷ the number of boosters inside — set by Type (BOX = 36, ETB = 9, BUNDLE = 6, and the variants ETB10 = 10, ETB8 = 8, BUNDLEDISPLAY = 60, PACK = 1). Puts a €58 bundle and a €400 box on the same footing.</td>
+            <td>The product price ÷ the number of boosters inside — set by Type (BOX = 36, ETB = 9, BUNDLE = 6, and the variants ETB10 = 10, ETB8 = 8, BUNDLEDISPLAY = 60, PACK = 1), or by the product's own <em>Packs</em> for a variable-pack COLLECTION. Puts a €58 bundle and a €400 box on the same footing.</td>
           </tr>
           <tr>
             <th scope="row">SV / Booster</th>
@@ -2946,6 +2953,7 @@
       <button class="pill" type="button" data-type="BOX" aria-pressed="false">Booster Box<span class="pill-count"></span></button>
       <button class="pill" type="button" data-type="ETB" aria-pressed="false">Elite Trainer<span class="pill-count"></span></button>
       <button class="pill" type="button" data-type="BUNDLE" aria-pressed="false">Bundle<span class="pill-count"></span></button>
+      <button class="pill" type="button" data-type="COLLECTION" aria-pressed="false">Collection<span class="pill-count"></span></button>
     </div>
 
     <!-- Era scope filter — a second global scoping axis beside Type. Narrows
@@ -3359,6 +3367,7 @@
                 <th>Promo ID</th>
                 <th>Product</th>
                 <th>Type</th>
+                <th>Packs</th>
                 <th>Last Price (€)</th>
                 <th>Last Set Value (€)</th>
                 <th>New Price (€)</th>
@@ -3426,8 +3435,13 @@
                   <option value="ETB8">ETB8 — Elite Trainer Box (8 packs)</option>
                   <option value="BUNDLE">BUNDLE — Booster Bundle (6 packs)</option>
                   <option value="BUNDLEDISPLAY">BUNDLEDISPLAY — Booster Bundle Display (10 bundles, 60 packs)</option>
+                  <option value="COLLECTION">COLLECTION — Collection (varies — set Packs)</option>
                   <option value="PACK">PACK — Booster Pack (single booster)</option>
                 </select>
+              </div>
+              <div class="field-group">
+                <div class="field-label">Packs <span style="color:var(--muted); font-size: var(--text-2xs);">(only for COLLECTION — pack count)</span></div>
+                <input class="field-input" id="new-product-packs" type="number" min="1" step="1" placeholder="e.g. 4">
               </div>
               <div class="field-group">
                 <div class="field-label">Release Date</div>
@@ -3484,7 +3498,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, groupEras, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange } from './metrics.js';
+import { boostersFromType, resolveBoosters, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, groupEras, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -3640,13 +3654,14 @@ const COLOR = {
   red:   token('--accent2'),   // negative
   blue:  token('--accent3'),   // neutral / BOX
   green: token('--accent4'),   // positive / ETB
+  purple: token('--accent5'),  // COLLECTION (variable-pack sets)
   muted: token('--muted'),     // axis labels that name data (product, currency)
   axis:  token('--chart-axis'),// grid/tick chrome, a step below muted
 };
 // Per-category colour, shared by every chart that colours by product type and by
 // the .type-* badges. Keyed by the filter bucket (typeCategory), so an ETB10
 // draws green like an ETB. PACK has no semantic hue → neutral muted.
-const CATEGORY_COLOR = { BOX: COLOR.blue, ETB: COLOR.green, BUNDLE: COLOR.gold, PACK: COLOR.muted };
+const CATEGORY_COLOR = { BOX: COLOR.blue, ETB: COLOR.green, BUNDLE: COLOR.gold, COLLECTION: COLOR.purple, PACK: COLOR.muted };
 const categoryColor = type => CATEGORY_COLOR[typeCategory(type)] || COLOR.muted;
 
 // One definition of the product-type badge, so every listing renders it the
@@ -3805,9 +3820,10 @@ function recomputeFit() {
   ageFit = linearFit(pool.map(p => ({ x: p.age, y: p.svPerBooster })));
   pool.forEach(p => {
     // The workbook path stamps p.boosters via deriveProducts(); the hardcoded
-    // fallback array omits it. Booster count is a pure function of type, so fill
-    // it here to keep fair price working identically across both data sources.
-    if (p.boosters == null) p.boosters = boostersFromType(p.type);
+    // fallback array omits it. resolveBoosters honours a per-product `packs`
+    // override (variable-pack COLLECTION) and falls back to the type default, so
+    // fair price works identically across both data sources.
+    if (p.boosters == null) p.boosters = resolveBoosters(p);
     const fp = fairPrice(p, ageFit);
     p.fairPrice = fp ? parseFloat(fp.fair.toFixed(0)) : null;
     p.fairGap   = fp && fp.gapPct != null ? parseFloat(fp.gapPct.toFixed(0)) : null;
@@ -5069,6 +5085,7 @@ function parseXlsx(arrayBuffer) {
     const name     = col(row, 'Product');
     const type     = col(row, 'Type');
     const rawRelease = col(row, 'Release Date');
+    const rawPacks   = col(row, 'Packs');
     const pfx = `Summary row ${rowNum}`;
 
     // Name
@@ -5097,6 +5114,17 @@ function parseXlsx(arrayBuffer) {
         errors.push(`Summary ${label}: Release Date "${rawRelease}" is not a valid date`);
     }
 
+    // Packs (optional) — a per-product override of the type's default booster
+    // count; required for a variable-pack COLLECTION. A positive whole number.
+    let packs = null;
+    if (rawPacks != null && String(rawPacks).trim() !== '') {
+      packs = Number(rawPacks);
+      if (!Number.isInteger(packs) || packs < 1)
+        errors.push(`Summary ${label}: Packs "${rawPacks}" must be a whole number ≥ 1`);
+    } else if (String(type).toUpperCase() === 'COLLECTION') {
+      errors.push(`Summary ${label}: a COLLECTION needs a Packs value (its pack count varies)`);
+    }
+
     if (errors.length === 0) {
       const releaseStr = rawRelease instanceof Date
         ? rawRelease.toISOString().slice(0,10)
@@ -5105,6 +5133,9 @@ function parseXlsx(arrayBuffer) {
         name: String(name).trim(),
         type: String(type).toUpperCase(),
         release: releaseStr,
+        // Optional per-product pack override (variable-pack COLLECTION); null =
+        // use the type default in deriveProducts.
+        packs,
         // Promo value is a per-snapshot column in Historical Data now (it moves
         // over time), read below — not a static Summary field.
         // boosters read from Historical Data below
@@ -6583,6 +6614,11 @@ let productPromoCmIds = {};
 // ingestion leaves this product's price alone (admin sets it by hand); the
 // manual override for thin-liquidity products. Persisted to products.price_locked.
 let productLocked = {};
+// Per-product pack count: { productName -> number } — overrides the type's
+// default booster count, the mechanism a variable-pack COLLECTION needs (blank
+// for a fixed-count type = use its default). Edited in Data Entry, persisted to
+// products.packs and mirrored as the workbook Summary "Packs" column.
+let productPacks = {};
 // Latest snapshot's advisory data per product, for the low-liquidity review:
 // { productName -> { lowLiq: bool, avg: number|null, low: number|null } }. Read
 // from the newest snapshot in loadFromSupabase; display only.
@@ -6830,6 +6866,12 @@ function renderEntryTable() {
       </td>
       <td class="entry-product-name" title="${p.name}">${p.name}</td>
       <td>${typeBadge(p.type)}</td>
+      <td style="width:70px;">
+        <input class="entry-input packs-input" type="number" min="1" step="1" placeholder="${boostersFromType(p.type) ?? ''}"
+          aria-label="${p.name} — packs per unit (overrides the type default)"
+          data-product="${p.name}"
+          value="${productPacks[p.name] != null ? productPacks[p.name] : ''}">
+      </td>
       <td class="entry-last-price">${last.price != null ? '€' + last.price.toLocaleString('de-DE') : '—'}${thinNote}</td>
       <td class="entry-last-price">${last.setVal != null ? '€' + last.setVal.toLocaleString('de-DE') : '—'}</td>
       <td>
@@ -6909,6 +6951,18 @@ function renderEntryTable() {
       const raw = e.target.value.trim();
       if (raw === '') delete productExpIds[name];
       else productExpIds[name] = parseInt(raw, 10);
+    });
+  });
+
+  // Packs cell — edits the productPacks map (saved to products.packs). A positive
+  // integer overrides the type's default booster count (variable-pack COLLECTION);
+  // blank = use the type default. Applied on Save to cloud, then re-derived.
+  tbody.querySelectorAll('.packs-input').forEach(input => {
+    input.addEventListener('input', e => {
+      const name = e.target.dataset.product;
+      const raw = e.target.value.trim();
+      if (raw === '') delete productPacks[name];
+      else productPacks[name] = parseInt(raw, 10);
     });
   });
 
@@ -7107,6 +7161,8 @@ document.getElementById('add-product-btn').addEventListener('click', () => {
   const release = document.getElementById('new-product-release').value;
   const price   = parseFloat(document.getElementById('new-product-price').value);
   const sv      = parseFloat(document.getElementById('new-product-sv').value);
+  const packsRaw = document.getElementById('new-product-packs').value.trim();
+  const packs    = packsRaw === '' ? null : parseInt(packsRaw, 10);
   const errEl   = document.getElementById('add-product-error');
 
   // Validate
@@ -7117,6 +7173,11 @@ document.getElementById('add-product-btn').addEventListener('click', () => {
   if (!release)                        errs.push('Release date is required.');
   if (isNaN(price) || price <= 0)      errs.push('Price must be a positive number.');
   if (isNaN(sv)    || sv < 0)          errs.push('Set Value must be a non-negative number.');
+  if (packsRaw !== '' && (!Number.isInteger(packs) || packs < 1))
+                                        errs.push('Packs must be a whole number ≥ 1.');
+  // A COLLECTION has no fixed pack count, so it needs one entered.
+  if (type === 'COLLECTION' && packs == null)
+                                        errs.push('A COLLECTION needs a pack count (Packs).');
 
   if (errs.length) {
     errEl.textContent = errs.join(' ');
@@ -7126,7 +7187,8 @@ document.getElementById('add-product-btn').addEventListener('click', () => {
   errEl.style.display = 'none';
 
   // Add to pending
-  pendingProducts.push({ name, type, release });
+  pendingProducts.push({ name, type, release, ...(packs != null ? { packs } : {}) });
+  if (packs != null) productPacks[name] = packs;
 
   // Pre-fill entry data with the initial price/sv
   entryData[name] = { price, setVal: sv };
@@ -7150,6 +7212,7 @@ document.getElementById('add-product-btn').addEventListener('click', () => {
   document.getElementById('new-product-url').value   = '';
   document.getElementById('new-product-cmid').value  = '';
   document.getElementById('new-product-expid').value = '';
+  document.getElementById('new-product-packs').value = '';
 
   renderEntryTable();
 });
@@ -7179,10 +7242,14 @@ function exportXlsx() {
   const allExistingProducts = [...products];
   const newOnes = pendingProducts.filter(p => !allExistingProducts.find(ep => ep.name === p.name));
 
+  // Packs (per-product booster-count override; blank = use the type default).
+  // Prefer the edited Data Entry buffer, else the product's own value.
+  const packOf = p => productPacks[p.name] != null ? productPacks[p.name]
+                    : (p.packs != null ? p.packs : '');
   const summaryRows = [
-    ['Product', 'Type', 'Release Date'],
-    ...allExistingProducts.map(p => [p.name, p.type, p.release]),
-    ...newOnes.map(p => [p.name, p.type, p.release]),
+    ['Product', 'Type', 'Release Date', 'Packs'],
+    ...allExistingProducts.map(p => [p.name, p.type, p.release, packOf(p)]),
+    ...newOnes.map(p => [p.name, p.type, p.release, packOf(p)]),
   ];
 
   // ── Build Historical Data sheet rows ──
@@ -7220,7 +7287,7 @@ function exportXlsx() {
   const wb = XLSX.utils.book_new();
 
   const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
-  wsSummary['!cols'] = [{wch:36},{wch:10},{wch:14}];
+  wsSummary['!cols'] = [{wch:36},{wch:10},{wch:14},{wch:7}];
   XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
 
   const wsHist = XLSX.utils.aoa_to_sheet(histRows);
@@ -8266,6 +8333,7 @@ async function loadFromSupabase() {
   productExpIds = {};
   productPromoCmIds = {};
   productLocked = {};
+  productPacks = {};
   productPriceRef = {};
   const newHistoricalData = {};
   const newLinks = {};
@@ -8275,6 +8343,7 @@ async function loadFromSupabase() {
     if (p.cardmarket_expansion_id != null) productExpIds[p.name] = p.cardmarket_expansion_id;
     if (p.cardmarket_promo_product_id != null) productPromoCmIds[p.name] = p.cardmarket_promo_product_id;
     if (p.price_locked) productLocked[p.name] = true;
+    if (p.packs != null) productPacks[p.name] = p.packs;
     const byDate = {};
     snapList.filter(s => s.product_id === p.id).forEach(r => { byDate[r.snapshot_date] = r; });
     newHistoricalData[p.name] = {
@@ -8297,6 +8366,9 @@ async function loadFromSupabase() {
     if (p.cardmarket_url) newLinks[p.name] = p.cardmarket_url;
     return {
       name: p.name, type: String(p.type).toUpperCase(), release: p.release,
+      // packs (nullable) overrides the type's default booster count in
+      // deriveProducts (variable-pack COLLECTION); null = use the type default.
+      packs: p.packs != null ? Number(p.packs) : null,
       // promoValue is derived from the per-snapshot promo series (hist.promo) in
       // deriveProducts — no static per-product promo any more.
       boosters: null, age: null, price: null, setVal: null,
@@ -8657,6 +8729,7 @@ async function saveToSupabase() {
     for (const p of newOnes) {
       const { data, error } = await sbClient.from('products')
         .insert({ name: p.name, type: p.type, release: p.release,
+                  packs: productPacks[p.name] ?? null,
                   cardmarket_url: productUrls[p.name] || null,
                   cardmarket_product_id: productCmIds[p.name] ?? null,
                   cardmarket_expansion_id: productExpIds[p.name] ?? null,
@@ -8669,12 +8742,13 @@ async function saveToSupabase() {
 
     // 2. Update Cardmarket link + product/expansion ids + price-lock on existing
     //    products (whichever the admin has touched).
-    const metaNames = new Set([...Object.keys(productUrls), ...Object.keys(productCmIds), ...Object.keys(productExpIds), ...Object.keys(productPromoCmIds), ...Object.keys(productLocked)]);
+    const metaNames = new Set([...Object.keys(productUrls), ...Object.keys(productCmIds), ...Object.keys(productExpIds), ...Object.keys(productPromoCmIds), ...Object.keys(productLocked), ...Object.keys(productPacks)]);
     for (const name of metaNames) {
       const id = sbProductIds[name];
       if (!id || newOnes.find(p => p.name === name)) continue;
       const { error } = await sbClient.from('products')
         .update({ cardmarket_url: productUrls[name] || null,
+                  packs: productPacks[name] ?? null,
                   cardmarket_product_id: productCmIds[name] ?? null,
                   cardmarket_expansion_id: productExpIds[name] ?? null,
                   cardmarket_promo_product_id: productPromoCmIds[name] ?? null,

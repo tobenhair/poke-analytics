@@ -220,7 +220,7 @@ inputs live in the database:
 
 | Table | Purpose | Access | Key columns |
 |-------|---------|--------|-------------|
-| `products` | one row per tracked product | read: all signed-in · write: admin | `name`, `type`, `release`, `cardmarket_url`, `cardmarket_product_id`, `cardmarket_expansion_id`, `cardmarket_promo_product_id`, `price_locked` |
+| `products` | one row per tracked product | read: all signed-in · write: admin | `name`, `type`, `packs`, `release`, `cardmarket_url`, `cardmarket_product_id`, `cardmarket_expansion_id`, `cardmarket_promo_product_id`, `price_locked` |
 | `snapshots` | one row per product per date | read: all signed-in · write: admin | `product_id`, `snapshot_date`, `price`, `set_value`, `low_liquidity`, `price_avg`, `price_low`, `promo_value` |
 | `cardmarket_expansion_singles` | ingestion cache: expansion → its single-card ids | service-role only (no client policy) | `id_expansion`, `single_product_ids` |
 | `user_settings` | per-user preferences | read/write: own row | `age_threshold`, `currency` |

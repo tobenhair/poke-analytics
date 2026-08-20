@@ -20,8 +20,13 @@ create table if not exists public.products (
   id             uuid primary key default gen_random_uuid(),
   user_id        uuid not null references auth.users(id) on delete cascade default auth.uid(),
   name           text not null,
-  type           text not null check (type in ('BOX','ETB','ETB10','ETB8','BUNDLE','BUNDLEDISPLAY','PACK')),
+  type           text not null check (type in ('BOX','ETB','ETB10','ETB8','BUNDLE','BUNDLEDISPLAY','COLLECTION','PACK')),
   release        date not null,
+  -- Per-product pack count that overrides the type's default booster count. The
+  -- mechanism a variable-pack COLLECTION needs (a Premium/Special Collection
+  -- ships a varying number of packs); NULL for a fixed-count type = use its
+  -- default. Drives Price/Booster, SV/Booster and fair price client-side.
+  packs          smallint check (packs is null or packs >= 1),
   cardmarket_url text,
   -- Cardmarket catalogue product id (idProduct) for the automated ingestion job.
   -- When set, the job resolves this product's price/Set Value directly from it
@@ -59,16 +64,18 @@ alter table public.products add column if not exists cardmarket_product_id bigin
 alter table public.products add column if not exists cardmarket_expansion_id bigint;
 alter table public.products add column if not exists price_locked boolean not null default false;
 alter table public.products add column if not exists cardmarket_promo_product_id bigint;
+alter table public.products add column if not exists packs smallint;
 -- The promo value is now a fetched per-snapshot figure (snapshots.promo_value),
 -- not a static per-product number, so the old column is retired. Dropping it
 -- discards any hand-entered promo €; re-enter each promo's Cardmarket id in Data
 -- Entry so the daily job can price it live.
 alter table public.products drop column if exists promo_value;
 -- Widen the Type check to the pack-count variants (ETB10/ETB8/BUNDLEDISPLAY/PACK)
--- for deployments created before they existed. Drop + re-add so it's idempotent.
+-- and the variable-pack COLLECTION for deployments created before they existed.
+-- Drop + re-add so it's idempotent.
 alter table public.products drop constraint if exists products_type_check;
 alter table public.products add constraint products_type_check
-  check (type in ('BOX','ETB','ETB10','ETB8','BUNDLE','BUNDLEDISPLAY','PACK'));
+  check (type in ('BOX','ETB','ETB10','ETB8','BUNDLE','BUNDLEDISPLAY','COLLECTION','PACK'));
 
 -- ── Snapshots: one Price / Set Value reading per product per date ──
 create table if not exists public.snapshots (
