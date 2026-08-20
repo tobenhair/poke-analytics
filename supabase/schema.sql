@@ -45,16 +45,19 @@ create table if not exists public.products (
   -- for thin-liquidity products whose sales-based price is unreliable. Set Value
   -- is still auto-updated. Written by the admin only (see RLS below).
   price_locked   boolean not null default false,
-  -- Cardmarket catalogue product id (idProduct) of a promo card bundled into the
-  -- product (e.g. an ETB's stamped promo) that is NOT part of the set's singles.
-  -- The daily ingestion job fetches this single card's own moving price (avg30,
-  -- the same basis as Set Value) and writes it to snapshots.promo_value, which is
-  -- then subtracted from Price for the pack economics (Price/Booster, SV/Booster,
-  -- fair price) so an ETB is judged on its boosters, not the extras. Entered by
-  -- the admin in Data Entry. NULL → no promo tracked. (Replaced the old static
-  -- products.promo_value: a promo card's value moves over time, so a hand-typed
-  -- number went stale — see snapshots.promo_value.)
-  cardmarket_promo_product_id bigint,
+  -- Cardmarket catalogue product ids (idProduct) of the promo card(s) bundled
+  -- into the product (e.g. an ETB's stamped promo — some products bundle more
+  -- than one) that are NOT part of the set's singles. The daily ingestion job
+  -- fetches each listed card's own moving price (avg30, the same basis as Set
+  -- Value) and writes their SUM to snapshots.promo_value, which is then
+  -- subtracted from Price for the pack economics (Price/Booster, SV/Booster,
+  -- fair price) so an ETB is judged on its boosters, not the extras. We don't
+  -- track individual card values — only the combined amount to exclude — so a
+  -- single summed scalar per snapshot keeps the whole load/derive pipeline
+  -- unchanged. Entered by the admin in Data Entry as a comma-separated list.
+  -- NULL/empty → no promo tracked. (Replaced the old static products.promo_value:
+  -- a promo card's value moves over time, so a hand-typed number went stale.)
+  cardmarket_promo_product_ids bigint[],
   created_at     timestamptz not null default now(),
   -- product names are unique per user (matches the app's duplicate-name rule)
   unique (user_id, name)
@@ -63,8 +66,24 @@ create table if not exists public.products (
 alter table public.products add column if not exists cardmarket_product_id bigint;
 alter table public.products add column if not exists cardmarket_expansion_id bigint;
 alter table public.products add column if not exists price_locked boolean not null default false;
-alter table public.products add column if not exists cardmarket_promo_product_id bigint;
 alter table public.products add column if not exists packs smallint;
+-- Multiple bundled promos per product: the promo id is now a list. Add the array
+-- column, migrate any old single-id value into a one-element array, then retire
+-- the scalar column. snapshots.promo_value stays a single scalar = the SUM of
+-- every listed promo's avg30 (see below), so nothing downstream changes.
+alter table public.products add column if not exists cardmarket_promo_product_ids bigint[];
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'products'
+               and column_name = 'cardmarket_promo_product_id') then
+    update public.products
+       set cardmarket_promo_product_ids = array[cardmarket_promo_product_id]
+     where cardmarket_promo_product_id is not null
+       and cardmarket_promo_product_ids is null;
+    alter table public.products drop column cardmarket_promo_product_id;
+  end if;
+end $$;
 -- The promo value is now a fetched per-snapshot figure (snapshots.promo_value),
 -- not a static per-product number, so the old column is retired. Dropping it
 -- discards any hand-entered promo €; re-enter each promo's Cardmarket id in Data
@@ -97,10 +116,12 @@ create table if not exists public.snapshots (
   -- metric — display only.
   price_avg     numeric check (price_avg is null or price_avg >= 0),
   price_low     numeric check (price_low is null or price_low >= 0),
-  -- Fetched value (€) of the product's bundled promo card on this date — the
-  -- avg30 of products.cardmarket_promo_product_id from the same Cardmarket guide.
-  -- Subtracted from Price for the ex-promo pack economics. NULL when the product
-  -- has no promo id or the card had no price that day.
+  -- Fetched combined value (€) of the product's bundled promo card(s) on this
+  -- date — the SUM of the avg30 of every id in products.cardmarket_promo_product_ids
+  -- from the same Cardmarket guide. Subtracted from Price for the ex-promo pack
+  -- economics. A single summed scalar (we don't track individual card values, only
+  -- the total to exclude). NULL when the product has no promo ids or none of the
+  -- cards had a price that day.
   promo_value   numeric check (promo_value is null or promo_value >= 0),
   -- the app upserts on this pair (onConflict: 'product_id,snapshot_date')
   unique (product_id, snapshot_date)

@@ -79,7 +79,7 @@ async function main() {
   if (sb) {
     const { data: products, error } = await sb
       .from('products')
-      .select('id, name, type, release, cardmarket_url, price_locked, cardmarket_product_id, cardmarket_promo_product_id');
+      .select('id, name, type, release, cardmarket_url, price_locked, cardmarket_product_id, cardmarket_promo_product_ids');
     if (error) throw new Error(`reading products: ${error.message}`);
     dbByName = new Map(products.map((p) => [p.name, p]));
     workingMap = { products: {} };
@@ -90,7 +90,9 @@ async function main() {
         release: p.release ?? ov.release,
         cardmarket_url: p.cardmarket_url ?? ov.cardmarket_url,
         idProduct: p.cardmarket_product_id ?? ov.idProduct ?? null, // DB id pins; else a map pin
-        promoIdProduct: p.cardmarket_promo_product_id ?? ov.promoIdProduct ?? null,
+        // The DB id list pins; else the offline map's promoIdProducts (legacy
+        // scalar promoIdProduct still accepted). normPromoIds() handles the shape.
+        promoIdProducts: p.cardmarket_promo_product_ids ?? ov.promoIdProducts ?? ov.promoIdProduct ?? null,
         nameHint: ov.nameHint,
         priceOverride: ov.priceOverride,
       };

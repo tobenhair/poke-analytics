@@ -407,7 +407,9 @@ test('the admin sees Data Entry and cloud-save writes the entered snapshot', asy
   // plus the promo card's Cardmarket id (the daily job fetches its live value).
   await page.locator('#snapshot-label').fill('2026-07-18');
   await page.locator('.entry-input[data-product="Beta Booster Box"][data-field="price"]').fill('175');
-  await page.locator('.promo-input[data-product="Beta Booster Box"]').fill('9001');
+  // Two promo ids, comma-separated — a product can bundle more than one; the
+  // daily job sums their avg30 into snapshots.promo_value.
+  await page.locator('.promo-input[data-product="Beta Booster Box"]').fill('9001, 9002');
   await page.locator('#save-cloud-btn').click();
   // Data Entry actions report to their own footer pill, not the Analysis tab's.
   await expect(page.locator('#entry-status')).toContainText('Saved to cloud');
@@ -419,10 +421,12 @@ test('the admin sees Data Entry and cloud-save writes the entered snapshot', asy
   expect(snapWrites.at(-1).payload).toMatchObject([
     { product_id: 'p2', snapshot_date: '2026-07-18', price: 175 },
   ]);
-  // The promo edit is written to products.cardmarket_promo_product_id (the id the
-  // daily job prices; the promo € itself is fetched per-snapshot, not entered).
+  // The promo edit is written to products.cardmarket_promo_product_ids (the ids
+  // the daily job prices and sums; the promo € itself is fetched per-snapshot,
+  // not entered). The comma-separated cell becomes an integer array.
   const prodUpdates = await writes(page, 'products', 'update');
-  expect(prodUpdates.some((w) => w.payload && w.payload.cardmarket_promo_product_id === 9001)).toBe(true);
+  expect(prodUpdates.some((w) => w.payload &&
+    JSON.stringify(w.payload.cardmarket_promo_product_ids) === JSON.stringify([9001, 9002]))).toBe(true);
   expect((await writes(page, 'user_settings', 'upsert')).length).toBeGreaterThan(0);
 
   // The save reloads cloud state: the new snapshot is now the latest tracked

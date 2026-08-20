@@ -49,6 +49,21 @@ export const pick = (obj, aliases) => {
 
 const numOrNull = (v) => (v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
 
+// Normalise a product's promo-id input into a de-duped array of positive integer
+// idProducts. Accepts a bigint[] (the DB `cardmarket_promo_product_ids`), a
+// comma/space-separated string, a single number, or the legacy scalar
+// `promoIdProduct` — so every caller feeds the derive the same shape.
+export function normPromoIds(input) {
+  if (input == null) return [];
+  const raw = Array.isArray(input) ? input : String(input).split(/[,\s]+/);
+  const out = [];
+  for (const x of raw) {
+    const n = numOrNull(x);
+    if (n != null && Number.isInteger(n) && n > 0 && !out.includes(n)) out.push(n);
+  }
+  return out;
+}
+
 // Unwrap a bulk file into its array of records regardless of the wrapper key.
 export const toRecords = (json) => {
   if (Array.isArray(json)) return { key: '(root array)', records: json };
@@ -266,24 +281,31 @@ export function deriveProducts(map, resolved, priceGuideRecords, singlesRecords,
       setValue = counted ? +sum.toFixed(2) : null;
     }
 
-    // Promo value = the avg30 of the bundled promo single (same basis as Set
-    // Value), fetched daily so it tracks the card's moving market price instead
-    // of a stale hand-typed number. The offline map pins the promo id in
-    // `promoIdProduct`; the DB path uses products.cardmarket_promo_product_id.
+    // Promo value = the SUM of the avg30 of the bundled promo single(s) (same
+    // basis as Set Value), fetched daily so it tracks their moving market price
+    // instead of a stale hand-typed number. Some products bundle more than one
+    // promo; we don't track individual card values, only the combined amount to
+    // exclude, so the ids are summed into one scalar. The offline map pins the
+    // promo ids in `promoIdProducts`; the DB path uses
+    // products.cardmarket_promo_product_ids. (A single id / legacy `promoIdProduct`
+    // is still accepted and treated as a one-element list.)
     let promoValue = null;
-    const promoId = entry.promoIdProduct ?? null;
-    if (promoId != null) {
-      const promoRec = pgById.get(String(promoId));
-      if (promoRec) {
+    const promoIds = normPromoIds(entry.promoIdProducts ?? entry.promoIdProduct);
+    if (promoIds.length) {
+      let sum = 0, counted = 0;
+      for (const pid of promoIds) {
+        const promoRec = pgById.get(String(pid));
+        if (!promoRec) continue;
         const v = valueOf(promoRec, svField);
-        if (Number.isFinite(v)) promoValue = +Number(v).toFixed(2);
+        if (Number.isFinite(v)) { sum += v; counted += 1; }
       }
+      if (counted) promoValue = +sum.toFixed(2);
     }
 
     out[name] = {
       idProduct: idP,
       idExpansion: idE,
-      promoIdProduct: promoId,
+      promoIdProducts: promoIds,
       type: entry.type,
       release: entry.release,
       cardmarket_url: entry.cardmarket_url ?? null,
