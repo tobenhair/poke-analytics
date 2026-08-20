@@ -4380,11 +4380,55 @@ function isBuySignal(name) {
 // multi-select (add via the dropdown, remove via a chip), one line per
 // selection from a capped palette, and the chart's own legend as the show/hide
 // toggle. The per-metric differences (what a line plots, the y-axis) come in
-// through cfg, so the two views can't drift. Series always align to the full
-// histDates axis with spanGaps:true, which is what lets 3+ series with uneven
-// snapshot coverage line up (the old "longest labels win" approach broke past
-// two). Set mode rolls a set (products sharing a release) up with meanSeries();
+// through cfg, so the two views can't drift. Every series plots {x: timestamp,
+// y} points on the shared time x-axis (timeXScale/timePoints) with spanGaps:true,
+// so 3+ series with uneven snapshot coverage line up by real date and a long gap
+// interpolates straight to the next sample. Set mode rolls a set (products sharing a release) up with meanSeries();
 // the type filter is applied via visibleProducts() so "ETB only" holds here too.
+
+// ── Time-series x-axis: position points by real elapsed time ──
+// The snapshot history mixes a monthly backfill (large day gaps between the
+// first samples) with the daily Cardmarket ingest, so a category x-axis — one
+// evenly-spaced slot per sample — squashed the early months together and
+// stretched the recent days apart. Every continuous time series instead plots
+// on a real time axis: each point carries its snapshot's timestamp as x, so the
+// horizontal spacing is proportional to the actual days between samples. A long
+// gap simply draws a straight (interpolated) line to the next sample. These
+// helpers are shared by the comparison views, the drill-down price/SV charts and
+// the Portfolio value chart so none can drift.
+function histTimes() { return histDates.map(d => Date.parse(d)); }
+// Zip a per-snapshot value array (aligned to histDates) into {x: timestamp, y}
+// points for a time axis. Nulls are kept as {x, y:null} so spanGaps can bridge
+// them (that bridge is the interpolation across a long gap).
+function timePoints(values) {
+  const ts = histTimes();
+  return values.map((v, i) => ({ x: ts[i], y: v == null ? null : v }));
+}
+// Format a millisecond timestamp as the compact YYYY-MM-DD shown on every date
+// axis/tooltip (UTC, so a snapshot's date never shifts a day by local timezone).
+function fmtDateTick(ms) {
+  const d = new Date(ms);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
+}
+// The shared time x-scale for continuous line charts: a linear axis over the
+// snapshot timestamps (`bounds:'data'` pins the first/last sample to the edges,
+// as the category axis did), its ticks labelled as dates. `ticksStyle` carries
+// the per-chart colour/font; the date callback + rotation are merged on top.
+function timeXScale(ticksStyle) {
+  return {
+    type: 'linear', bounds: 'data',
+    grid: { color: 'rgba(255,255,255,0.05)' },
+    ticks: Object.assign({}, ticksStyle, {
+      callback: v => fmtDateTick(v), maxRotation: 45, minRotation: 45, autoSkipPadding: 16,
+    }),
+  };
+}
+// Tooltip title for a time-axis chart: the hovered point's date (the linear axis
+// would otherwise title the tooltip with the raw timestamp number).
+function timeTooltipTitle(items) {
+  return items && items.length ? fmtDateTick(items[0].parsed.x) : '';
+}
 
 // Capped series palette — the legibility cap the design-review skill calls for.
 // Six distinct hues: the three chart accent tokens plus three identity-only
@@ -4569,7 +4613,7 @@ function createCompareView(cfg) {
       const color = COMPARE_PALETTE[i % COMPARE_CAP];
       return {
         label: o ? o.label : key,
-        data: lineFor(key),
+        data: timePoints(lineFor(key)),
         borderColor: color, backgroundColor: color + '20', pointBackgroundColor: color,
         // Continuous line: no dots by default; a point surfaces only where you
         // hover (interaction mode is 'index', so the whole date lights up).
@@ -4587,7 +4631,7 @@ function createCompareView(cfg) {
     }
 
     const scales = Object.assign(
-      { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } } },
+      { x: timeXScale({ color: COLOR.axis, font: { family: 'DM Mono', size: 10 } }) },
       mode === 'product' ? cfg.productScale(hasExtra) : cfg.setScale(),   // set + era share the roll-up (per-booster) axis
       extraScales
     );
@@ -4595,14 +4639,14 @@ function createCompareView(cfg) {
     if (chart) chart.destroy();
     chart = new Chart(el(cfg.canvasId), {
       type: 'line',
-      data: { labels: [...histDates], datasets },
+      data: { datasets },   // {x,y} time points — no category labels
       options: {
         responsive: true,
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { labels: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
           tooltip: { callbacks: Object.assign(
-            { label: ctx => cfg.tooltip(ctx, mode) },
+            { title: timeTooltipTitle, label: ctx => cfg.tooltip(ctx, mode) },
             cfg.afterBody ? { afterBody: cfg.afterBody } : {}
           ) }
         },
@@ -4707,7 +4751,7 @@ const cmpHist = createCompareView({
     const r = fxRate();
     return {
       dataset: {
-        label: 'Set Value', data: h.setVal.map(v => v != null ? v * r : null),
+        label: 'Set Value', data: timePoints(h.setVal.map(v => v != null ? v * r : null)),
         borderColor: COLOR.gold, backgroundColor: alpha(COLOR.gold, 0.05),
         tension: 0.4, pointRadius: 0, pointHoverRadius: 5, borderWidth: 2, borderDash: [5, 4],
         fill: false, spanGaps: true, yAxisID: 'ySetVal'
@@ -5209,6 +5253,12 @@ function parseXlsx(arrayBuffer) {
 
   // Stop if any errors accumulated
   if (errors.length) throw new Error(errors.join('||'));
+
+  // Chronological order, not sheet-row order: histDates must be ascending so
+  // "latest = last index" holds, snapshotGaps() reads real gaps, and the
+  // time-axis charts draw left-to-right. ISO YYYY-MM-DD sorts lexicographically.
+  // (The Supabase loader already sorts; the hardcoded fallback is authored sorted.)
+  dateSet.sort();
 
   // ── Build aligned historical arrays ──
   const newHistoricalData = {};
@@ -5853,14 +5903,13 @@ function renderPortfolioValueChart() {
   wrap.style.display = '';
   empty.style.display = 'none';
 
-  const values = valuesEur.map(v => v * rate);
-  const costLine = histDates.map(() => costTotalEur * rate);
+  const values = timePoints(valuesEur.map(v => v * rate));
+  const costLine = timePoints(histDates.map(() => costTotalEur * rate));
 
   if (portfolioValueChart) portfolioValueChart.destroy();
   portfolioValueChart = new Chart(canvas, {
     type: 'line',
     data: {
-      labels: [...histDates],
       datasets: [
         {
           label: 'Portfolio value',
@@ -5883,6 +5932,7 @@ function renderPortfolioValueChart() {
       plugins: {
         legend: { labels: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } },
         tooltip: { callbacks: {
+          title: timeTooltipTitle,
           label: ctx => ` ${ctx.dataset.label}: ${money(ctx.parsed.y / rate)}`,
           afterBody: items => {
             const pv = items.find(i => i.datasetIndex === 0);
@@ -5898,7 +5948,7 @@ function renderPortfolioValueChart() {
       // axes are dropped — the line reaches the screen edges and the exact values
       // live in the hover tooltip (the Collectr pattern). Desktop keeps them.
       scales: chartAxelessOnMobile({
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } },
+        x: timeXScale({ color: COLOR.axis, font: { family: 'DM Mono', size: 10 } }),
         y: {
           grid: { color: 'rgba(255,255,255,0.05)' },
           ticks: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, callback: v => money(v / rate) },
@@ -7686,10 +7736,10 @@ function renderDrillPriceChart(p) {
   // Convert to the active display currency for plotting; the axis/tooltip below
   // then label the already-converted values with symFmt (no second conversion).
   const rate = fxRate();
-  const priceData = labels.map((_, i) => h.price[i] != null ? h.price[i] * rate : null);
+  const priceData = timePoints(labels.map((_, i) => h.price[i] != null ? h.price[i] * rate : null));
   const fair = p.fairPrice != null ? p.fairPrice * rate : null;
   const band = VERDICT.OVER_SOFT / 100; // the "fair — no edge" zone, ±this
-  const flat = val => labels.map(() => val);
+  const flat = val => timePoints(labels.map(() => val));
 
   const datasets = [{
     label: 'Price', data: priceData, spanGaps: true,
@@ -7718,7 +7768,7 @@ function renderDrillPriceChart(p) {
       const looseData = labels.map((_, i) => lp.price[i] != null ? lp.price[i] * lb * rate : null);
       if (looseData.some(v => v != null)) {
         datasets.push({
-          label: `Loose equivalent (${lb}×)`, data: looseData, spanGaps: true,
+          label: `Loose equivalent (${lb}×)`, data: timePoints(looseData), spanGaps: true,
           borderColor: COLOR.blue, backgroundColor: alpha(COLOR.blue, 0.06),
           borderDash: [4, 4], tension: 0.35, pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: COLOR.blue,
           fill: false, order: 1,
@@ -7729,20 +7779,23 @@ function renderDrillPriceChart(p) {
   if (drillPriceChart) drillPriceChart.destroy();
   drillPriceChart = new Chart(document.getElementById('drill-price-chart'), {
     type: 'line',
-    data: { labels, datasets },
+    data: { datasets },   // {x,y} time points — no category labels
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { labels: { color: COLOR.muted, font: { family: 'DM Mono', size: 10 }, boxWidth: 12,
           filter: item => !item.text.startsWith('__') } },
-        tooltip: { callbacks: { label: ctx => ctx.dataset.label.startsWith('__') ? null : ` ${ctx.dataset.label}: ${symFmt(ctx.parsed.y)}` } },
+        tooltip: { callbacks: {
+          title: timeTooltipTitle,
+          label: ctx => ctx.dataset.label.startsWith('__') ? null : ` ${ctx.dataset.label}: ${symFmt(ctx.parsed.y)}`,
+        } },
       },
       // Axes stay at every width: the drill-down is analytical (read a price on a
       // date) and there's no hover on touch, so a phone user needs the y-axis to
       // read values. (Only the Portfolio hero chart goes axeless on mobile — its
       // current-value tiles sit right above it.)
       scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } },
+        x: timeXScale({ color: COLOR.axis, font: { family: 'DM Mono', size: 10 } }),
         y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => symFmt(v) } },
       },
     },
@@ -7753,23 +7806,26 @@ function renderDrillSvbChart(p) {
   const h = historicalData[p.name] || { price: [], setVal: [] };
   const boosters = p.boosters || boostersFromType(p.type) || 1;
   // SV/Booster at each snapshot where both price and set value are present.
-  const data = histDates.map((_, i) => {
+  const data = timePoints(histDates.map((_, i) => {
     const pr = h.price[i], sv = h.setVal[i];
     return (pr != null && pr > 0 && sv != null) ? (sv * boosters) / pr : null;
-  });
+  }));
   if (drillSvbChart) drillSvbChart.destroy();
   drillSvbChart = new Chart(document.getElementById('drill-svb-chart'), {
     type: 'line',
-    data: { labels: histDates, datasets: [{
+    data: { datasets: [{
       label: 'SV / Booster', data, spanGaps: true,
       borderColor: COLOR.blue, backgroundColor: alpha(COLOR.blue, 0.06),
       tension: 0.35, pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: COLOR.blue, fill: true,
     }] },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(1)}× booster cost` } } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        title: timeTooltipTitle,
+        label: ctx => ` ${ctx.parsed.y.toFixed(1)}× booster cost`,
+      } } },
       scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 } } },
+        x: timeXScale({ color: COLOR.axis, font: { family: 'DM Mono', size: 10 } }),
         y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: COLOR.axis, font: { family: 'DM Mono', size: 10 }, callback: v => v + '×' } },
       },
     },
