@@ -2273,7 +2273,7 @@
           <tr><td>Snapshot Date</td><td><span class="tag-req">required</span></td><td>Date label shown on chart axes, must be in <b>YYYY-MM-DD</b> format (ISO 8601), e.g. <b>2026-04-20</b></td></tr>
           <tr><td>Price (€)</td><td><span class="tag-req">required</span></td><td>Product price at that snapshot. Leave blank if not yet tracked.</td></tr>
           <tr><td>Set Value (€)</td><td><span class="tag-req">required</span></td><td>Set value at that snapshot. Leave blank if not yet tracked.</td></tr>
-          <tr><td>Promo Value (€)</td><td><span class="tag-opt">optional</span></td><td>Value of a promo card bundled into the product (e.g. an ETB's stamped promo) that isn't part of the set's singles, at that snapshot. Subtracted from Price for the per-booster maths so the product is judged on its boosters. In cloud mode the daily ingestion job fetches this from the promo card's Cardmarket id; blank = none.</td></tr>
+          <tr><td>Promo Value (€)</td><td><span class="tag-opt">optional</span></td><td>Combined value of the promo card(s) bundled into the product (e.g. an ETB's stamped promo — some bundle more than one) that aren't part of the set's singles, at that snapshot. Subtracted from Price for the per-booster maths so the product is judged on its boosters. In cloud mode the daily ingestion job fetches this from the promo card(s)' Cardmarket id(s); blank = none.</td></tr>
         </tbody>
       </table>
     </div>
@@ -3364,7 +3364,7 @@
                 <th></th>
                 <th>CM ID</th>
                 <th>Exp ID</th>
-                <th>Promo ID</th>
+                <th>Promo IDs</th>
                 <th>Product</th>
                 <th>Type</th>
                 <th>Packs</th>
@@ -6653,13 +6653,32 @@ let productCmIds = {};
 // whose singles make up Set Value. The catalog-refresh Edge Function reads these
 // to know which expansions' card lists to cache. Edited in Data Entry, saved to cloud.
 let productExpIds = {};
-// Promo card Cardmarket ids (idProduct): { productName -> number } — the promo
-// single bundled into the product (e.g. an ETB's stamped promo) that isn't part
-// of the set's singles. The daily ingestion job fetches this card's avg30 into
+// Promo card Cardmarket ids (idProduct): { productName -> number[] } — the promo
+// single(s) bundled into the product (e.g. an ETB's stamped promo; some products
+// bundle more than one) that aren't part of the set's singles. The daily
+// ingestion job fetches each card's avg30 and writes their SUM into
 // snapshots.promo_value, which is subtracted from price for the pack economics
-// (Price/Booster, SV/Booster, fair price). Edited in Data Entry, saved to
-// products.cardmarket_promo_product_id. Absent = no promo.
+// (Price/Booster, SV/Booster, fair price). Edited in Data Entry as a
+// comma-separated list, saved to products.cardmarket_promo_product_ids. Absent /
+// empty array = no promo.
 let productPromoCmIds = {};
+// Parse the Data Entry promo cell (a comma/space-separated list) into a de-duped
+// array of positive integer idProducts. Mirrors normPromoIds() in
+// scripts/cardmarket-lib.mjs (the Node module can't be imported into the browser).
+function parsePromoIds(raw) {
+  const out = [];
+  String(raw ?? '').split(/[,\s]+/).forEach(tok => {
+    const n = parseInt(tok, 10);
+    if (Number.isInteger(n) && n > 0 && !out.includes(n)) out.push(n);
+  });
+  return out;
+}
+// The promo cell's display value for a product — its buffered ids joined for the
+// text input (empty string when none).
+function promoIdsField(name) {
+  const v = productPromoCmIds[name];
+  return Array.isArray(v) ? v.join(', ') : '';
+}
 // Price lock: { productName -> true } — when locked, the automated Cardmarket
 // ingestion leaves this product's price alone (admin sets it by hand); the
 // manual override for thin-liquidity products. Persisted to products.price_locked.
@@ -6909,10 +6928,10 @@ function renderEntryTable() {
           value="${productExpIds[p.name] != null ? productExpIds[p.name] : ''}">
       </td>
       <td style="width:90px;">
-        <input class="entry-input promo-input" type="number" min="0" step="1" placeholder="id"
-          aria-label="${p.name} — promo card Cardmarket product ID (fetched daily, excluded from pack value)"
+        <input class="entry-input promo-input" type="text" placeholder="id, id…"
+          aria-label="${p.name} — promo card Cardmarket product ID(s), comma-separated (fetched daily, combined value excluded from pack value)"
           data-product="${p.name}"
-          value="${productPromoCmIds[p.name] != null ? productPromoCmIds[p.name] : ''}">
+          value="${promoIdsField(p.name)}">
       </td>
       <td class="entry-product-name" title="${p.name}">${p.name}</td>
       <td>${typeBadge(p.type)}</td>
@@ -7017,14 +7036,15 @@ function renderEntryTable() {
   });
 
   // Promo CM ID cell — edits the productPromoCmIds map (saved to
-  // products.cardmarket_promo_product_id). Integer idProduct or blank (= no
-  // promo). The daily job fetches this card's avg30 into snapshots.promo_value.
+  // products.cardmarket_promo_product_ids). A comma-separated list of integer
+  // idProducts, or blank (= no promo). The daily job fetches each card's avg30
+  // and stores their SUM in snapshots.promo_value.
   tbody.querySelectorAll('.promo-input').forEach(input => {
     input.addEventListener('input', e => {
       const name = e.target.dataset.product;
-      const raw = e.target.value.trim();
-      if (raw === '') delete productPromoCmIds[name];
-      else productPromoCmIds[name] = parseInt(raw, 10);
+      const ids = parsePromoIds(e.target.value);
+      if (ids.length) productPromoCmIds[name] = ids;
+      else delete productPromoCmIds[name];
     });
   });
 
@@ -8397,7 +8417,9 @@ async function loadFromSupabase() {
     sbProductIds[p.name] = p.id;
     if (p.cardmarket_product_id != null) productCmIds[p.name] = p.cardmarket_product_id;
     if (p.cardmarket_expansion_id != null) productExpIds[p.name] = p.cardmarket_expansion_id;
-    if (p.cardmarket_promo_product_id != null) productPromoCmIds[p.name] = p.cardmarket_promo_product_id;
+    if (Array.isArray(p.cardmarket_promo_product_ids) && p.cardmarket_promo_product_ids.length) {
+      productPromoCmIds[p.name] = p.cardmarket_promo_product_ids.map(Number);
+    }
     if (p.price_locked) productLocked[p.name] = true;
     if (p.packs != null) productPacks[p.name] = p.packs;
     const byDate = {};
@@ -8789,7 +8811,7 @@ async function saveToSupabase() {
                   cardmarket_url: productUrls[p.name] || null,
                   cardmarket_product_id: productCmIds[p.name] ?? null,
                   cardmarket_expansion_id: productExpIds[p.name] ?? null,
-                  cardmarket_promo_product_id: productPromoCmIds[p.name] ?? null,
+                  cardmarket_promo_product_ids: productPromoCmIds[p.name]?.length ? productPromoCmIds[p.name] : null,
                   price_locked: !!productLocked[p.name] })
         .select('id').single();
       if (error) throw error;
@@ -8807,7 +8829,7 @@ async function saveToSupabase() {
                   packs: productPacks[name] ?? null,
                   cardmarket_product_id: productCmIds[name] ?? null,
                   cardmarket_expansion_id: productExpIds[name] ?? null,
-                  cardmarket_promo_product_id: productPromoCmIds[name] ?? null,
+                  cardmarket_promo_product_ids: productPromoCmIds[name]?.length ? productPromoCmIds[name] : null,
                   price_locked: !!productLocked[name] })
         .eq('id', id);
       if (error) throw error;

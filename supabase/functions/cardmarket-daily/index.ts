@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
     // 1. The tracked set + precomputed catalog (both tiny — from the DB).
     const { data: products, error: pErr } = await sb
       .from('products')
-      .select('id, user_id, name, cardmarket_product_id, cardmarket_expansion_id, cardmarket_promo_product_id, price_locked');
+      .select('id, user_id, name, cardmarket_product_id, cardmarket_expansion_id, cardmarket_promo_product_ids, price_locked');
     if (pErr) return json({ error: `reading products: ${pErr.message}` }, 500);
 
     const expIds = [...new Set(
@@ -129,9 +129,11 @@ Deno.serve(async (req) => {
     const needed = new Set<string>();
     for (const p of products ?? []) {
       if (p.cardmarket_product_id != null) needed.add(String(p.cardmarket_product_id));
-      // The bundled promo single is one more id to keep — its price is in the
-      // same price_guide file (singles carry avg30), so no extra fetch.
-      if (p.cardmarket_promo_product_id != null) needed.add(String(p.cardmarket_promo_product_id));
+      // The bundled promo single(s) are a few more ids to keep — their prices are
+      // in the same price_guide file (singles carry avg30), so no extra fetch.
+      for (const pid of (p.cardmarket_promo_product_ids ?? [])) {
+        if (pid != null) needed.add(String(pid));
+      }
     }
     for (const ids of singlesByExp.values()) for (const id of ids) needed.add(String(id));
 
@@ -232,15 +234,21 @@ Deno.serve(async (req) => {
         setValue = g.value;
       }
 
-      // Promo value: the bundled promo single's avg30 (same basis as Set Value),
-      // subtracted client-side from Price for the ex-promo pack economics.
+      // Promo value: the SUM of the bundled promo single(s)' avg30 (same basis as
+      // Set Value), subtracted client-side from Price for the ex-promo pack
+      // economics. We don't track individual card values, only the combined amount
+      // to exclude, so multiple promos collapse to one scalar.
       let promoValue: number | null = null;
-      if (p.cardmarket_promo_product_id != null) {
-        const promoRec = pgById.get(String(p.cardmarket_promo_product_id));
-        if (promoRec) {
+      {
+        let sum = 0, counted = 0;
+        for (const pid of (p.cardmarket_promo_product_ids ?? [])) {
+          if (pid == null) continue;
+          const promoRec = pgById.get(String(pid));
+          if (!promoRec) continue;
           const v = valueOf(promoRec, 'avg30');
-          if (v != null && Number.isFinite(v)) promoValue = round2(v);
+          if (v != null && Number.isFinite(v)) { sum += v; counted += 1; }
         }
+        if (counted) promoValue = round2(sum);
       }
 
       if (price == null && setValue == null) { skipped.push(`${p.name} (no price or set value)`); continue; }

@@ -163,14 +163,14 @@ A `PACK` is a **loose single booster** and is treated as *reference data, not a 
 
 `Product` (must match Summary exactly) · `Snapshot Date` (ISO `YYYY-MM-DD`) · `Price (€)` · `Set Value (€)` · `Promo Value (€)` *(optional)*
 
-`Promo Value (€)` is the value, at that snapshot, of a promo card bundled into the product (e.g. an ETB's stamped promo) that isn't part of the set's singles. It's **subtracted from price** for the per-booster maths so the product is judged on its boosters, not the extras; blank means none. It's a per-snapshot column because a promo card's own price moves over time — in cloud mode the daily ingestion fetches it from the promo card's Cardmarket id (the Data Entry **Promo ID** column), so you don't type it by hand there.
+`Promo Value (€)` is the combined value, at that snapshot, of the promo card(s) bundled into the product (e.g. an ETB's stamped promo — some products bundle more than one) that aren't part of the set's singles. It's **subtracted from price** for the per-booster maths so the product is judged on its boosters, not the extras; blank means none. It's a per-snapshot column because a promo card's own price moves over time — in cloud mode the daily ingestion fetches each card and sums them from their Cardmarket ids (the Data Entry **Promo IDs** column, a comma-separated list), so you don't type it by hand there.
 
 The in-app **File Format Guide** (the **Format Guide** button on the **Analysis** tab) documents every field in detail.
 
 ## Key concepts
 
 - **Set Value** — the total market value of all cards in a complete set.
-- **Price / Booster** — product price ÷ boosters inside, set by Type (BOX = 36, ETB = 9, BUNDLE = 6, plus the variants ETB10 = 10, ETB8 = 8, BUNDLEDISPLAY = 60, PACK = 1), or by the product's own **Packs** for a variable-pack **COLLECTION**. If a product has a **Promo Value** (the bundled promo card's own price, tracked per snapshot — fetched daily from its Cardmarket id in cloud mode), that value is subtracted from the price first, so the per-booster figure reflects only the boosters (an ETB isn't penalised for the promo it also includes).
+- **Price / Booster** — product price ÷ boosters inside, set by Type (BOX = 36, ETB = 9, BUNDLE = 6, plus the variants ETB10 = 10, ETB8 = 8, BUNDLEDISPLAY = 60, PACK = 1), or by the product's own **Packs** for a variable-pack **COLLECTION**. If a product has a **Promo Value** (the bundled promo card(s)' combined price, tracked per snapshot — fetched daily from their Cardmarket ids in cloud mode), that value is subtracted from the price first, so the per-booster figure reflects only the boosters (an ETB isn't penalised for the promo(s) it also includes).
 - **SV / Booster** — Set Value ÷ Price/Booster. Reads as a value-for-money **×multiple** — how many times the price of a *single booster* the whole set is worth (e.g. `185×`), **not** a euro-per-pack amount. The core comparability metric; works across all product types.
 - **Age Weight** — 0–1 multiplier. Products under a year old are penalised; ≥3 years = 1.0.
 - **Wtd. Score** — SV / Booster × Age Weight. The headline ranking metric.

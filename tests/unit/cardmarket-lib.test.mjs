@@ -82,15 +82,31 @@ test('deriveProducts: box price = trend/avg blend, Set Value = avg30 singles sum
 test('deriveProducts: promoValue = the bundled promo single\'s avg30 (its moving value)', () => {
   // A product that pins a promo single id gets that card's avg30 — the same
   // basis as Set Value — so the promo tracks the market instead of a static €.
-  const m = { products: { 'Promo ETB': { type: 'ETB', release: '2024-01-01', promoIdProduct: 9001 } } };
+  const m = { products: { 'Promo ETB': { type: 'ETB', release: '2024-01-01', promoIdProducts: [9001] } } };
   const ns = [{ idProduct: 500, name: 'Promo ETB', categoryName: 'Elite Trainer Box', idExpansion: 50 }];
   const pg = [
     { idProduct: 500, avg: 100, trend: 100, low: 90 },     // the box itself
     { idProduct: 9001, avg30: 12.5, trend: 14, low: 9 },   // the bundled promo single
   ];
   const d = deriveProducts(m, resolveIds(m, ns), pg, []);
-  assert.equal(d['Promo ETB'].promoIdProduct, 9001);
+  assert.deepEqual(d['Promo ETB'].promoIdProducts, [9001]);
   assert.equal(d['Promo ETB'].promoValue, 12.5);           // avg30, not a static number
+});
+
+test('deriveProducts: multiple promos → promoValue is their summed avg30', () => {
+  // Some products bundle more than one promo card. We track only the combined
+  // amount to exclude, so the listed ids' avg30 are summed into one scalar. A
+  // legacy single `promoIdProduct` is still accepted (one-element list).
+  const m = { products: { 'Double Promo ETB': { type: 'ETB', release: '2024-01-01', promoIdProducts: [9001, 9002] } } };
+  const ns = [{ idProduct: 500, name: 'Double Promo ETB', categoryName: 'Elite Trainer Box', idExpansion: 50 }];
+  const pg = [
+    { idProduct: 500, avg: 200, trend: 200, low: 180 },    // the box itself
+    { idProduct: 9001, avg30: 12.5, trend: 14, low: 9 },   // promo single #1
+    { idProduct: 9002, avg30: 7.25, trend: 8, low: 6 },    // promo single #2
+  ];
+  const d = deriveProducts(m, resolveIds(m, ns), pg, []);
+  assert.deepEqual(d['Double Promo ETB'].promoIdProducts, [9001, 9002]);
+  assert.equal(d['Double Promo ETB'].promoValue, 19.75);   // 12.5 + 7.25, summed
 });
 
 test('deriveProducts: no promo id → promoValue null', () => {
@@ -98,6 +114,7 @@ test('deriveProducts: no promo id → promoValue null', () => {
   const ns = [{ idProduct: 600, name: 'Plain Box', categoryName: 'Booster Box', idExpansion: 60 }];
   const d = deriveProducts(m, resolveIds(m, ns), [{ idProduct: 600, avg: 100, trend: 100 }], []);
   assert.equal(d['Plain Box'].promoValue, null);
+  assert.deepEqual(d['Plain Box'].promoIdProducts, []);
 });
 
 test('deriveProducts: a trend far below avg uses avg, not the dragged-down blend', () => {
