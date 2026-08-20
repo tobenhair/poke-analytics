@@ -19,7 +19,7 @@
 
 import * as XLSX from 'xlsx';
 import { readFileSync } from 'node:fs';
-import { boostersFromType, snapshotGaps, typeOutliers, PRODUCT_TYPE_CODES } from '../metrics.js';
+import { resolveBoosters, snapshotGaps, typeOutliers, PRODUCT_TYPE_CODES } from '../metrics.js';
 
 const XLSX_PATH = process.argv[2] || 'pokemon_data.xlsx';
 
@@ -61,12 +61,14 @@ if (errors.length) fail();
 const seenNames = new Set();
 const productTypes = new Map();    // name -> TYPE
 const productReleases = new Map(); // name -> release ISO date
+const productPacks = new Map();    // name -> packs override (or unset)
 
 summaryRows.forEach((row, i) => {
   const rowNum = i + 2;
   const name = col(row, 'Product');
   const type = col(row, 'Type');
   const rawRelease = col(row, 'Release Date');
+  const rawPacks = col(row, 'Packs');
   const label = name ? `"${name}"` : `row ${rowNum}`;
 
   if (!name || String(name).trim() === '') {
@@ -91,6 +93,17 @@ summaryRows.forEach((row, i) => {
     errors.push(`Summary ${label}: Release Date "${rawRelease}" is not a valid date`);
   } else if (name) {
     productReleases.set(String(name).trim(), toISO(rawRelease));
+  }
+
+  // Packs (optional per-product booster-count override; required for COLLECTION,
+  // whose pack count varies). A whole number ≥ 1.
+  if (rawPacks != null && String(rawPacks).trim() !== '') {
+    const packs = Number(rawPacks);
+    if (!Number.isInteger(packs) || packs < 1)
+      errors.push(`Summary ${label}: Packs "${rawPacks}" must be a whole number ≥ 1`);
+    else if (name) productPacks.set(String(name).trim(), packs);
+  } else if (String(type).toUpperCase() === 'COLLECTION') {
+    errors.push(`Summary ${label}: a COLLECTION needs a Packs value (its pack count varies)`);
   }
 
 });
@@ -182,7 +195,9 @@ snapshotGaps([...snapshotDates]).forEach((g) => {
 });
 const qualityProducts = [...seenNames].map((n) => {
   const name = String(n).trim();
-  const boosters = boostersFromType(productTypes.get(name));
+  // Honour a per-product Packs override (variable-pack COLLECTION), matching the
+  // app's deriveProducts — else a Collection's SV/Booster advisory is miscomputed.
+  const boosters = resolveBoosters({ type: productTypes.get(name), packs: productPacks.get(name) });
   const price = latestPrice.get(name)?.val;
   const sv = latestSetVal.get(name)?.val;
   const svPerBooster = boosters && price > 0 && sv != null ? sv / (price / boosters) : null;

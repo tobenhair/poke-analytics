@@ -21,8 +21,12 @@
 // ── The tracked product types (the single registry) ──
 // Each Type code maps to:
 //   boosters  the physical pack count → drives Price/Booster and everything
-//             downstream. These are physical facts about the products.
-//   category  the filter/colour bucket it groups under (BOX/ETB/BUNDLE/PACK).
+//             downstream. These are physical facts about the products — fixed
+//             per type, EXCEPT COLLECTION, whose pack count varies per product
+//             (a Premium/Special Collection ships anywhere from ~2 to ~8 packs).
+//             A product's own `packs` overrides this for any type; `boosters`
+//             here is the per-type default / fallback. See resolveBoosters().
+//   category  the filter/colour bucket it groups under (BOX/ETB/BUNDLE/COLLECTION/PACK).
 //             Several types share one bucket on purpose — the Elite Trainer Box
 //             pack-count variants all filter and colour as ETB, the Bundle
 //             Display as BUNDLE — so distinguishing a variant for correct
@@ -37,6 +41,10 @@ export const PRODUCT_TYPES = {
   ETB8:          { boosters: 8,  category: 'ETB',    label: 'ETB·8',   full: 'Elite Trainer Box (8 packs)' },
   BUNDLE:        { boosters: 6,  category: 'BUNDLE', label: 'BUNDLE',  full: 'Booster Bundle (6 packs)' },
   BUNDLEDISPLAY: { boosters: 60, category: 'BUNDLE', label: 'DISPLAY', full: 'Booster Bundle Display (10 bundles, 60 packs)' },
+  // Variable pack count — the product's own `packs` is the real value; this 4 is
+  // only the fallback when none is entered. variablePacks flags the UI to prompt
+  // for it. Its own category/hue so it filters and colours distinctly.
+  COLLECTION:    { boosters: 4,  category: 'COLLECTION', label: 'COLL', full: 'Collection (varies — set Packs)', variablePacks: true },
   PACK:          { boosters: 1,  category: 'PACK',   label: 'PACK',    full: 'Booster Pack (single booster)' },
 };
 
@@ -46,11 +54,20 @@ export const PRODUCT_TYPE_CODES = Object.keys(PRODUCT_TYPES);
 
 // The filter/colour buckets in display order (the board's type pills). A bucket
 // may hold several types (ETB ← ETB/ETB10/ETB8, BUNDLE ← BUNDLE/BUNDLEDISPLAY).
-export const TYPE_CATEGORIES = ['BOX', 'ETB', 'BUNDLE', 'PACK'];
+export const TYPE_CATEGORIES = ['BOX', 'ETB', 'BUNDLE', 'COLLECTION', 'PACK'];
 
 export function boostersFromType(type) {
   const t = PRODUCT_TYPES[type];
   return t ? t.boosters : null;
+}
+
+// The pack count actually used for a product's booster maths. A product's own
+// `packs` (a positive number) overrides the per-type default — the mechanism a
+// variable-pack COLLECTION needs, and a harmless manual override for any other
+// type. Falls back to the type default (boostersFromType) when packs is unset.
+export function resolveBoosters(product) {
+  const p = Number(product && product.packs);
+  return (isFinite(p) && p > 0) ? p : boostersFromType(product && product.type);
 }
 
 // The filter/colour bucket a type groups under (null for an unknown type). The
@@ -648,7 +665,8 @@ export function deriveProducts(newProducts, newHistoricalData) {
   const today = new Date();
   newProducts.forEach(p => {
     const hist     = newHistoricalData[p.name];
-    const boosters = boostersFromType(p.type);
+    // Per-product `packs` overrides the type default (variable-pack COLLECTION).
+    const boosters = resolveBoosters(p);
 
     // Latest non-null price and setVal from historical data
     const latestPrice  = hist ? [...hist.price].reverse().find(v => v != null)  : null;

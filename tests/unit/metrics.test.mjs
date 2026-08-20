@@ -13,6 +13,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   boostersFromType,
+  resolveBoosters,
   typeCategory,
   typeLabel,
   PRODUCT_TYPE_CODES,
@@ -67,6 +68,24 @@ test('boostersFromType returns the fixed booster counts', () => {
   assert.equal(boostersFromType('BUNDLE'), 6);
   assert.equal(boostersFromType('BUNDLEDISPLAY'), 60);
   assert.equal(boostersFromType('PACK'), 1);
+});
+
+test('COLLECTION is a distinct, variable-pack category', () => {
+  assert.equal(typeCategory('COLLECTION'), 'COLLECTION');
+  assert.equal(boostersFromType('COLLECTION'), 4);   // fallback default only
+  assert.ok(PRODUCT_TYPE_CODES.includes('COLLECTION'));
+});
+
+test('resolveBoosters: per-product packs overrides the type default', () => {
+  // A COLLECTION with an explicit pack count uses it, not the fallback 4.
+  assert.equal(resolveBoosters({ type: 'COLLECTION', packs: 6 }), 6);
+  // Blank / non-positive / missing packs fall back to the type default.
+  assert.equal(resolveBoosters({ type: 'COLLECTION' }), 4);
+  assert.equal(resolveBoosters({ type: 'COLLECTION', packs: 0 }), 4);
+  assert.equal(resolveBoosters({ type: 'COLLECTION', packs: null }), 4);
+  // The override works for any type (a harmless manual correction).
+  assert.equal(resolveBoosters({ type: 'BOX', packs: 30 }), 30);
+  assert.equal(resolveBoosters({ type: 'BOX' }), 36);
 });
 
 test('boostersFromType returns null for an unknown type', () => {
@@ -176,6 +195,17 @@ test('deriveProducts computes price/booster, sv/booster and score', () => {
   assert.equal(p.svPerBooster, 72);      // 720 / 10
   assert.equal(p.ageWeight, 1.0);        // released in 2000 → older than 3y
   assert.equal(p.score, 72.0);           // 72 × 1.0
+});
+
+test('deriveProducts prices a COLLECTION on its per-product pack count', () => {
+  // 5-pack collection at €50, set value €200 → €10/booster, SV/Booster 20.
+  const products = [{ name: 'Premium Coll', type: 'COLLECTION', packs: 5, release: '2000-01-01' }];
+  const hist = { 'Premium Coll': { price: [50], setVal: [200] } };
+  deriveProducts(products, hist);
+  const p = products[0];
+  assert.equal(p.boosters, 5);            // the entered packs, not the fallback 4
+  assert.equal(p.pricePerBooster, 10);   // 50 / 5
+  assert.equal(p.svPerBooster, 20);      // 200 / 10
 });
 
 test('deriveProducts uses the latest non-null price and set value', () => {

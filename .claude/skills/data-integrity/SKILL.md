@@ -42,11 +42,14 @@ you change the contract in one, change it in all four.
 
 - **Sheet `Summary`** (one row per product): `Product`, `Type` (exactly one of
   the `PRODUCT_TYPE_CODES` in `metrics.js` —
-  `BOX`/`ETB`/`ETB10`/`ETB8`/`BUNDLE`/`BUNDLEDISPLAY`/`PACK`), `Release Date`
-  (date or `YYYY-MM-DD`). Product names must be unique. The valid-type list is
-  the registry, so `parseXlsx()`, `validate-workbook.mjs`, the Data Entry
-  dropdown, the Format Guide and the Supabase `products.type` check must all
-  agree with it.
+  `BOX`/`ETB`/`ETB10`/`ETB8`/`BUNDLE`/`BUNDLEDISPLAY`/`COLLECTION`/`PACK`),
+  `Packs` (optional whole number ≥ 1 — a per-product override of the type's
+  default booster count; **required for `COLLECTION`**, whose count varies),
+  `Release Date` (date or `YYYY-MM-DD`). Product names must be unique. The
+  valid-type list is the registry, so `parseXlsx()`, `validate-workbook.mjs`, the
+  Data Entry dropdown, the Format Guide and the Supabase `products.type` check
+  must all agree with it — and the `Packs` rule lives in the same four places
+  plus `products.packs`.
 - **Sheet `Historical Data`** (one row per product per snapshot): `Product`
   (must match Summary exactly), `Snapshot Date` (`YYYY-MM-DD`), `Price (€)`,
   `Set Value (€)`. Blank price/set-value is allowed (not yet tracked); if
