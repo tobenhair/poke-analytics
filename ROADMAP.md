@@ -971,6 +971,28 @@ derivable from the prices, set values and holdings already tracked.
   each monthly entry loop and keep the file — that is the interim backup.
   Revisit before launch, or sooner if the dataset grows past what hand
   re-entry could recover.
+- **Complete DB backups & security audit — the pre-launch hardening gate.**
+  *(Hardening; launch-gating.)* Two operational must-dos before opening the door
+  wider, filed together because both are the same promise — *prove the cloud
+  surface is safe to rely on*:
+  - **Finish the backup story.** Complete **Backup & restore** (above): move off
+    "the only backup is the manual **⬇ Export updated .xlsx** button" to scheduled
+    Supabase backups plus a periodic automated xlsx snapshot, and — the part that
+    actually matters — a documented, **rehearsed** restore into a throwaway
+    target. Not done until a restore has actually been run, not just a backup
+    taken.
+  - **Audit the whole cloud surface, deliberately.** An end-to-end review of the
+    Supabase boundary rather than trusting it feature-by-feature: every table's
+    **RLS** (`products`/`snapshots` shared-read / admin-write,
+    `user_settings`/`holdings`/`alerts` per-user, `client_errors` insert-only,
+    `news` public-read / service-write), the **`is_admin()`** write boundary and
+    the `demo_product_ids()` `SECURITY DEFINER` demo scope, the three **Edge
+    Functions'** service-role usage (never exposed client-side) and their input
+    handling, key/secret management (anon vs service-role, Resend/API keys), and
+    the client's escaping of untrusted external text (news/RSS titles, error
+    payloads). The signed-in Playwright spec proves the *client's* behaviour;
+    this is the *server-side* counterpart — the policies verified directly, not
+    inferred. Pairs with the `security-review` pass and the **Launch checklist**.
 - **Launch checklist** — uptime expectations, support contact, versioned
   changelog, a public "how the numbers work" methodology page (the trust
   document for a tool that claims to know what's fairly priced).
