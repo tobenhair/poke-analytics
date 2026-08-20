@@ -81,6 +81,8 @@ Runtime errors are reported to an insert-only **`client_errors`** table (error m
 
 A **news feed** (Pokémon TCG — priority — plus TCG investing and Pokémon-business/owner-company headlines) is an opt-in companion. Browsers can't fetch third-party RSS (no CORS), so ingestion is server-side, mirroring the Cardmarket split: **`pg_cron` (hourly) → the `news-fetch` Edge Function** (`supabase/functions/news-fetch/index.ts`, scheduled by `supabase/news-cron.sql`) fetches the feeds, parses RSS **and** Atom, keyword-filters (broad sources only), dedupes by normalised URL, and upserts into the **`news`** table. Its parse/relevance/dedupe logic **mirrors the pure `scripts/news-lib.mjs`** (pinned by `tests/unit/news-lib.test.mjs`), and `scripts/news-fetch.mjs` is the Node CLI mirror for previewing feeds off-cloud. `news` is **public-read** (anon + authenticated — so the logged-out demo shows it too), **service-role-write only** (no client write policy). Only **headline + link + source + timestamp** is stored, never article bodies. The v1 sources (`NEWS_SOURCES`): **PokéBeach** (TCG — the dedicated TCG news site via a **GitHub Pages mirror** `feed.xml`, static-hosted so no datacenter 503 / UA sensitivity; the reliable non-Google primary; with a Google News `"Pokemon TCG"` query as a same-category safety net), **r/PokeInvesting** (investing), and a **Google News** Pokémon-business query (business — broad Pokémon/TPC/Nintendo terms, not earnings-only, since earnings news is rarely fresh; every clause names Pokémon so it stays on-topic despite `scoped:true`). The **User-Agent is per-source** (`ua`, default a browser string): Reddit needs the descriptive bot UA (it 429s browser agents) while Google News needs a browser UA (it 503s bot agents from datacenter IPs) — the fix for the "Google News HTTP 503 from Edge" symptom. Client side: `loadNews()` reads the table in **both** `loadFromSupabase()` and `loadDemo()` (fire-and-forget — a news failure never blocks the app); `renderNews()` fills the grouped list into **every `.news-full`** (the **News tab** pane `#tab-news`, its own top-level tab between Welcome and Analysis — and the demo's `#news-modal`) plus each `.news-teaser` (now only the demo page's), and reveals the **`#tabbtn-news`** tab once rows load. External feed text is escaped (`escHtml`) and links are `http(s)`-guarded (`safeUrl`) + `target=_blank rel=noopener`, since titles/URLs are untrusted. The **News tab** stays `hidden` until the table returns rows (static/xlsx builds have none, so no dead tab; the arrow-key nav already skips a hidden tab via its `offsetParent` test). The **`#news-modal` is now demo-only** — the logged-out demo has no tab bar, so its teaser's "All news →" opens the modal; the signed-in/static app uses the tab (the old header `#news-btn` and the Welcome-tab teaser were removed). `tests/fake-supabase-sdk.js` serves `news` rows (public-read) and `tests/signed-in.spec.mjs` pins the demo teaser → modal and the signed-in News tab → grouped list → safe-link flow. Operator setup (run `schema.sql`, deploy the function, schedule the cron) is in `SUPABASE.md`.
 
+**`histDates` is chronological (ascending) in every loader** — `latest = last index`, `snapshotGaps()`, the date-windowed momentum (`pctChangeOverDays`), and the time-axis charts all assume it. The hardcoded fallback is authored sorted and the Supabase loader `.sort()`s its distinct snapshot dates; **`parseXlsx()` sorts `dateSet` too** (ISO `YYYY-MM-DD` → lexicographic = chronological) rather than trusting the workbook's row order — a workbook with rows out of date order used to leave `historicalData[*]` arrays aligned to a non-chronological axis (the category chart hid it by drawing in array order; a real time axis drew it as a zig-zag).
+
 Only **raw** inputs are stored in the DB (name/type/release/url + per-snapshot price/set-value + age threshold); derived metrics are recomputed client-side. Metric derivation is shared by both the xlsx and Supabase paths via the **`deriveProducts(newProducts, newHistoricalData)`** helper (and `boostersFromType()`), so the two loaders can never drift. These pure functions live in the standalone ES module **`metrics.js`**, imported by `index.html` (its main `<script type="module">`) and by the unit tests — one source of truth, no copy. Schema + RLS live in `supabase/schema.sql`; setup is documented in `SUPABASE.md`.
 
 ## Metrics & scoring (the analytical core)
@@ -248,6 +250,24 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   scatter (§02) is exempt — it *is* a point cloud (age vs value), where the marks
   are the data. Any new time-series line should follow the `pointRadius: 0` /
   `pointHoverRadius` convention.
+- **Time-series charts use a real time x-axis, not a per-sample category axis.**
+  The snapshot history mixes a monthly backfill (large day gaps) with the daily
+  Cardmarket ingest, so a category axis — one evenly-spaced slot per sample —
+  squashed the early months and stretched the recent days. The same four charts
+  (§03/§04 comparison lines, the drill-down price + SV/Booster charts, the
+  Portfolio value chart) instead plot **`{x: timestamp, y}` points on a `linear`
+  x-axis** via the shared `timePoints()`/`timeXScale()`/`timeTooltipTitle()` +
+  `fmtDateTick()` helpers (defined once, above `createCompareView`), so spacing is
+  proportional to the actual days between samples and a long gap draws a straight
+  (interpolated, `spanGaps:true`) line to the next sample. `bounds:'data'` pins
+  the first/last sample to the edges; the linear ticks/tooltip are date-formatted
+  by the callback (no date-adapter library needed). The data arrays carry no
+  category `labels`, so **every dataset on these charts must be `{x,y}` points**
+  (a plain number array would be indexed 0,1,2… on a linear axis) — including the
+  drill-down's flat fair-price/band lines and the chart-zoom clone (it copies the
+  options + datasets, so the time axis comes along for free). The scatter (§02, x
+  = age) and the board-lens bar chart are not time series and are untouched. This
+  relies on **`histDates` being chronological** (see the data-model note below).
 - **On a phone the Portfolio value chart drops its axes (Collectr pattern) but
   stays inside its card — drill-down charts keep their axes.** Below 680px only
   the **Portfolio value chart** loses its axis labels: it's the hero "what's my
