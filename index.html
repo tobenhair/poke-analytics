@@ -1661,6 +1661,8 @@
     gap: 14px; padding: 20px var(--pad-x-tile);
   }
   .holding-grid .portfolio-empty { grid-column: 1 / -1; padding: 20px; }
+  /* The "show most valuable only" footer, in the expanded grid, spans all tracks. */
+  .holding-grid > .mv-toggle { grid-column: 1 / -1; }
   .holding-card {
     background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm);
     padding: 16px var(--pad-x-tile); display: flex; flex-direction: column; gap: 14px;
@@ -1698,6 +1700,38 @@
     min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .holding-actions { display: flex; gap: 4px; flex: none; }
+
+  /* ── Condensed "Most Valuable" list (Holdings default when >4 holdings) ──
+     A large portfolio would otherwise bury the sections below, so the grid
+     collapses to a compact drill-down list of the top few by value. */
+  .holding-grid.mv-collapsed { display: block; padding: 8px 0 0; }
+  .mv-head {
+    font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.12em; padding: 4px var(--pad-x-tile) 8px;
+  }
+  .mv-list { display: flex; flex-direction: column; }
+  /* .mv-row reuses the .row-open JS hook + hit-area; overrides its text layout. */
+  .mv-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    width: 100%; padding: 12px var(--pad-x-tile); margin: 0;
+    overflow: visible; white-space: normal;
+    border-top: 1px solid var(--hairline);
+    transition: background 0.2s var(--ease);
+  }
+  .mv-row:first-child { border-top: 0; }
+  .mv-row:hover { background: var(--accent-soft); }
+  .mv-id { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .mv-name {
+    color: var(--text); font-size: var(--text-md); font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+  }
+  .mv-sub {
+    font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .mv-fig { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex: none; }
+  .mv-value { font-family: 'DM Mono', monospace; font-size: var(--text-md); color: var(--text); }
+  .mv-gain { font-family: 'DM Mono', monospace; font-size: var(--text-xs); }
 
   /* ── Welcome hover affordance ── */
   #tab-welcome .panel[onclick] { transition: transform 0.35s var(--ease), border-color 0.35s var(--ease); }
@@ -3680,6 +3714,12 @@ let ageFit = null;
 // read them (renderPortfolio/renderAlerts, and updateTable via alertFlag).
 let holdings = {};
 let alerts = {};
+// The Holdings list leads with a condensed "Most Valuable" list (top
+// MOST_VALUABLE_N by current value) so a large portfolio doesn't push the
+// sections below off-screen; "View all" expands to the full card grid.
+// Only condensed when there are more than MOST_VALUABLE_N holdings.
+let portfolioShowAll = false;
+const MOST_VALUABLE_N = 4;
 // Signed-in user's recorded disposals (append-only). Each: { id, name, quantity,
 // salePrice, costBasis, soldOn }. Populated by loadFromSupabase(); realised P&L
 // is summed from it (metrics.js realisedPnL) and the Closed Positions list.
@@ -5855,8 +5895,23 @@ function renderPortfolio() {
   summaryEl.style.display = (rows.length || sales.length) ? '' : 'none';
   summaryEl.innerHTML = holdingTiles + realisedTile;
 
-  grid.innerHTML = rows.length ? rows.map(r => holdingCard(r)).join('')
-    : `<div class="portfolio-empty">No holdings yet — pick a product, enter quantity and the price you paid, then “Add / buy more”.</div>`;
+  // A large portfolio would push Closed Positions / Concentration / Alerts off
+  // the screen, so by default the Holdings list leads with a condensed "Most
+  // Valuable" list of the top few (rows are already value-sorted). "View all"
+  // expands to the full card grid; only condensed when there are more than
+  // MOST_VALUABLE_N holdings (below that the condensed list == the full one).
+  const condensed = rows.length > MOST_VALUABLE_N && !portfolioShowAll;
+  grid.classList.toggle('mv-collapsed', condensed);
+  if (!rows.length) {
+    grid.innerHTML = `<div class="portfolio-empty">No holdings yet — pick a product, enter quantity and the price you paid, then “Add / buy more”.</div>`;
+  } else if (condensed) {
+    grid.innerHTML = mostValuableList(rows);
+  } else {
+    grid.innerHTML = rows.map(r => holdingCard(r)).join('')
+      + (rows.length > MOST_VALUABLE_N
+          ? `<button type="button" class="board-more-btn mv-toggle" data-show="0">Show most valuable only ▴</button>`
+          : '');
+  }
 
   fillHoldingLogos();
   grid.querySelectorAll('.row-open').forEach(btn =>
@@ -5867,6 +5922,11 @@ function renderPortfolio() {
     btn.addEventListener('click', () => removeHolding(btn.dataset.product)));
   grid.querySelectorAll('.portfolio-sell-btn').forEach(btn =>
     btn.addEventListener('click', () => startPortfolioSell(btn.dataset.product)));
+  const mvToggle = grid.querySelector('.mv-toggle');
+  if (mvToggle) mvToggle.addEventListener('click', () => {
+    portfolioShowAll = mvToggle.dataset.show === '1';
+    renderPortfolio();
+  });
 
   renderPortfolioValueChart();
   renderBalancer(rows);
@@ -5920,6 +5980,33 @@ function holdingCard(r) {
         </span>
       </div>
     </article>`;
+}
+
+// The condensed "Most Valuable" list — the top MOST_VALUABLE_N holdings by
+// current value (rows arrive value-sorted), each a drill-down row showing name,
+// type, current value and P&L%. Reuses the .row-open hook (so the shared
+// querySelectorAll('.row-open') wiring opens the drill-down) and pnlColor for
+// the same colour meaning as the full cards. Footer button expands to the grid.
+function mostValuableList(rows) {
+  const items = rows.slice(0, MOST_VALUABLE_N).map(r => {
+    const col = r.pnl != null ? pnlColor(r.pnl) : 'var(--muted)';
+    const gain = r.pnlPct != null
+      ? `<span class="mv-gain" style="color:${col}">${withSign((Math.abs(r.pnlPct) * 100).toFixed(1) + '%', r.pnl)}</span>`
+      : `<span class="mv-gain" style="color:var(--muted)">—</span>`;
+    return `
+    <button type="button" class="row-open mv-row" data-product="${r.name}" aria-haspopup="dialog" title="${r.name}">
+      <span class="mv-id">
+        <span class="mv-name">${r.name}</span>
+        <span class="mv-sub">${typeLabel(r.type)}</span>
+      </span>
+      <span class="mv-fig">
+        <span class="mv-value">${r.curValue != null ? money(r.curValue) : '—'}</span>
+        ${gain}
+      </span>
+    </button>`;
+  }).join('');
+  return `<div class="mv-head">Most valuable</div><div class="mv-list">${items}</div>` +
+    `<button type="button" class="board-more-btn mv-toggle" data-show="1">View all ${rows.length} holdings ▾</button>`;
 }
 
 // Best-effort set logos on the holding cards — same TCGdex source and name
