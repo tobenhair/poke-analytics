@@ -44,6 +44,22 @@ var(--section-gap)` — don't invent a one-off margin, and don't reintroduce the
 old per-tab values (44 on Analysis, 18 on the demo, none on Portfolio) the token
 replaced.
 
+**Horizontal padding** — the x-axis has tokens too, so side gutters don't drift
+back to the old per-surface 24/26px. Two only:
+- `--pad-x` (16px, 12px on a phone) — the side padding of a section's content
+  block that holds content directly: panel headers, prose leads, chart panels,
+  editors, pick rows, welcome/step cards, advisory strips.
+- `--pad-x-tile` (12px both) — the side padding of a nested tile/card **and** of
+  the grid container that wraps a row of them (`.portfolio-summary`,
+  `.holding-grid`, `.balancer-grid`, `.portfolio-tile`, `.holding-card`), so the
+  container and its tiles share one 12px gutter instead of stacking two (the old
+  24 + 18 = 42px that read as bulky).
+Set only the **horizontal** part of a `padding` shorthand from these tokens —
+`padding: 20px var(--pad-x)` — vertical stays a literal (the trim was side-only,
+the vertical rhythm inside a surface is unchanged). Don't hand-type a new 24px
+side padding; reach for the token, and pick `--pad-x-tile` the moment a surface
+sits inside another padded surface.
+
 **Charts use the same tokens.** The JS resolves them once into `COLOR`
 (`.gold/.red/.blue/.green/.muted/.axis`) and derives fills with `alpha(hue, a)`
 so a fill can't drift from its line. Never type a colour into a chart config —

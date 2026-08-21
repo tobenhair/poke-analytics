@@ -918,6 +918,21 @@ Markup, styles, and logic share one file, and the JS builds DOM from string temp
   per-surface and inconsistent (Analysis 44, Welcome 36–40, the demo 18, and
   Portfolio had no rule at all, so its panels nearly touched the next heading).
   A new section reuses the token; don't reintroduce a bespoke section margin.
+- **Horizontal padding is two tokens, `--pad-x` / `--pad-x-tile`** (the x-axis
+  companion to `--section-gap`). `--pad-x` (16px desktop, 12px phone) is the side
+  padding of a section's content block that holds content directly (panel header,
+  prose lead, chart panel, editor, pick row, welcome/step card, advisory strip);
+  `--pad-x-tile` (12px both) is the side padding of a nested tile/card **and** of
+  the grid container wrapping a row of them (`.portfolio-summary`,
+  `.holding-grid`, `.balancer-grid`, `.portfolio-tile`, `.holding-card`,
+  `.kpi`'s top rule inset). Both step down in the 680px block. Before this, side
+  padding was per-surface (24/26px on section blocks, another 18px on the tiles
+  inside them), so a value sat ~42px from the panel edge — bulky, worst on a
+  phone; the tokens collapse the doubled portfolio gutter to one 12px inset (24px
+  edge-to-value). Only the **horizontal** half of a `padding` shorthand comes
+  from these tokens (`padding: 20px var(--pad-x)`) — vertical padding was left
+  unchanged. A new surface reuses the token; don't hand-type a fresh 24px side
+  padding, and pick `--pad-x-tile` when a surface nests inside another padded one.
 - The All Products table's `.table-wrap` is a capped-height (`70vh`) scroll area with a sticky header; other tables use different wrappers. A `.table-wrap` with **no focusable content inside** needs `tabindex="0"` or it cannot be scrolled by keyboard (the board's Relative and Momentum lens wraps carry it; the Value lens doesn't need it — its rows have `.row-open` buttons).
 
 ## Workflow / deployment
