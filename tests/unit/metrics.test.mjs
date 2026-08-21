@@ -31,6 +31,9 @@ import {
   momentum,
   trendDirection,
   buySignal,
+  sellSignal,
+  SELL_SIGNAL_PRICE_RISE,
+  SELL_SIGNAL_SV_STALL,
   dataMaturity,
   ERAS,
   eraForRelease,
@@ -815,6 +818,52 @@ test('buySignal needs two tracked points on both series', () => {
 test('BUY_SIGNAL thresholds are the documented −5% / −5%', () => {
   assert.equal(BUY_SIGNAL_PRICE_DROP, -5);
   assert.equal(BUY_SIGNAL_SV_HOLD, -5);
+});
+
+// ── sellSignal: price ran up, set value didn't follow (the buy mirror) ──
+test('sellSignal fires when price rises ≥5% while set value stalls', () => {
+  assert.equal(sellSignal({ price: [100, 110], setVal: [500, 500] }), true);   // +10% / 0%
+  assert.equal(sellSignal({ price: [100, 105], setVal: [500, 520] }), true);   // +5% / +4% (value lagged)
+});
+
+test('sellSignal stays quiet on a small rise or a value-backed move', () => {
+  assert.equal(sellSignal({ price: [100, 103], setVal: [500, 500] }), false);  // +3%: not a real run-up
+  assert.equal(sellSignal({ price: [100, 110], setVal: [500, 560] }), false);  // SV rose 12% too (backed)
+  assert.equal(sellSignal({ price: [100, 90], setVal: [500, 500] }), false);   // price fell (a buy case)
+});
+
+test('sellSignal needs two tracked points on both series', () => {
+  assert.equal(sellSignal(null), false);
+  assert.equal(sellSignal({ price: [100, 110], setVal: [500] }), false);
+  assert.equal(sellSignal({ price: [110], setVal: [500, 500] }), false);
+});
+
+test('SELL_SIGNAL thresholds are the documented +5% / +5% mirror of the buy side', () => {
+  assert.equal(SELL_SIGNAL_PRICE_RISE, 5);
+  assert.equal(SELL_SIGNAL_SV_STALL, 5);
+});
+
+// ── verdict: the optional run-up (sell caution) folds in without a fair claim ──
+test('verdict adds "un-backed run-up" to an overpriced product when set value is not already falling', () => {
+  const v = verdict({ fairGap: 15, drawdown: -1, svTrend: 0, fairTrusted: true, runUp: true });
+  assert.equal(v.label, 'Overpriced for age · un-backed run-up');
+  assert.equal(v.tone, 'bad');
+  // A falling set value still wins the single clause slot (it's the stronger cue).
+  const eroding = verdict({ fairGap: 15, drawdown: -1, svTrend: -12, fairTrusted: true, runUp: true });
+  assert.equal(eroding.label, 'Overpriced for age · set value falling');
+});
+
+test('verdict surfaces a run-up as a neutral note when there is no fair anchor', () => {
+  const v = verdict({ fairGap: null, drawdown: -1, svTrend: 0, fairTrusted: true, runUp: true });
+  assert.equal(v.label, 'Un-backed run-up');
+  assert.equal(v.tone, 'neutral');            // no fair claim without a trusted fit
+});
+
+test('verdict without runUp is unchanged (default false)', () => {
+  const a = verdict({ fairGap: 15, drawdown: -1, svTrend: 0, fairTrusted: true });
+  const b = verdict({ fairGap: 15, drawdown: -1, svTrend: 0, fairTrusted: true, runUp: false });
+  assert.deepEqual(a, b);
+  assert.equal(a.label, 'Overpriced for age');
 });
 
 // ── peerResiduals: actual SV/Booster vs the age-fit expectation ──

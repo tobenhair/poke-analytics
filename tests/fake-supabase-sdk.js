@@ -53,7 +53,7 @@
     p1: { price: [900, 920, 950], sv: [3000, 3050, 3100] },
     p2: { price: [200, 190, 180], sv: [800, 810, 820] },
     p3: { price: [90, 85, 80], sv: [700, 705, 710] },
-    p4: { price: [60, 62, 58], sv: [700, 705, 710] },
+    p4: { price: [60, 62, 72], sv: [700, 705, 706] },  // price ran up +16%, set value flat → sell caution
   };
   Object.keys(series).forEach(function (pid) {
     dates.forEach(function (d, i) {

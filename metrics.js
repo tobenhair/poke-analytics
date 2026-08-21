@@ -267,15 +267,18 @@ export const VERDICT = {
   SV_MOVE:        5, // |set-value trend| ≥ this → rising / falling
 };
 
-export function verdict({ fairGap, drawdown, svTrend, fairTrusted }) {
+export function verdict({ fairGap, drawdown, svTrend, fairTrusted, runUp = false }) {
   const nearLow  = drawdown != null && drawdown <= VERDICT.NEAR_LOW;
   const svRising = svTrend  != null && svTrend  >=  VERDICT.SV_MOVE;
   const svFalling= svTrend  != null && svTrend  <= -VERDICT.SV_MOVE;
 
   // Without a trustworthy fair-price anchor, don't assert cheap/expensive —
-  // fall back to the momentum signals and stay neutral.
+  // fall back to the momentum signals and stay neutral. `runUp` (the sell
+  // caution: price ran up while set value didn't follow) surfaces here without a
+  // fair claim — it's a momentum note, so the tone stays neutral.
   if (!fairTrusted || fairGap == null) {
     if (nearLow)   return { label: 'Near tracked low', tone: 'neutral', rank: 2.3 };
+    if (runUp)     return { label: 'Un-backed run-up', tone: 'neutral', rank: 2.6 };
     if (svFalling) return { label: 'Set value slipping', tone: 'neutral', rank: 2.7 };
     if (svRising)  return { label: 'Set value climbing', tone: 'neutral', rank: 2.4 };
     return { label: 'No clear edge', tone: 'neutral', rank: 2.5 };
@@ -290,10 +293,12 @@ export function verdict({ fairGap, drawdown, svTrend, fairTrusted }) {
   else                                      { label = 'Overpriced for age';  tone = 'bad';     rank = 4; }
 
   // One reinforcing clause: for a deal, flag when it's also near its low; for an
-  // overpriced product, flag a falling set value (the value is eroding too).
+  // overpriced product, flag a falling set value (the value is eroding too), or —
+  // absent that — an un-backed run-up (the price ran up without the value).
   let clause = '';
   if (tone === 'good' && nearLow)       clause = 'near tracked low';
   else if (tone === 'bad' && svFalling) clause = 'set value falling';
+  else if (tone === 'bad' && runUp)     clause = 'un-backed run-up';
   else if (tone === 'neutral' && nearLow) clause = 'near tracked low';
 
   return { label: clause ? `${label} · ${clause}` : label, tone, rank };
@@ -401,6 +406,27 @@ export function buySignal(hist) {
   const svMove    = pctChange(sv[sv.length - 2], sv[sv.length - 1]);
   return priceMove != null && svMove != null &&
          priceMove <= BUY_SIGNAL_PRICE_DROP && svMove >= BUY_SIGNAL_SV_HOLD;
+}
+
+// The 📈 sell-caution flag: the exact inverse of the buy signal — price ROSE
+// while the set value did NOT follow. The value didn't back the move, so the
+// price ran up on its own (a possible mispricing *up*). Deliberately a
+// momentum/fundamentals signal only: it makes NO fair-price claim, so it stays
+// honest even when the fair price is weak or suppressed (the sell-side mirror of
+// the buy signal's honesty rule). The "meaningfully over fair price" sell case is
+// already carried by the verdict (tone `bad`), so this covers the run-up the
+// verdict can't see. Thresholds in signed %:
+export const SELL_SIGNAL_PRICE_RISE = 5; // price rose at least this much since the previous snapshot
+export const SELL_SIGNAL_SV_STALL   = 5; // …while set value rose no more than this (didn't back the price)
+export function sellSignal(hist) {
+  if (!hist) return false;
+  const p  = tracked(hist.price);
+  const sv = tracked(hist.setVal);
+  if (p.length < 2 || sv.length < 2) return false;
+  const priceMove = pctChange(p[p.length - 2], p[p.length - 1]);
+  const svMove    = pctChange(sv[sv.length - 2], sv[sv.length - 1]);
+  return priceMove != null && svMove != null &&
+         priceMove >= SELL_SIGNAL_PRICE_RISE && svMove <= SELL_SIGNAL_SV_STALL;
 }
 
 // ── Data maturity: the raw "how settled is this?" facts (the buyer judges risk) ──

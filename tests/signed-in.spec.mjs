@@ -356,6 +356,14 @@ test('a regular user gets portfolio + alerts but not Data Entry, and edits auto-
         .locator('[role="img"][aria-label^="Alert"]'),
   ).toBeVisible();
 
+  // Sell caution: Delta ran up +16% on its last snapshot while set value stayed
+  // flat (an un-backed run-up), so its board row shows the sell-caution flag —
+  // the mirror of the buy signal, asserted by its accessible name.
+  await expect(
+    page.locator('#product-tbody tr', { hasText: 'Delta Booster Bundle' })
+        .locator('[role="img"][aria-label="Sell caution"]'),
+  ).toBeVisible();
+
   // Portfolio: the fixture holding renders; adding a new one auto-saves an
   // upsert row keyed user_id+product_id — no Save button anywhere.
   await page.locator('.tab-btn[data-tab="portfolio"]').click();
