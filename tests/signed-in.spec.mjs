@@ -403,6 +403,44 @@ test('a regular user gets portfolio + alerts but not Data Entry, and edits auto-
   expect(pageErrors).toEqual([]);
 });
 
+test('recording a sale draws the holding down and reports realised P&L', async ({ page }) => {
+  const pageErrors = await boot(page);
+  await signIn(page, 'user@test.local');
+  await page.locator('.tab-btn[data-tab="portfolio"]').click();
+  // Wait for the signed-in portfolio to settle (the holding loaded + rendered)
+  // before interacting — the summary tile only renders once holdings are in.
+  await expect(page.locator('#portfolio-summary')).toContainText('Unrealised P&L');
+
+  // The fixture holds 2× Beta at €150 cost. Sell 1 at €200 → realised +€50, and
+  // the holding is drawn down to 1 (cost basis unchanged by a partial sale).
+  // The Sell button sits low on a long page; dispatch the click directly so the
+  // test exercises the handler, not Playwright's pointer hit-testing under the
+  // sticky chrome.
+  const betaCard = page.locator('.holding-card', { hasText: 'Beta Booster Box' });
+  await betaCard.locator('.portfolio-sell-btn').dispatchEvent('click');
+  await expect(page.locator('#portfolio-add-btn')).toHaveText('✓ Record sale');
+  await page.locator('#portfolio-qty').fill('1');
+  await page.locator('#portfolio-cost').fill('200');   // repurposed as sale price in sell mode
+  await page.locator('#portfolio-add-btn').dispatchEvent('click');   // "✓ Record sale"
+
+  // A sale row is inserted (append-only) with the holding's cost basis captured.
+  await expect.poll(async () => (await writes(page, 'sales', 'insert')).length).toBeGreaterThan(0);
+  expect((await writes(page, 'sales', 'insert')).at(-1).payload).toMatchObject({
+    product_id: 'p2', quantity: 1, sale_price: 200, cost_basis: 150,
+  });
+  // The holding is drawn down to the remaining 1 (an upsert, not a delete).
+  expect((await writes(page, 'holdings', 'upsert')).at(-1).payload).toMatchObject({
+    product_id: 'p2', quantity: 1,
+  });
+
+  // Realised P&L surfaces in the summary and the Closed Positions list shows the row.
+  await expect(page.locator('#portfolio-summary')).toContainText('Realised P&L');
+  await expect(page.locator('#sales-tbody')).toContainText('Beta Booster Box');
+  await expect(page.locator('#sales-badge')).toHaveText(/1 sale/);
+
+  expect(pageErrors).toEqual([]);
+});
+
 test('the admin sees Data Entry and cloud-save writes the entered snapshot', async ({ page }) => {
   const pageErrors = await boot(page);
   await signIn(page, 'admin@test.local');

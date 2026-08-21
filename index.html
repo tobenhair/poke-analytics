@@ -1624,6 +1624,13 @@
     transition: color 0.2s var(--ease);
   }
   .portfolio-remove-btn:hover { color: var(--accent2); }
+  .portfolio-sell-btn {
+    background: none; border: 1px solid var(--border); color: var(--muted); cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: var(--text-xs); text-transform: uppercase;
+    letter-spacing: 0.06em; padding: 5px 10px; border-radius: var(--radius-pill); line-height: 1;
+    transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
+  }
+  .portfolio-sell-btn:hover { color: var(--accent); border-color: var(--accent); }
   .portfolio-empty {
     padding: 26px 24px; color: var(--muted); font-family: 'DM Mono', monospace;
     font-size: var(--text-md); text-align: center;
@@ -3282,6 +3289,33 @@
       <div class="holding-grid" id="portfolio-cards"></div>
     </div>
 
+    <!-- ── Section: closed positions (realised P&L) ── -->
+    <h2 class="section-eyebrow">Closed Positions</h2>
+    <p class="section-desc"><strong>What:</strong> what you've sold, and the realised profit or loss on each disposal. <strong>How to read:</strong> realised P&amp;L is (sale price − the cost basis you held it at) × quantity; the <em>Realised P&amp;L</em> summary tile sums it across every sale. Use <em>Sell</em> on a holding card to record a disposal — it draws that quantity down from the holding and lands it here. Private to your account, saved automatically.</p>
+    <div class="panel">
+      <div class="panel-header">
+        <h3 class="panel-title">Closed Positions</h3>
+        <div class="panel-badge" id="sales-badge">no sales</div>
+      </div>
+      <div id="sales-empty" class="balancer-empty">No sales recorded yet — use <em>Sell</em> on a holding card to record a disposal.</div>
+      <div class="table-wrap" id="sales-table-wrap" style="display:none;">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th style="text-align:right">Qty</th>
+              <th style="text-align:right">Sold / unit</th>
+              <th style="text-align:right">Cost / unit</th>
+              <th style="text-align:right">Realised</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="sales-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- ── Section: concentration & rebalance (portfolio balancer) ── -->
     <h2 class="section-eyebrow">Concentration &amp; Rebalance</h2>
     <p class="section-desc"><strong>What:</strong> how your holdings are spread across <em>sets</em>, <em>release years</em> and <em>product types</em> — and, when you're over-exposed, which <em>under-fair-price</em> products in areas you underweight would diversify you. <strong>How to read:</strong> a bar near full means a large share of your value rides on one bucket (red = over-exposed); the shortlist points the next euro at good-value buys that spread the risk. Derived live from your holdings — nothing saved.</p>
@@ -3500,7 +3534,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, resolveBoosters, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, sellSignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, groupEras, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange } from './metrics.js';
+import { boostersFromType, resolveBoosters, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, sellSignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, groupEras, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange, realisedPnL } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -3631,6 +3665,10 @@ let ageFit = null;
 // read them (renderPortfolio/renderAlerts, and updateTable via alertFlag).
 let holdings = {};
 let alerts = {};
+// Signed-in user's recorded disposals (append-only). Each: { id, name, quantity,
+// salePrice, costBasis, soldOn }. Populated by loadFromSupabase(); realised P&L
+// is summed from it (metrics.js realisedPnL) and the Closed Positions list.
+let sales = [];
 
 // ============================================================
 // HELPERS
@@ -5497,6 +5535,9 @@ async function fetchFxRates() {
 
 // Which holding the editor is currently editing (null = add / buy-more mode).
 let portfolioEditName = null;
+// Which holding the editor is currently recording a SALE for (null = not selling).
+// Reuses the same editor DOM: the cost field is relabelled to the sale price.
+let portfolioSellName = null;
 
 function portfolioRows() {
   return Object.entries(holdings).map(([name, h]) => {
@@ -5775,8 +5816,10 @@ function renderPortfolio() {
     ? '<span style="color:var(--muted)">—</span>'
     : `<span style="color:${pnlColor(v)}">${withSign(fmt(Math.abs(v), 1) + '%', v)}</span>`;
 
-  summaryEl.style.display = rows.length ? '' : 'none';
-  summaryEl.innerHTML = rows.length ? `
+  // Realised P&L across every recorded sale (lifetime) — shown even when all
+  // holdings are closed, so a fully-sold portfolio still reports its result.
+  const realised = realisedPnL(sales);
+  const holdingTiles = rows.length ? `
     <div class="portfolio-tile"><div class="lbl">Cost basis</div><div class="val">${money(totalCost)}</div></div>
     <div class="portfolio-tile">
       <div class="lbl">Current value</div>
@@ -5788,6 +5831,14 @@ function renderPortfolio() {
       <div class="val" style="color:${pnlColor(totalPnl)}">${withSign(money(Math.abs(totalPnl)), totalPnl)}</div>
       <div class="sub" style="color:${pnlColor(totalPnl)}">${totalPct != null ? withSign((Math.abs(totalPct) * 100).toFixed(1) + '%', totalPnl) : '—'}</div>
     </div>` : '';
+  const realisedTile = sales.length ? `
+    <div class="portfolio-tile">
+      <div class="lbl">Realised P&L</div>
+      <div class="val" style="color:${pnlColor(realised.realised)}">${withSign(money(Math.abs(realised.realised)), realised.realised)}</div>
+      <div class="sub" style="color:var(--muted)">${realised.units} unit${realised.units === 1 ? '' : 's'} sold</div>
+    </div>` : '';
+  summaryEl.style.display = (rows.length || sales.length) ? '' : 'none';
+  summaryEl.innerHTML = holdingTiles + realisedTile;
 
   grid.innerHTML = rows.length ? rows.map(r => holdingCard(r)).join('')
     : `<div class="portfolio-empty">No holdings yet — pick a product, enter quantity and the price you paid, then “Add / buy more”.</div>`;
@@ -5799,9 +5850,12 @@ function renderPortfolio() {
     btn.addEventListener('click', () => startPortfolioEdit(btn.dataset.product)));
   grid.querySelectorAll('.portfolio-remove-btn').forEach(btn =>
     btn.addEventListener('click', () => removeHolding(btn.dataset.product)));
+  grid.querySelectorAll('.portfolio-sell-btn').forEach(btn =>
+    btn.addEventListener('click', () => startPortfolioSell(btn.dataset.product)));
 
   renderPortfolioValueChart();
   renderBalancer(rows);
+  renderSales();
 }
 
 // One holding card. The value is the hero figure; P&L is coloured beside it; a
@@ -5845,6 +5899,7 @@ function holdingCard(r) {
       <div class="holding-foot">
         <span class="holding-meta">${r.qty} × ${r.now != null ? money(r.now) : '—'} · cost ${money(r.cost)}/u</span>
         <span class="holding-actions">
+          <button class="portfolio-sell-btn" data-product="${r.name}" aria-label="Record a sale of ${r.name}">Sell</button>
           <button class="portfolio-edit-btn" data-product="${r.name}" aria-label="Edit ${r.name}"><svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg></button>
           <button class="portfolio-remove-btn" data-product="${r.name}" aria-label="Remove ${r.name}">✕</button>
         </span>
@@ -6081,19 +6136,47 @@ function startPortfolioEdit(name) {
 
 function exitPortfolioEdit() {
   portfolioEditName = null;
+  portfolioSellName = null;
   const sel = document.getElementById('portfolio-product-select');
   if (sel) sel.disabled = false;
-  document.getElementById('portfolio-qty').value  = '';
-  document.getElementById('portfolio-cost').value = '';
+  const qtyEl = document.getElementById('portfolio-qty');
+  const costEl = document.getElementById('portfolio-cost');
+  qtyEl.value = ''; costEl.value = '';
+  // Restore the add/buy-more labelling (sell mode repurposes these fields).
+  qtyEl.placeholder = 'Qty'; qtyEl.setAttribute('aria-label', 'Quantity held');
+  costEl.placeholder = '€ / unit'; costEl.setAttribute('aria-label', 'Cost basis per unit');
   document.getElementById('portfolio-add-btn').textContent = '+ Add / buy more';
   document.getElementById('portfolio-cancel-btn').style.display = 'none';
   document.getElementById('portfolio-editor-error').style.display = 'none';
 }
 
-// Primary editor action. In edit mode → override the holding's exact values.
-// Otherwise "buy more" → add the quantity and blend cost basis to a weighted
-// average (creating the holding if it's new). Auto-saves the affected row.
+// Load a holding into the editor in SELL mode: the same fields, relabelled —
+// quantity to sell + sale price per unit. Commit records a disposal and draws
+// the holding down (see commitSale).
+function startPortfolioSell(name) {
+  const h = holdings[name];
+  if (!h) return;
+  portfolioEditName = null;
+  portfolioSellName = name;
+  const sel = document.getElementById('portfolio-product-select');
+  sel.value = name; sel.disabled = true;
+  const qtyEl = document.getElementById('portfolio-qty');
+  const costEl = document.getElementById('portfolio-cost');
+  qtyEl.value = h.quantity;
+  qtyEl.placeholder = 'Qty to sell'; qtyEl.setAttribute('aria-label', `Quantity of ${name} to sell`);
+  costEl.value = '';
+  costEl.placeholder = 'Sale € / unit'; costEl.setAttribute('aria-label', `Sale price per unit for ${name}`);
+  document.getElementById('portfolio-add-btn').textContent = '✓ Record sale';
+  document.getElementById('portfolio-cancel-btn').style.display = '';
+  costEl.focus();
+}
+
+// Primary editor action. Sell mode → record a disposal (commitSale). Edit mode →
+// override the holding's exact values. Otherwise "buy more" → add the quantity
+// and blend cost basis to a weighted average (creating the holding if it's new).
+// Auto-saves the affected row.
 function commitHolding() {
+  if (portfolioSellName) { commitSale(); return; }
   const sel    = document.getElementById('portfolio-product-select');
   const qtyEl  = document.getElementById('portfolio-qty');
   const costEl = document.getElementById('portfolio-cost');
@@ -6153,6 +6236,94 @@ async function deleteHoldingRow(name) {
   const { error } = await sbClient.from('holdings').delete()
     .eq('user_id', sbUser.id).eq('product_id', id);
   setStatus('portfolio-status', error ? '✕ Remove failed: ' + error.message : '✓ Removed', !!error);
+}
+
+// ── Sales / disposals (realised P&L) ──
+// Record a disposal at the holding's current weighted-average cost basis, then
+// draw the holding down (remove it when fully sold). The cost basis of the
+// remainder is unchanged — a partial sale doesn't move the weighted average.
+function commitSale() {
+  const name    = portfolioSellName;
+  const h       = holdings[name];
+  const qtyEl   = document.getElementById('portfolio-qty');
+  const priceEl = document.getElementById('portfolio-cost');   // repurposed: sale price
+  const errEl   = document.getElementById('portfolio-editor-error');
+  if (!h) { exitPortfolioEdit(); return; }
+  const qty   = parseFloat(qtyEl.value);
+  const price = parseFloat(priceEl.value);
+  const errs = [];
+  if (isNaN(qty) || qty <= 0)        errs.push('Quantity must be a positive number.');
+  else if (qty > h.quantity)         errs.push(`You only hold ${h.quantity}.`);
+  if (isNaN(price) || price < 0)     errs.push('Sale price must be a non-negative number.');
+  if (errs.length) { errEl.textContent = errs.join(' '); errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+
+  const sale = {
+    id: (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : 's-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+    name, quantity: qty, salePrice: round2(price), costBasis: h.costBasis,
+    soldOn: new Date().toISOString().slice(0, 10),
+  };
+  sales.push(sale);
+  persistSale(sale);
+
+  const remaining = round2(h.quantity - qty);
+  if (remaining > 0) { holdings[name] = { quantity: remaining, costBasis: h.costBasis }; persistHolding(name); }
+  else               { delete holdings[name]; deleteHoldingRow(name); }
+
+  exitPortfolioEdit();
+  renderPortfolio();
+}
+
+function removeSale(id) {
+  const i = sales.findIndex(s => s.id === id);
+  if (i < 0) return;
+  sales.splice(i, 1);
+  renderPortfolio();
+  deleteSaleRow(id);
+}
+
+async function persistSale(sale) {
+  if (!sbUser) return;
+  const pid = sbProductIds[sale.name];
+  if (!pid) return;
+  const { error } = await sbClient.from('sales').insert({
+    id: sale.id, user_id: sbUser.id, product_id: pid,
+    quantity: sale.quantity, sale_price: sale.salePrice, cost_basis: sale.costBasis, sold_on: sale.soldOn,
+  });
+  setStatus('portfolio-status', error ? '✕ Sale save failed: ' + error.message : '✓ Sale recorded', !!error);
+}
+async function deleteSaleRow(id) {
+  if (!sbUser) return;
+  const { error } = await sbClient.from('sales').delete().eq('user_id', sbUser.id).eq('id', id);
+  setStatus('portfolio-status', error ? '✕ Remove failed: ' + error.message : '✓ Removed', !!error);
+}
+
+// The Closed Positions list — every recorded sale, newest first, with its
+// realised P&L. Reads the module-level `sales`; wired from renderPortfolio().
+function renderSales() {
+  const wrap  = document.getElementById('sales-table-wrap');
+  const empty = document.getElementById('sales-empty');
+  const tbody = document.getElementById('sales-tbody');
+  const badge = document.getElementById('sales-badge');
+  if (!tbody) return;
+  const rows = [...sales].sort((a, b) => (a.soldOn < b.soldOn ? 1 : a.soldOn > b.soldOn ? -1 : 0));
+  if (badge) badge.textContent = rows.length ? `${rows.length} sale${rows.length === 1 ? '' : 's'}` : 'no sales';
+  if (empty) empty.style.display = rows.length ? 'none' : '';
+  if (wrap)  wrap.style.display  = rows.length ? '' : 'none';
+  tbody.innerHTML = rows.map(s => {
+    const realised = (s.salePrice - s.costBasis) * s.quantity;
+    return `<tr>
+      <td class="product-name" title="${s.name}">${s.name}</td>
+      <td class="num">${fmt(s.quantity, 0)}</td>
+      <td class="num">${money(s.salePrice)}</td>
+      <td class="num">${money(s.costBasis)}</td>
+      <td class="num" style="color:${pnlColor(realised)}">${withSign(money(Math.abs(realised)), realised)}</td>
+      <td>${s.soldOn}</td>
+      <td><button class="portfolio-remove-btn sales-remove-btn" data-id="${s.id}" aria-label="Remove the sale of ${s.name}">✕</button></td>
+    </tr>`;
+  }).join('');
+  tbody.querySelectorAll('.sales-remove-btn').forEach(btn =>
+    btn.addEventListener('click', () => removeSale(btn.dataset.id)));
 }
 
 document.getElementById('portfolio-add-btn').addEventListener('click', commitHolding);
@@ -8280,6 +8451,7 @@ function setAuthedUI(user) {
     document.getElementById('auth-user-email').textContent = '';
     holdings = {};            // clear the previous user's private portfolio
     alerts = {};              // …and their private price alerts
+    sales = [];               // …and their recorded disposals
     renderPortfolio();
     renderAlerts();
     updateTable();            // drop any alert flags from the board
@@ -8393,12 +8565,15 @@ const allSnapshots = () => fetchAllRows(() => sbClient.from('snapshots').select(
 // same applyNewData() path the .xlsx loader uses. Pivots the normalized
 // snapshot rows back into the aligned price[]/setVal[] arrays the app expects.
 async function loadFromSupabase() {
-  const [prodRes, snapRes, setRes, holdRes, alertRes] = await Promise.all([
+  const [prodRes, snapRes, setRes, holdRes, alertRes, salesRes] = await Promise.all([
     sbClient.from('products').select('*').order('release', { ascending: true }),
     allSnapshots(),
     sbClient.from('user_settings').select('*').maybeSingle(),
     sbClient.from('holdings').select('*'),
     sbClient.from('alerts').select('*'),
+    // Sales is optional infrastructure: an older deployment without the table
+    // just leaves the Closed Positions list empty (handled below), never throws.
+    sbClient.from('sales').select('*'),
   ]);
   if (prodRes.error) throw prodRes.error;
   if (snapRes.error) throw snapRes.error;
@@ -8491,6 +8666,18 @@ async function loadFromSupabase() {
       target: a.target_price != null ? Number(a.target_price) : null,
       pct:    a.below_pct    != null ? Number(a.below_pct)    : null,
     };
+  });
+  // Recorded disposals (the closed side). Rows whose product no longer exists are
+  // dropped. A `sales` read error (older deployment without the table) leaves the
+  // Closed Positions list empty — it never blocks the load.
+  sales = [];
+  (salesRes && !salesRes.error ? salesRes.data || [] : []).forEach(s => {
+    const name = idToName[s.product_id];
+    if (name) sales.push({
+      id: s.id, name, quantity: Number(s.quantity),
+      salePrice: Number(s.sale_price), costBasis: Number(s.cost_basis),
+      soldOn: s.sold_on,
+    });
   });
 
   // Derive metrics; keep only products that have at least one usable snapshot.

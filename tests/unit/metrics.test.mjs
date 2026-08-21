@@ -58,6 +58,7 @@ import {
   OVER_EXPOSED_SHARE,
   portfolioValueSeries,
   portfolioValueChange,
+  realisedPnL,
   fitConfidence,
   FIT_BANDS,
 } from '../../metrics.js';
@@ -1050,4 +1051,28 @@ test('FIT_BANDS is ordered high-to-low so the first match wins', () => {
   const mins = FIT_BANDS.map(b => b.min);
   assert.deepEqual(mins, [...mins].sort((a, b) => b - a));
   assert.ok(FIT_BANDS.every(b => b.label && b.key));
+});
+
+// ── realisedPnL: the closed side of the portfolio ──
+test('realisedPnL sums proceeds, cost and realised gain across sales', () => {
+  const r = realisedPnL([
+    { quantity: 2, salePrice: 120, costBasis: 100 },  // +40
+    { quantity: 1, salePrice: 80,  costBasis: 100 },  // −20
+  ]);
+  assert.equal(r.proceeds, 320);   // 240 + 80
+  assert.equal(r.cost, 300);       // 200 + 100
+  assert.equal(r.realised, 20);    // 320 − 300
+  assert.equal(r.units, 3);
+});
+
+test('realisedPnL is zero for no sales and ignores malformed rows', () => {
+  assert.deepEqual(realisedPnL([]), { realised: 0, proceeds: 0, cost: 0, units: 0 });
+  assert.deepEqual(realisedPnL(null), { realised: 0, proceeds: 0, cost: 0, units: 0 });
+  const r = realisedPnL([
+    { quantity: 0, salePrice: 100, costBasis: 50 },   // zero qty → skipped
+    { quantity: 2, salePrice: 'x', costBasis: 50 },   // NaN price → skipped
+    { quantity: 1, salePrice: 60, costBasis: 40 },    // +20 (the only valid row)
+  ]);
+  assert.equal(r.realised, 20);
+  assert.equal(r.units, 1);
 });

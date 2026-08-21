@@ -215,6 +215,26 @@ create table if not exists public.alerts (
 );
 create index if not exists alerts_user_idx on public.alerts (user_id);
 
+-- ── Per-user sales / disposals (private) ──
+-- A recorded disposal from the portfolio: quantity sold, the sale price per unit,
+-- and the cost basis per unit at the time of sale (the holding's weighted-average
+-- cost, drawn down on sale — the buy editor already blends to that average).
+-- Realised P&L = (sale_price − cost_basis) × quantity, summed client-side
+-- (metrics.js realisedPnL). Unlike holdings/alerts there is deliberately NO
+-- unique(user_id, product_id): a user can sell the same product many times, so
+-- every sale is its own append-only row (removed only by deleting that row).
+create table if not exists public.sales (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade default auth.uid(),
+  product_id  uuid not null references public.products(id) on delete cascade,
+  quantity    numeric not null check (quantity > 0),
+  sale_price  numeric not null check (sale_price >= 0),
+  cost_basis  numeric not null check (cost_basis >= 0),
+  sold_on     date not null default (now() at time zone 'utc')::date,
+  created_at  timestamptz not null default now()
+);
+create index if not exists sales_user_idx on public.sales (user_id);
+
 -- Migrate an existing alerts table (pre-fair-price alerts) in place. Safe to
 -- re-run: every step is guarded. `create table if not exists` above does NOT
 -- alter an existing table, so these carry old installs forward.
@@ -272,6 +292,7 @@ alter table public.snapshots     enable row level security;
 alter table public.user_settings enable row level security;
 alter table public.holdings      enable row level security;
 alter table public.alerts        enable row level security;
+alter table public.sales         enable row level security;
 alter table public.client_errors enable row level security;
 alter table public.cardmarket_expansion_singles enable row level security;
 alter table public.cardmarket_excluded_singles enable row level security;
@@ -355,6 +376,13 @@ create policy "own holdings" on public.holdings
 -- ── alerts: each user reads/writes only their own price alerts ──
 drop policy if exists "own alerts" on public.alerts;
 create policy "own alerts" on public.alerts
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+-- ── sales: each user reads/writes only their own disposals ──
+drop policy if exists "own sales" on public.sales;
+create policy "own sales" on public.sales
   for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
