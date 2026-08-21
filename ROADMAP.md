@@ -844,6 +844,35 @@ and the signed-in `holdings` map. Sequenced buy→hold→sell, they close the lo
   component. Depends on the sell-signal definition above landing first. *Open
   question:* whether it's a fourth Portfolio section, a lens on the existing
   Where-to-start block, or its own small panel — decide once the signal exists.
+- **Transaction log — the full buy/sell ledger.** *(Feature; needs a data-model
+  decision first.)* A single chronological history of every **buy** and **sell**,
+  grouped by date, each line showing product · type/condition · quantity · price ·
+  and P&L (a *sell* line's **realised** gain; a *buy*/open line's **unrealised**
+  mark-to-market vs the latest price), with an **Export**. The **realised (sell)
+  half already exists** — the `sales` table + Closed Positions (see the shipped
+  sold-item item). The gap is the **buy half**: today `holdings` stores only the
+  *current aggregate* per product (quantity + a **blended** weighted-average cost),
+  so the individual purchase events — date, price, quantity of each buy — are
+  **lost** the moment `commitHolding()` blends them. So the real question is the
+  data model, and it's the one thing to settle before building:
+  - **(a) A parallel `purchases` log** — record each buy as its own append-only
+    row (mirroring `sales`) *alongside* the existing aggregate holding. Smallest
+    change, keeps holdings/unrealised-P&L exactly as they are; the ledger is just
+    `purchases ∪ sales` sorted by date. Risk: two sources of truth for cost basis
+    (the blended holding vs the sum of purchase rows) that must be kept
+    consistent.
+  - **(b) Event-sourced holdings** — make buys/sells the *only* stored truth and
+    **derive** the current holding (quantity + weighted-average cost) as a
+    projection over the ledger. Cleanest and conflict-free (one source of truth,
+    and the log *is* the data), but a real refactor of `commitHolding` /
+    `persistHolding` / the load path, and a migration for existing aggregate
+    holdings.
+  Lean **(a)** first for the log itself, with **(b)** noted as the principled
+  end-state if the double-bookkeeping in (a) bites. Same constraints as below —
+  pure, unit-tested, currency-correct (only €-absolute figures convert), all
+  derivable from data already tracked (no new external source). The reference
+  shape is the Collectr-style "Transaction Log" (dated groups, per-line coloured
+  P&L, Export).
 
 Constraints (same as every analytical feature here): the new signal/realised-P&L
 maths ships as **pure, unit-tested helpers in `metrics.js`** (no derived number
