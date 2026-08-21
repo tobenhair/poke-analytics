@@ -1774,8 +1774,14 @@
        An explicit flex-basis (not auto) is needed or .field-input's width:100%
        makes cost claim a whole line. */
     .pe-holdings .pe-product { flex-basis: 100%; }
-    .pe-holdings .pe-cost { flex: 1 1 96px; max-width: none; }
-    .pe-holdings .pe-atype { flex: 1 1 96px; max-width: none; }
+    .pe-holdings .pe-cost { flex: 1 1 84px; max-width: none; }
+    .pe-holdings .pe-atype { flex: 1 1 84px; max-width: none; }
+    /* Tighter still on a phone: smaller field type + padding and a slimmer
+       Add button, so the type / price / Add controls sit comfortably on one
+       row (still ≥24px tall for the touch target). */
+    .pe-holdings { gap: 6px; padding: 10px var(--pad-x); }
+    .pe-holdings .field-input, .pe-holdings .field-select { font-size: var(--text-sm); padding: 6px 9px; }
+    .pe-holdings .add-btn { padding: 7px 13px; font-size: var(--text-sm); }
 
     /* ── The board on a phone ──
        Measured before this: the 9 columns are 1,098px wide in a 356px window,
