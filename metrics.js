@@ -823,3 +823,27 @@ export function portfolioValueChange(holdings, historicalData, dates) {
     change30d: pctChangeOverDays(series, 30),
   };
 }
+
+// ── Realised P&L: the closed side of the portfolio ──
+// Sums a user's recorded disposals (sales). Each sale carries the quantity sold,
+// the sale price per unit, and the cost basis per unit *at the time of sale* (the
+// holding's weighted-average cost, drawn down at sale — the buy editor already
+// blends to that average). Realised P&L for a sale is (salePrice − costBasis) ×
+// quantity; the totals are the lifetime figures shown beside unrealised P&L.
+// Pure and currency-agnostic: every amount is in the canonical unit (€), so a
+// display-currency conversion happens at render time, not here. Returns
+// { realised, proceeds, cost, units } — units is the total quantity sold.
+export function realisedPnL(sales) {
+  const out = { realised: 0, proceeds: 0, cost: 0, units: 0 };
+  (sales || []).forEach(s => {
+    const qty  = Number(s && s.quantity);
+    const sp   = Number(s && s.salePrice);
+    const cb   = Number(s && s.costBasis);
+    if (!isFinite(qty) || qty <= 0 || !isFinite(sp) || !isFinite(cb)) return;
+    out.proceeds += sp * qty;
+    out.cost     += cb * qty;
+    out.units    += qty;
+  });
+  out.realised = out.proceeds - out.cost;
+  return out;
+}

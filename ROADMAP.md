@@ -28,6 +28,12 @@ other way or doesn't ship.
 
 Condensed history — details live in the git log and `CLAUDE.md`.
 
+- **Sold-item tracking — realised P&L (the closed side of the portfolio).** A
+  per-user append-only **`sales`** table + a **Sell** action on each holding card
+  (records a disposal at the holding's weighted-average cost, draws the holding
+  down). Pure `realisedPnL(sales)` in `metrics.js` drives a **Realised P&L**
+  summary tile and a **Closed Positions** list. The second of the three
+  **sell-side** items (a sell-signal shortlist remains).
 - **Continuous time-series charts.** The Price-History (§03), SV/Booster-Trend
   (§04), drill-down and Portfolio value charts dropped their default point
   markers (`pointRadius: 0` + `pointHoverRadius`) — a clean line, a point only
@@ -806,19 +812,20 @@ and the signed-in `holdings` map. Sequenced buy→hold→sell, they close the lo
   products (signed in) or catalogue-wide; and the honesty rule — a sell signal
   on a suppressed/weak fair price must fall back to momentum-only, never a fair
   claim, mirroring the buy side.
-- **Sold-item tracking in the portfolio (realised P&L).** The portfolio tracks
-  only *open* holdings and *unrealised* P&L. Add a **sold** state: record a
-  disposal (quantity, sale price, date) so the portfolio can show **realised
-  P&L** beside the unrealised, a lifetime/return figure, and a history of
-  closed positions. Schema: either a `holdings.status` + sale fields, or a
-  separate **`sales`** table (RLS-scoped per user like `holdings`), fed from the
-  portfolio editor (a "Sell" action on a holding card that moves some/all of the
-  quantity to a sale and blends nothing back). Feeds the value-over-time chart
-  (realised gains as a floor) and the concentration view (sold items leave the
-  live exposure). All derived client-side from raw inputs, like the rest of the
-  portfolio. *Open question:* partial sales + cost-basis method (the buy editor
-  already blends to a weighted-average cost via `commitHolding()`, so a sale
-  draws down against that average — keep it consistent).
+- **Sold-item tracking in the portfolio (realised P&L). ✅ SHIPPED.** A **sold**
+  state is built: a separate append-only **`sales`** table (RLS-scoped per user
+  like `holdings`), fed by a **Sell** action on each holding card
+  (`startPortfolioSell()` / `commitSale()`) that records a disposal (quantity,
+  sale price, date) at the holding's current weighted-average cost basis and
+  draws the holding down (removed when fully sold; the remainder's average is
+  unchanged — the partial-sale/cost-basis question, resolved). Pure
+  **`realisedPnL(sales)`** in `metrics.js` (unit-tested) drives a **Realised
+  P&L** summary tile (shown even when every holding is closed) and a **Closed
+  Positions** list (`renderSales()`). All client-side from raw inputs; currency-
+  correct. *Deferred (noted for later):* feeding realised gains into the value-
+  over-time chart as a floor, and excluding sold items from the concentration
+  view — both are presentational follow-ups, not needed for the core realised-P&L
+  answer.
 - **A sell-signal shortlist (the exit-side "Where to start").** The mirror of
   the Where-to-start buy shortlist: a top-list ranked by sell-signal strength —
   most over fair / strongest un-backed run-up — scoped, signed in, to the user's
