@@ -496,6 +496,9 @@
   .conc-fill { height: 100%; border-radius: var(--radius-pill); background: var(--accent3); transition: width 0.4s var(--ease); }
   .conc-row.over .conc-fill { background: var(--accent2); }
   .conc-row.over .conc-pct { color: var(--accent2); }
+  /* Per-group "show all / top N" toggle — reuses .board-more-btn as a compact
+     footer under the bars (a little breathing room above its top border). */
+  .conc-more { margin-top: 6px; }
   .balancer-suggest { border-top: 1px solid var(--hairline); padding: 20px var(--pad-x) 24px; }
   .suggest-item { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--hairline); font-size: var(--text-lg); }
   .suggest-item:last-child { border-bottom: none; }
@@ -3743,6 +3746,11 @@ let alerts = {};
 // Only condensed when there are more than MOST_VALUABLE_N holdings.
 let portfolioShowAll = false;
 const MOST_VALUABLE_N = 4;
+// Concentration & Rebalance: each bucket group (set / release year / type) leads
+// with its top CONC_TOP_N buckets by value and expands per-group on demand, so a
+// portfolio spread across many sets/years doesn't make the section a long scroll.
+const CONC_TOP_N = 4;
+const balancerShowAll = { set: false, era: false, type: false };
 // Signed-in user's recorded disposals (append-only). Each: { id, name, quantity,
 // salePrice, costBasis, soldOn }. Populated by loadFromSupabase(); realised P&L
 // is summed from it (metrics.js realisedPnL) and the Closed Positions list.
@@ -6189,21 +6197,31 @@ function renderBalancer(portfolioRowsArg) {
   const byEra  = concentrationShares(enriched.map(r => ({ bucket: r.era,    value: r.value, cost: r.cost })));
   const byType = concentrationShares(enriched.map(r => ({ bucket: r.type,   value: r.value, cost: r.cost })));
 
-  const groupHtml = (title, res, labelFor) => `
-    <div class="conc-group">
-      <h4>${title}</h4>
-      ${res.buckets.map(b => {
-        const label = labelFor ? labelFor(b.bucket) : b.bucket;
-        const pct = (b.valueShare * 100);
-        return `<div class="conc-row${b.over ? ' over' : ''}">
+  // Each group leads with its top CONC_TOP_N buckets (already value-sorted, so
+  // any over-exposed bucket — the highest-share ones — is always shown) and a
+  // per-group toggle expands the rest, keeping the section short on a wide
+  // portfolio. Over-exposed buckets beyond the cap are surfaced in the count.
+  const groupHtml = (title, res, labelFor, key) => {
+    const all = res.buckets;
+    const expanded = balancerShowAll[key];
+    const shown = expanded ? all : all.slice(0, CONC_TOP_N);
+    const rowsHtml = shown.map(b => {
+      const label = labelFor ? labelFor(b.bucket) : b.bucket;
+      const pct = (b.valueShare * 100);
+      return `<div class="conc-row${b.over ? ' over' : ''}">
           <div class="conc-head">
             <span class="conc-name" title="${label}">${label}${b.over ? ' ⚠' : ''}</span>
             <span class="conc-pct">${pct.toFixed(0)}%</span>
           </div>
           <div class="conc-bar"><div class="conc-fill" style="width:${Math.max(2, pct).toFixed(1)}%"></div></div>
         </div>`;
-      }).join('')}
-    </div>`;
+    }).join('');
+    const moreBtn = all.length > CONC_TOP_N
+      ? `<button type="button" class="board-more-btn conc-more" data-conc="${key}">${
+          expanded ? `Show top ${CONC_TOP_N} ▴` : `Show all ${all.length} ▾`}</button>`
+      : '';
+    return `<div class="conc-group"><h4>${title}</h4>${rowsHtml}${moreBtn}</div>`;
+  };
 
   // Headline concentration flag from the most-concentrated set.
   const topSet = bySet.buckets.find(b => b.over);
@@ -6235,14 +6253,19 @@ function renderBalancer(portfolioRowsArg) {
   host.innerHTML = `
     ${flag}
     <div class="balancer-grid">
-      ${groupHtml('By set', bySet, setNameFor)}
-      ${groupHtml('By release year', byEra, null)}
-      ${groupHtml('By product type', byType, null)}
+      ${groupHtml('By set', bySet, setNameFor, 'set')}
+      ${groupHtml('By release year', byEra, null, 'era')}
+      ${groupHtml('By product type', byType, null, 'type')}
     </div>
     <div class="balancer-suggest">
       <h4>Rebalance — next-euro shortlist</h4>
       ${suggestHtml}
     </div>`;
+
+  host.querySelectorAll('.conc-more').forEach(btn => btn.addEventListener('click', () => {
+    balancerShowAll[btn.dataset.conc] = !balancerShowAll[btn.dataset.conc];
+    renderBalancer();
+  }));
 }
 
 // Load a holding into the editor to correct its exact quantity / cost.
