@@ -1622,10 +1622,11 @@
   /* Holdings add editor — a compact search + small numeric fields aligned in
      one flexible row (product grows; qty/cost stay narrow). Smaller field type
      than the default so the row reads as a control strip, not headline inputs. */
-  .pe-holdings .field-input { font-size: var(--text-md); padding: 8px 12px; }
+  .pe-holdings .field-input, .pe-holdings .field-select { font-size: var(--text-md); padding: 8px 12px; min-width: 0; }
   .pe-holdings .pe-product { flex: 1 1 200px; min-width: 140px; max-width: none; }
   .pe-holdings .pe-qty { flex: 0 0 62px; max-width: 62px; text-align: center; font-size: var(--text-sm); padding: 8px 8px; }
   .pe-holdings .pe-cost { flex: 0 0 118px; max-width: 118px; }
+  .pe-holdings .pe-atype { flex: 0 0 158px; max-width: 158px; }   /* alert type select */
   .pe-holdings .add-btn { width: auto; flex: 0 0 auto; }
   /* Number spinners add width and clutter here — the fields are small on purpose. */
   .pe-holdings input[type=number]::-webkit-inner-spin-button,
@@ -1773,7 +1774,8 @@
        An explicit flex-basis (not auto) is needed or .field-input's width:100%
        makes cost claim a whole line. */
     .pe-holdings .pe-product { flex-basis: 100%; }
-    .pe-holdings .pe-cost { flex: 1 1 120px; max-width: none; }
+    .pe-holdings .pe-cost { flex: 1 1 96px; max-width: none; }
+    .pe-holdings .pe-atype { flex: 1 1 96px; max-width: none; }
 
     /* ── The board on a phone ──
        Measured before this: the 9 columns are 1,098px wide in a 356px window,
@@ -2721,7 +2723,7 @@
         <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-deal"/></svg></span><div><div class="unlock-t">Fair price</div><div class="unlock-d">the € it should cost for its age</div></div></div>
         <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg></span><div><div class="unlock-t">Buy / avoid verdict</div><div class="unlock-d">in plain words</div></div></div>
         <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-analysis"/></svg></span><div><div class="unlock-t">Price history</div><div class="unlock-d">every tracked snapshot</div></div></div>
-        <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-portfolio"/></svg></span><div><div class="unlock-t">Portfolio & P&L</div><div class="unlock-d">value your own holdings</div></div></div>
+        <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-portfolio"/></svg></span><div><div class="unlock-t">Portfolio & Profit & Loss</div><div class="unlock-d">value your own holdings</div></div></div>
         <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg></span><div><div class="unlock-t">Price alerts</div><div class="unlock-d">buy-below targets</div></div></div>
       </div>
     </div>
@@ -3321,7 +3323,7 @@
          top of the tab: the headline numbers and the chart that plots them belong
          side by side. The holdings editor + cards follow in their own section. -->
     <h2 class="section-eyebrow">Your Portfolio</h2>
-    <p class="section-desc"><strong>What:</strong> what your holdings are worth now, and how that value has moved. <strong>How to read:</strong> the summary totals your current value and <em>unrealised P&amp;L</em> (cost basis vs. each product's latest tracked price); the chart plots your <em>current</em> holdings valued at every tracked snapshot against your flat <em>cost basis</em> — the gap between the lines is your gain (above cost) or loss (below). Values current quantities back across history; purchase dates aren't tracked. Private to your account, saved automatically.</p>
+    <p class="section-desc"><strong>What:</strong> what your holdings are worth now, and how that value has moved. <strong>How to read:</strong> the summary totals your current value and <em>unrealised profit &amp; loss</em> (cost basis vs. each product's latest tracked price); the chart plots your <em>current</em> holdings valued at every tracked snapshot against your flat <em>cost basis</em> — the gap between the lines is your gain (above cost) or loss (below). Values current quantities back across history; purchase dates aren't tracked. Private to your account, saved automatically.</p>
     <div class="panel">
       <div class="panel-header">
         <h3 class="panel-title">Portfolio</h3>
@@ -3342,7 +3344,7 @@
 
     <!-- ── Section: holdings (editor + cards) ── -->
     <h2 class="section-eyebrow">Holdings</h2>
-    <p class="section-desc"><strong>What:</strong> the products you hold, and adding or correcting them. <strong>How to read:</strong> <em>Add</em> tops up a holding and blends the cost basis to a weighted average; use the <svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg> button on a row to correct the exact quantity or cost. Each card shows its current value and unrealised P&amp;L. Private to your account, saved automatically.</p>
+    <p class="section-desc"><strong>What:</strong> the products you hold, and adding or correcting them. <strong>How to read:</strong> <em>Add</em> tops up a holding and blends the cost basis to a weighted average; use the <svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg> button on a row to correct the exact quantity or cost. Each card shows its current value and unrealised profit &amp; loss. Private to your account, saved automatically.</p>
     <div class="panel">
       <!-- Searchable product picker (typeahead over a datalist, not a long
            scroll dropdown), a 3-digit quantity and a €/unit — one compact row
@@ -3366,7 +3368,7 @@
 
     <!-- ── Section: closed positions (realised P&L) ── -->
     <h2 class="section-eyebrow">Closed Positions</h2>
-    <p class="section-desc"><strong>What:</strong> what you've sold, and the realised profit or loss on each disposal. <strong>How to read:</strong> realised P&amp;L is (sale price − the cost basis you held it at) × quantity; the <em>Realised P&amp;L</em> summary tile sums it across every sale. Use <em>Sell</em> on a holding card to record a disposal — it draws that quantity down from the holding and lands it here. Private to your account, saved automatically.</p>
+    <p class="section-desc"><strong>What:</strong> what you've sold, and the realised profit or loss on each disposal. <strong>How to read:</strong> realised profit &amp; loss is (sale price − the cost basis you held it at) × quantity; the <em>Realised Profit &amp; Loss</em> summary tile sums it across every sale. Use <em>Sell</em> on a holding card to record a disposal — it draws that quantity down from the holding and lands it here. Private to your account, saved automatically.</p>
     <div class="panel">
       <div class="panel-header">
         <h3 class="panel-title">Closed Positions</h3>
@@ -3406,14 +3408,16 @@
         <h3 class="panel-title">Price Alerts</h3>
         <div class="panel-badge" id="alerts-badge">no alerts</div>
       </div>
-      <div class="portfolio-editor">
-        <select class="field-select" id="alert-product-select" aria-label="Product to set a price alert on"></select>
-        <select class="field-select" id="alert-type" style="max-width:180px;" aria-label="Alert type">
+      <!-- Same compact, searchable editor style as the Holdings add row. -->
+      <div class="portfolio-editor pe-holdings">
+        <input class="field-input pe-product" id="alert-product-select" list="alert-product-options" type="text" autocomplete="off" placeholder="Search product…" aria-label="Product to set a price alert on">
+        <datalist id="alert-product-options"></datalist>
+        <select class="field-select pe-atype" id="alert-type" aria-label="Alert type">
           <option value="fixed">Buy below €</option>
           <option value="fair">% below fair price</option>
         </select>
-        <input class="field-input" id="alert-target" type="number" min="0" step="0.01" placeholder="Buy below € / unit" aria-label="Alert target">
-        <button class="add-btn" id="alert-add-btn" style="width:auto;">+ Add / update</button>
+        <input class="field-input pe-cost" id="alert-target" type="number" min="0" step="0.01" placeholder="Buy below € / unit" aria-label="Alert target">
+        <button class="add-btn" id="alert-add-btn">+ Add</button>
       </div>
       <div id="alert-editor-error" class="portfolio-error"></div>
       <div class="table-wrap">
@@ -5913,15 +5917,17 @@ function renderPortfolio() {
       <div class="sub" style="color:var(--muted)">1d ${chgSpan(valChg.change1d)} · 7d ${chgSpan(valChg.change7d)} · 30d ${chgSpan(valChg.change30d)}</div>
     </div>
     <div class="portfolio-tile">
-      <div class="lbl">Unrealised P&L</div>
+      <div class="lbl">Unrealised Profit & Loss</div>
       <div class="val" style="color:${pnlColor(totalPnl)}">${withSign(money(Math.abs(totalPnl)), totalPnl)}</div>
       <div class="sub" style="color:${pnlColor(totalPnl)}">${totalPct != null ? withSign((Math.abs(totalPct) * 100).toFixed(1) + '%', totalPnl) : '—'}</div>
     </div>` : '';
-  const realisedTile = sales.length ? `
+  // Realised Profit & Loss is a permanent summary tile (shown whenever the
+  // summary is — i.e. any holdings or sales), reading €0 until the first sale.
+  const realisedTile = (rows.length || sales.length) ? `
     <div class="portfolio-tile">
-      <div class="lbl">Realised P&L</div>
+      <div class="lbl">Realised Profit & Loss</div>
       <div class="val" style="color:${pnlColor(realised.realised)}">${withSign(money(Math.abs(realised.realised)), realised.realised)}</div>
-      <div class="sub" style="color:var(--muted)">${realised.units} unit${realised.units === 1 ? '' : 's'} sold</div>
+      <div class="sub" style="color:var(--muted)">${sales.length ? `${realised.units} unit${realised.units === 1 ? '' : 's'} sold` : 'no sales yet'}</div>
     </div>` : '';
   summaryEl.style.display = (rows.length || sales.length) ? '' : 'none';
   summaryEl.innerHTML = holdingTiles + realisedTile;
@@ -6138,7 +6144,7 @@ function renderPortfolioValueChart() {
             const pnl = (pv.parsed.y / rate) - costTotalEur;
             const pct = costTotalEur > 0 ? (pnl / costTotalEur) * 100 : null;
             const sign = pnl > 0 ? '+' : pnl < 0 ? '−' : '';
-            return ['', `P&L: ${sign}${money(Math.abs(pnl))}${pct != null ? ` (${sign}${Math.abs(pct).toFixed(1)}%)` : ''}`];
+            return ['', `Profit & Loss: ${sign}${money(Math.abs(pnl))}${pct != null ? ` (${sign}${Math.abs(pct).toFixed(1)}%)` : ''}`];
           },
         } },
       },
@@ -6536,18 +6542,18 @@ function alertFlag(name) {
   return `<span class="buy-flag" role="img" aria-label="${title}" style="color:${color}" title="${title}"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg></span>`;
 }
 
+// Fill the alert product picker's typeahead datalist (same pattern as the
+// Holdings editor). Alerts are for buyable sealed products; loose packs are
+// reference-only. The <input> keeps whatever the user typed.
 function populateAlertSelect() {
-  const sel = document.getElementById('alert-product-select');
-  if (!sel) return;
-  const prev = sel.value;
-  sel.innerHTML = '';
-  // Alerts are for buyable sealed products; loose packs are reference-only.
+  const list = document.getElementById('alert-product-options');
+  if (!list) return;
+  list.innerHTML = '';
   analysisProducts().forEach(p => {
     const opt = document.createElement('option');
-    opt.value = p.name; opt.textContent = p.name;
-    sel.appendChild(opt);
+    opt.value = p.name;
+    list.appendChild(opt);
   });
-  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
 }
 
 function renderAlerts() {
@@ -6610,11 +6616,12 @@ function addOrUpdateAlert() {
   const typeEl = document.getElementById('alert-type');
   const targetEl = document.getElementById('alert-target');
   const errEl  = document.getElementById('alert-editor-error');
-  const name   = sel.value;
+  const name   = sel.value.trim();
   const type   = typeEl.value === 'fair' ? 'fair' : 'fixed';
   const val    = parseFloat(targetEl.value);
   const errs = [];
   if (!name) errs.push('Pick a product.');
+  else if (!analysisProducts().some(p => p.name === name)) errs.push('Pick a product from the list.');
   if (type === 'fixed') {
     if (isNaN(val) || val < 0) errs.push('Buy-below € must be a non-negative number.');
   } else {
@@ -6625,7 +6632,7 @@ function addOrUpdateAlert() {
   alerts[name] = type === 'fair'
     ? { type: 'fair', target: null, pct: val }
     : { type: 'fixed', target: val, pct: null };
-  targetEl.value = '';
+  sel.value = ''; targetEl.value = '';
   renderAlerts();
   updateTable();       // reflect the new flag on the board immediately
   persistAlert(name);  // auto-save
@@ -8251,7 +8258,7 @@ function renderDrillHolding(p) {
     const r = portfolioRows().find(x => x.name === p.name);
     const pnlCol = r && r.pnl != null ? (r.pnl >= 0 ? 'var(--accent4)' : 'var(--accent2)') : 'var(--muted)';
     parts.push(`<div class="drill-ingredient"><span class="lbl">Holding</span><span>${fmt(r.qty)} × cost ${money(r.cost)}</span></div>`);
-    parts.push(`<div class="drill-ingredient"><span class="lbl">Unrealised P&L</span><span style="color:${pnlCol}">${r.pnl != null ? (r.pnl >= 0 ? '+' : '') + money(r.pnl) + ` (${r.pnlPct != null ? (r.pnlPct * 100).toFixed(1) + '%' : '—'})` : '—'}</span></div>`);
+    parts.push(`<div class="drill-ingredient"><span class="lbl">Unrealised Profit & Loss</span><span style="color:${pnlCol}">${r.pnl != null ? (r.pnl >= 0 ? '+' : '') + money(r.pnl) + ` (${r.pnlPct != null ? (r.pnlPct * 100).toFixed(1) + '%' : '—'})` : '—'}</span></div>`);
   }
   const a = alertEntry(p.name);
   if (a) {

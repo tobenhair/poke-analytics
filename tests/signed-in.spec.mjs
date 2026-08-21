@@ -377,8 +377,9 @@ test('a regular user gets portfolio + alerts but not Data Entry, and edits auto-
   const holdingRow = (await writes(page, 'holdings', 'upsert')).at(-1).payload;
   expect(holdingRow).toMatchObject({ product_id: 'p4', quantity: 1, cost_basis: 50 });
 
-  // Alerts: adding a fixed target auto-saves the same way.
-  await page.locator('#alert-product-select').selectOption({ label: 'Delta Booster Bundle' });
+  // Alerts: adding a fixed target auto-saves the same way. The product picker
+  // is a searchable datalist input now (like the Holdings editor), not a select.
+  await page.locator('#alert-product-select').fill('Delta Booster Bundle');
   await page.locator('#alert-target').fill('55');
   await page.locator('#alert-add-btn').click();
   await expect.poll(async () => (await writes(page, 'alerts', 'upsert')).length).toBeGreaterThan(0);
@@ -410,7 +411,7 @@ test('recording a sale draws the holding down and reports realised P&L', async (
   await page.locator('.tab-btn[data-tab="portfolio"]').click();
   // Wait for the signed-in portfolio to settle (the holding loaded + rendered)
   // before interacting — the summary tile only renders once holdings are in.
-  await expect(page.locator('#portfolio-summary')).toContainText('Unrealised P&L');
+  await expect(page.locator('#portfolio-summary')).toContainText('Unrealised Profit & Loss');
 
   // The fixture holds 2× Beta at €150 cost. Sell 1 at €200 → realised +€50, and
   // the holding is drawn down to 1 (cost basis unchanged by a partial sale).
@@ -435,7 +436,7 @@ test('recording a sale draws the holding down and reports realised P&L', async (
   });
 
   // Realised P&L surfaces in the summary and the Closed Positions list shows the row.
-  await expect(page.locator('#portfolio-summary')).toContainText('Realised P&L');
+  await expect(page.locator('#portfolio-summary')).toContainText('Realised Profit & Loss');
   await expect(page.locator('#sales-tbody')).toContainText('Beta Booster Box');
   await expect(page.locator('#sales-badge')).toHaveText(/1 sale/);
 
