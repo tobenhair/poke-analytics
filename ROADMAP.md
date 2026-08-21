@@ -619,7 +619,33 @@ right but poorly built) or **Feature** (something new).
     the live fit to R² 0.51 — more old data helped the fit but can't fix the
     inversion, which is why the suppression is the right tool.)
 
-_Otherwise nothing open in this theme — the rest is under **Then** and **Later**.
+- **Parallel-line price prognosis — a per-product forecast off the fit's slope.**
+  *(Investigate — a research idea, not yet a feature.)* The fair price assumes
+  **mean-reversion**: a product off the age-fit line is expected to move *toward*
+  it. This item probes the **opposite** hypothesis — **persistence**: that an
+  outlier tends to keep its **own level curve**, a line **parallel to the fair-fit
+  slope but anchored at the product's *current* price point**, over its lifetime.
+  Concretely: the age fit gives expected SV/Booster declining with age at slope
+  `b` (`linearFit`); instead of reverting a product to the fit line, project it
+  forward along `s(age) = s_now + b·(age − age_now)` — a parallel offset by the
+  product's current residual to the fit — then invert (as `fairPrice()` does) to a
+  **price-vs-age forecast** through today's price. It deliberately **may disagree
+  with the fair price** (that's the point: fair price says "worth X"; this says
+  "if it holds its level, it'll be near Y as it ages"). **The investigation, not
+  the build, comes first:** backtest on the tracked history — for products with
+  enough span, does the residual-to-fit stay roughly *constant* over life
+  (supports the parallel-line/persistence model) or *shrink toward zero* (supports
+  mean-reversion, i.e. the fair price already captures it)? Measure out-of-sample
+  which forecast is closer to realised later prices, split young vs settled. Only
+  if persistence holds does a forecast line (a dashed overlay on the drill-down
+  price chart + a "projected at N yr" stat) earn its place — clearly labelled as a
+  *trend projection, not the fair-price verdict*, gated on `fairPriceTrusted()`
+  like everything fit-derived, and pure + unit-tested in `metrics.js`. Related to
+  the robust-fit follow-up above (both hinge on how outliers behave over time).
+
+_The only open threads in this theme are the two **investigations** above (the
+robust/launch-trimmed fit and the parallel-line prognosis) — research first,
+build only if the data supports it; the rest is under **Then** and **Later**.
 The **Backup & restore** item that used to live here is deferred by maintainer
 decision; see **Later**._
 
