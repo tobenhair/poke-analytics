@@ -848,7 +848,11 @@ and the signed-in `holdings` map. Sequenced buy→hold→sell, they close the lo
   decision first.)* A single chronological history of every **buy** and **sell**,
   grouped by date, each line showing product · type/condition · quantity · price ·
   and P&L (a *sell* line's **realised** gain; a *buy*/open line's **unrealised**
-  mark-to-market vs the latest price), with an **Export**. The **realised (sell)
+  mark-to-market vs the latest price), with a **CSV export** of the whole ledger
+  (one row per transaction — date, type buy/sell, product, condition, quantity,
+  unit price, cost basis, realised/unrealised P&L — built client-side and offered
+  as a `text/csv` download, the same one-function pattern as the existing xlsx
+  export). The **realised (sell)
   half already exists** — the `sales` table + Closed Positions (see the shipped
   sold-item item). The gap is the **buy half**: today `holdings` stores only the
   *current aggregate* per product (quantity + a **blended** weighted-average cost),
@@ -872,7 +876,7 @@ and the signed-in `holdings` map. Sequenced buy→hold→sell, they close the lo
   pure, unit-tested, currency-correct (only €-absolute figures convert), all
   derivable from data already tracked (no new external source). The reference
   shape is the Collectr-style "Transaction Log" (dated groups, per-line coloured
-  P&L, Export).
+  P&L, CSV export).
 
 Constraints (same as every analytical feature here): the new signal/realised-P&L
 maths ships as **pure, unit-tested helpers in `metrics.js`** (no derived number
