@@ -7852,9 +7852,11 @@ function renderDrill() {
   const stat = (k, v, s = '', vcol = 'var(--text)') =>
     `<div class="drill-stat"><div class="k">${k}</div><div class="v" style="color:${vcol}">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
   // A bundled promo card (e.g. an ETB's stamped promo) isn't part of the set's
-  // singles, so it's subtracted from the price for the pack economics; note it
-  // on the Live Price so the ex-promo booster maths is explained, not hidden.
-  const promoNote = p.promoValue > 0 ? `${money(p.promoValue)} promo excluded from value` : '';
+  // singles. The Live Price is the TRUE full price the buyer pays — we never reduce
+  // it, or we'd show a false price; the promo is only netted out of the per-booster
+  // value KPIs (SV/Booster). The note here just states the promo card's own value,
+  // for reference — it makes no claim about the price.
+  const promoNote = p.promoValue > 0 ? `${money(p.promoValue)} promo card` : '';
   const tiles = [
     stat('Live Price', p.price != null ? money(p.price) : '—', promoNote),
     stat('Fair Price', p.fairPrice != null ? money(p.fairPrice) : '—', gapTxt + (trusted ? '' : ' · low fit'), gapCol),
