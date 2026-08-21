@@ -34,6 +34,12 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   down). Pure `realisedPnL(sales)` in `metrics.js` drives a **Realised P&L**
   summary tile and a **Closed Positions** list. The second of the three
   **sell-side** items (a sell-signal shortlist remains).
+- **Sell signals — the exit-side momentum flag.** `sellSignal(hist)` (pure,
+  unit-tested in `metrics.js`) mirrors the buy signal: an **un-backed run-up**
+  (price rose ≥5% while set value didn't follow). Red board flag + a `runUp`
+  clause folded into the verdict + a drill-down "Momentum signal" line;
+  momentum-only, so it never asserts a fair price on a weak fit. The first of the
+  three **sell-side** items (only a sell-signal shortlist now remains).
 - **Continuous time-series charts.** The Price-History (§03), SV/Booster-Trend
   (§04), drill-down and Portfolio value charts dropped their default point
   markers (`pointRadius: 0` + `pointHoverRadius`) — a clean line, a point only
@@ -795,9 +801,19 @@ that already exists rather than inventing new maths — the same `momentum()`
 (drawdown, 7d/30d change, set-value trend), `verdict`, `fairGap`/`fairPrice`
 and the signed-in `holdings` map. Sequenced buy→hold→sell, they close the loop.
 
-- **Sell signals (the inverse of the buy signal).** Today a buy signal fires
-  when price dropped while set value held (a possible mispricing *down*); the
-  symmetric case is a possible mispricing *up* — flag when a product is
+- **Sell signals (the inverse of the buy signal). ✅ SHIPPED.** The momentum
+  half is built: `sellSignal(hist)` in `metrics.js` (pure, unit-tested) is the
+  exact mirror of `buySignal` — price **rose** ≥5% on the last snapshot while set
+  value did **not** follow (an un-backed run-up). It surfaces as a red board flag
+  (`.sell-flag`, `i-trend-up`, `aria-label="Sell caution"`, a sibling of the 💰
+  buy flag), folds into the plain-language **verdict** via an optional `runUp`
+  flag ("… · un-backed run-up" on a `bad` verdict; a neutral "Un-backed run-up"
+  when there's no trusted fair anchor), and shows a "Momentum signal" line in the
+  drill-down. It makes **no fair-price claim** (momentum-only), so it stays honest
+  on a weak/suppressed fit — the sell-side mirror of the buy honesty rule; the
+  "meaningfully over fair price" case is already the verdict's `bad` tone. The
+  original scope below is kept for reference:
+  - _Original plan:_ flag when a product is
   **meaningfully above its fair price** (`fairGap` positive past a threshold,
   gated on `fairPriceTrusted()` exactly like the buy side), and/or shows
   **inverse momentum** (a strong recent run-up — `momentum().change30d` /

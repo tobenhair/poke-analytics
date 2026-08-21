@@ -1188,6 +1188,7 @@
      colour and couldn't take the token's; the icon inherits this one. The
      alert bell overrides it inline (gold when just crossed, muted when not). */
   .buy-flag { font-style: normal; cursor: help; color: var(--accent); }
+  .sell-flag { font-style: normal; cursor: help; color: var(--accent2); }
 
 
   .val-excellent { color: var(--accent4); }
@@ -2161,6 +2162,7 @@
   <symbol id="i-portfolio" viewBox="0 0 24 24"><rect x="3.2" y="7.5" width="17.6" height="12.5" rx="2"/><path d="M9 7.5V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8v1.7"/><path d="M3.2 12.6h17.6"/></symbol>
   <symbol id="i-entry" viewBox="0 0 24 24"><path d="M4 20h4L18 10a2.83 2.83 0 0 0-4-4L4 16z"/><path d="M13.5 6.5 17.5 10.5"/></symbol>
   <symbol id="i-deal" viewBox="0 0 24 24"><path d="M4 4h7.2l8.8 8.8-7.2 7.2L4 11.2z"/><circle cx="8.2" cy="8.2" r="1.3"/></symbol>
+  <symbol id="i-trend-up" viewBox="0 0 24 24"><path d="M4 15l5-4 4 2.5 7-7.5"/><path d="M15 5.5h5v5"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 15.5V10a6 6 0 0 0-12 0v5.5L4.5 18h15z"/><path d="M10 20.3a2 2 0 0 0 4 0"/></symbol>
   <symbol id="i-guide" viewBox="0 0 24 24"><path d="M6 3.5h7.2L18.5 8.8V20.5H6z"/><path d="M13 3.5v5.5h5.5"/><path d="M9 13h6M9 16.5h6"/></symbol>
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10.6 13.4a3.6 3.6 0 0 0 5.1 0l2.9-2.9a3.6 3.6 0 0 0-5.1-5.1l-1.5 1.5"/><path d="M13.4 10.6a3.6 3.6 0 0 0-5.1 0l-2.9 2.9a3.6 3.6 0 0 0 5.1 5.1l1.5-1.5"/></symbol>
@@ -3532,7 +3534,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, resolveBoosters, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, groupEras, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange, realisedPnL } from './metrics.js';
+import { boostersFromType, resolveBoosters, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, sellSignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, groupEras, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange, realisedPnL } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -3873,6 +3875,7 @@ function recomputeFit() {
       drawdown:    m ? m.drawdown : null,
       svTrend:     m ? m.svSinceFirst : null,
       fairTrusted: fairPriceTrusted(),
+      runUp:       sellSignal(historicalData[p.name]),
     });
   });
 }
@@ -4328,7 +4331,7 @@ function productRowTr(p, maxScore) {
   const trend = getTrend(p.name);
   tr.innerHTML = `
     <td class="product-name" title="${p.name}">
-      <span class="pn-head">${selCheckbox(p.name)}${isBuySignal(p.name) ? '<span class="buy-flag" role="img" aria-label="Buy signal" title="Price dropped ≥5% but set value held steady — potential buy opportunity"><svg class="icon" aria-hidden="true"><use href="#i-deal"/></svg></span>' : ''}${alertFlag(p.name)}<button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></span>
+      <span class="pn-head">${selCheckbox(p.name)}${isBuySignal(p.name) ? '<span class="buy-flag" role="img" aria-label="Buy signal" title="Price dropped ≥5% but set value held steady — potential buy opportunity"><svg class="icon" aria-hidden="true"><use href="#i-deal"/></svg></span>' : ''}${isSellSignal(p.name) ? '<span class="sell-flag" role="img" aria-label="Sell caution" title="Price rose ≥5% but set value did not follow — a run-up not backed by value"><svg class="icon" aria-hidden="true"><use href="#i-trend-up"/></svg></span>' : ''}${alertFlag(p.name)}<button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></span>
       ${verdictLine(p)}
     </td>
     <td class="col-detail">${typeBadge(p.type)}</td>
@@ -4408,6 +4411,13 @@ function getTrend(name) {
 
 function isBuySignal(name) {
   return buySignal(historicalData[name]);
+}
+
+// The sell caution (price ran up, set value didn't follow) — mirror of the buy
+// flag. Suppressed on a product that also shows a buy signal (they're opposite
+// price moves, so both can't be true; the guard is belt-and-braces).
+function isSellSignal(name) {
+  return sellSignal(historicalData[name]) && !buySignal(historicalData[name]);
 }
 
 // ============================================================
@@ -8030,11 +8040,20 @@ function renderDrillIngredients(p, m) {
   const gap = p.fairGap == null ? 'no fair-price read'
     : `${p.fairGap === 0 ? 'at fair' : Math.abs(p.fairGap) + '% ' + (p.fairGap < 0 ? 'under' : 'over')} fair`;
   const fitTxt = ageFit ? `R² ${ageFit.r2.toFixed(2)} ${trusted ? '(trusted)' : '(weak — verdict ignores fair price)'}` : '—';
+  // Momentum signal line, shown only when the buy flag or the sell caution fires
+  // (the last-snapshot price move vs the set value) — the same signals the board
+  // flags. Omitted when neither is active, to keep the readout to what matters.
+  const signalRow = isSellSignal(p.name)
+    ? row('Momentum signal', 'un-backed run-up — price rose, value didn’t follow', 'var(--accent2)')
+    : isBuySignal(p.name)
+    ? row('Momentum signal', 'buy opportunity — price dropped, value held', 'var(--accent4)')
+    : '';
   document.getElementById('drill-ingredients').innerHTML = [
     row('Gap to fair price', gap, p.fairGap == null || !trusted ? 'var(--muted)' : p.fairGap < 0 ? 'var(--accent4)' : 'var(--accent2)'),
     row('Drawdown vs peak', m ? `${fmt(m.drawdown, 1)}%` : '—', m && m.drawdown <= VERDICT.NEAR_LOW ? 'var(--accent4)' : 'var(--muted)'),
     row('Set-value trend', m && m.svSinceFirst != null ? `${m.svSinceFirst > 0 ? '+' : ''}${fmt(m.svSinceFirst, 1)}% since first snapshot` : '—',
         m && m.svSinceFirst != null ? (m.svSinceFirst >= VERDICT.SV_MOVE ? 'var(--accent4)' : m.svSinceFirst <= -VERDICT.SV_MOVE ? 'var(--accent2)' : 'var(--muted)') : 'var(--muted)'),
+    signalRow,
     row('Age-fit confidence', fitTxt, 'var(--muted)'),
   ].join('');
 }
