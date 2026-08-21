@@ -368,7 +368,8 @@ test('a regular user gets portfolio + alerts but not Data Entry, and edits auto-
   // upsert row keyed user_id+product_id — no Save button anywhere.
   await page.locator('.tab-btn[data-tab="portfolio"]').click();
   await expect(page.locator('#tab-portfolio')).toContainText('Beta Booster Box');
-  await page.locator('#portfolio-product-select').selectOption({ label: 'Delta Booster Bundle' });
+  // The product picker is a searchable datalist input now, not a <select>.
+  await page.locator('#portfolio-product-select').fill('Delta Booster Bundle');
   await page.locator('#portfolio-qty').fill('1');
   await page.locator('#portfolio-cost').fill('50');
   await page.locator('#portfolio-add-btn').click();

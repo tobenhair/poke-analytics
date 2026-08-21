@@ -1611,11 +1611,23 @@
   .portfolio-tile .val { font-family: 'Bebas Neue', sans-serif; font-size: var(--display-lg); color: var(--text); line-height: 1; }
   .portfolio-tile .sub { font-family: 'DM Mono', monospace; font-size: var(--text-sm); margin-top: 6px; }
   .portfolio-editor {
-    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
-    padding: 16px var(--pad-x); border-bottom: 1px solid var(--border);
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 12px var(--pad-x); border-bottom: 1px solid var(--border);
   }
   .portfolio-editor .field-select { max-width: 260px; }
   .portfolio-editor .field-input { max-width: 140px; }
+  /* Holdings add editor — a compact search + small numeric fields aligned in
+     one flexible row (product grows; qty/cost stay narrow). Smaller field type
+     than the default so the row reads as a control strip, not headline inputs. */
+  .pe-holdings .field-input { font-size: var(--text-md); padding: 8px 12px; }
+  .pe-holdings .pe-product { flex: 1 1 200px; min-width: 140px; max-width: none; }
+  .pe-holdings .pe-qty { flex: 0 0 62px; max-width: 62px; text-align: center; font-size: var(--text-sm); padding: 8px 8px; }
+  .pe-holdings .pe-cost { flex: 0 0 118px; max-width: 118px; }
+  .pe-holdings .add-btn { width: auto; flex: 0 0 auto; }
+  /* Number spinners add width and clutter here — the fields are small on purpose. */
+  .pe-holdings input[type=number]::-webkit-inner-spin-button,
+  .pe-holdings input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .pe-holdings input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   .portfolio-cancel-btn {
     padding: 10px 16px; border-radius: var(--radius-pill);
     border: 1px solid var(--border); background: transparent; color: var(--muted);
@@ -1752,6 +1764,13 @@
     /* Section rhythm + side gutters step down on a phone — one place, every tab. */
     :root { --section-gap: 30px; --pad-x: 12px; --pad-x-tile: 12px; }
     .wrapper { padding: 28px 16px 48px; }
+
+    /* Holdings add editor on a phone: product search on its own row, then a
+       compact qty · €/unit · Add row (cost grows to fill beside the small qty).
+       An explicit flex-basis (not auto) is needed or .field-input's width:100%
+       makes cost claim a whole line. */
+    .pe-holdings .pe-product { flex-basis: 100%; }
+    .pe-holdings .pe-cost { flex: 1 1 120px; max-width: none; }
 
     /* ── The board on a phone ──
        Measured before this: the 9 columns are 1,098px wide in a 356px window,
@@ -3320,13 +3339,17 @@
 
     <!-- ── Section: holdings (editor + cards) ── -->
     <h2 class="section-eyebrow">Holdings</h2>
-    <p class="section-desc"><strong>What:</strong> the products you hold, and adding or correcting them. <strong>How to read:</strong> <em>Add / buy more</em> tops up a holding and blends the cost basis to a weighted average; use the <svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg> button on a row to correct the exact quantity or cost. Each card shows its current value and unrealised P&amp;L. Private to your account, saved automatically.</p>
+    <p class="section-desc"><strong>What:</strong> the products you hold, and adding or correcting them. <strong>How to read:</strong> <em>Add</em> tops up a holding and blends the cost basis to a weighted average; use the <svg class="icon" aria-hidden="true"><use href="#i-entry"/></svg> button on a row to correct the exact quantity or cost. Each card shows its current value and unrealised P&amp;L. Private to your account, saved automatically.</p>
     <div class="panel">
-      <div class="portfolio-editor">
-        <select class="field-select" id="portfolio-product-select" aria-label="Product to add to your portfolio"></select>
-        <input class="field-input" id="portfolio-qty" type="number" min="0" step="1" placeholder="Qty" aria-label="Quantity held">
-        <input class="field-input" id="portfolio-cost" type="number" min="0" step="0.01" placeholder="€ / unit" aria-label="Cost basis per unit">
-        <button class="add-btn" id="portfolio-add-btn" style="width:auto;">+ Add / buy more</button>
+      <!-- Searchable product picker (typeahead over a datalist, not a long
+           scroll dropdown), a 3-digit quantity and a €/unit — one compact row
+           that reflows to product-on-top on a phone. -->
+      <div class="portfolio-editor pe-holdings">
+        <input class="field-input pe-product" id="portfolio-product-select" list="portfolio-product-options" type="text" autocomplete="off" placeholder="Search product…" aria-label="Product to add to your portfolio">
+        <datalist id="portfolio-product-options"></datalist>
+        <input class="field-input pe-qty" id="portfolio-qty" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" placeholder="Qty" aria-label="Quantity held">
+        <input class="field-input pe-cost" id="portfolio-cost" type="number" min="0" step="0.01" placeholder="€ / unit" aria-label="Cost basis per unit">
+        <button class="add-btn" id="portfolio-add-btn">+ Add</button>
         <button class="portfolio-cancel-btn" id="portfolio-cancel-btn" style="display:none;">Cancel</button>
       </div>
       <div id="portfolio-editor-error" class="portfolio-error"></div>
@@ -5609,18 +5632,18 @@ function portfolioRows() {
   }).sort((a, b) => (b.curValue ?? 0) - (a.curValue ?? 0));
 }
 
+// Fill the searchable product picker's datalist (typeahead options). The <input>
+// keeps whatever the user has typed; we only rebuild the suggestion list.
+// Holdings are sealed products; loose packs are reference-only.
 function populatePortfolioSelect() {
-  const sel = document.getElementById('portfolio-product-select');
-  if (!sel) return;
-  const prev = sel.value;
-  sel.innerHTML = '';
-  // Holdings are sealed products; loose packs are reference-only.
+  const list = document.getElementById('portfolio-product-options');
+  if (!list) return;
+  list.innerHTML = '';
   analysisProducts().forEach(p => {
     const opt = document.createElement('option');
-    opt.value = p.name; opt.textContent = p.name;
-    sel.appendChild(opt);
+    opt.value = p.name;
+    list.appendChild(opt);
   });
-  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
 }
 
 // Populate the global display-currency picker with € plus any currencies we
@@ -5903,7 +5926,7 @@ function renderPortfolio() {
   const condensed = rows.length > MOST_VALUABLE_N && !portfolioShowAll;
   grid.classList.toggle('mv-collapsed', condensed);
   if (!rows.length) {
-    grid.innerHTML = `<div class="portfolio-empty">No holdings yet — pick a product, enter quantity and the price you paid, then “Add / buy more”.</div>`;
+    grid.innerHTML = `<div class="portfolio-empty">No holdings yet — search a product, enter quantity and the price you paid, then “Add”.</div>`;
   } else if (condensed) {
     grid.innerHTML = mostValuableList(rows);
   } else {
@@ -6247,7 +6270,7 @@ function exitPortfolioEdit() {
   // Restore the add/buy-more labelling (sell mode repurposes these fields).
   qtyEl.placeholder = 'Qty'; qtyEl.setAttribute('aria-label', 'Quantity held');
   costEl.placeholder = '€ / unit'; costEl.setAttribute('aria-label', 'Cost basis per unit');
-  document.getElementById('portfolio-add-btn').textContent = '+ Add / buy more';
+  document.getElementById('portfolio-add-btn').textContent = '+ Add';
   document.getElementById('portfolio-cancel-btn').style.display = 'none';
   document.getElementById('portfolio-editor-error').style.display = 'none';
 }
@@ -6284,11 +6307,13 @@ function commitHolding() {
   const costEl = document.getElementById('portfolio-cost');
   const errEl  = document.getElementById('portfolio-editor-error');
   const editing = portfolioEditName;
-  const name = editing || sel.value;
+  const name = editing || sel.value.trim();
   const qty  = parseFloat(qtyEl.value);
   const cost = parseFloat(costEl.value);
   const errs = [];
-  if (!name)                     errs.push('Pick a product.');
+  if (!name)                                     errs.push('Pick a product.');
+  else if (!editing && !analysisProducts().some(p => p.name === name))
+                                                 errs.push('Pick a product from the list.');
   if (isNaN(qty)  || qty  <= 0)  errs.push('Quantity must be a positive number.');
   if (isNaN(cost) || cost < 0)   errs.push('Cost must be a non-negative number.');
   if (errs.length) { errEl.textContent = errs.join(' '); errEl.style.display = 'block'; return; }
@@ -6306,7 +6331,7 @@ function commitHolding() {
     } else {
       holdings[name] = { quantity: qty, costBasis: cost };
     }
-    qtyEl.value = ''; costEl.value = '';
+    sel.value = ''; qtyEl.value = ''; costEl.value = '';
   }
   renderPortfolio();
   persistHolding(name);
