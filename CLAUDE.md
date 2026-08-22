@@ -291,8 +291,12 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   analytical (read a price on a date) and there is **no hover on touch**, so with
   axes gone a phone user had nothing to read the values against (the reported
   "looks odd / can't read them" regression); they stay within the modal padding
-  (reduced to 20px on a phone, the overlay gutter to 12px, which already gives
-  them near-full width) with no `.drill-chart` bleed. **A full-viewport bleed was
+  (on a phone the modal's **horizontal** padding is the `--pad-x` token = 12px
+  and the overlay gutter 8px — the design-token side padding, not a bespoke
+  value — which already gives them near-full width; the drill-down's nested
+  cards `.set-identity` / `.drill-verdict` / `.drill-stat` use `--pad-x-tile`,
+  and `.set-identity` reserves a `padding-right` on a phone so its type badge
+  never slides under the ✕) with no `.drill-chart` bleed. **A full-viewport bleed was
   tried and reverted** on both surfaces: the chart's opaque plot area, pushed
   outside its card onto the differently-toned page background, read as an odd
   floating block — and the only scrollbar-safe way to reach the viewport edge

@@ -984,7 +984,7 @@
   /* ── Product drill-down modal ── */
   .drill-verdict {
     font-family: 'DM Mono', monospace; font-size: var(--text-lg); letter-spacing: 0.02em;
-    padding: 10px 14px; border-radius: 10px; border: 1px solid var(--hairline);
+    padding: 10px var(--pad-x-tile); border-radius: 10px; border: 1px solid var(--hairline);
     border-left-width: 2px; background: var(--bg3); margin-bottom: 22px;
   }
   /* Set-identity header — always present so a product is never a blank title.
@@ -994,7 +994,7 @@
      it loads — never a broken image. See footer for the logo attribution. */
   .set-identity {
     display: flex; align-items: center; gap: 12px;
-    padding: 10px 14px; margin-bottom: 18px;
+    padding: 10px var(--pad-x-tile); margin-bottom: 18px;
     background: var(--bg3); border: 1px solid var(--hairline);
     border-left-width: 3px; border-radius: var(--radius-sm);
   }
@@ -1011,7 +1011,7 @@
     display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 12px; margin-bottom: 30px;
   }
-  .drill-stat { background: var(--bg3); border: 1px solid var(--hairline); border-radius: 12px; padding: 12px 14px; }
+  .drill-stat { background: var(--bg3); border: 1px solid var(--hairline); border-radius: 12px; padding: 12px var(--pad-x-tile); }
   .drill-stat .k { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 8px; }
   .drill-stat .v { font-family: 'DM Mono', monospace; font-size: var(--display-xs); color: var(--text); }
   .drill-stat .s { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted); margin-top: 4px; }
@@ -1845,10 +1845,15 @@
     #portfolio-value-chart-wrap { padding: 8px 0 0; }
     #portfolio-value-chart { max-height: 340px; }
 
-    /* Dialogs use more of a phone: a slimmer overlay gutter and less inner
-       padding (36px was cramped on a ~360px screen). */
-    .modal-overlay { padding: 12px; }
-    .modal { padding: 20px; border-radius: 16px; }
+    /* Dialogs use more of a phone: a slim overlay gutter and the standard
+       phone side padding (--pad-x = 12px) so content reaches nearer the edges
+       (36px→20px→--pad-x over time; only the horizontal is trimmed, per the
+       design tokens — vertical rhythm reads fine). */
+    .modal-overlay { padding: 8px; }
+    .modal { padding: 18px var(--pad-x); border-radius: 16px; }
+    /* Reserve the top-right corner for the ✕ so the set-identity badge never
+       slides under it once the side padding is this tight. */
+    .set-identity { padding-right: 34px; }
     /* Drill-down charts stay within the modal padding and KEEP their axes — the
        reduced modal padding above already gives them near-full width, and an
        analytical chart with no hover (touch) needs the axis to be readable. */
