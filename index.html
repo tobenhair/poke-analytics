@@ -3408,37 +3408,6 @@
       </div>
     </div>
 
-    <!-- ── Section: transaction log (the full buy/sell ledger) ── -->
-    <h2 class="section-eyebrow">Transaction Log</h2>
-    <p class="section-desc"><strong>What:</strong> every buy and sell in one chronological history, newest first. <strong>How to read:</strong> a <em>sell</em> line shows its <em>realised</em> profit &amp; loss (sale price − cost basis); a <em>buy</em> line shows its <em>unrealised</em> mark-to-market against the latest price. Holdings that predate the log show one <em>opening</em> line reconstructed from the current position. Export the whole ledger as CSV. Private to your account, saved automatically.</p>
-    <div class="panel">
-      <div class="panel-header">
-        <h3 class="panel-title">Transaction Log</h3>
-        <div class="panel-header-actions">
-          <div class="panel-badge" id="ledger-badge">no transactions</div>
-          <button class="text-link" id="ledger-csv-btn" type="button">
-            <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg> Export CSV</button>
-        </div>
-      </div>
-      <div id="ledger-empty" class="balancer-empty">No transactions yet — buying or selling a holding records it here.</div>
-      <div class="table-wrap" id="ledger-table-wrap" style="display:none;">
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Product</th>
-              <th>Type</th>
-              <th style="text-align:right">Qty</th>
-              <th style="text-align:right">Unit price</th>
-              <th style="text-align:right">Profit &amp; Loss</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="ledger-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-
     <!-- ── Section: concentration & rebalance (portfolio balancer) ── -->
     <h2 class="section-eyebrow">Concentration &amp; Rebalance</h2>
     <p class="section-desc"><strong>What:</strong> how your holdings are spread across <em>sets</em>, <em>release years</em> and <em>product types</em> — and, when you're over-exposed, which <em>under-fair-price</em> products in areas you underweight would diversify you. <strong>How to read:</strong> a bar near full means a large share of your value rides on one bucket (red = over-exposed); the shortlist points the next euro at good-value buys that spread the risk. Derived live from your holdings — nothing saved.</p>
@@ -3479,6 +3448,40 @@
             </tr>
           </thead>
           <tbody id="alerts-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Section: transaction log (the full buy/sell ledger) ──
+         Kept last on the tab: it's the append-only record, read occasionally, not
+         a headline — so it sits below the live positions/alerts. Condensed to the
+         most recent few with a "View all" toggle, like Holdings and Concentration. -->
+    <h2 class="section-eyebrow">Transaction Log</h2>
+    <p class="section-desc"><strong>What:</strong> every buy and sell in one chronological history, newest first. <strong>How to read:</strong> a <em>sell</em> line shows its <em>realised</em> profit &amp; loss (sale price − cost basis); a <em>buy</em> line shows its <em>unrealised</em> mark-to-market against the latest price. Holdings that predate the log show one <em>opening</em> line reconstructed from the current position. Only the most recent transactions show by default — expand for the full history, or export the whole ledger as CSV. Private to your account, saved automatically.</p>
+    <div class="panel">
+      <div class="panel-header">
+        <h3 class="panel-title">Transaction Log</h3>
+        <div class="panel-header-actions">
+          <div class="panel-badge" id="ledger-badge">no transactions</div>
+          <button class="text-link" id="ledger-csv-btn" type="button">
+            <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg> Export CSV</button>
+        </div>
+      </div>
+      <div id="ledger-empty" class="balancer-empty">No transactions yet — buying or selling a holding records it here.</div>
+      <div class="table-wrap" id="ledger-table-wrap" style="display:none;">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Product</th>
+              <th>Type</th>
+              <th style="text-align:right">Qty</th>
+              <th style="text-align:right">Unit price</th>
+              <th style="text-align:right">Profit &amp; Loss</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="ledger-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -3811,6 +3814,11 @@ let sales = [];
 // via metrics.js buildLedger(). A buy-more appends here; an edit-in-place (a
 // correction, not an event) does not — so the two can differ by design.
 let purchases = [];
+// The Transaction Log leads with the most recent LEDGER_TOP_N and expands to the
+// full history on demand (like the Holdings "Most Valuable" and Concentration
+// "top N" collapses), so a long ledger doesn't dominate the bottom of the tab.
+const LEDGER_TOP_N = 5;
+let ledgerShowAll = false;
 
 // ============================================================
 // HELPERS
@@ -6641,11 +6649,14 @@ function renderLedger() {
   const tbody = document.getElementById('ledger-tbody');
   const badge = document.getElementById('ledger-badge');
   if (!tbody) return;
-  const rows = buildLedger(purchases, sales, latestPriceByName());
-  if (badge) badge.textContent = rows.length ? `${rows.length} transaction${rows.length === 1 ? '' : 's'}` : 'no transactions';
-  if (empty) empty.style.display = rows.length ? 'none' : '';
-  if (wrap)  wrap.style.display  = rows.length ? '' : 'none';
-  tbody.innerHTML = rows.map(e => {
+  const all = buildLedger(purchases, sales, latestPriceByName());
+  if (badge) badge.textContent = all.length ? `${all.length} transaction${all.length === 1 ? '' : 's'}` : 'no transactions';
+  if (empty) empty.style.display = all.length ? 'none' : '';
+  if (wrap)  wrap.style.display  = all.length ? '' : 'none';
+  // Lead with the most recent few (already newest-first); "View all" expands.
+  const collapsed = all.length > LEDGER_TOP_N && !ledgerShowAll;
+  const rows = collapsed ? all.slice(0, LEDGER_TOP_N) : all;
+  const body = rows.map(e => {
     const typeTxt = e.kind === 'sell' ? 'Sell' : (e.opening ? 'Buy · opening' : 'Buy');
     const pnlCell = e.pnl == null
       ? `<span style="color:var(--muted)">—</span>`
@@ -6664,9 +6675,21 @@ function renderLedger() {
       <td>${remove}</td>
     </tr>`;
   }).join('');
+  // A full-width footer toggle in its own row, matching the Holdings/Concentration
+  // "show all / show fewer" affordance (.board-more-btn).
+  const moreRow = all.length > LEDGER_TOP_N
+    ? `<tr class="ledger-more-row"><td colspan="7"><button type="button" class="board-more-btn ledger-toggle" data-show="${ledgerShowAll ? '0' : '1'}">${
+        ledgerShowAll ? `Show recent ${LEDGER_TOP_N} ▴` : `View all ${all.length} transactions ▾`}</button></td></tr>`
+    : '';
+  tbody.innerHTML = body + moreRow;
   tbody.querySelectorAll('.ledger-remove-btn').forEach(btn =>
     btn.addEventListener('click', () =>
       btn.dataset.kind === 'sell' ? removeSale(btn.dataset.id) : removePurchase(btn.dataset.id)));
+  const toggle = tbody.querySelector('.ledger-toggle');
+  if (toggle) toggle.addEventListener('click', () => {
+    ledgerShowAll = toggle.dataset.show === '1';
+    renderLedger();
+  });
 }
 
 // Export the whole ledger as a CSV download — one row per transaction, canonical
