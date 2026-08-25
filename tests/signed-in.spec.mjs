@@ -388,6 +388,23 @@ test('a regular user gets portfolio + alerts but not Data Entry, and edits auto-
   await expect(page.locator('#ledger-tbody')).toContainText('Delta Booster Bundle');
   await expect(page.locator('#ledger-tbody')).toContainText('opening');
 
+  // The log is condensed to the most recent few with a "View all" toggle (like
+  // Holdings / Concentration). Add enough buys to exceed the cap, then expand.
+  for (let i = 0; i < 5; i++) {
+    await page.locator('#portfolio-product-select').fill('Delta Booster Bundle');
+    await page.locator('#portfolio-qty').fill('1');
+    await page.locator('#portfolio-cost').fill('50');
+    await page.locator('#portfolio-add-btn').click();
+  }
+  const ledgerRows = page.locator('#ledger-tbody tr:not(.ledger-more-row)');
+  await expect(page.locator('.ledger-toggle')).toContainText('View all');
+  await expect(ledgerRows).toHaveCount(5);            // collapsed to LEDGER_TOP_N
+  // dispatchEvent, not click(): the button re-renders itself on click, and
+  // click()'s actionability retry would fire the toggle twice (expand→collapse).
+  await page.locator('.ledger-toggle').dispatchEvent('click');
+  await expect(page.locator('.ledger-toggle')).toContainText('Show recent 5');
+  expect(await ledgerRows.count()).toBeGreaterThan(5); // expanded to the full history
+
   // Alerts: adding a fixed target auto-saves the same way. The product picker
   // is a searchable datalist input now (like the Holdings editor), not a select.
   await page.locator('#alert-product-select').fill('Delta Booster Bundle');
