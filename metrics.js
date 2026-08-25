@@ -429,6 +429,36 @@ export function sellSignal(hist) {
          priceMove >= SELL_SIGNAL_PRICE_RISE && svMove <= SELL_SIGNAL_SV_STALL;
 }
 
+// ── Sell strength: the exit-side ranking metric (the sell shortlist) ──
+// The mirror of the Where-to-start buy shortlist: a single non-negative score of
+// "how sell-worthy is this right now", so the catalogue can be ranked worst-first
+// (most sell-worthy at the top). It blends the two exit signals the app already
+// derives — how far *over* fair price the product is (a persistent overvaluation)
+// and an *un-backed run-up* (a recent price spike the set value didn't follow):
+//   overFair  fairGap when trusted and ≥ SELL.OVER_FAIR_MIN (a positive %), else 0
+//   runUp     SELL.RUNUP_WEIGHT × change30d, only when the un-backed run-up flag
+//             is set (sellSignal) and the 30-day move is positive, else 0
+// strength = overFair + runUp.
+//
+// The honesty rule mirrors the buy side (renderOverview's deal→safe fallback and
+// sellSignal's momentum-only stance): when the fair price isn't trustworthy the
+// overFair term is 0, so a weak/suppressed fit falls back to the run-up term
+// alone and the ranking never asserts a fair-price claim it can't stand behind.
+// `p` carries { fairGap, change30d, runUp }; returns a number ≥ 0 (0 = not a
+// sell candidate). Pure — the caller gathers the signals and passes them in.
+export const SELL = {
+  OVER_FAIR_MIN: VERDICT.OVER_SOFT,        // 3 — only count products this % or more over fair
+  RUNUP_WEIGHT:  0.5,                       // a run-up % contributes half as much as an over-fair %
+};
+export function sellStrength(p, fairTrusted) {
+  if (!p) return 0;
+  const overFair = (fairTrusted && p.fairGap != null && p.fairGap >= SELL.OVER_FAIR_MIN)
+    ? p.fairGap : 0;
+  const runUp = (p.runUp && p.change30d != null && p.change30d > 0)
+    ? SELL.RUNUP_WEIGHT * p.change30d : 0;
+  return overFair + runUp;
+}
+
 // ── Data maturity: the raw "how settled is this?" facts (the buyer judges risk) ──
 // A new release's set value is typically elevated just after launch and drifts
 // down until the set leaves print, and thin history means less certainty — so a
@@ -872,4 +902,41 @@ export function realisedPnL(sales) {
   });
   out.realised = out.proceeds - out.cost;
   return out;
+}
+
+// ── Transaction ledger: the unified buy/sell history ──
+// Merge the buy events (purchases) and sell events (sales) into one chronological
+// ledger, newest first, each line carrying its P&L:
+//   sell → *realised* gain, (salePrice − costBasis) × quantity
+//   buy  → *unrealised* mark-to-market vs the product's latest price,
+//          (latest − unitPrice) × quantity — null when the latest price is unknown
+// `purchases`: [{ id, name, quantity, unitPrice, boughtOn }] (append-only buy log);
+// `sales`: [{ id, name, quantity, salePrice, costBasis, soldOn }] (the disposals
+// realisedPnL already sums). `latestByName`: { name: latestPrice(€) } for the buy
+// marks. Every amount is canonical € (a display-currency conversion happens at
+// render, not here). Returns
+//   [{ id, date, kind:'buy'|'sell', name, quantity, unitPrice, costBasis,
+//      pnl, pnlKind:'realised'|'unrealised' }]
+// sorted by date descending (ties keep buys-before-sells, then insertion order).
+export function buildLedger(purchases, sales, latestByName) {
+  const latest = latestByName || {};
+  const buys = (purchases || []).map(b => {
+    const qty = Number(b && b.quantity), up = Number(b && b.unitPrice);
+    const lp  = latest[b && b.name];
+    const pnl = (lp != null && isFinite(lp) && isFinite(qty) && isFinite(up))
+      ? (lp - up) * qty : null;
+    return { id: b && b.id, date: b && b.boughtOn, kind: 'buy', name: b && b.name,
+             quantity: qty, unitPrice: up, costBasis: up, pnl, pnlKind: 'unrealised',
+             // opening rows are a display reconstruction of a holding that predates
+             // the buy log (see index.html) — passed through so the UI can label
+             // them and keep them non-removable.
+             opening: !!(b && b.opening) };
+  });
+  const sells = (sales || []).map(s => {
+    const qty = Number(s && s.quantity), sp = Number(s && s.salePrice), cb = Number(s && s.costBasis);
+    const pnl = (isFinite(qty) && isFinite(sp) && isFinite(cb)) ? (sp - cb) * qty : null;
+    return { id: s && s.id, date: s && s.soldOn, kind: 'sell', name: s && s.name,
+             quantity: qty, unitPrice: sp, costBasis: cb, pnl, pnlKind: 'realised' };
+  });
+  return [...buys, ...sells].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }

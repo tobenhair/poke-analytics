@@ -775,6 +775,9 @@
     gap: 12px 16px;
     flex-wrap: wrap;
   }
+  /* Groups a badge with an action (e.g. the ledger's CSV export) on the right of
+     a panel header, so the header stays a two-child space-between row. */
+  .panel-header-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   /* Real <h3>, nested under the section's <h2> — see .section-eyebrow. */
   .panel-title {
     margin: 0;
@@ -3020,6 +3023,7 @@
         <button class="pill active" type="button" data-lens="safe" aria-pressed="true">Safe pick</button>
         <button class="pill" type="button" data-lens="deal" aria-pressed="false">Best deal</button>
         <button class="pill" type="button" data-lens="value" aria-pressed="false">Best value</button>
+        <button class="pill" type="button" data-lens="sell" aria-pressed="false">Consider selling</button>
       </div>
     </div>
     <p class="overview-lead" id="overview-lead"></p>
@@ -3404,6 +3408,37 @@
       </div>
     </div>
 
+    <!-- ── Section: transaction log (the full buy/sell ledger) ── -->
+    <h2 class="section-eyebrow">Transaction Log</h2>
+    <p class="section-desc"><strong>What:</strong> every buy and sell in one chronological history, newest first. <strong>How to read:</strong> a <em>sell</em> line shows its <em>realised</em> profit &amp; loss (sale price − cost basis); a <em>buy</em> line shows its <em>unrealised</em> mark-to-market against the latest price. Holdings that predate the log show one <em>opening</em> line reconstructed from the current position. Export the whole ledger as CSV. Private to your account, saved automatically.</p>
+    <div class="panel">
+      <div class="panel-header">
+        <h3 class="panel-title">Transaction Log</h3>
+        <div class="panel-header-actions">
+          <div class="panel-badge" id="ledger-badge">no transactions</div>
+          <button class="text-link" id="ledger-csv-btn" type="button">
+            <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg> Export CSV</button>
+        </div>
+      </div>
+      <div id="ledger-empty" class="balancer-empty">No transactions yet — buying or selling a holding records it here.</div>
+      <div class="table-wrap" id="ledger-table-wrap" style="display:none;">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Product</th>
+              <th>Type</th>
+              <th style="text-align:right">Qty</th>
+              <th style="text-align:right">Unit price</th>
+              <th style="text-align:right">Profit &amp; Loss</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="ledger-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- ── Section: concentration & rebalance (portfolio balancer) ── -->
     <h2 class="section-eyebrow">Concentration &amp; Rebalance</h2>
     <p class="section-desc"><strong>What:</strong> how your holdings are spread across <em>sets</em>, <em>release years</em> and <em>product types</em> — and, when you're over-exposed, which <em>under-fair-price</em> products in areas you underweight would diversify you. <strong>How to read:</strong> a bar near full means a large share of your value rides on one bucket (red = over-exposed); the shortlist points the next euro at good-value buys that spread the risk. Derived live from your holdings — nothing saved.</p>
@@ -3624,7 +3659,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, resolveBoosters, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, sellSignal, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, groupEras, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange, realisedPnL } from './metrics.js';
+import { boostersFromType, resolveBoosters, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, sellSignal, sellStrength, SELL, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, groupEras, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange, realisedPnL, buildLedger } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -3770,6 +3805,12 @@ const balancerShowAll = { set: false, era: false, type: false };
 // salePrice, costBasis, soldOn }. Populated by loadFromSupabase(); realised P&L
 // is summed from it (metrics.js realisedPnL) and the Closed Positions list.
 let sales = [];
+// Signed-in user's recorded buy events (append-only). Each: { id, name, quantity,
+// unitPrice, boughtOn }. holdings stays the source of truth for the current
+// position; this is the buy-side event log the Transaction Log reads (with sales)
+// via metrics.js buildLedger(). A buy-more appends here; an edit-in-place (a
+// correction, not an event) does not — so the two can differ by design.
+let purchases = [];
 
 // ============================================================
 // HELPERS
@@ -3971,12 +4012,18 @@ function recomputeFit() {
     // Board verdict: synthesise the fair-price gap with drawdown and set-value
     // trend from the tracked history (computeMomentum reads historicalData).
     const m = computeMomentum(p.name);
+    // Sell-side inputs, stashed on the product so the sell shortlist can rank by
+    // sellStrength() without recomputing momentum in a sort comparator. runUp is
+    // the un-backed run-up flag (price rose, set value didn't follow); change30d
+    // is its magnitude over the trailing 30 days.
+    p.runUp     = sellSignal(historicalData[p.name]);
+    p.change30d = m ? m.change30d : null;
     p.verdict = verdict({
       fairGap:     p.fairGap,
       drawdown:    m ? m.drawdown : null,
       svTrend:     m ? m.svSinceFirst : null,
       fairTrusted: fairPriceTrusted(),
-      runUp:       sellSignal(historicalData[p.name]),
+      runUp:       p.runUp,
     });
   });
 }
@@ -4026,12 +4073,15 @@ function updateKPIs() {
 // agree. Age-penalised newcomers (ageWeight < 1) are pulled into a "high raw
 // value, but new" group so a shiny unsettled set can't masquerade as the top pick
 // — the divergence the age weight exists to create is shown, not hidden.
-let startLens = 'safe';        // 'safe' | 'deal' | 'value'
+let startLens = 'safe';        // 'safe' | 'deal' | 'value' | 'sell'
 const START_COUNT = 5;
+// The sell lens is the exit-side mirror: it ranks by sellStrength() (most
+// sell-worthy first), so its sort reads high→low like value/deal's own leaders.
 const START_LENS = {
   safe:  { sort: (a, b) => b.score - a.score },
   deal:  { sort: (a, b) => (a.fairGap ?? 1e9) - (b.fairGap ?? 1e9) },
   value: { sort: (a, b) => b.svPerBooster - a.svPerBooster },
+  sell:  { sort: (a, b) => sellStrength(b, fairPriceTrusted()) - sellStrength(a, fairPriceTrusted()) },
 };
 
 function syncLensPills(activeLens) {
@@ -4052,8 +4102,32 @@ function startMetrics(p, lens) {
     `<span class="pick-metric${k === lens ? ' active' : ''}">${t}</span>`).join('')}</div>`;
 }
 
+// The sell lens shows the exit-side facts instead of the buy triad: where the
+// price sits vs fair (only when the fit is trustworthy), the 30-day move, and
+// the un-backed-run-up tag when it's flagged. No per-item highlight — the lens
+// pill already says what's active, and no fair claim is made on a weak fit.
+function sellMetrics(p) {
+  const trusted = fairPriceTrusted();
+  const fair = (trusted && p.fairGap != null)
+    ? `${Math.abs(p.fairGap)}% ${p.fairGap >= 0 ? 'over' : 'under'} fair`
+    : 'fair n/a';
+  const run = p.change30d != null ? `${p.change30d >= 0 ? '+' : ''}${fmt(p.change30d, 0)}% 30d` : '30d —';
+  const items = [fair, run];
+  if (p.runUp) items.push('un-backed run-up');
+  return `<div class="pick-metrics">${items.map(t => `<span class="pick-metric">${t}</span>`).join('')}</div>`;
+}
+
 // The big right-hand figure — the active lens's headline number.
 function startPrimary(p, lens) {
+  if (lens === 'sell') {
+    // The dominant sell driver: how far over fair (when trusted), else the
+    // run-up magnitude. Red = caution, the page's negative tone.
+    if (fairPriceTrusted() && p.fairGap != null && p.fairGap >= SELL.OVER_FAIR_MIN)
+      return `<div class="pick-gap" style="color:var(--accent2)">${p.fairGap}%<span class="unit"> over</span></div>`;
+    if (p.change30d != null && p.change30d > 0)
+      return `<div class="pick-gap" style="color:var(--accent2)">+${fmt(p.change30d, 0)}%<span class="unit"> 30d</span></div>`;
+    return `<div class="pick-gap">—</div>`;
+  }
   if (lens === 'deal') {
     if (p.fairGap == null) return `<div class="pick-gap">—</div>`;
     const under = p.fairGap < 0;
@@ -4064,10 +4138,15 @@ function startPrimary(p, lens) {
 }
 
 function startCard(p, lens, rank) {
-  const rankHtml = `<div class="pick-rank ${rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : ''}">${rank}</div>`;
+  // The sell lens is worst-first, so a medal (which reads as "best") would be
+  // wrong — rank 1 is the most sell-worthy, not a winner. Plain number there.
+  const isSell = lens === 'sell';
+  const medal = !isSell && (rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '');
+  const rankHtml = `<div class="pick-rank ${medal}">${rank}</div>`;
   // A young set (age weight < 1) is flagged in place: under Value it can top the
-  // list, under Safe the same weight sinks it — the flag shows why it moved.
-  const young = p.ageWeight != null && p.ageWeight < 1;
+  // list, under Safe the same weight sinks it — the flag shows why it moved. It's
+  // a buy-side note (about the score), so it's suppressed on the sell lens.
+  const young = !isSell && p.ageWeight != null && p.ageWeight < 1;
   const flag = young
     ? `<div class="pick-flag">⚠ new set · age weight ${fmt(p.ageWeight, 2)} → score ${fmt(p.score, 0)}</div>` : '';
   return `
@@ -4076,7 +4155,7 @@ function startCard(p, lens, rank) {
       <div class="pick-info">
         <div class="pick-name"><button type="button" class="row-open" aria-haspopup="dialog">${p.name}</button></div>
         <div class="pick-meta">${typeLabel(p.type)} · ${money(p.price)}</div>
-        ${startMetrics(p, lens)}
+        ${isSell ? sellMetrics(p) : startMetrics(p, lens)}
         ${flag}
       </div>
       ${startPrimary(p, lens)}
@@ -4099,11 +4178,15 @@ function renderOverview() {
   const trusted = fairPriceTrusted();
 
   // The Deal lens leans on the fair price; when the fit is weak it isn't
-  // trustworthy, so fall back to the safe pick and say so.
+  // trustworthy, so fall back to the safe pick and say so. The Sell lens keeps
+  // ranking (sellStrength drops the fair term itself when the fit is weak — the
+  // same honesty rule), but says it's leaning on run-ups alone.
   let lens = startLens, fitNote = '';
   if (lens === 'deal' && !trusted) {
     lens = 'safe';
     fitNote = ' The age fit is too weak to price against right now, so this falls back to the safe pick.';
+  } else if (lens === 'sell' && !trusted) {
+    fitNote = ' The age fit is too weak to price against right now, so this ranks by recent un-backed run-ups alone.';
   }
   syncLensPills(lens);
 
@@ -4117,13 +4200,20 @@ function renderOverview() {
     safe:  `Ranked by <strong>age-weighted score</strong> — value adjusted for how settled a set is. A brand-new release earns a place here only if it's strong enough to survive the age penalty (marked ⚠ when it does).`,
     deal:  `Ranked by <strong>gap to fair price</strong> — the cheapest right now for their age. New sets are marked ⚠.`,
     value: `Ranked by <strong>value per booster</strong> — the most set value per booster, before any age adjustment. New sets are marked ⚠.`,
+    sell:  `Ranked by <strong>how sell-worthy they look</strong> — most over fair price, or on an un-backed run-up (price rose while set value didn't follow). A momentum-and-fit read, not advice.`,
   }[lens] + fitNote;
 
-  const ranked = [...pool].sort(START_LENS[lens].sort).slice(0, START_COUNT);
+  // The sell lens only lists genuine exit candidates (sellStrength > 0) — a
+  // fairly-priced, quiet product doesn't belong on a "consider selling" list —
+  // whereas the buy lenses always rank the whole visible pool.
+  const candidates = lens === 'sell' ? pool.filter(p => sellStrength(p, trusted) > 0) : pool;
+  const ranked = [...candidates].sort(START_LENS[lens].sort).slice(0, START_COUNT);
   if (unprovenEl) unprovenEl.innerHTML = '';   // (kept for layout; the group is now inline)
 
   if (!ranked.length) {
-    list.innerHTML = `<div class="overview-empty">No products to rank — clear the type filter, or add data in Data Entry.</div>`;
+    list.innerHTML = `<div class="overview-empty">${lens === 'sell'
+      ? 'Nothing looks over-valued right now — no tracked product is meaningfully over fair price or on an un-backed run-up.'
+      : 'No products to rank — clear the type filter, or add data in Data Entry.'}</div>`;
     return;
   }
   list.innerHTML = ranked.map((p, i) => startCard(p, lens, i + 1)).join('');
@@ -5979,6 +6069,7 @@ function renderPortfolio() {
   renderPortfolioValueChart();
   renderBalancer(rows);
   renderSales();
+  renderLedger();
 }
 
 // One holding card. The value is the hero figure; P&L is coloured beside it; a
@@ -6360,6 +6451,10 @@ function commitHolding() {
   errEl.style.display = 'none';
 
   if (editing) {
+    // Edit-in-place is a correction, not a buy event, so it does NOT append to the
+    // purchases log — the ledger records real buys/sells, and holdings stays the
+    // source of truth for the current position (the deliberate boundary of the
+    // parallel-log model). Only the aggregate is overridden.
     holdings[name] = { quantity: qty, costBasis: cost };  // override exact
     exitPortfolioEdit();
   } else {
@@ -6371,6 +6466,15 @@ function commitHolding() {
     } else {
       holdings[name] = { quantity: qty, costBasis: cost };
     }
+    // Record the buy as its own ledger event (append-only) — the buy half the
+    // blended holding above would otherwise lose.
+    const purchase = {
+      id: (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'p-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+      name, quantity: qty, unitPrice: round2(cost),
+      boughtOn: new Date().toISOString().slice(0, 10),
+    };
+    purchases.push(purchase);
+    persistPurchase(purchase);
     sel.value = ''; qtyEl.value = ''; costEl.value = '';
   }
   renderPortfolio();
@@ -6465,6 +6569,33 @@ async function deleteSaleRow(id) {
   setStatus('portfolio-status', error ? '✕ Remove failed: ' + error.message : '✓ Removed', !!error);
 }
 
+// ── Purchases / buy events (the buy half of the Transaction Log) ──
+// Append-only, mirroring sales. A buy-more pushes a row here (commitHolding);
+// removePurchase drops just that ledger line (it does NOT touch the holding —
+// the log is a record beside the aggregate, not its source of truth).
+function removePurchase(id) {
+  const i = purchases.findIndex(p => p.id === id);
+  if (i < 0) return;
+  purchases.splice(i, 1);
+  renderPortfolio();
+  deletePurchaseRow(id);
+}
+async function persistPurchase(purchase) {
+  if (!sbUser) return;
+  const pid = sbProductIds[purchase.name];
+  if (!pid) return;
+  const { error } = await sbClient.from('purchases').insert({
+    id: purchase.id, user_id: sbUser.id, product_id: pid,
+    quantity: purchase.quantity, unit_price: purchase.unitPrice, bought_on: purchase.boughtOn,
+  });
+  setStatus('portfolio-status', error ? '✕ Buy save failed: ' + error.message : '✓ Buy recorded', !!error);
+}
+async function deletePurchaseRow(id) {
+  if (!sbUser) return;
+  const { error } = await sbClient.from('purchases').delete().eq('user_id', sbUser.id).eq('id', id);
+  setStatus('portfolio-status', error ? '✕ Remove failed: ' + error.message : '✓ Removed', !!error);
+}
+
 // The Closed Positions list — every recorded sale, newest first, with its
 // realised P&L. Reads the module-level `sales`; wired from renderPortfolio().
 function renderSales() {
@@ -6493,8 +6624,79 @@ function renderSales() {
     btn.addEventListener('click', () => removeSale(btn.dataset.id)));
 }
 
+// Latest € price per product (the buy-side mark-to-market basis for the ledger).
+function latestPriceByName() {
+  const m = {};
+  products.forEach(p => { if (p.price != null) m[p.name] = p.price; });
+  return m;
+}
+
+// The Transaction Log — the unified buy/sell history (metrics.js buildLedger).
+// A sell shows realised P&L, a buy shows unrealised mark-to-market vs the latest
+// price; opening rows (a holding that predates the log) are reconstructed and
+// non-removable. Reads `purchases` + `sales`; wired from renderPortfolio().
+function renderLedger() {
+  const wrap  = document.getElementById('ledger-table-wrap');
+  const empty = document.getElementById('ledger-empty');
+  const tbody = document.getElementById('ledger-tbody');
+  const badge = document.getElementById('ledger-badge');
+  if (!tbody) return;
+  const rows = buildLedger(purchases, sales, latestPriceByName());
+  if (badge) badge.textContent = rows.length ? `${rows.length} transaction${rows.length === 1 ? '' : 's'}` : 'no transactions';
+  if (empty) empty.style.display = rows.length ? 'none' : '';
+  if (wrap)  wrap.style.display  = rows.length ? '' : 'none';
+  tbody.innerHTML = rows.map(e => {
+    const typeTxt = e.kind === 'sell' ? 'Sell' : (e.opening ? 'Buy · opening' : 'Buy');
+    const pnlCell = e.pnl == null
+      ? `<span style="color:var(--muted)">—</span>`
+      : `<span style="color:${pnlColor(e.pnl)}">${withSign(money(Math.abs(e.pnl)), e.pnl)}</span>`;
+    // Opening rows are a reconstruction of the current holding, so they can't be
+    // removed independently (that would desync from the holding).
+    const remove = e.opening ? ''
+      : `<button class="portfolio-remove-btn ledger-remove-btn" data-id="${e.id}" data-kind="${e.kind}" aria-label="Remove this ${e.kind} of ${e.name}">✕</button>`;
+    return `<tr>
+      <td>${e.date}</td>
+      <td class="product-name" title="${e.name}">${e.name}</td>
+      <td>${typeTxt}</td>
+      <td class="num">${fmt(e.quantity, 0)}</td>
+      <td class="num">${money(e.unitPrice)}</td>
+      <td class="num">${pnlCell}</td>
+      <td>${remove}</td>
+    </tr>`;
+  }).join('');
+  tbody.querySelectorAll('.ledger-remove-btn').forEach(btn =>
+    btn.addEventListener('click', () =>
+      btn.dataset.kind === 'sell' ? removeSale(btn.dataset.id) : removePurchase(btn.dataset.id)));
+}
+
+// Export the whole ledger as a CSV download — one row per transaction, canonical
+// € (everything is stored in €; the display currency is a render-time view). Same
+// one-function, client-side pattern as the .xlsx export.
+function exportLedgerCsv() {
+  const rows = buildLedger(purchases, sales, latestPriceByName());
+  const header = ['Date', 'Type', 'Product', 'Quantity', 'Unit Price (EUR)', 'Cost Basis (EUR)', 'P&L Kind', 'P&L (EUR)'];
+  const esc = v => {
+    const s = v == null ? '' : String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const lines = [header.join(',')];
+  rows.forEach(e => lines.push([
+    e.date,
+    e.kind === 'sell' ? 'Sell' : (e.opening ? 'Buy (opening)' : 'Buy'),
+    e.name, e.quantity, e.unitPrice, e.costBasis, e.pnlKind,
+    e.pnl == null ? '' : round2(e.pnl),
+  ].map(esc).join(',')));
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'transaction-log.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 document.getElementById('portfolio-add-btn').addEventListener('click', commitHolding);
 document.getElementById('portfolio-cancel-btn').addEventListener('click', exitPortfolioEdit);
+document.getElementById('ledger-csv-btn').addEventListener('click', exportLedgerCsv);
 
 // ============================================================
 // PRICE ALERTS (signed-in only)
@@ -8622,6 +8824,7 @@ function setAuthedUI(user) {
     holdings = {};            // clear the previous user's private portfolio
     alerts = {};              // …and their private price alerts
     sales = [];               // …and their recorded disposals
+    purchases = [];           // …and their recorded buy events
     renderPortfolio();
     renderAlerts();
     updateTable();            // drop any alert flags from the board
@@ -8735,7 +8938,7 @@ const allSnapshots = () => fetchAllRows(() => sbClient.from('snapshots').select(
 // same applyNewData() path the .xlsx loader uses. Pivots the normalized
 // snapshot rows back into the aligned price[]/setVal[] arrays the app expects.
 async function loadFromSupabase() {
-  const [prodRes, snapRes, setRes, holdRes, alertRes, salesRes] = await Promise.all([
+  const [prodRes, snapRes, setRes, holdRes, alertRes, salesRes, purchasesRes] = await Promise.all([
     sbClient.from('products').select('*').order('release', { ascending: true }),
     allSnapshots(),
     sbClient.from('user_settings').select('*').maybeSingle(),
@@ -8744,6 +8947,10 @@ async function loadFromSupabase() {
     // Sales is optional infrastructure: an older deployment without the table
     // just leaves the Closed Positions list empty (handled below), never throws.
     sbClient.from('sales').select('*'),
+    // Purchases is likewise optional: an older deployment without the table leaves
+    // the buy half of the Transaction Log empty (opening rows are synthesised from
+    // the holdings below), never throwing.
+    sbClient.from('purchases').select('*'),
   ]);
   if (prodRes.error) throw prodRes.error;
   if (snapRes.error) throw snapRes.error;
@@ -8824,9 +9031,13 @@ async function loadFromSupabase() {
   const idToName = {};
   Object.entries(sbProductIds).forEach(([name, id]) => { idToName[id] = name; });
   holdings = {};
+  const holdingCreatedAt = {};   // name → the holding row's date, for opening ledger rows
   (holdRes && !holdRes.error ? holdRes.data || [] : []).forEach(h => {
     const name = idToName[h.product_id];
-    if (name) holdings[name] = { quantity: Number(h.quantity), costBasis: Number(h.cost_basis) };
+    if (name) {
+      holdings[name] = { quantity: Number(h.quantity), costBasis: Number(h.cost_basis) };
+      if (h.created_at) holdingCreatedAt[name] = String(h.created_at).slice(0, 10);
+    }
   });
   alerts = {};
   (alertRes && !alertRes.error ? alertRes.data || [] : []).forEach(a => {
@@ -8847,6 +9058,32 @@ async function loadFromSupabase() {
       id: s.id, name, quantity: Number(s.quantity),
       salePrice: Number(s.sale_price), costBasis: Number(s.cost_basis),
       soldOn: s.sold_on,
+    });
+  });
+  // Recorded buy events (the buy half of the Transaction Log). Optional table —
+  // an older deployment without it leaves this empty.
+  purchases = [];
+  (purchasesRes && !purchasesRes.error ? purchasesRes.data || [] : []).forEach(p => {
+    const name = idToName[p.product_id];
+    if (name) purchases.push({
+      id: p.id, name, quantity: Number(p.quantity),
+      unitPrice: Number(p.unit_price), boughtOn: p.bought_on,
+    });
+  });
+  // Opening positions: a holding that predates the buy log has no purchase row, so
+  // the ledger would miss its buy side. Reconstruct ONE opening entry per such
+  // holding (full current quantity at its blended cost) so the history isn't
+  // blank. These are display-only — flagged `opening`, never persisted, and not
+  // individually removable (removing would desync from the holding). holdings
+  // stays the source of truth for the current position; this only fills the log.
+  const loggedNames = new Set(purchases.map(p => p.name));
+  Object.entries(holdings).forEach(([name, h]) => {
+    if (loggedNames.has(name)) return;
+    purchases.push({
+      id: 'opening-' + (sbProductIds[name] || name),
+      name, quantity: Number(h.quantity), unitPrice: Number(h.costBasis),
+      boughtOn: holdingCreatedAt[name] || new Date().toISOString().slice(0, 10),
+      opening: true,
     });
   });
 

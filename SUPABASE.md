@@ -227,6 +227,7 @@ inputs live in the database:
 | `holdings` | per-user portfolio | read/write: own row | `product_id`, `quantity`, `cost_basis` |
 | `alerts` | per-user price alerts | read/write: own row | `product_id`, `alert_type` (`fixed`/`fair`), `target_price` (fixed), `below_pct` (fair) |
 | `sales` | per-user disposals (realised P&L) | read/write: own row | `product_id`, `quantity`, `sale_price`, `cost_basis`, `sold_on` — **append-only** (no `unique(user_id,product_id)`: a product can be sold many times) |
+| `purchases` | per-user buy events (the buy half of the Transaction Log) | read/write: own row | `product_id`, `quantity`, `unit_price`, `bought_on` — **append-only** like `sales`. `holdings` stays the source of truth for the current position; this is an event record beside it (buy-more appends, edit-in-place does not) |
 | `client_errors` | runtime error reports | insert: anyone · read: admin | `message`, `stack`, `context` |
 
 The admin is identified by user UUID in a `public.is_admin()` SQL function that

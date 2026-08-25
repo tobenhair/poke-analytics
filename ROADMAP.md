@@ -28,6 +28,18 @@ other way or doesn't ship.
 
 Condensed history — details live in the git log and `CLAUDE.md`.
 
+- **Transaction log — the full buy/sell ledger (closes the sell side).** A per-user
+  append-only **`purchases`** table (model (a)) records each buy that
+  `commitHolding()`'s blend would otherwise lose; the pure **`buildLedger()`** in
+  `metrics.js` merges it with `sales` into one newest-first history (sell →
+  realised, buy → unrealised mark-to-market), rendered as a **Transaction Log**
+  Portfolio section with a **CSV export**. `holdings` stays the source of truth;
+  holdings that predate the log show a reconstructed `opening` row. See the sell-
+  side cluster below.
+- **Sell-signal shortlist — the exit-side "Where to start".** A fourth **Consider
+  selling** lens on the Where-to-start block, ranked catalogue-wide by the pure
+  **`sellStrength()`** (over-fair blended with un-backed run-up), honest on a weak
+  fit (run-ups only). See the sell-side cluster below.
 - **Sold-item tracking — realised P&L (the closed side of the portfolio).** A
   per-user append-only **`sales`** table + a **Sell** action on each holding card
   (records a disposal at the holding's weighted-average cost, draws the holding
@@ -819,13 +831,15 @@ stance). What still stands unbuilt:
 
 ## The sell side — knowing when to exit
 
-*(Feature cluster; not yet designed.)* The whole tool currently answers one
-half of the question — *when to **buy***: buy signals, "Where to start", the
-fair-price gap as a buy gate, price alerts on a target below fair. The mirror
-image is missing. These three items add the **exit** side, reusing the machinery
-that already exists rather than inventing new maths — the same `momentum()`
-(drawdown, 7d/30d change, set-value trend), `verdict`, `fairGap`/`fairPrice`
-and the signed-in `holdings` map. Sequenced buy→hold→sell, they close the loop.
+*(Feature cluster — ✅ **all shipped**.)* The tool used to answer only one half
+of the question — *when to **buy***: buy signals, "Where to start", the
+fair-price gap as a buy gate, price alerts on a target below fair. The **exit**
+side is now complete, built by reusing the machinery that already existed rather
+than inventing new maths — the same `momentum()` (drawdown, 7d/30d change,
+set-value trend), `verdict`, `fairGap`/`fairPrice` and the signed-in `holdings`
+map. All three items below shipped (sell signals, realised-P&L sold-item
+tracking, and — closing the loop — the sell-signal shortlist and the full
+transaction log), so the buy→hold→sell loop is closed.
 
 - **Sell signals (the inverse of the buy signal). ✅ SHIPPED.** The momentum
   half is built: `sellSignal(hist)` in `metrics.js` (pure, unit-tested) is the
@@ -868,48 +882,41 @@ and the signed-in `holdings` map. Sequenced buy→hold→sell, they close the lo
   over-time chart as a floor, and excluding sold items from the concentration
   view — both are presentational follow-ups, not needed for the core realised-P&L
   answer.
-- **A sell-signal shortlist (the exit-side "Where to start").** The mirror of
-  the Where-to-start buy shortlist: a top-list ranked by sell-signal strength —
-  most over fair / strongest un-backed run-up — scoped, signed in, to the user's
-  **own holdings** first (what *you* could take profit on), with a catalogue-wide
-  view as a secondary lens. Reuses the `renderOverview` / lens-toggle pattern and
-  the `startCard` layout, so it costs a render function and a metric, not a new
-  component. Depends on the sell-signal definition above landing first. *Open
-  question:* whether it's a fourth Portfolio section, a lens on the existing
-  Where-to-start block, or its own small panel — decide once the signal exists.
-- **Transaction log — the full buy/sell ledger.** *(Feature; needs a data-model
-  decision first.)* A single chronological history of every **buy** and **sell**,
-  grouped by date, each line showing product · type/condition · quantity · price ·
-  and P&L (a *sell* line's **realised** gain; a *buy*/open line's **unrealised**
-  mark-to-market vs the latest price), with a **CSV export** of the whole ledger
-  (one row per transaction — date, type buy/sell, product, condition, quantity,
-  unit price, cost basis, realised/unrealised P&L — built client-side and offered
-  as a `text/csv` download, the same one-function pattern as the existing xlsx
-  export). The **realised (sell)
-  half already exists** — the `sales` table + Closed Positions (see the shipped
-  sold-item item). The gap is the **buy half**: today `holdings` stores only the
-  *current aggregate* per product (quantity + a **blended** weighted-average cost),
-  so the individual purchase events — date, price, quantity of each buy — are
-  **lost** the moment `commitHolding()` blends them. So the real question is the
-  data model, and it's the one thing to settle before building:
-  - **(a) A parallel `purchases` log** — record each buy as its own append-only
-    row (mirroring `sales`) *alongside* the existing aggregate holding. Smallest
-    change, keeps holdings/unrealised-P&L exactly as they are; the ledger is just
-    `purchases ∪ sales` sorted by date. Risk: two sources of truth for cost basis
-    (the blended holding vs the sum of purchase rows) that must be kept
-    consistent.
-  - **(b) Event-sourced holdings** — make buys/sells the *only* stored truth and
-    **derive** the current holding (quantity + weighted-average cost) as a
-    projection over the ledger. Cleanest and conflict-free (one source of truth,
-    and the log *is* the data), but a real refactor of `commitHolding` /
-    `persistHolding` / the load path, and a migration for existing aggregate
-    holdings.
-  Lean **(a)** first for the log itself, with **(b)** noted as the principled
-  end-state if the double-bookkeeping in (a) bites. Same constraints as below —
-  pure, unit-tested, currency-correct (only €-absolute figures convert), all
-  derivable from data already tracked (no new external source). The reference
-  shape is the Collectr-style "Transaction Log" (dated groups, per-line coloured
-  P&L, CSV export).
+- **A sell-signal shortlist (the exit-side "Where to start"). ✅ SHIPPED.** The
+  mirror of the Where-to-start buy shortlist, built as a **fourth lens** on that
+  block (`startLens === 'sell'`, "Consider selling") rather than a new panel —
+  reusing `renderOverview`/`startCard`, so it cost a render branch and a metric,
+  not a component. It's ranked by the pure, unit-tested **`sellStrength(p,
+  fairTrusted)`** in `metrics.js`: a blend of how far **over** fair price a product
+  is (`fairGap`, when trusted and ≥ `SELL.OVER_FAIR_MIN`) plus an **un-backed
+  run-up** (`SELL.RUNUP_WEIGHT × change30d`, when the `sellSignal` flag is set) —
+  `recomputeFit()` stashes each product's `runUp`/`change30d` for it. The scope
+  decision was made **catalogue-wide** (ranks `visibleProducts()`), listing only
+  genuine candidates (`sellStrength > 0`) or an explicit empty state. The **honesty
+  rule mirrors the buy side**: a weak fit drops the over-fair term inside
+  `sellStrength`, so the lens falls back to run-ups alone and says so — never a
+  fair claim. Two render tells set it apart (no medal tint, no young-set ⚠). Pinned
+  by unit tests + an a11y case. *(Decided against: scoping to the user's own
+  holdings first — a catalogue-wide read works logged-out and matches the buy
+  lenses; a holdings-scoped view can layer on later if wanted.)*
+- **Transaction log — the full buy/sell ledger. ✅ SHIPPED (model (a)).** A single
+  chronological history of every **buy** and **sell** (`renderLedger()`,
+  `#ledger-tbody`), each line showing product · type · quantity · unit price · P&L
+  — a *sell* line's **realised** gain, a *buy*/opening line's **unrealised**
+  mark-to-market vs the latest price — with a **CSV export** of the whole ledger
+  (`exportLedgerCsv()`, a client-side `text/csv` download, canonical €, the same
+  one-function pattern as the xlsx export). Built on **model (a), the parallel
+  `purchases` log**: a per-user append-only table mirroring `sales`, written by
+  `commitHolding()`'s buy path (buy-more appends; edit-in-place, a correction,
+  does not), so **`holdings` stays the source of truth** for the current position
+  and unrealised P&L and the log is an event record beside it. The
+  double-bookkeeping risk (a) carries is handled explicitly: holdings that
+  **predate the log** get one non-persisted `opening` reconstruction row so the
+  history isn't blank, and the boundary (edit-in-place ≠ event) is documented. The
+  pure **`buildLedger(purchases, sales, latestByName)`** in `metrics.js` merges and
+  marks both sides (unit-tested); `tests/signed-in.spec.mjs` pins the buy →
+  purchase-insert payload and the ledger render. *(Model (b), event-sourced
+  holdings, stays the noted end-state if (a)'s two-sources-of-truth ever bites.)*
 
 Constraints (same as every analytical feature here): the new signal/realised-P&L
 maths ships as **pure, unit-tested helpers in `metrics.js`** (no derived number

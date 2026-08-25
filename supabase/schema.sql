@@ -235,6 +235,27 @@ create table if not exists public.sales (
 );
 create index if not exists sales_user_idx on public.sales (user_id);
 
+-- ── Per-user purchases / buy events (private) ──
+-- The buy-side ledger. `holdings` stores only the *current aggregate* per product
+-- (quantity + a blended weighted-average cost), so the individual buy events are
+-- otherwise lost the moment the buy editor blends them. This append-only log keeps
+-- each purchase as its own row so the Transaction Log can show the full buy/sell
+-- history. Like `sales` there is deliberately NO unique(user_id, product_id): a
+-- product can be bought many times, each its own row (removed only by deleting it).
+-- holdings stays the source of truth for the current position / unrealised P&L;
+-- this is an event record beside it (buy-more appends here, edit-in-place — a
+-- correction, not an event — does not), so the two can differ by design.
+create table if not exists public.purchases (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade default auth.uid(),
+  product_id  uuid not null references public.products(id) on delete cascade,
+  quantity    numeric not null check (quantity > 0),
+  unit_price  numeric not null check (unit_price >= 0),
+  bought_on   date not null default (now() at time zone 'utc')::date,
+  created_at  timestamptz not null default now()
+);
+create index if not exists purchases_user_idx on public.purchases (user_id);
+
 -- Migrate an existing alerts table (pre-fair-price alerts) in place. Safe to
 -- re-run: every step is guarded. `create table if not exists` above does NOT
 -- alter an existing table, so these carry old installs forward.
@@ -293,6 +314,7 @@ alter table public.user_settings enable row level security;
 alter table public.holdings      enable row level security;
 alter table public.alerts        enable row level security;
 alter table public.sales         enable row level security;
+alter table public.purchases     enable row level security;
 alter table public.client_errors enable row level security;
 alter table public.cardmarket_expansion_singles enable row level security;
 alter table public.cardmarket_excluded_singles enable row level security;
@@ -383,6 +405,13 @@ create policy "own alerts" on public.alerts
 -- ── sales: each user reads/writes only their own disposals ──
 drop policy if exists "own sales" on public.sales;
 create policy "own sales" on public.sales
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+-- ── purchases: each user reads/writes only their own buy events ──
+drop policy if exists "own purchases" on public.purchases;
+create policy "own purchases" on public.purchases
   for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
