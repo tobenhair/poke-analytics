@@ -377,6 +377,17 @@ test('a regular user gets portfolio + alerts but not Data Entry, and edits auto-
   const holdingRow = (await writes(page, 'holdings', 'upsert')).at(-1).payload;
   expect(holdingRow).toMatchObject({ product_id: 'p4', quantity: 1, cost_basis: 50 });
 
+  // The buy is also recorded as its own ledger event (the buy half of the
+  // Transaction Log — the individual purchase the blended holding would lose).
+  await expect.poll(async () => (await writes(page, 'purchases', 'insert')).length).toBeGreaterThan(0);
+  expect((await writes(page, 'purchases', 'insert')).at(-1).payload).toMatchObject({
+    product_id: 'p4', quantity: 1, unit_price: 50,
+  });
+  // The Transaction Log lists that buy, plus an "opening" reconstruction of the
+  // pre-existing holding that predates the log.
+  await expect(page.locator('#ledger-tbody')).toContainText('Delta Booster Bundle');
+  await expect(page.locator('#ledger-tbody')).toContainText('opening');
+
   // Alerts: adding a fixed target auto-saves the same way. The product picker
   // is a searchable datalist input now (like the Holdings editor), not a select.
   await page.locator('#alert-product-select').fill('Delta Booster Bundle');

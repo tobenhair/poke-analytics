@@ -70,6 +70,7 @@
   var alerts = [{ id: 'a1', user_id: USER_ID, product_id: 'p3', alert_type: 'fixed', target_price: 100, below_pct: null }];
   var client_errors = [];
   var sales = [];   // recorded disposals (realised P&L) — starts empty per user
+  var purchases = [];   // recorded buy events (the buy half of the ledger) — empty per user
   // Public-read news (anon + authed), across the three categories, TCG first.
   var news = [
     { id: 'n1', source: 'PokéGuardian', category: 'tcg', title: 'New set revealed: Prismatic Evolutions', url: 'https://example.com/tcg-1', published_at: '2026-08-06T10:00:00Z' },
@@ -79,7 +80,7 @@
   var tables = {
     products: products, snapshots: snapshots, user_settings: user_settings,
     holdings: holdings, alerts: alerts, client_errors: client_errors, news: news,
-    sales: sales,
+    sales: sales, purchases: purchases,
   };
   var idSeq = 1;
 

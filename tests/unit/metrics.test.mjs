@@ -34,6 +34,8 @@ import {
   sellSignal,
   SELL_SIGNAL_PRICE_RISE,
   SELL_SIGNAL_SV_STALL,
+  sellStrength,
+  SELL,
   dataMaturity,
   ERAS,
   eraForRelease,
@@ -59,6 +61,7 @@ import {
   portfolioValueSeries,
   portfolioValueChange,
   realisedPnL,
+  buildLedger,
   fitConfidence,
   FIT_BANDS,
 } from '../../metrics.js';
@@ -839,6 +842,34 @@ test('sellSignal needs two tracked points on both series', () => {
   assert.equal(sellSignal({ price: [110], setVal: [500, 500] }), false);
 });
 
+// ── sellStrength: the exit-side ranking metric ──
+test('sellStrength blends over-fair and un-backed run-up when the fit is trusted', () => {
+  // 20% over fair + a +12% 30d run-up (flagged) → 20 + 0.5×12 = 26.
+  const p = { fairGap: 20, change30d: 12, runUp: true };
+  assert.equal(sellStrength(p, true), 20 + SELL.RUNUP_WEIGHT * 12);
+});
+
+test('sellStrength counts over-fair alone (no run-up needed)', () => {
+  const p = { fairGap: 15, change30d: 2, runUp: false };
+  assert.equal(sellStrength(p, true), 15);   // run-up term 0 (not flagged)
+});
+
+test('sellStrength ignores the fair term when the fit is not trusted (run-up only)', () => {
+  const p = { fairGap: 40, change30d: 10, runUp: true };
+  assert.equal(sellStrength(p, false), SELL.RUNUP_WEIGHT * 10);   // fair claim dropped
+});
+
+test('sellStrength is 0 for a fairly-priced, quiet product', () => {
+  assert.equal(sellStrength({ fairGap: -5, change30d: -2, runUp: false }, true), 0);
+  assert.equal(sellStrength({ fairGap: 1, change30d: null, runUp: false }, true), 0); // under OVER_FAIR_MIN
+  assert.equal(sellStrength(null, true), 0);
+});
+
+test('sellStrength requires a positive 30d move for the run-up term', () => {
+  // Flagged run-up but the 30d window shows a net fall → no run-up contribution.
+  assert.equal(sellStrength({ fairGap: -3, change30d: -8, runUp: true }, true), 0);
+});
+
 test('SELL_SIGNAL thresholds are the documented +5% / +5% mirror of the buy side', () => {
   assert.equal(SELL_SIGNAL_PRICE_RISE, 5);
   assert.equal(SELL_SIGNAL_SV_STALL, 5);
@@ -1075,4 +1106,32 @@ test('realisedPnL is zero for no sales and ignores malformed rows', () => {
   ]);
   assert.equal(r.realised, 20);
   assert.equal(r.units, 1);
+});
+
+// ── buildLedger: the unified buy/sell transaction history ──
+test('buildLedger merges buys and sells newest-first with per-line P&L', () => {
+  const purchases = [{ id: 'b1', name: 'A', quantity: 2, unitPrice: 100, boughtOn: '2026-01-10' }];
+  const sales     = [{ id: 's1', name: 'A', quantity: 1, salePrice: 130, costBasis: 100, soldOn: '2026-03-01' }];
+  const led = buildLedger(purchases, sales, { A: 120 });
+  assert.equal(led.length, 2);
+  // Newest first: the March sale precedes the January buy.
+  assert.equal(led[0].id, 's1');
+  assert.equal(led[0].kind, 'sell');
+  assert.equal(led[0].pnl, 30);            // realised (130 − 100) × 1
+  assert.equal(led[0].pnlKind, 'realised');
+  assert.equal(led[1].kind, 'buy');
+  assert.equal(led[1].pnl, 40);            // unrealised (120 − 100) × 2
+  assert.equal(led[1].pnlKind, 'unrealised');
+});
+
+test('buildLedger leaves a buy P&L null when the latest price is unknown', () => {
+  const led = buildLedger([{ id: 'b1', name: 'Z', quantity: 3, unitPrice: 50, boughtOn: '2026-02-02' }], [], {});
+  assert.equal(led.length, 1);
+  assert.equal(led[0].pnl, null);
+  assert.equal(led[0].pnlKind, 'unrealised');
+});
+
+test('buildLedger handles empty/nullish inputs', () => {
+  assert.deepEqual(buildLedger([], [], {}), []);
+  assert.deepEqual(buildLedger(null, null, null), []);
 });

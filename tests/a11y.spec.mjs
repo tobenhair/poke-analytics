@@ -488,6 +488,20 @@ test('the Analysis tab opens on the answer, not on the dataset', async ({ page }
       return metas.length > 0 && metas.every((m) => m.startsWith('ETB'));
     }, { message: 'overview must respect the type filter' })
     .toBe(true);
+
+  // The exit-side lens ranks the catalogue by how sell-worthy products look. It
+  // lists only genuine candidates (or says there are none), and — being
+  // worst-first — never puts a buy medal on the top row.
+  await page.locator('#type-filters .pill[data-type="ALL"]').click();
+  await page.locator('#start-lens .pill[data-lens="sell"]').click();
+  await expect(page.locator('#start-lens .pill.active')).toHaveText('Consider selling');
+  await expect(page.locator('#overview-lead')).toContainText('sell-worthy');
+  const sellItems = page.locator('#overview-deals .pick-item');
+  if (await sellItems.count()) {
+    await expect(sellItems.first().locator('.pick-rank')).not.toHaveClass(/gold/);
+  } else {
+    await expect(page.locator('#overview-deals .overview-empty')).toBeVisible();
+  }
 });
 
 test('the signed-in surface (portfolio + demo page) has no serious or critical violations', async ({ page }) => {
