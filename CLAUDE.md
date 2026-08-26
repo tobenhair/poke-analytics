@@ -648,8 +648,9 @@ explanation exists in two places:
   to rank by…") because both read the catalogue-wide age fit the 3-set slice
   can't reproduce — keeping the no-fair-price/verdict honesty rule. The
   **unlock-toolkit tiles** (`.unlock-grid`/`.unlock-tile` + sprite icons — the
-  five things an account buys: fair price, verdict, price history, portfolio,
-  alerts) are **not** duplicated inside each locked lens; they live **once**, as
+  seven things an account buys: fair price, verdict, sell signals, price history,
+  portfolio & P&L, transaction log, alerts) are **not** duplicated inside each
+  locked lens; they live **once**, as
   a standalone **"What a free account unlocks"** section (static markup, right
   below the Where-to-start block). The `.signin-open` handler is **delegated**
   (one document listener) so the dynamically-injected locked-lens button opens

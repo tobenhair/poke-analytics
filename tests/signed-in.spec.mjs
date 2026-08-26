@@ -173,7 +173,7 @@ test('the demo Where-to-start teaser ranks by value live and locks the fit-based
 
   // The unlock-toolkit tiles live once, in their own standalone section on the
   // demo page — not inside the ranking widget.
-  await expect(page.locator('#demo-page .unlock-tile')).toHaveCount(5);
+  await expect(page.locator('#demo-page .unlock-tile')).toHaveCount(7);
   await expect(page.locator('#demo-start-list .unlock-tile')).toHaveCount(0);
 
   expect(pageErrors).toEqual([]);
