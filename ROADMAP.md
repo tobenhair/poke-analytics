@@ -92,8 +92,10 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   cross-validated investigation found no non-linear model that beats linear
   out-of-sample on the current catalogue without overfitting or double-counting
   the age weight, so the linear fit stays. See **Non-linear fair-price curve**
-  under **Now — trustworthy numbers** for the full result and the one optional
-  follow-up (outlier robustness).
+  under **Now — trustworthy numbers** for the full result; its outlier-robustness
+  follow-up was later investigated on live DB data and **also closed — keep plain
+  OLS** (robust/launch-trimmed fits don't beat it out-of-sample and re-base the
+  fair price far more than they improve it).
 - **Loose pack price (reference)** — loose single boosters are tracked per set as
   `PACK` products (Cardmarket-ingested like the rest), but held *out* of every
   ranking, chart and KPI: with no sealed-box premium they beat every box on value
@@ -608,14 +610,43 @@ right but poorly built) or **Feature** (something new).
     data-maturity readout already flags). Not worth the added model risk on a
     thin, growing dataset. Re-open only if a much larger catalogue shows a
     broad-based (not outlier-driven) bend.
-  - **The real lever the data points to is outlier/leverage robustness, not
-    curvature** (matches the observation that the line is "fine if you disregard
-    the extremes"). *Optional, low-risk follow-up:* a robust or launch-trimmed
-    linear fit — e.g. down-weight/exclude very-young (< ~0.5 yr, still price-
-    finding) products from the **fit** while still stamping them a fair price.
-    On the trimmed set the linear fit already tightens (R² 0.39 → 0.44). Would
-    stay pure + unit-tested in `metrics.js`, invertible and floored, with
-    `fitConfidence()`/`fairPriceTrusted()` unchanged. Not yet scheduled.
+  - **Robust / launch-trimmed fit — investigated on live data; keep plain OLS.**
+    *(Investigate → decided, Aug 2026.)* The follow-up was to make the fit resist
+    outlier/leverage rather than chase curvature (matching the observation that
+    the line is "fine if you disregard the extremes") — a robust or launch-trimmed
+    linear fit that down-weights/excludes very-young products from the **fit**
+    while still stamping them a fair price. A read-only PoC ran the current
+    **185-row DB catalogue** (130 non-PACK analysis products, today's snapshot,
+    through the real `metrics.js` derive) against three alternatives:
+    - **Current OLS:** `a=178.8, b=−16.1/yr, R²=0.521` (strong), and the honest
+      yardstick — RMSE **58.4** / MAE **37.2** on the settled set (age ≥ 0.5 yr,
+      n=121).
+    - **Launch-trim (drop age < 0.5 yr from the fit):** R² tightens 0.521 → 0.563
+      *in-sample* (reproducing the old 0.39 → 0.44 on the larger pool), but
+      out-of-sample is a wash — settled RMSE 58.4 → 57.5, **MAE 37.2 → 38.2
+      (worse)**, LOO-RMSE 59.3 → 58.6. Worse, it **re-bases every fair price
+      ~6 % catalogue-wide**, and the *direction flips on the threshold*: today the
+      youngest sets (Pitch Black / Chaos Rising / Perfect Order, < 0.5 yr) sit
+      *below* the line while **Ascended Heroes (0.57 yr) sits +256 above** it, so a
+      `< 0.5 yr` cut drops the below-line points and *keeps* the real outlier
+      (fair −6 %), whereas a `< 0.6 yr` cut finally drops Ascended Heroes and pushes
+      fair *+2 %*. The parameter, not "robustness", drives the result.
+    - **Theil–Sen / Huber-IRLS (no age gate):** both are *worse* on the settled set
+      (RMSE 63.7 / 62.2) and drop the fit out of the **strong** band into
+      **moderate** (R² 0.471 / 0.490), because flattening the line to ignore
+      Ascended Heroes systematically under-predicts the settled catalogue — and
+      they re-base every fair price **+14–19 %**.
+    - **Decision: keep the current linear OLS fit.** No method beats OLS on
+      out-of-sample settled accuracy; every alternative moves the north-star fair
+      price far more (−6 % to +19 %) than it improves accuracy (≤ 1 %) — a bad
+      trade for a trust-first tool. **Ascended Heroes is a genuine one-of-a-kind
+      high-value set, not bad data**, and least-squares already absorbs its single
+      young-end leverage point gracefully (a modest intercept lift; the settled
+      catalogue is predicted fine). The young-product risk that motivated this is
+      already handled where it belongs — the drill-down **data-maturity readout**
+      flags unsettled sets, and **old-set suppression** handles the vintage
+      inversion — neither needs the fit re-based. Re-open only if a much larger
+      catalogue shows a broad-based (not single-set) leverage problem.
   - **⟳ Old-set fair-price suppression — SHIPPED.** The related failure at the
     *old* extreme is fixed: inverting the decayed fit for vintage sets (age past
     the point where expected SV/Booster nears zero) produced absurd fair prices
@@ -653,13 +684,15 @@ right but poorly built) or **Feature** (something new).
   price chart + a "projected at N yr" stat) earn its place — clearly labelled as a
   *trend projection, not the fair-price verdict*, gated on `fairPriceTrusted()`
   like everything fit-derived, and pure + unit-tested in `metrics.js`. Related to
-  the robust-fit follow-up above (both hinge on how outliers behave over time).
+  the robust-fit investigation above (both hinge on how outliers behave over
+  time — that one concluded OLS already handles them; this asks whether the
+  residual itself persists).
 
-_The only open threads in this theme are the two **investigations** above (the
-robust/launch-trimmed fit and the parallel-line prognosis) — research first,
-build only if the data supports it; the rest is under **Then** and **Later**.
-The **Backup & restore** item that used to live here is deferred by maintainer
-decision; see **Later**._
+_The only open thread in this theme is the **parallel-line prognosis**
+investigation above — research first, build only if the data supports it; the
+robust/launch-trimmed fit was investigated and closed (keep OLS), and the rest
+is under **Then** and **Later**. The **Backup & restore** item that used to live
+here is deferred by maintainer decision; see **Later**._
 
 ## Then — design & usability at product level
 
