@@ -4690,12 +4690,10 @@ function clearSelection() {
 
 // Seed a default so the charts aren't empty on first paint (or after a data
 // reload emptied a stale selection) — but never override a live user selection.
-function seedSelectionIfEmpty() {
-  if (selectedProducts.size) return;
-  const pool = analysisProducts().filter(p => historicalData[p.name]);
-  const seed = pool.find(p => p.name === 'Surging Sparks Booster Box') || pool[0];
-  if (seed) selectedProducts.add(seed.name);
-}
+// The chart selection starts empty — no product is pre-marked on the Analysis
+// tab. The comparison charts (Product mode) and the scatter cross-highlight are
+// all driven by selectedProducts, so an empty set means a clean, unhighlighted
+// first paint until the user ticks a board row or a chart picker.
 
 // Drop selected names no longer in the data (after a reload), so the count/clear
 // bar and the charts stay honest.
@@ -5542,8 +5540,7 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   recomputeScores(products, ageThreshold); // apply the current age threshold to freshly loaded data
   recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
   populateEraFilter();                     // refresh the Era scope dropdown (keeps a still-valid selection)
-  pruneSelection();                        // drop selected products no longer in the data…
-  seedSelectionIfEmpty();                  // …then re-seed a default if that emptied it
+  pruneSelection();                        // drop selected products no longer in the data
   updateKPIs();
   renderOverview();
   applyBoardLens();   // re-render the active board lens (lens state persists across reloads)
@@ -8610,7 +8607,6 @@ recomputeScores(products, ageThreshold); // apply the default age threshold to t
 recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
 populateEraFilter();                     // fill Era + Set dropdowns and every facet count
 renderSavedViews();                      // list any saved filter combos (localStorage)
-seedSelectionIfEmpty();                  // a default product so the comparison charts aren't empty
 updateKPIs();
 renderOverview();
 applyBoardLens();   // shows + renders the active board lens (Value by default)
