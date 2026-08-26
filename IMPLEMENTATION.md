@@ -32,10 +32,89 @@ need a decision or a spike before detailed planning would be honest.
 
 ## NOW — trustworthy numbers
 
-_Empty — every item in this theme has shipped._ Two plans that were once here
-are kept further down rather than deleted: **2b. Board performance fixes**
-(measured, deliberately dormant until ~200 products) and **1. Backup & restore**
-(deferred by maintainer decision). Both UX passes have run
+_One active plan (16, below); the rest of this theme has shipped._ Two plans that
+were once here are kept further down rather than deleted: **2b. Board performance
+fixes** (measured, deliberately dormant until ~200 products) and **1. Backup &
+restore** (deferred by maintainer decision).
+
+### 16. Box price 30-day moving average
+
+**Why.** Box price has no Cardmarket 30-day average (only singles carry
+`avg1/7/30`), so the daily job writes a `(trend + avg)/2` blend — a *spot*. The
+Aug-2026 derivative-indicator study (`ROADMAP.md` → **Now**) confirmed daily box
+returns are anti-persistent noise (lag-1 autocorrelation median −0.06), so a
+30-day mean is the right smoother and oscillators (RSI/MACD/Bollinger/vol-badges)
+would over-fit — they were investigated and rejected. This was already the
+ingestion "fast follow"; it is **now unblocked** — ≥30 daily snapshots exist
+(daily cadence began ~2026-07-26). Ships in two phases; **Phase A is the
+recommended first step and is independently valuable.**
+
+**Data reality to design for.** Daily coverage is only ~1 month and ramped
+(products were added 2026-07-26 → 08-20), so most products do **not** yet have a
+full 30 calendar days of daily points, and pre-July history is sparse monthly
+backfill with large gaps. The window must therefore be **calendar-defined**
+(trailing 30 days over whatever tracked snapshots fall in it), not positional,
+and every surface must degrade gracefully when the window is thin — exactly the
+discipline `pctChangeOverDays()` already uses for momentum.
+
+#### Phase A — client-side MA overlay on the drill-down price chart (ship first)
+
+- **Pure helper in `metrics.js`** (unit-tested — no derived number without a
+  test): `movingAverageSeries(price[], dates[], windowDays = 30, minPoints)`
+  returning an aligned `{x: ts, y: mean}[]` where each point is the mean of the
+  raw price over the trailing `windowDays`, emitted **only** where the window
+  holds ≥ `minPoints` samples spanning ≥ some fraction of the window (so it never
+  draws a fake-smooth line across the sparse monthly region). Reuses `histDates`
+  (chronological — the loaders already guarantee it).
+- **Render:** one faint dashed line on the existing drill-down price chart
+  (`renderDrill()`'s price canvas), same `{x,y}` time-axis + `pointRadius:0`
+  convention as the other lines (see `CLAUDE.md` → *Time-series charts*). Legend
+  label "30-day avg". A `.drill-stat` tile "vs 30-day avg" (today's price − MA,
+  %) is optional but cheap and is the honest "rich/cheap vs its own month" read.
+- **Currency-correct:** absolute-€ line, converts via the dataset builder keyed
+  on `fxRate()` like the other price series (a ratio would stay put, but this is
+  a price).
+- **No schema, no ingestion, no ranking change** — presentational only,
+  reversible, low-risk. Design-review: it is one line and one optional tile;
+  question whether the tile earns its place before adding it.
+- **Verify:** unit tests on `movingAverageSeries` (full window, partial window →
+  suppressed, gap handling); the smoke spec opens a drill-down and asserts the MA
+  dataset is present when history is dense and absent when it is not.
+
+#### Phase B — make the stored/ranked box price a 30-day mean (optional, maintainer-gated)
+
+This is the roadmap's original intent (price-of-record = 30-day mean) and is
+**higher-stakes: it moves every board price**, so it is a maintainer decision,
+not an automatic follow-on. Do **not** overwrite `snapshots.price` in place with
+a rolling mean — the stored price *is* the blend, so a mean of it compounds into
+an EMA-like lag. Instead:
+
+- **Keep the raw daily blend as the source** and add a **separate** stored field
+  (e.g. `snapshots.price_ma30`, or invert: store raw in a new column and let
+  `price` become the mean) so the mean is always taken over the *raw* blend, once.
+- **Ingestion change, mirrored in all three derive paths** (`scripts/cardmarket-lib.mjs`,
+  `supabase/functions/cardmarket-daily/index.ts`, `scripts/cardmarket-ingest.mjs`,
+  pinned by `cardmarket-lib.test.mjs`): extend the existing prior-window read
+  (the daily fn already pages the last 7 days of set value for `guardSetValue` —
+  widen to 30 days and pull `price` too), compute the trailing-30-day mean of the
+  raw blend, write it. **Fallback:** < `minPoints` in-window → use the raw blend
+  (today's interim), so partial-history products are never blank.
+- **Interactions to preserve:** `products.price_locked` → no MA, the admin's
+  manual value stands (unchanged); the Set-Value `guardSetValue` is on set value,
+  not price, so it is untouched; `low_liquidity` still derives from the day's
+  trend/avg spread.
+- **Decide before building:** which price the board/fair-price/portfolio read —
+  the smoothed MA or the spot — and whether to show both. Because the blend was
+  validated at median 0.91× hand prices, the switch is a visible re-basing and
+  should be a deliberate call. `data-integrity` + `metrics-review` skills both
+  apply.
+
+**Definition of done (Phase A):** `movingAverageSeries` unit-tested; the overlay
+renders on the drill-down price chart and is suppressed on thin history; docs
+updated (`CLAUDE.md` charts section, ROADMAP fast-follow line); one branch/PR.
+Phase B is filed but not started until the maintainer opts in.
+
+--- Both UX passes have run
 (`docs/ux-assessment.md`, then the authoritative `docs/ux-expert-review.md`);
 the defects they found are fixed and ROADMAP's *Known bugs* is empty. **Items 10 (Accessibility), 8
 (Mobile optimisation) and 7 (Collapsible section descriptions) have shipped** —

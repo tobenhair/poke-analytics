@@ -687,12 +687,55 @@ right but poorly built) or **Feature** (something new).
   the robust-fit investigation above (both hinge on how outliers behave over
   time — that one concluded OLS already handles them; this asks whether the
   residual itself persists).
+  - **⟳ Backtest run (Aug 2026) — leans persistence, but deferred: history is
+    too shallow to validate the multi-year projection.** A read-only backtest on
+    the live snapshot history compared, at several anchor dates, projecting each
+    product's residual forward (persistence) vs reverting it to the fair line
+    (reversion). **Persistence won at 4 of 5 anchors** (svb-RMSE e.g. Jul-06
+    anchor 46.0 vs 84.4; Apr 62.5 vs 88.8), and over the dense daily month the
+    residual is essentially fully sticky (`residual_end ~ residual_start` slope
+    β=1.30, corr=0.92; |residual| *grew* for most products) — a product's gap to
+    the fair line **persists, it doesn't snap back**. **But it can't ship:**
+    (1) every observable span is ≤0.6 yr and dominated by the recent daily
+    window, so this is short-horizon stickiness, not the *multi-year* aging the
+    forecast line would project — we have **zero** multi-year data; (2) the one
+    genuinely longer, pre-daily anchor (Jan-18, 0.60 yr) **flips to reversion**
+    (β=0.15) — and that is the horizon closest to the feature's use; (3) it is
+    confounded (the US→EU Set-Value basis break sits inside every long span; the
+    Jan fit is a weak R²=0.30 over n=22) and the pool is the same ~22–36 core
+    products. **Decision: defer** (like the time-scale selector) until ≥12–18
+    months of clean EU-basis daily history allow a real 1 yr+ aging test.
+    **One shippable byproduct, no new math:** the fair-price *gap is a slow
+    signal* — a product under/over fair tends to stay there over weeks/months —
+    worth a one-line drill-down note so users don't read the gap as "reverts
+    next week."
 
-_The only open thread in this theme is the **parallel-line prognosis**
-investigation above — research first, build only if the data supports it; the
-robust/launch-trimmed fit was investigated and closed (keep OLS), and the rest
-is under **Then** and **Later**. The **Backup & restore** item that used to live
-here is deferred by maintainer decision; see **Later**._
+- **Derivative chart indicators — investigated (Aug 2026); most rejected, the
+  30-day moving average is the one worth building.** *(Investigate → decided.)*
+  A read-only study of the daily price series asked which per-item chart
+  indicators actually carry signal on *this* data. Findings: **lag-1 return
+  autocorrelation is negative** (median −0.06; 37 products anti-persistent vs 20
+  trending) — day-to-day moves are noise, so **short-horizon momentum/oscillators
+  (1-day Δ, MACD, RSI) would chase noise**, confirming the existing choice to use
+  date-windowed 7d/30d momentum and to have retired the positional 1-day signal.
+  **Volatility and Bollinger excursions are dominated by thin-liquidity jumps**
+  (18% of obs breach ±2σ, tail driven by artefacts like a −91% one-day "move"),
+  so a vol/band indicator would mostly re-flag what `low_liquidity` already flags
+  and fire on artefacts. **The one indicator the data supports is a rolling
+  30-day moving average of box price** — it smooths exactly the daily noise the
+  autocorrelation exposes, and it is already the ingestion "fast follow" below
+  (now unblocked: ≥30 daily snapshots exist). Scoped in `IMPLEMENTATION.md`
+  (Phase A: a pure `metrics.js` MA overlay on the drill-down price chart, no
+  schema/ingestion change; Phase B, optional/maintainer-gated: making the
+  stored/ranked box price the 30-day mean of the raw daily blend). Oscillators
+  and vol-badges are **not** worth it on this slow, jumpy, thin data.
+
+_This theme has no open investigations left: the non-linear curve, the
+robust/launch-trimmed fit and the parallel-line prognosis were all investigated
+and closed or deferred (keep OLS; parallel-line deferred until history deepens),
+and the derivative-indicator study points to the 30-day MA already planned under
+ingestion. The rest is under **Then** and **Later**. The **Backup & restore**
+item that used to live here is deferred by maintainer decision; see **Later**._
 
 ## Then — design & usability at product level
 
@@ -1153,8 +1196,17 @@ both halves on the command line (`--dry-run`, `--backfill-ids`,
 toggle** now ships too: each row has a 🔒 lock control, thin-liquidity rows are
 badged with the trend/avg/low spread (`snapshots.price_avg`/`price_low`), and an
 advisory strip lists flagged products for review. **Still to wire (fast follow):**
-the box **rolling 30-day average** once ≥30 days of snapshots exist (interim:
-`trend`). Design detail below is retained as the record of why each choice was made.
+the box **rolling 30-day average** — **now unblocked** (≥30 daily snapshots exist
+as of Aug 2026) and confirmed by the derivative-indicator study under **Now** as
+the one chart indicator this data supports (daily returns are anti-persistent
+noise; a 30-day mean is the right smoother, oscillators would over-fit). Scoped
+in `IMPLEMENTATION.md` as two phases: **Phase A** — a pure `metrics.js` 30-day
+MA overlay on the drill-down price chart (presentational, no schema/ingestion
+change, ships first); **Phase B** (optional, maintainer-gated) — make the
+stored/ranked box price the 30-day mean of the *raw daily blend*, kept in a
+separate field so the mean is never taken of a mean (interim price stays the
+`(trend + avg)/2` blend until Phase B lands). Design detail below is retained as
+the record of why each choice was made.
 
 **Lead route: Cardmarket's official bulk catalogue downloads.**
 The maintainer located Cardmarket's published productCatalog files — served
