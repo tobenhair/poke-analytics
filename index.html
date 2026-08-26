@@ -3381,33 +3381,6 @@
       <div class="holding-grid" id="portfolio-cards"></div>
     </div>
 
-    <!-- ── Section: closed positions (realised P&L) ── -->
-    <h2 class="section-eyebrow">Closed Positions</h2>
-    <p class="section-desc"><strong>What:</strong> what you've sold, and the realised profit or loss on each disposal. <strong>How to read:</strong> realised profit &amp; loss is (sale price − the cost basis you held it at) × quantity; the <em>Realised Profit &amp; Loss</em> summary tile sums it across every sale. Use <em>Sell</em> on a holding card to record a disposal — it draws that quantity down from the holding and lands it here. Private to your account, saved automatically.</p>
-    <div class="panel">
-      <div class="panel-header">
-        <h3 class="panel-title">Closed Positions</h3>
-        <div class="panel-badge" id="sales-badge">no sales</div>
-      </div>
-      <div id="sales-empty" class="balancer-empty">No sales recorded yet — use <em>Sell</em> on a holding card to record a disposal.</div>
-      <div class="table-wrap" id="sales-table-wrap" style="display:none;">
-        <table>
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th style="text-align:right">Qty</th>
-              <th style="text-align:right">Sold / unit</th>
-              <th style="text-align:right">Cost / unit</th>
-              <th style="text-align:right">Realised</th>
-              <th>Date</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="sales-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-
     <!-- ── Section: concentration & rebalance (portfolio balancer) ── -->
     <h2 class="section-eyebrow">Concentration &amp; Rebalance</h2>
     <p class="section-desc"><strong>What:</strong> how your holdings are spread across <em>sets</em>, <em>release years</em> and <em>product types</em> — and, when you're over-exposed, which <em>under-fair-price</em> products in areas you underweight would diversify you. <strong>How to read:</strong> a bar near full means a large share of your value rides on one bucket (red = over-exposed); the shortlist points the next euro at good-value buys that spread the risk. Derived live from your holdings — nothing saved.</p>
@@ -3805,8 +3778,9 @@ const MOST_VALUABLE_N = 4;
 const CONC_TOP_N = 4;
 const balancerShowAll = { set: false, era: false, type: false };
 // Signed-in user's recorded disposals (append-only). Each: { id, name, quantity,
-// salePrice, costBasis, soldOn }. Populated by loadFromSupabase(); realised P&L
-// is summed from it (metrics.js realisedPnL) and the Closed Positions list.
+// salePrice, costBasis, soldOn }. Populated by loadFromSupabase(); drives the
+// Realised Profit & Loss summary tile (metrics.js realisedPnL) and the sell
+// lines of the Transaction Log (buildLedger).
 let sales = [];
 // Signed-in user's recorded buy events (append-only). Each: { id, name, quantity,
 // unitPrice, boughtOn }. holdings stays the source of truth for the current
@@ -6041,7 +6015,7 @@ function renderPortfolio() {
   summaryEl.style.display = (rows.length || sales.length) ? '' : 'none';
   summaryEl.innerHTML = holdingTiles + realisedTile;
 
-  // A large portfolio would push Closed Positions / Concentration / Alerts off
+  // A large portfolio would push Concentration / Alerts / Transaction Log off
   // the screen, so by default the Holdings list leads with a condensed "Most
   // Valuable" list of the top few (rows are already value-sorted). "View all"
   // expands to the full card grid; only condensed when there are more than
@@ -6076,7 +6050,6 @@ function renderPortfolio() {
 
   renderPortfolioValueChart();
   renderBalancer(rows);
-  renderSales();
   renderLedger();
 }
 
@@ -6602,34 +6575,6 @@ async function deletePurchaseRow(id) {
   if (!sbUser) return;
   const { error } = await sbClient.from('purchases').delete().eq('user_id', sbUser.id).eq('id', id);
   setStatus('portfolio-status', error ? '✕ Remove failed: ' + error.message : '✓ Removed', !!error);
-}
-
-// The Closed Positions list — every recorded sale, newest first, with its
-// realised P&L. Reads the module-level `sales`; wired from renderPortfolio().
-function renderSales() {
-  const wrap  = document.getElementById('sales-table-wrap');
-  const empty = document.getElementById('sales-empty');
-  const tbody = document.getElementById('sales-tbody');
-  const badge = document.getElementById('sales-badge');
-  if (!tbody) return;
-  const rows = [...sales].sort((a, b) => (a.soldOn < b.soldOn ? 1 : a.soldOn > b.soldOn ? -1 : 0));
-  if (badge) badge.textContent = rows.length ? `${rows.length} sale${rows.length === 1 ? '' : 's'}` : 'no sales';
-  if (empty) empty.style.display = rows.length ? 'none' : '';
-  if (wrap)  wrap.style.display  = rows.length ? '' : 'none';
-  tbody.innerHTML = rows.map(s => {
-    const realised = (s.salePrice - s.costBasis) * s.quantity;
-    return `<tr>
-      <td class="product-name" title="${s.name}">${s.name}</td>
-      <td class="num">${fmt(s.quantity, 0)}</td>
-      <td class="num">${money(s.salePrice)}</td>
-      <td class="num">${money(s.costBasis)}</td>
-      <td class="num" style="color:${pnlColor(realised)}">${withSign(money(Math.abs(realised)), realised)}</td>
-      <td>${s.soldOn}</td>
-      <td><button class="portfolio-remove-btn sales-remove-btn" data-id="${s.id}" aria-label="Remove the sale of ${s.name}">✕</button></td>
-    </tr>`;
-  }).join('');
-  tbody.querySelectorAll('.sales-remove-btn').forEach(btn =>
-    btn.addEventListener('click', () => removeSale(btn.dataset.id)));
 }
 
 // Latest € price per product (the buy-side mark-to-market basis for the ledger).
@@ -8968,7 +8913,8 @@ async function loadFromSupabase() {
     sbClient.from('holdings').select('*'),
     sbClient.from('alerts').select('*'),
     // Sales is optional infrastructure: an older deployment without the table
-    // just leaves the Closed Positions list empty (handled below), never throws.
+    // just leaves the Realised P&L tile at €0 and the ledger's sell lines empty
+    // (handled below), never throws.
     sbClient.from('sales').select('*'),
     // Purchases is likewise optional: an older deployment without the table leaves
     // the buy half of the Transaction Log empty (opening rows are synthesised from
@@ -9073,7 +9019,8 @@ async function loadFromSupabase() {
   });
   // Recorded disposals (the closed side). Rows whose product no longer exists are
   // dropped. A `sales` read error (older deployment without the table) leaves the
-  // Closed Positions list empty — it never blocks the load.
+  // Realised P&L tile at €0 and the ledger's sell lines empty — it never blocks
+  // the load.
   sales = [];
   (salesRes && !salesRes.error ? salesRes.data || [] : []).forEach(s => {
     const name = idToName[s.product_id];
