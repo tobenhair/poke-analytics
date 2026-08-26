@@ -2361,7 +2361,7 @@
 
     <div class="modal-section">
       <h3>Sheet 2 — Historical Data</h3>
-      <p style="font-size: var(--text-md); color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product per snapshot. Add a new row each month when you update prices.</p>
+      <p style="font-size: var(--text-md); color:var(--muted); margin-bottom:10px; font-family:'DM Mono',monospace;">One row per product per snapshot. In the live app the daily Cardmarket job appends these; add a row by hand only when maintaining this fallback workbook.</p>
       <table class="col-table">
         <thead><tr><th>Column name</th><th>Required?</th><th>Format / Notes</th></tr></thead>
         <tbody>
@@ -2477,7 +2477,7 @@
     </div>
 
     <div class="modal-note">
-      Every figure is in EUR and comes from prices entered by hand, one snapshot at a time. Nothing here is financial advice.
+      Every figure is in EUR. In the live app a daily Cardmarket job fills these snapshots automatically; this workbook is the manual fallback format. Nothing here is financial advice.
     </div>
   </div>
 </div>
@@ -2655,7 +2655,8 @@
         That is the one question this dashboard answers. It tracks sealed Pokémon TCG products —
         booster boxes, Elite Trainer Boxes and bundles — and weighs what each one costs against the
         <strong>set value</strong> behind it: what a complete set of the cards inside is worth.
-        Prices are entered by hand, one month at a time, so every number has a dated history behind it.
+        Prices and set values come from Cardmarket and refresh automatically every day, so every number
+        carries a dated price history behind it.
       </p>
     </div>
 
@@ -2736,8 +2737,10 @@
       <div class="unlock-grid" style="padding:22px var(--pad-x);">
         <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-deal"/></svg></span><div><div class="unlock-t">Fair price</div><div class="unlock-d">the € it should cost for its age</div></div></div>
         <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg></span><div><div class="unlock-t">Buy / avoid verdict</div><div class="unlock-d">in plain words</div></div></div>
+        <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-trend-up"/></svg></span><div><div class="unlock-t">Sell signals</div><div class="unlock-d">when a product looks overvalued</div></div></div>
         <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-analysis"/></svg></span><div><div class="unlock-t">Price history</div><div class="unlock-d">every tracked snapshot</div></div></div>
-        <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-portfolio"/></svg></span><div><div class="unlock-t">Portfolio & Profit & Loss</div><div class="unlock-d">value your own holdings</div></div></div>
+        <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-portfolio"/></svg></span><div><div class="unlock-t">Portfolio & Profit & Loss</div><div class="unlock-d">value holdings, realised & unrealised</div></div></div>
+        <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg></span><div><div class="unlock-t">Transaction log</div><div class="unlock-d">your buy/sell history, exportable</div></div></div>
         <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg></span><div><div class="unlock-t">Price alerts</div><div class="unlock-d">buy-below targets</div></div></div>
       </div>
     </div>
@@ -2757,7 +2760,7 @@
       The three most recently released sets, with the raw figures behind every verdict. Fair price and the
       verdict itself aren't shown here — both are read off a fit across the <em>whole</em> catalogue's ages,
       so three sets can't produce the same answer the board would. Sign in and every product carries them,
-      along with its price history, buy signals and a portfolio.
+      along with its price history, buy and sell signals, and a portfolio.
     </p>
     <div id="demo-sets"></div>
 
@@ -2933,8 +2936,9 @@
             <svg class="icon icon-lg" aria-hidden="true"><use href="#i-portfolio"/></svg>
             <button type="button" class="card-title" data-goto="portfolio">Portfolio</button>
           </div>
-          <p>What you actually hold: unrealised profit and loss against your cost basis, value over time,
-          where you are over-concentrated, and price alerts on a euro target or on the fair price.</p>
+          <p>What you actually hold: unrealised and realised profit and loss against your cost basis, a full
+          buy/sell transaction log with CSV export, value over time, where you are over-concentrated, and
+          price alerts on a euro target or on the fair price.</p>
         </div>
 
         <div class="panel welcome-card admin-only" onclick="document.querySelector('.tab-bar .tab-btn[data-tab=&quot;entry&quot;]').click()">
@@ -2942,8 +2946,9 @@
             <svg class="icon icon-lg" aria-hidden="true"><use href="#i-entry"/></svg>
             <button type="button" class="card-title" data-goto="entry">Data Entry</button>
           </div>
-          <p>The monthly update: this month's price and set value per product, new releases, Cardmarket
-          links, and the export that writes the workbook back out.</p>
+          <p>Manage the tracked set: add new products with their Cardmarket ids, resolve ids and sync the
+          catalogue so the daily job can price them, lock a price by hand where the market is too thin to
+          read, and export a backup workbook.</p>
         </div>
       </div>
 
@@ -2959,26 +2964,29 @@
         <button type="button" class="text-link glossary-open" aria-haspopup="dialog">What the numbers mean</button>
       </p>
 
-      <!-- The monthly loop. Admin-only, heading included: a signed-in
-           non-admin used to get this eyebrow with nothing underneath it. -->
-      <h2 class="section-eyebrow admin-only">The monthly loop</h2>
+      <!-- How the data stays fresh. Admin-only, heading included: a signed-in
+           non-admin used to get this eyebrow with nothing underneath it. The data
+           is ingested daily from Cardmarket now, so this describes the automated
+           loop plus the admin's curation role, not a monthly hand-entry pass. -->
+      <h2 class="section-eyebrow admin-only">How the data stays fresh</h2>
       <div class="panel admin-only welcome-block">
         <div class="steps">
           <div class="step">
-            <div class="step-head"><span class="step-n">1</span><span class="step-label">Load</span></div>
-            <p>Your products and price history load from the cloud when you sign in. If cloud sync is ever
-            unavailable the dashboard falls back to the committed
-            <code class="code-inline">pokemon_data.xlsx</code> — and says so under the header.</p>
+            <div class="step-head"><span class="step-n">1</span><span class="step-label">Automatic</span></div>
+            <p>A daily Supabase job pulls each tracked product's price and set value from Cardmarket and
+            writes a new snapshot. Fair prices, verdicts and alerts recompute on their own — no hand entry.</p>
           </div>
           <div class="step">
-            <div class="step-head"><span class="step-n">2</span><span class="step-label">Update</span></div>
-            <p>Once a month, fetch the latest prices and enter them in Data Entry. The grid warns on a large
-            jump against last month and flags skipped snapshots. New products can be added at any time.</p>
+            <div class="step-head"><span class="step-n">2</span><span class="step-label">Curate</span></div>
+            <p>In Data Entry you add new products with their Cardmarket ids, run <em>Resolve ids</em> →
+            <em>Sync catalog</em> so the job can price them, and lock a price by hand for a thin-market
+            product the auto-price reads badly. Save to the cloud to apply.</p>
           </div>
           <div class="step">
-            <div class="step-head"><span class="step-n">3</span><span class="step-label">Decide</span></div>
-            <p>Save to the cloud, then read the board: the verdict, the gap to fair price, and the buy
-            signals it raises. Export the workbook to keep an off-repo backup.</p>
+            <div class="step-head"><span class="step-n">3</span><span class="step-label">Fallback</span></div>
+            <p>If cloud sync is ever unavailable the dashboard falls back to the committed
+            <code class="code-inline">pokemon_data.xlsx</code> — and says so under the header. Export any
+            time for an off-repo backup.</p>
           </div>
         </div>
       </div>
@@ -3381,33 +3389,6 @@
       <div class="holding-grid" id="portfolio-cards"></div>
     </div>
 
-    <!-- ── Section: closed positions (realised P&L) ── -->
-    <h2 class="section-eyebrow">Closed Positions</h2>
-    <p class="section-desc"><strong>What:</strong> what you've sold, and the realised profit or loss on each disposal. <strong>How to read:</strong> realised profit &amp; loss is (sale price − the cost basis you held it at) × quantity; the <em>Realised Profit &amp; Loss</em> summary tile sums it across every sale. Use <em>Sell</em> on a holding card to record a disposal — it draws that quantity down from the holding and lands it here. Private to your account, saved automatically.</p>
-    <div class="panel">
-      <div class="panel-header">
-        <h3 class="panel-title">Closed Positions</h3>
-        <div class="panel-badge" id="sales-badge">no sales</div>
-      </div>
-      <div id="sales-empty" class="balancer-empty">No sales recorded yet — use <em>Sell</em> on a holding card to record a disposal.</div>
-      <div class="table-wrap" id="sales-table-wrap" style="display:none;">
-        <table>
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th style="text-align:right">Qty</th>
-              <th style="text-align:right">Sold / unit</th>
-              <th style="text-align:right">Cost / unit</th>
-              <th style="text-align:right">Realised</th>
-              <th>Date</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="sales-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-
     <!-- ── Section: concentration & rebalance (portfolio balancer) ── -->
     <h2 class="section-eyebrow">Concentration &amp; Rebalance</h2>
     <p class="section-desc"><strong>What:</strong> how your holdings are spread across <em>sets</em>, <em>release years</em> and <em>product types</em> — and, when you're over-exposed, which <em>under-fair-price</em> products in areas you underweight would diversify you. <strong>How to read:</strong> a bar near full means a large share of your value rides on one bucket (red = over-exposed); the shortlist points the next euro at good-value buys that spread the risk. Derived live from your holdings — nothing saved.</p>
@@ -3646,7 +3627,7 @@
 
   <footer>
     <div class="last-update" id="last-update-wrap" style="margin-bottom:14px;">Last updated: <span id="last-update-date">—</span><span class="stale-note" id="last-update-stale"></span></div>
-    <p style="margin:0 0 10px;">Price data from Cardmarket, Tradera &amp; PriceCharting · Set logos from TCGdex · Always do your own research</p>
+    <p style="margin:0 0 10px;">Price data from Cardmarket, refreshed daily · Set logos from TCGdex · Always do your own research</p>
     <p style="margin:0 auto; max-width:70ch; line-height:1.7; text-transform:none; letter-spacing:normal;">
       <strong>Not financial advice.</strong> This is a free, unofficial fan-made tool provided “as is” for informational purposes only. Prices and values may be inaccurate or out of date; nothing here is a recommendation to buy or sell. Do your own research before making any purchase.
     </p>
@@ -3805,8 +3786,9 @@ const MOST_VALUABLE_N = 4;
 const CONC_TOP_N = 4;
 const balancerShowAll = { set: false, era: false, type: false };
 // Signed-in user's recorded disposals (append-only). Each: { id, name, quantity,
-// salePrice, costBasis, soldOn }. Populated by loadFromSupabase(); realised P&L
-// is summed from it (metrics.js realisedPnL) and the Closed Positions list.
+// salePrice, costBasis, soldOn }. Populated by loadFromSupabase(); drives the
+// Realised Profit & Loss summary tile (metrics.js realisedPnL) and the sell
+// lines of the Transaction Log (buildLedger).
 let sales = [];
 // Signed-in user's recorded buy events (append-only). Each: { id, name, quantity,
 // unitPrice, boughtOn }. holdings stays the source of truth for the current
@@ -4716,12 +4698,10 @@ function clearSelection() {
 
 // Seed a default so the charts aren't empty on first paint (or after a data
 // reload emptied a stale selection) — but never override a live user selection.
-function seedSelectionIfEmpty() {
-  if (selectedProducts.size) return;
-  const pool = analysisProducts().filter(p => historicalData[p.name]);
-  const seed = pool.find(p => p.name === 'Surging Sparks Booster Box') || pool[0];
-  if (seed) selectedProducts.add(seed.name);
-}
+// The chart selection starts empty — no product is pre-marked on the Analysis
+// tab. The comparison charts (Product mode) and the scatter cross-highlight are
+// all driven by selectedProducts, so an empty set means a clean, unhighlighted
+// first paint until the user ticks a board row or a chart picker.
 
 // Drop selected names no longer in the data (after a reload), so the count/clear
 // bar and the charts stay honest.
@@ -5568,8 +5548,7 @@ function applyNewData({ newProducts, newHistoricalData, newHistDates, newLinks }
   recomputeScores(products, ageThreshold); // apply the current age threshold to freshly loaded data
   recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
   populateEraFilter();                     // refresh the Era scope dropdown (keeps a still-valid selection)
-  pruneSelection();                        // drop selected products no longer in the data…
-  seedSelectionIfEmpty();                  // …then re-seed a default if that emptied it
+  pruneSelection();                        // drop selected products no longer in the data
   updateKPIs();
   renderOverview();
   applyBoardLens();   // re-render the active board lens (lens state persists across reloads)
@@ -6041,7 +6020,7 @@ function renderPortfolio() {
   summaryEl.style.display = (rows.length || sales.length) ? '' : 'none';
   summaryEl.innerHTML = holdingTiles + realisedTile;
 
-  // A large portfolio would push Closed Positions / Concentration / Alerts off
+  // A large portfolio would push Concentration / Alerts / Transaction Log off
   // the screen, so by default the Holdings list leads with a condensed "Most
   // Valuable" list of the top few (rows are already value-sorted). "View all"
   // expands to the full card grid; only condensed when there are more than
@@ -6076,7 +6055,6 @@ function renderPortfolio() {
 
   renderPortfolioValueChart();
   renderBalancer(rows);
-  renderSales();
   renderLedger();
 }
 
@@ -6602,34 +6580,6 @@ async function deletePurchaseRow(id) {
   if (!sbUser) return;
   const { error } = await sbClient.from('purchases').delete().eq('user_id', sbUser.id).eq('id', id);
   setStatus('portfolio-status', error ? '✕ Remove failed: ' + error.message : '✓ Removed', !!error);
-}
-
-// The Closed Positions list — every recorded sale, newest first, with its
-// realised P&L. Reads the module-level `sales`; wired from renderPortfolio().
-function renderSales() {
-  const wrap  = document.getElementById('sales-table-wrap');
-  const empty = document.getElementById('sales-empty');
-  const tbody = document.getElementById('sales-tbody');
-  const badge = document.getElementById('sales-badge');
-  if (!tbody) return;
-  const rows = [...sales].sort((a, b) => (a.soldOn < b.soldOn ? 1 : a.soldOn > b.soldOn ? -1 : 0));
-  if (badge) badge.textContent = rows.length ? `${rows.length} sale${rows.length === 1 ? '' : 's'}` : 'no sales';
-  if (empty) empty.style.display = rows.length ? 'none' : '';
-  if (wrap)  wrap.style.display  = rows.length ? '' : 'none';
-  tbody.innerHTML = rows.map(s => {
-    const realised = (s.salePrice - s.costBasis) * s.quantity;
-    return `<tr>
-      <td class="product-name" title="${s.name}">${s.name}</td>
-      <td class="num">${fmt(s.quantity, 0)}</td>
-      <td class="num">${money(s.salePrice)}</td>
-      <td class="num">${money(s.costBasis)}</td>
-      <td class="num" style="color:${pnlColor(realised)}">${withSign(money(Math.abs(realised)), realised)}</td>
-      <td>${s.soldOn}</td>
-      <td><button class="portfolio-remove-btn sales-remove-btn" data-id="${s.id}" aria-label="Remove the sale of ${s.name}">✕</button></td>
-    </tr>`;
-  }).join('');
-  tbody.querySelectorAll('.sales-remove-btn').forEach(btn =>
-    btn.addEventListener('click', () => removeSale(btn.dataset.id)));
 }
 
 // Latest € price per product (the buy-side mark-to-market basis for the ledger).
@@ -8665,7 +8615,6 @@ recomputeScores(products, ageThreshold); // apply the default age threshold to t
 recomputeFit();                          // age-fit line + per-product fair price (threshold-independent)
 populateEraFilter();                     // fill Era + Set dropdowns and every facet count
 renderSavedViews();                      // list any saved filter combos (localStorage)
-seedSelectionIfEmpty();                  // a default product so the comparison charts aren't empty
 updateKPIs();
 renderOverview();
 applyBoardLens();   // shows + renders the active board lens (Value by default)
@@ -8968,7 +8917,8 @@ async function loadFromSupabase() {
     sbClient.from('holdings').select('*'),
     sbClient.from('alerts').select('*'),
     // Sales is optional infrastructure: an older deployment without the table
-    // just leaves the Closed Positions list empty (handled below), never throws.
+    // just leaves the Realised P&L tile at €0 and the ledger's sell lines empty
+    // (handled below), never throws.
     sbClient.from('sales').select('*'),
     // Purchases is likewise optional: an older deployment without the table leaves
     // the buy half of the Transaction Log empty (opening rows are synthesised from
@@ -9073,7 +9023,8 @@ async function loadFromSupabase() {
   });
   // Recorded disposals (the closed side). Rows whose product no longer exists are
   // dropped. A `sales` read error (older deployment without the table) leaves the
-  // Closed Positions list empty — it never blocks the load.
+  // Realised P&L tile at €0 and the ledger's sell lines empty — it never blocks
+  // the load.
   sales = [];
   (salesRes && !salesRes.error ? salesRes.data || [] : []).forEach(s => {
     const name = idToName[s.product_id];

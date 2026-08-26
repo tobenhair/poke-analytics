@@ -173,7 +173,7 @@ test('the demo Where-to-start teaser ranks by value live and locks the fit-based
 
   // The unlock-toolkit tiles live once, in their own standalone section on the
   // demo page — not inside the ranking widget.
-  await expect(page.locator('#demo-page .unlock-tile')).toHaveCount(5);
+  await expect(page.locator('#demo-page .unlock-tile')).toHaveCount(7);
   await expect(page.locator('#demo-start-list .unlock-tile')).toHaveCount(0);
 
   expect(pageErrors).toEqual([]);
@@ -463,10 +463,13 @@ test('recording a sale draws the holding down and reports realised P&L', async (
     product_id: 'p2', quantity: 1,
   });
 
-  // Realised P&L surfaces in the summary and the Closed Positions list shows the row.
+  // Realised P&L surfaces in the summary tile, and the sell shows as a Sell line
+  // in the Transaction Log (the Closed Positions section was removed as redundant
+  // with the ledger — the ledger's sell lines carry the same realised P&L).
   await expect(page.locator('#portfolio-summary')).toContainText('Realised Profit & Loss');
-  await expect(page.locator('#sales-tbody')).toContainText('Beta Booster Box');
-  await expect(page.locator('#sales-badge')).toHaveText(/1 sale/);
+  const betaSell = page.locator('#ledger-tbody tr')
+    .filter({ hasText: 'Beta Booster Box' }).filter({ hasText: 'Sell' });
+  await expect(betaSell).toHaveCount(1);
 
   expect(pageErrors).toEqual([]);
 });
