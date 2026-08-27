@@ -75,10 +75,19 @@ Stroke-only on `currentColor` so it inherits its label's colour (`.icon-lg` for
 standalone icons). Meaning-carrying alone → `role="img"` + `aria-label` on the
 wrapper.
 
-**Fonts** — three only:
-- `Bebas Neue` — display headings (`h1`, `.panel-title`).
-- `DM Mono` — labels, figures, eyebrows, badges, anything numeric/technical.
-- `DM Sans` — body copy.
+**Fonts** — three only, assigned by role via `:root` tokens (never hard-code
+the family; use the token):
+- `--font-display` (`Bebas Neue`) — display headings (`h1`, `.panel-title`).
+- `--font-mono` (`DM Mono`) — **data only**: figures, prices, %, ×, scores, the
+  compact data tags (`.type-badge`), code/filenames, chart axes. The default for
+  stat text — anything numeric stays monospace so columns align.
+- `--font-ui` (`DM Sans`) — **words**: body copy *and* descriptive UI text —
+  labels, eyebrows, sub-lines, hints, verdicts, messages, control chrome. This is
+  the "less technical" role. The reach is one grouped rule at the end of the
+  stylesheet (search *"Font role: descriptive UI text"*): a surface uses the sans
+  face iff it is listed there, so adding/removing a selector tunes the reach and a
+  figure can never accidentally lose its monospace. Rule of thumb: **words are
+  `--font-ui`, numbers are `--font-mono`.**
 
 **Components** — introduce sections and data the app's way:
 - Section header: `.section-eyebrow` (`0N — TITLE`, uppercase, mono) + an
