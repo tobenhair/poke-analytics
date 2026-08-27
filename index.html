@@ -424,16 +424,13 @@
     align-items: center;
   }
   .filter-label { font-size: var(--text-xs); color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.16em; margin-right: 2px; }
-  /* Age-threshold group in the filter bar. Its left margin/padding/rule are the
-     8px that pushed the Analysis tab past a 320px viewport (WCAG 1.4.10), so
-     they drop away once the filter bar is wrapping anyway. */
+  /* Age-threshold group in the board filter row. It now leads that row (Type +
+     Era moved to the top of the tab), so it carries no left separator rule — a
+     border-left with nothing before it read as a stray vertical line. */
   .age-control {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-left: 8px;
-    padding-left: 16px;
-    border-left: 1px solid var(--border);
   }
   .pill-group { display: flex; gap: 6px; flex-wrap: wrap; }
   .pill {
@@ -540,7 +537,10 @@
   /* Live match count carried inside a pill / the More-filters toggle. Inherits
      the pill's colour (gold when active, muted otherwise) and just dims it, so
      it needs no colour of its own. */
-  .pill-count { margin-left: 7px; font-size: var(--text-2xs); opacity: 0.6; }
+  /* No opacity multiplier: it dragged --muted (AA-passing on --bg) down to
+     2.87:1. The count is already subordinate — smaller (text-2xs) than its
+     label — so the token carries it and it stays ≥ 4.5:1 (WCAG 1.4.3). */
+  .pill-count { margin-left: 7px; font-size: var(--text-2xs); }
   .pill-count:empty { display: none; }
   .more-filters-btn { display: inline-flex; align-items: center; gap: 6px; }
   .more-filters-btn .icon { width: 14px; height: 14px; }
@@ -1863,7 +1863,6 @@
     .drill-chart { height: 220px; }
 
     .filters { gap: 10px; }
-    .age-control { margin-left: 0; padding-left: 0; border-left: 0; }
     .sort-select { margin-left: 0; width: 100%; }
     /* Let the tables scroll horizontally on their own without trapping page scroll */
     .table-wrap { -webkit-overflow-scrolling: touch; }
@@ -3016,6 +3015,34 @@
     <button class="guide-btn admin-only" id="guide-btn"><svg class="icon" aria-hidden="true"><use href="#i-guide"/></svg> Format Guide</button>
   </div>
 
+  <!-- ── Global scope filters (Type + Era), pulled to the top of the tab ──
+       Type and Era are the two catalogue-wide scope axes: each narrows EVERY
+       analytical surface at once — the Where-to-start shortlist, the board and
+       every chart — through passesScope()/visibleProducts(). So they lead the
+       tab, above the answer they scope. The board-specific controls (age
+       threshold, search, verdict, sort, and the advanced facets behind "More
+       filters") stay down in the board's own filter row, where they act. Same
+       ids and handlers as before — only the DOM position moved. -->
+  <div class="filters fade-in" style="animation-delay:0.04s">
+    <span class="filter-label">Type</span>
+    <!-- Real buttons, not divs: they carry a click handler, so as <div>s they
+         were unreachable by keyboard (same 2.1.1 failure as the board rows).
+         Each pill's .pill-count is the live count of matches if you pick it,
+         given the OTHER active facets (refreshFacetCounts fills them). -->
+    <div class="pill-group" id="type-filters" role="group" aria-label="Filter by product type">
+      <button class="pill active" type="button" data-type="ALL" aria-pressed="true">All<span class="pill-count"></span></button>
+      <button class="pill" type="button" data-type="BOX" aria-pressed="false">Booster Box<span class="pill-count"></span></button>
+      <button class="pill" type="button" data-type="ETB" aria-pressed="false">Elite Trainer<span class="pill-count"></span></button>
+      <button class="pill" type="button" data-type="BUNDLE" aria-pressed="false">Bundle<span class="pill-count"></span></button>
+      <button class="pill" type="button" data-type="COLLECTION" aria-pressed="false">Collection<span class="pill-count"></span></button>
+    </div>
+
+    <span class="filter-label">Era</span>
+    <select class="sort-select" id="era-filter" style="margin-left:0;" aria-label="Filter by era">
+      <option value="ALL">All eras</option>
+    </select>
+  </div>
+
   <!-- ── The answer, first ──
        Measured before this: the first product row sat 1,354px down on desktop
        and 1,963px on a phone, so nothing a buyer needs to decide was visible
@@ -3043,34 +3070,9 @@
        belongs there; on Analysis its Top-Score / Best-Value tiles just restated
        the Where-to-start #1, and it pushed the answer down). -->
 
-  <!-- Filters -->
+  <!-- Board filter row — the controls that act on the board itself (Type + Era,
+       the two catalogue-wide scope axes, were pulled to the top of the tab). -->
   <div class="filters fade-in" style="animation-delay:0.1s">
-    <span class="filter-label">Type</span>
-    <!-- Real buttons, not divs: these carry a click handler, so as <div>s they
-         were unreachable by keyboard (same 2.1.1 failure as the board rows).
-         The comparison views' mode pills already use .pill on a <button>. -->
-    <!-- Each pill carries a live count (.pill-count) of how many products match
-         if you pick it, given the OTHER active facets — the faceted-count idea,
-         kept on the controls that already exist rather than a new panel.
-         refreshFacetCounts() fills them. -->
-    <div class="pill-group" id="type-filters" role="group" aria-label="Filter by product type">
-      <button class="pill active" type="button" data-type="ALL" aria-pressed="true">All<span class="pill-count"></span></button>
-      <button class="pill" type="button" data-type="BOX" aria-pressed="false">Booster Box<span class="pill-count"></span></button>
-      <button class="pill" type="button" data-type="ETB" aria-pressed="false">Elite Trainer<span class="pill-count"></span></button>
-      <button class="pill" type="button" data-type="BUNDLE" aria-pressed="false">Bundle<span class="pill-count"></span></button>
-      <button class="pill" type="button" data-type="COLLECTION" aria-pressed="false">Collection<span class="pill-count"></span></button>
-    </div>
-
-    <!-- Era scope filter — a second global scoping axis beside Type. Narrows
-         every analytical view (board + charts) to one era via visibleProducts(),
-         the catalogue-scale "show me only Scarlet & Violet" lever. Options are
-         populated from the eras present in the data (populateEraFilter). Applies
-         to every lens, so it is NOT a .value-lens-ctrl. -->
-    <span class="filter-label">Era</span>
-    <select class="sort-select" id="era-filter" style="margin-left:0;" aria-label="Filter by era">
-      <option value="ALL">All eras</option>
-    </select>
-
     <!-- Age weight threshold control -->
     <div class="age-control">
       <span class="filter-label" style="white-space:nowrap;">Age Threshold</span>
@@ -3643,7 +3645,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, resolveBoosters, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, sellSignal, sellStrength, SELL, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, groupEras, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange, realisedPnL, buildLedger } from './metrics.js';
+import { boostersFromType, resolveBoosters, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, movingAverageSeries, trendDirection, buySignal, sellSignal, sellStrength, SELL, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, groupEras, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange, realisedPnL, buildLedger } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -8300,6 +8302,21 @@ function renderDrillPriceChart(p) {
       { label: 'Fair price', data: flat(fair), borderColor: 'rgba(255,255,255,0.45)',
         borderDash: [6, 5], borderWidth: 1.5, pointRadius: 0, fill: false, order: 2 },
     );
+  }
+  // 30-day moving average of the tracked price — a slow reference line that says
+  // whether today sits rich or cheap vs its own trailing month, on the very series
+  // the board ranks. Only appears where a real ~month of daily snapshots exists
+  // behind a point (movingAverageSeries suppresses the sparse monthly region), so
+  // it fills in as the daily history deepens. It smooths our already-blended daily
+  // price, so it is a reference, not an independent market read — see the helper.
+  const maPts = movingAverageSeries((h.price || []).map(v => v != null ? v * rate : null), labels);
+  if (maPts.length) {
+    datasets.push({
+      label: '30-day avg', data: maPts, spanGaps: true,
+      borderColor: alpha(COLOR.gold, 0.55), backgroundColor: 'transparent',
+      borderDash: [3, 4], borderWidth: 1.5, tension: 0.35,
+      pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: COLOR.gold, fill: false, order: 1,
+    });
   }
   // Loose-equivalent line: what this product's boosters would cost bought as
   // single loose packs (loose pack price × boosters), on the same € axis as the

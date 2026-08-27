@@ -28,6 +28,17 @@ other way or doesn't ship.
 
 Condensed history — details live in the git log and `CLAUDE.md`.
 
+- **Box price 30-day moving average — Phase A (the drill-down overlay).** The one
+  chart indicator the Aug-2026 derivative study endorsed (daily box returns are
+  anti-persistent noise, so a mean is the right smoother and oscillators over-fit).
+  A pure, unit-tested **`movingAverageSeries()`** in `metrics.js` draws a faint
+  dashed "30-day avg" reference line on the drill-down price chart — calendar-
+  windowed and self-suppressing on sparse history, so it fills in as daily data
+  deepens. It smooths the already-blended `(trend+avg)/2` daily price (an
+  average-of-an-average by design), so it stays a *reference*, not a ranked number;
+  the "vs 30-day avg" tile was dropped as redundant with the existing 30d change
+  KPI, and **Phase B** (folding the mean into the ranked price) stays maintainer-
+  gated. See the derivative-indicator item under **Now** and `IMPLEMENTATION.md` 16.
 - **Transaction log — the full buy/sell ledger (closes the sell side).** A per-user
   append-only **`purchases`** table (model (a)) records each buy that
   `commitHolding()`'s blend would otherwise lose; the pure **`buildLedger()`** in
@@ -724,11 +735,17 @@ right but poorly built) or **Feature** (something new).
   and fire on artefacts. **The one indicator the data supports is a rolling
   30-day moving average of box price** — it smooths exactly the daily noise the
   autocorrelation exposes, and it is already the ingestion "fast follow" below
-  (now unblocked: ≥30 daily snapshots exist). Scoped in `IMPLEMENTATION.md`
-  (Phase A: a pure `metrics.js` MA overlay on the drill-down price chart, no
-  schema/ingestion change; Phase B, optional/maintainer-gated: making the
-  stored/ranked box price the 30-day mean of the raw daily blend). Oscillators
-  and vol-badges are **not** worth it on this slow, jumpy, thin data.
+  (now unblocked: ≥30 daily snapshots exist). **Phase A shipped** — a pure,
+  unit-tested `movingAverageSeries()` in `metrics.js` drawing a faint dashed
+  "30-day avg" reference line on the drill-down price chart (calendar-windowed,
+  self-suppressing on sparse history), no schema/ingestion/ranking change. It
+  smooths the already-blended daily price, so it is a *reference*, not an
+  independent read — the reason it stays presentational; the "vs 30-day avg" tile
+  was dropped as redundant with the existing 30d change KPI. **Phase B**
+  (optional/maintainer-gated: making the stored/ranked box price the 30-day mean
+  of the raw daily blend) is filed but not started — that's where a mean-of-a-mean
+  would compound lag into the ranked number, so it's a deliberate maintainer call.
+  Oscillators and vol-badges are **not** worth it on this slow, jumpy, thin data.
 
 _This theme has no open investigations left: the non-linear curve, the
 robust/launch-trimmed fit and the parallel-line prognosis were all investigated
@@ -1195,14 +1212,14 @@ both halves on the command line (`--dry-run`, `--backfill-ids`,
 `--refresh-catalog`) as a local fallback. The in-app **Data Entry price-lock
 toggle** now ships too: each row has a 🔒 lock control, thin-liquidity rows are
 badged with the trend/avg/low spread (`snapshots.price_avg`/`price_low`), and an
-advisory strip lists flagged products for review. **Still to wire (fast follow):**
-the box **rolling 30-day average** — **now unblocked** (≥30 daily snapshots exist
-as of Aug 2026) and confirmed by the derivative-indicator study under **Now** as
-the one chart indicator this data supports (daily returns are anti-persistent
-noise; a 30-day mean is the right smoother, oscillators would over-fit). Scoped
-in `IMPLEMENTATION.md` as two phases: **Phase A** — a pure `metrics.js` 30-day
-MA overlay on the drill-down price chart (presentational, no schema/ingestion
-change, ships first); **Phase B** (optional, maintainer-gated) — make the
+advisory strip lists flagged products for review. The box **rolling 30-day
+average** was the fast-follow — confirmed by the derivative-indicator study under
+**Now** as the one chart indicator this data supports (daily returns are
+anti-persistent noise; a 30-day mean is the right smoother, oscillators would
+over-fit). Scoped in `IMPLEMENTATION.md` as two phases: **Phase A ✅ SHIPPED** —
+a pure, unit-tested `movingAverageSeries()` in `metrics.js` drawing a dashed
+"30-day avg" reference line on the drill-down price chart (presentational, no
+schema/ingestion change); **Phase B** (optional, maintainer-gated) — make the
 stored/ranked box price the 30-day mean of the *raw daily blend*, kept in a
 separate field so the mean is never taken of a mean (interim price stays the
 `(trend + avg)/2` blend until Phase B lands). Design detail below is retained as
