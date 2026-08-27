@@ -83,7 +83,7 @@ Logged-out visitors see a **pre-login demo** (`#demo-page`, a `<body>` child sho
 
 Runtime errors are reported to an insert-only **`client_errors`** table (error monitoring): an early inline script near the top of `index.html` buffers `window.onerror`/`unhandledrejection` events from the first script tick, and the module drains the buffer via `reportClientError()`/`initErrorReporting()` once `sbClient` exists — deduped, capped at 10/session, fire-and-forget, a no-op in static mode. Anyone may insert (RLS blocks spoofing another `user_id`), only the admin may read; an optional daily `pg_cron` + Resend digest (`supabase/error-digest.sql`) emails a grouped summary and stays silent when the table is clean.
 
-A **news feed** (Pokémon TCG — priority — plus TCG investing and Pokémon-business/owner-company headlines) is an opt-in companion. Browsers can't fetch third-party RSS (no CORS), so ingestion is server-side, mirroring the Cardmarket split: **`pg_cron` (hourly) → the `news-fetch` Edge Function** (`supabase/functions/news-fetch/index.ts`, scheduled by `supabase/news-cron.sql`) fetches the feeds, parses RSS **and** Atom, keyword-filters (broad sources only), dedupes by normalised URL, and upserts into the **`news`** table. Its parse/relevance/dedupe logic **mirrors the pure `scripts/news-lib.mjs`** (pinned by `tests/unit/news-lib.test.mjs`), and `scripts/news-fetch.mjs` is the Node CLI mirror for previewing feeds off-cloud. `news` is **public-read** (anon + authenticated — so the logged-out demo shows it too), **service-role-write only** (no client write policy). Only **headline + link + source + timestamp** is stored, never article bodies. The v1 sources (`NEWS_SOURCES`): **PokéBeach** (TCG — the dedicated TCG news site via a **GitHub Pages mirror** `feed.xml`, static-hosted so no datacenter 503 / UA sensitivity; the reliable non-Google primary; with a Google News `"Pokemon TCG"` query as a same-category safety net), **r/PokeInvesting** (investing), and a **Google News** Pokémon-business query (business — broad Pokémon/TPC/Nintendo terms, not earnings-only, since earnings news is rarely fresh; every clause names Pokémon so it stays on-topic despite `scoped:true`). The **User-Agent is per-source** (`ua`, default a browser string): Reddit needs the descriptive bot UA (it 429s browser agents) while Google News needs a browser UA (it 503s bot agents from datacenter IPs) — the fix for the "Google News HTTP 503 from Edge" symptom. Client side: `loadNews()` reads the table in **both** `loadFromSupabase()` and `loadDemo()` (fire-and-forget — a news failure never blocks the app); `renderNews()` fills the grouped list into **every `.news-full`** (the **News tab** pane `#tab-news`, its own top-level tab between Welcome and Analysis — and the demo's `#news-modal`) plus each `.news-teaser` (now only the demo page's), and reveals the **`#tabbtn-news`** tab once rows load. External feed text is escaped (`escHtml`) and links are `http(s)`-guarded (`safeUrl`) + `target=_blank rel=noopener`, since titles/URLs are untrusted. The **News tab** stays `hidden` until the table returns rows (static/xlsx builds have none, so no dead tab; the arrow-key nav already skips a hidden tab via its `offsetParent` test). The **`#news-modal` is now demo-only** — the logged-out demo has no tab bar, so its teaser's "All news →" opens the modal; the signed-in/static app uses the tab (the old header `#news-btn` and the Welcome-tab teaser were removed). `tests/fake-supabase-sdk.js` serves `news` rows (public-read) and `tests/signed-in.spec.mjs` pins the demo teaser → modal and the signed-in News tab → grouped list → safe-link flow. Operator setup (run `schema.sql`, deploy the function, schedule the cron) is in `SUPABASE.md`.
+A **news feed** (Pokémon TCG — priority — plus TCG investing and Pokémon-business/owner-company headlines) is an opt-in companion. Browsers can't fetch third-party RSS (no CORS), so ingestion is server-side, mirroring the Cardmarket split: **`pg_cron` (hourly) → the `news-fetch` Edge Function** (`supabase/functions/news-fetch/index.ts`, scheduled by `supabase/news-cron.sql`) fetches the feeds, parses RSS **and** Atom, keyword-filters (broad sources only), dedupes by normalised URL, and upserts into the **`news`** table. Its parse/relevance/dedupe logic **mirrors the pure `scripts/news-lib.mjs`** (pinned by `tests/unit/news-lib.test.mjs`), and `scripts/news-fetch.mjs` is the Node CLI mirror for previewing feeds off-cloud. `news` is **public-read** (anon + authenticated), **service-role-write only** (no client write policy). Only **headline + link + source + timestamp** is stored, never article bodies. The v1 sources (`NEWS_SOURCES`): **PokéBeach** (TCG — the dedicated TCG news site via a **GitHub Pages mirror** `feed.xml`, static-hosted so no datacenter 503 / UA sensitivity; the reliable non-Google primary; with a Google News `"Pokemon TCG"` query as a same-category safety net), **r/PokeInvesting** (investing), and a **Google News** Pokémon-business query (business — broad Pokémon/TPC/Nintendo terms, not earnings-only, since earnings news is rarely fresh; every clause names Pokémon so it stays on-topic despite `scoped:true`). The **User-Agent is per-source** (`ua`, default a browser string): Reddit needs the descriptive bot UA (it 429s browser agents) while Google News needs a browser UA (it 503s bot agents from datacenter IPs) — the fix for the "Google News HTTP 503 from Edge" symptom. Client side: `loadNews()` reads the table in `loadFromSupabase()` (signed-in) — **not** on the logged-out demo, which no longer lists news (it teases News as one of the "What a free account unlocks" tiles instead); `renderNews()` fills the grouped list into the **News tab** pane's `.news-full` (`#tab-news`, its own top-level tab between Welcome and Analysis) and reveals the **`#tabbtn-news`** tab once rows load. External feed text is escaped (`escHtml`) and links are `http(s)`-guarded (`safeUrl`) + `target=_blank rel=noopener`, since titles/URLs are untrusted. The **News tab** stays `hidden` until the table returns rows (static/xlsx builds have none, so no dead tab; the arrow-key nav already skips a hidden tab via its `offsetParent` test). (The old demo-only `#news-modal` + `.news-teaser` and the header `#news-btn` were removed — News is the tab only.) `tests/fake-supabase-sdk.js` serves `news` rows (public-read) and `tests/signed-in.spec.mjs` pins the signed-in News tab → grouped list → safe-link flow. Operator setup (run `schema.sql`, deploy the function, schedule the cron) is in `SUPABASE.md`.
 
 **`histDates` is chronological (ascending) in every loader** — `latest = last index`, `snapshotGaps()`, the date-windowed momentum (`pctChangeOverDays`), and the time-axis charts all assume it. The hardcoded fallback is authored sorted and the Supabase loader `.sort()`s its distinct snapshot dates; **`parseXlsx()` sorts `dateSet` too** (ISO `YYYY-MM-DD` → lexicographic = chronological) rather than trusting the workbook's row order — a workbook with rows out of date order used to leave `historicalData[*]` arrays aligned to a non-chronological axis (the category chart hid it by drawing in array order; a real time axis drew it as a zig-zag).
 
@@ -665,26 +665,22 @@ explanation exists in two places:
 
 - **`#demo-page` is the pitch** — the only "what this is / how to read it"
   surface. Order is the argument: the question (`.hero-title`), then the three
-  ideas needed to read an answer (`.steps`), then a **Where-to-start teaser**,
-  then the sample rows. Prose goes here, not on Welcome.
-- **The demo's Where-to-start teaser is the Analysis shortlist, value-live and
-  fit-lenses locked.** `renderDemoStart()` (state `demoStartLens`, pool
-  `demoStartPool` set from the demo slice in `loadDemo()`) shows the same
-  `#start-lens`-style pill toggle, but only **Best value** (SV/Booster,
-  fit-independent) ranks for real — reusing `startPrimary(p,'value')` in a
-  non-interactive `demoPickCard()` (no `.row-open` drill button: the drill-down
-  lives behind sign-in). **Safe pick** and **Best deal** render a **slim** locked
-  `.overview-empty` note (an `#i-lock` icon + a one-line `.signin-open` "Sign in
-  to rank by…") because both read the catalogue-wide age fit the 3-set slice
-  can't reproduce — keeping the no-fair-price/verdict honesty rule. The
-  **unlock-toolkit tiles** (`.unlock-grid`/`.unlock-tile` + sprite icons — the
-  seven things an account buys: fair price, verdict, sell signals, price history,
-  portfolio & P&L, transaction log, alerts) are **not** duplicated inside each
-  locked lens; they live **once**, as
-  a standalone **"What a free account unlocks"** section (static markup, right
-  below the Where-to-start block). The `.signin-open` handler is **delegated**
-  (one document listener) so the dynamically-injected locked-lens button opens
-  the auth overlay like the static ones.
+  ideas needed to read an answer (`.steps`), then the animated "See how it reads
+  a product" panel, then **"What a free account unlocks"**, then the sample rows.
+  Prose goes here, not on Welcome. It is **deliberately slim**: a Where-to-start
+  ranking teaser and a live news list were both tried and **removed** — the demo's
+  job is the argument for signing in, not a second working app, so the concrete
+  features live as the unlock grid below rather than as interactive widgets a
+  logged-out visitor would poke at.
+- **"What a free account unlocks" is the feature grid** (`.unlock-grid` /
+  `.unlock-tile` + sprite icons) — the eight things an account buys: fair price,
+  buy/avoid verdict, sell signals, price history, portfolio & P&L, transaction
+  log, price alerts, and the **News feed**. Static markup, one standalone section
+  — the concrete "why make an account". (This replaced the old locked
+  Where-to-start lenses, whose `renderDemoStart()`/`demoPickCard()` and the
+  `#news-modal` teaser were removed with them.) The `.signin-open` handler stays
+  **delegated** (one document listener) so every sign-in button — the CTA, the
+  header — opens the auth overlay.
 - **The demo has an animated "See how it reads a product" panel** —
   `mountDemoVizzes()` injects three **sample** SVG charts (`scatterVizSVG` value
   vs age + fit, `fairPriceVizSVG` actual vs fair-price line, `momentumVizSVG`

@@ -1157,25 +1157,15 @@
     gap: 12px; flex-wrap: wrap; margin-top: 12px; }
   .chart-zoom-hint { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--muted); }
 
-  /* ── News (teaser + overlay) — headline lists, TCG-first ── */
-  .news-teaser { margin-bottom: var(--section-gap); }   /* on the section rhythm when shown (hidden by default) */
-  .news-teaser .panel { padding: 6px 6px 12px; }
-  .news-teaser-body { list-style: none; }
-  .news-teaser-body li + li { border-top: 1px solid var(--hairline); }
+  /* ── News (the News tab list) — headline lists, TCG-first ── */
   .news-link { display: block; padding: 12px var(--pad-x); text-decoration: none; color: var(--text); }
   .news-link:hover { background: rgba(244,198,81,0.03); }
   .news-title { font-size: var(--text-lg); line-height: 1.35; }
   .news-meta { font-family: 'DM Mono', monospace; font-size: var(--text-2xs); color: var(--muted);
     margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
   .news-cat { color: var(--accent); }
-  /* padding gives the link a ≥24px hit area (WCAG 2.5.8); margin compensates so
-     the visual spacing is unchanged. */
-  .news-all { display: inline-block; margin: 6px 12px 2px; background: none; border: 0; padding: 6px 4px;
-    cursor: pointer; font-family: 'DM Mono', monospace; font-size: var(--text-sm); color: var(--accent3); }
-  .news-all:hover { text-decoration: underline; }
-  /* Overlay: same rows, grouped under a small category heading. */
-  /* The grouped full list — shared by the News tab pane and the demo's
-     #news-modal (both carry .news-full). */
+  /* The grouped full list — the News tab pane (.news-full), grouped under a
+     small category heading. */
   .news-full { margin-top: 8px; }
   .news-group + .news-group { margin-top: 22px; }
   .news-group-title { font-family: 'DM Mono', monospace; font-size: var(--text-xs); color: var(--accent);
@@ -2549,20 +2539,10 @@
   </div>
 </div>
 
-<!-- ═══════════ NEWS ═══════════
-     Pokémon TCG (priority), TCG investing, and Pokémon-business/owner-company
-     headlines, grouped TCG-first. Read-only: headline + source + link only,
-     never article bodies (RSS/copyright norm). Rows come from the public `news`
-     table — a scheduled server job fetches the feeds because browsers can't
-     (no CORS). Direct child of <body> so it shows over any tab and the demo. -->
-<div class="modal-overlay" id="news-modal">
-  <div class="modal" style="max-width:640px;" role="dialog" aria-modal="true" aria-labelledby="news-heading" tabindex="-1">
-    <button class="modal-close" id="news-close" type="button" aria-label="Close news">✕</button>
-    <h2 id="news-heading">News</h2>
-    <p class="modal-intro">Pokémon TCG, investing &amp; business — headlines link out to the source.</p>
-    <div class="news-full"></div>
-  </div>
-</div>
+<!-- News lives entirely in its own top-level tab (#tab-news, revealed once the
+     public `news` table returns rows). The logged-out demo no longer lists news
+     — it teases it as an account feature in the "What a free account unlocks"
+     grid — so the old demo-only #news-modal has been removed. -->
 
 <!-- ═══════════ PRODUCT DRILL-DOWN ═══════════
      One product, one screen: the verdict and its ingredients, fair price,
@@ -2764,25 +2744,8 @@
       <button type="button" class="text-link glossary-open" aria-haspopup="dialog">What the numbers mean</button>
     </p>
 
-    <!-- Where to start — the same three-lens shortlist the signed-in Analysis tab
-         opens on. Only Best value (SV/Booster, fit-independent) ranks for real
-         here; Safe pick and Best deal show a locked "sign in to rank by…" state,
-         because both read a fit across the whole catalogue, which the 3-set demo
-         slice can't reproduce (the demo's fair-price/verdict honesty rule). It is
-         the concrete answer to "why make an account". -->
-    <h2 class="section-eyebrow">Where to start</h2>
-    <div class="panel demo-block">
-      <div class="pill-group" id="demo-start-lens" role="group" aria-label="Rank the shortlist by" style="padding:18px var(--pad-x) 0;">
-        <button class="pill active" type="button" data-lens="value" aria-pressed="true">Best value</button>
-        <button class="pill" type="button" data-lens="safe" aria-pressed="false">Safe pick</button>
-        <button class="pill" type="button" data-lens="deal" aria-pressed="false">Best deal</button>
-      </div>
-      <p class="overview-lead" id="demo-start-lead"></p>
-      <div id="demo-start-list"></div>
-    </div>
-
-    <!-- What a free account unlocks — the five tools the locked lenses point to.
-         Shown once as its own section, not duplicated inside each locked lens. -->
+    <!-- What a free account unlocks — the tools behind sign-in, as a compact
+         feature grid (the pitch's "why make an account"). -->
     <h2 class="section-eyebrow">What a free account unlocks</h2>
     <div class="panel demo-block">
       <div class="unlock-grid" style="padding:22px var(--pad-x);">
@@ -2793,18 +2756,9 @@
         <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-portfolio"/></svg></span><div><div class="unlock-t">Portfolio & Profit & Loss</div><div class="unlock-d">value holdings, realised & unrealised</div></div></div>
         <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg></span><div><div class="unlock-t">Transaction log</div><div class="unlock-d">your buy/sell history, exportable</div></div></div>
         <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg></span><div><div class="unlock-t">Price alerts</div><div class="unlock-d">buy-below targets</div></div></div>
+        <div class="unlock-tile"><span class="unlock-ic"><svg class="icon" aria-hidden="true"><use href="#i-news"/></svg></span><div><div class="unlock-t">News feed</div><div class="unlock-d">Pokémon TCG, investing &amp; business headlines</div></div></div>
       </div>
     </div>
-
-    <!-- Latest news teaser (TCG-first) — same shared component and #news-modal
-         as the signed-in app, so a logged-out visitor gets a reason to return. -->
-    <section class="news-teaser" hidden>
-      <h2 class="section-eyebrow">Latest news</h2>
-      <div class="panel">
-        <ul class="news-teaser-body"></ul>
-        <button type="button" class="news-all" aria-haspopup="dialog">All news →</button>
-      </div>
-    </section>
 
     <h2 class="section-eyebrow">A sample of what's tracked</h2>
     <p class="section-desc">
@@ -3049,8 +3003,8 @@
   <!-- ═══════════════════ NEWS TAB ═══════════════════ -->
   <!-- Pokémon TCG-first headlines from the public `news` table (a scheduled
        server job fetches the feeds; the client only reads). Read-only: headline
-       + source + link, never article bodies. renderNews() fills every .news-full
-       (this pane + the demo's #news-modal) and reveals the tab once rows load. -->
+       + source + link, never article bodies. renderNews() fills this pane's
+       .news-full and reveals the tab once rows load. -->
   <div class="tab-pane" id="tab-news" role="tabpanel" aria-labelledby="tabbtn-news" tabindex="0">
     <h2 class="section-eyebrow">Latest news</h2>
     <p class="section-desc">Pokémon TCG, investing &amp; business — headlines link out to the source. Fetched daily; only the headline, source and link are stored.</p>
@@ -7014,13 +6968,6 @@ document.querySelectorAll('.chart-expand-btn').forEach(btn => {
 document.getElementById('chart-zoom-close').addEventListener('click', closeChartZoom);
 document.getElementById('chart-zoom-reset').addEventListener('click', () => { if (zoomChart) zoomChart.resetZoom(); });
 
-// News modal: kept for the logged-out demo page (which has no tab bar), opened
-// by the demo teaser's "All news →" link; the signed-in/static app uses the News
-// tab instead. The close button and the shared Escape/backdrop handlers dismiss it.
-document.getElementById('news-close').addEventListener('click', () => closeOverlay('news-modal'));
-document.querySelectorAll('.news-all').forEach(btn =>
-  btn.addEventListener('click', () => openOverlay('news-modal')));
-
 function dismissTopOverlay() {
   const top = topOverlay();
   if (!top) return false;
@@ -8926,19 +8873,9 @@ function newsRowHtml(n) {
 
 function renderNews() {
   const has = newsItems.length > 0;
-  // Teaser: TCG first (priority), then investing/business, newest within — cap 5.
-  const rank = { tcg: 0, investing: 1, business: 2 };
-  const teaser = [...newsItems]
-    .sort((a, b) => (rank[a.category] ?? 9) - (rank[b.category] ?? 9)
-      || String(b.published_at || '').localeCompare(String(a.published_at || '')))
-    .slice(0, 5);
-  document.querySelectorAll('.news-teaser').forEach(sec => {
-    sec.hidden = !has;
-    const body = sec.querySelector('.news-teaser-body');
-    if (body) body.innerHTML = teaser.map(newsRowHtml).join('');
-  });
-  // The grouped full list, by category (TCG first, newest within) — rendered
-  // into every .news-full: the News tab pane and the demo's #news-modal.
+  // The grouped full list, by category (TCG first, newest within), rendered into
+  // the News tab pane (the only .news-full now — the demo teaser/overlay were
+  // removed; the demo teases News as an account feature instead).
   const grouped = has ? NEWS_CATS.map(c => {
     const items = newsItems.filter(n => n.category === c.key).slice(0, 25);
     return items.length
@@ -9147,68 +9084,7 @@ async function loadFromSupabase() {
   // No "Loaded N products" pill — the boot splash covered the load, and its
   // removal signals ready; the status pill disrupted the aesthetics (the ask).
   if (window.__hideAppLoader) window.__hideAppLoader();
-  loadNews();   // fire-and-forget; renders the news teaser/overlay when it returns
-}
-
-// ── Demo "Where to start" teaser ──
-// The signed-in Analysis tab opens on the three-lens Where-to-start shortlist
-// (renderOverview / startLens). The demo shows the same block, honouring the rule
-// that the demo never shows a fair price or a verdict — its 3-release-date RLS
-// slice can't reproduce the catalogue-wide age fit. So only **Best value**
-// (SV/Booster, fit-independent) ranks for real; **Safe pick** and **Best deal**
-// show a locked "sign in to rank by…" state — the concrete answer to what an
-// account buys. Demo-only render path; reuses the pick-card components.
-let demoStartLens = 'value';   // 'value' is the only fit-independent lens → default + only live one
-let demoStartPool = [];        // the demo slice (set in loadDemo), ranked by svPerBooster
-
-function syncDemoLensPills(active) {
-  document.querySelectorAll('#demo-start-lens .pill').forEach(p => {
-    const on = p.dataset.lens === active;
-    p.classList.toggle('active', on);
-    p.setAttribute('aria-pressed', on ? 'true' : 'false');
-  });
-}
-
-// A demo pick card: non-interactive (the drill-down lives behind sign-in) and
-// value-headline only — no score or fair-price gap, keeping the honesty rule.
-function demoPickCard(p, rank) {
-  const medal = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
-  return `
-    <div class="pick-item">
-      <div class="pick-rank ${medal}">${rank}</div>
-      <div class="pick-info">
-        <div class="pick-name">${p.name}</div>
-        <div class="pick-meta">${typeLabel(p.type)} · ${money(p.price)}</div>
-      </div>
-      ${startPrimary(p, 'value')}
-    </div>`;
-}
-
-function renderDemoStart() {
-  const lead = document.getElementById('demo-start-lead');
-  const list = document.getElementById('demo-start-list');
-  if (!lead || !list) return;
-  syncDemoLensPills(demoStartLens);
-
-  if (demoStartLens === 'value') {
-    lead.innerHTML = `Ranked by <strong>value per booster</strong> — the most set value for each booster's price. This ranking needs no catalogue-wide fit, so it's live here.`;
-    const ranked = [...demoStartPool].sort((a, b) => b.svPerBooster - a.svPerBooster).slice(0, START_COUNT);
-    list.innerHTML = ranked.length
-      ? ranked.map((p, i) => demoPickCard(p, i + 1)).join('')
-      : `<div class="overview-empty">Preview unavailable right now.</div>`;
-    return;
-  }
-  // Safe pick / Best deal both read the catalogue-wide fit → locked in the demo.
-  const label = demoStartLens === 'safe' ? 'age-weighted score' : 'fair price';
-  const why = demoStartLens === 'safe'
-    ? 'weighs value against how settled each set is'
-    : 'measures how far under fair price each product sits';
-  lead.innerHTML = `Ranked by <strong>${label}</strong> — ${why}, read from a fit across every tracked set.`;
-  list.innerHTML = `
-    <div class="overview-empty" style="display:flex; align-items:center; gap:12px;">
-      <svg class="icon icon-lg" aria-hidden="true" style="flex:none"><use href="#i-lock"/></svg>
-      <span>This ranking reads the whole catalogue, which the preview can't show. <button type="button" class="text-link signin-open" aria-haspopup="dialog">Sign in</button> to rank by ${label}.</span>
-    </div>`;
+  loadNews();   // fire-and-forget; reveals + fills the News tab when it returns
 }
 
 // ── Demo "see it in action" illustrations ──
@@ -9379,11 +9255,8 @@ async function loadDemo() {
                     .sort((a, b) => b.svPerBooster - a.svPerBooster),
   }));
   renderDemo(groups);
-  demoStartPool = usable;   // the Where-to-start teaser ranks the same slice by value
-  renderDemoStart();
   mountDemoVizzes();        // sample "see it in action" charts, revealed on scroll
   if (window.__hideAppLoader) window.__hideAppLoader();   // demo is ready — drop the splash
-  loadNews();   // public-read: the demo page shows the same TCG-first teaser
 }
 
 // Longest common prefix of the product names in a set → a readable set name.
@@ -9598,10 +9471,6 @@ function wireAuthControls() {
     if (!e.target.closest('.signin-open')) return;
     showAuthError('');
     showAuthOverlay(true);   // moves focus to the first field itself
-  });
-  // Demo Where-to-start lens toggle (Best value live; Safe/Deal locked).
-  document.querySelectorAll('#demo-start-lens .pill').forEach(pill => {
-    pill.addEventListener('click', () => { demoStartLens = pill.dataset.lens; renderDemoStart(); });
   });
   document.getElementById('auth-close').addEventListener('click', () => showAuthOverlay(false));
 

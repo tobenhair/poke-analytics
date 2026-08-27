@@ -66,38 +66,28 @@ test('logged-out visitors get the demo scope and a dismissible sign-in', async (
   expect(pageErrors).toEqual([]);
 });
 
-test('the news feed shows a TCG-first teaser and opens a grouped, safe-linking overlay', async ({ page }) => {
+test('the signed-in News tab shows a grouped, TCG-first, safe-linking list', async ({ page }) => {
   const pageErrors = await boot(page);
 
-  // Logged-out demo shows the teaser (public-read news), Pokémon TCG headline first.
-  await expect(page.locator('#demo-page .news-teaser')).toBeVisible();
-  await expect(page.locator('#demo-page .news-teaser .news-teaser-body li').first())
-    .toContainText('Prismatic Evolutions');
-
-  // "All news →" opens the shared overlay (the demo page has no tab bar),
-  // grouped with Pokémon TCG first.
-  await page.locator('#demo-page .news-teaser .news-all').click();
-  await expect(page.locator('#news-modal')).toHaveClass(/open/);
-  await expect(page.locator('#news-modal .news-group-title').first()).toHaveText('Pokémon TCG');
-  await expect(page.locator('#news-modal .news-full')).toContainText('The Pokemon Company posts record revenue');
-
-  // Headlines link out safely — new tab + noopener.
-  const link = page.locator('#news-modal .news-link').first();
-  await expect(link).toHaveAttribute('target', '_blank');
-  await expect(link).toHaveAttribute('rel', /noopener/);
-
-  await page.keyboard.press('Escape');
-  await expect(page.locator('#news-modal')).not.toHaveClass(/open/);
+  // The logged-out demo no longer lists news — it teases it as an account
+  // feature in the unlock grid (see the pitch test), so there is no demo teaser
+  // or overlay to open.
+  await expect(page.locator('#demo-page .news-teaser')).toHaveCount(0);
 
   // Signed in, news is its OWN tab (between Welcome and Analysis), revealed once
-  // the table returns rows — no header button, no Welcome teaser.
+  // the public table returns rows — no header button, no teaser.
   await signIn(page, 'user@test.local');
   await expect(page.locator('#tabbtn-news')).toBeVisible();
-  await expect(page.locator('#tab-welcome .news-teaser')).toHaveCount(0);
   await page.locator('#tabbtn-news').click();
   await expect(page.locator('#tab-news')).toBeVisible();
+  // Grouped with Pokémon TCG first.
   await expect(page.locator('#tab-news .news-group-title').first()).toHaveText('Pokémon TCG');
   await expect(page.locator('#tab-news .news-full')).toContainText('The Pokemon Company posts record revenue');
+
+  // Headlines link out safely — new tab + noopener.
+  const link = page.locator('#tab-news .news-link').first();
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', /noopener/);
 
   expect(pageErrors).toEqual([]);
 });
@@ -117,6 +107,14 @@ test('the demo page pitches before it lists, and is honest about what it withhol
 
   // Three steps: value not price, why age matters, what the verdict means.
   await expect(page.locator('#demo-page .steps .step')).toHaveCount(3);
+
+  // Slimmed: no Where-to-start ranking widget and no news list on the demo —
+  // both were removed. News is teased as one of the account-feature tiles
+  // instead (the unlock grid now carries it).
+  await expect(page.locator('#demo-start-list')).toHaveCount(0);
+  await expect(page.locator('#demo-page .news-teaser')).toHaveCount(0);
+  await expect(page.locator('#demo-page .unlock-tile')).toHaveCount(8);
+  await expect(page.locator('#demo-page .unlock-grid')).toContainText('News');
 
   // Fair price and the verdict are *not* claimed here, and the page says why
   // rather than leaving a visitor to notice the gap. Computing a fit from the
@@ -140,41 +138,6 @@ test('the demo page pitches before it lists, and is honest about what it withhol
   // scrolling back to the header would be friction.
   await page.locator('#demo-page .demo-cta .signin-open').click();
   await expect(page.locator('#auth-overlay')).toBeVisible();
-
-  expect(pageErrors).toEqual([]);
-});
-
-test('the demo Where-to-start teaser ranks by value live and locks the fit-based lenses', async ({ page }) => {
-  // The signed-in Analysis tab opens on the Where-to-start shortlist; the demo
-  // shows the same block but only Best value (SV/Booster, fit-independent) is
-  // live — Safe pick and Best deal are locked behind sign-in, because both read
-  // a catalogue-wide fit the 3-set demo slice can't reproduce (the demo's
-  // no-fair-price/verdict honesty rule). This is the concrete "why sign in".
-  const pageErrors = await boot(page);
-  await expect(page.locator('#demo-page')).toBeVisible();
-
-  // Best value is the default and it renders real ranked cards, headline ×value.
-  await expect(page.locator('#demo-start-lens .pill[data-lens="value"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#demo-start-list .pick-item').first()).toBeVisible();
-  await expect(page.locator('#demo-start-list .pick-score').first()).toContainText('value');
-  // Honesty rule: no fair price / verdict leaks into the live value lens.
-  await expect(page.locator('#demo-start-list')).not.toContainText('fair');
-
-  // Safe pick and Best deal are locked — no ranked cards, a slim one-line "sign
-  // in to rank by…" note (no feature grid duplicated inside the ranking widget).
-  for (const lens of ['safe', 'deal']) {
-    await page.locator(`#demo-start-lens .pill[data-lens="${lens}"]`).click();
-    await expect(page.locator('#demo-start-list .pick-item')).toHaveCount(0);
-    await expect(page.locator('#demo-start-list')).toContainText('Sign in');
-    await expect(page.locator('#demo-start-list .unlock-tile')).toHaveCount(0);
-  }
-  await page.locator('#demo-start-list .signin-open').click();
-  await expect(page.locator('#auth-overlay')).toBeVisible();
-
-  // The unlock-toolkit tiles live once, in their own standalone section on the
-  // demo page — not inside the ranking widget.
-  await expect(page.locator('#demo-page .unlock-tile')).toHaveCount(7);
-  await expect(page.locator('#demo-start-list .unlock-tile')).toHaveCount(0);
 
   expect(pageErrors).toEqual([]);
 });
