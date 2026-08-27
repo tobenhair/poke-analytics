@@ -182,6 +182,18 @@
     --display-md: 1.5rem;
     --display-lg: 1.7rem;
     --display-xl: 2.1rem;
+    /* ── Font roles ──
+       Three faces, assigned by role. The rule: DM Mono is for DATA — figures,
+       prices, %, ×, scores, the values the dashboard exists to show; descriptive
+       UI text — labels, eyebrows, sub-lines, hints, verdicts, control chrome —
+       uses DM Sans for a softer, less "technical" read (DM Mono at ~10px also
+       rendered rough). Bebas Neue stays the display face. The grouped rule at the
+       end of this stylesheet (search "Font role: descriptive UI text") assigns
+       --font-ui; anything not listed there keeps the mono default, so a number
+       can never accidentally lose its monospace. */
+    --font-display: 'Bebas Neue', sans-serif;
+    --font-mono: 'DM Mono', monospace;   /* data / figures — the default for stat text */
+    --font-ui: 'DM Sans', sans-serif;    /* labels & descriptive text — softer */
     --ease: cubic-bezier(0.22, 0.68, 0.14, 1);
   }
 
@@ -1771,6 +1783,10 @@
     /* Section rhythm + side gutters step down on a phone — one place, every tab. */
     :root { --section-gap: 30px; --pad-x: 12px; --pad-x-tile: 12px; }
     .wrapper { padding: 28px 16px 48px; }
+    /* The "Age Threshold" label reads a touch wider in DM Sans (the descriptive
+       font role), so the label · slider · value · ⓘ row tightens its gaps on a
+       phone to keep the board filter row inside a 320px viewport (WCAG 1.4.10). */
+    .age-control { gap: 7px; }
 
     /* Holdings add editor on a phone: product search on its own row, then a
        compact qty · €/unit · Add row (cost grows to fill beside the small qty).
@@ -2168,6 +2184,42 @@
   @media (max-width: 640px) {
     .demo-inner { padding: 28px 16px 48px; }
     .demo-hero { padding: 12px 0 28px; text-align: left; }
+  }
+
+  /* ════════ Font role: descriptive UI text → DM Sans (--font-ui) ════════
+     "Words are DM Sans; numbers are DM Mono." Labels, eyebrows, sub-lines,
+     hints, verdicts, messages, set/product names and control chrome move to the
+     softer sans face — a less "technical" read, and DM Mono was rough at label
+     sizes (~10px). Placed LAST so it wins the cascade over each rule's own
+     mono default, at every width (it beats the phone media queries too). Only
+     the selectors listed here change; every figure/price/×/score/%, the code
+     literals (.code-inline, the Format-Guide filenames), the compact data tags
+     (.type-badge / .holding-chip) and the Chart.js axis fonts are deliberately
+     NOT listed, so they keep their monospace and stay column-aligned.
+     Adjusting the "less technical" reach = adding or removing a selector here. */
+  .subtitle, .last-update,
+  .tab-btn, .pill, .sort-select, .board-search, .board-more-btn, .desc-toggle,
+  .filter-label, .cmp-chip, .cmp-empty, .chart-sel,
+  .section-eyebrow, .panel-badge, thead th,
+  .grp-toggle, .grp-stats, .scroll-hint, .board-lens-hint,
+  .verdict-line, .fair-fit-note,
+  .drill-verdict, .set-identity-name,
+  .drill-stat .k, .drill-stat .s, .drill-links .k, .drill-ingredient,
+  .drill-scn-intro, .drill-scn-lbl, .drill-scn-ticks span, .drill-scn-out-k,
+  .drill-scn-signal, .drill-scn-reset,
+  .pick-meta, .pick-flag,
+  .chart-zoom-hint, .lens-chart-cap,
+  .news-meta, .news-group-title, .news-empty,
+  .conc-group h4, .balancer-suggest h4, .suggest-set,
+  .kpi-label, .kpi-sub,
+  .data-banner .why, .modal-intro, .field-label, .entry-quality .q-line,
+  .tag-req, .tag-opt,
+  .portfolio-tile .lbl, .portfolio-sell-btn, .portfolio-cancel-btn,
+  .portfolio-empty, .portfolio-error,
+  .holding-lbl, .mv-head, .mv-sub,
+  .demo-viz-title, .demo-viz-badge, .demo-viz-sub, .viz-legend,
+  .unlock-t, .unlock-d {
+    font-family: var(--font-ui);
   }
 
 </style>

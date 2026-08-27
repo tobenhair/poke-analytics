@@ -972,6 +972,18 @@ Markup, styles, and logic share one file, and the JS builds DOM from string temp
   Type is an 11-step scale, `--text-2xs` … `--display-xl`; radii are
   `--radius-pill` / `--radius-sm` / `--radius` (the panel corner). Adding a
   literal instead fails `npm run check:design-tokens`.
+- **Fonts come from role tokens, and the roles carry meaning.** Three faces:
+  `--font-display` (Bebas Neue) for display headings, `--font-mono` (DM Mono) for
+  **data** — figures, prices, %, ×, scores, the compact `.type-badge` tags,
+  code/filenames, chart axes — and `--font-ui` (DM Sans) for **words** — body copy
+  plus descriptive UI text (labels, eyebrows, sub-lines, hints, verdicts, control
+  chrome). The rule is **words are `--font-ui`, numbers are `--font-mono`** — the
+  "less technical" split (DM Mono also rendered rough at ~10px label sizes). Its
+  reach is **one grouped rule at the end of the stylesheet** (search *"Font role:
+  descriptive UI text"*): a surface uses the sans face iff it is listed there, so
+  a figure can never accidentally lose its monospace and tuning the reach is
+  adding/removing a selector. `check:design-tokens` guards colours and font-sizes,
+  not font-family, so this split is a review-time invariant, not a scripted one.
 - **Vertical rhythm is one token, `--section-gap`** (40px desktop, 30px on a
   phone via the 680px block). Every top-level section's content block sets its
   `margin-bottom` to it, so the gap between sections is identical on all four
