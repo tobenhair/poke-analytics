@@ -88,6 +88,15 @@ test('page loads and renders all tabs without runtime errors', async ({ page }) 
     .poll(async () => (await page.locator('#drill-price-chart').boundingBox())?.width ?? 0,
           { message: 'drill price chart should render' })
     .toBeGreaterThan(0);
+  // The drill price chart carries a 'Price' line, and the 30-day moving-average
+  // overlay is suppressed on this sparse (6 monthly snapshots) static workbook —
+  // movingAverageSeries only emits where ~a month of daily points sits behind a
+  // point, so on monthly-only data the overlay correctly does not appear. (The
+  // emit-when-dense path is covered by the metrics unit tests.)
+  const priceLabels = await page.evaluate(() =>
+    window.Chart.getChart('drill-price-chart').data.datasets.map(d => d.label));
+  expect(priceLabels).toContain('Price');
+  expect(priceLabels).not.toContain('30-day avg');
   await page.keyboard.press('Escape');
   await expect(page.locator('#drill-modal')).not.toHaveClass(/open/);
 

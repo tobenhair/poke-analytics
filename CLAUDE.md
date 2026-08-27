@@ -256,6 +256,26 @@ pieces are load-bearing and `tests/a11y.spec.mjs` fails if they are removed:
   scatter (§02) is exempt — it *is* a point cloud (age vs value), where the marks
   are the data. Any new time-series line should follow the `pointRadius: 0` /
   `pointHoverRadius` convention.
+- **The drill-down price chart carries a dashed 30-day moving average** — a faint
+  gold `borderDash` "30-day avg" line (`renderDrillPriceChart()`), the slow
+  smoother the Aug-2026 derivative-indicator study validated (daily box returns
+  are anti-persistent noise, so a mean is the right filter and short-horizon
+  oscillators over-fit). It reads whether today sits rich/cheap vs its own
+  trailing month, on the same series the board ranks. The math is the pure,
+  unit-tested **`movingAverageSeries(prices, dates, windowDays=30, minPoints=10)`**
+  in `metrics.js`: a **calendar-defined** trailing window (like `pctChangeOverDays`,
+  so it survives the mixed monthly/daily cadence), emitting a point only where the
+  window holds ≥`minPoints` samples spanning ≥ half the window — so it never draws
+  a fake-smooth mean across the sparse monthly backfill or off a handful of
+  just-started daily points, and fills in as daily history deepens (absent on the
+  6-snapshot static workbook, which the smoke spec pins). **Average-of-an-average,
+  by design and disclosed:** the daily price it smooths is *already* Cardmarket's
+  `(trend+avg)/2` blend, and `trend` is an EMA-like smoother — so this is a second
+  smoothing (extra lag), acceptable for a slow *reference* line but the reason it
+  stays presentational. It must **not** be folded into the stored/ranked price
+  (a mean of a blend compounds lag into the number everyone reads — the
+  maintainer-gated Phase B in `IMPLEMENTATION.md` item 16, deliberately not built).
+  Currency-correct like the other price series (converted in the dataset builder).
 - **Time-series charts use a real time x-axis, not a per-sample category axis.**
   The snapshot history mixes a monthly backfill (large day gaps) with the daily
   Cardmarket ingest, so a category axis — one evenly-spaced slot per sample —

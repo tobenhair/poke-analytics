@@ -384,6 +384,57 @@ export function momentum(hist, dates) {
   };
 }
 
+// Trailing moving average of a product's price history — the slow smoother the
+// Aug-2026 derivative-indicator study validated: daily box returns are
+// anti-persistent noise (lag-1 autocorrelation median −0.06), so a mean is the
+// right filter and short-horizon oscillators (RSI/MACD/Bollinger) over-fit. Pure;
+// drives the dashed "30-day avg" overlay on the drill-down price chart.
+//
+// AVERAGE-OF-AN-AVERAGE — by design, and disclosed. The daily price this smooths
+// is itself Cardmarket's `(trend + avg)/2` blend, and `trend` is already an
+// EMA-like smoother (deriveProducts in scripts/cardmarket-lib.mjs) — so this is a
+// SECOND smoothing, which adds lag. That is fine for a slow *reference* line ("is
+// today rich or cheap vs its own trailing month" on the very series the board
+// ranks), and it is exactly why this stays presentational: the mean must NOT be
+// folded back into the stored/ranked price, where a mean-of-a-blend would compound
+// lag into the number everyone reads (the maintainer-gated Phase B, not done here).
+//
+// The window is CALENDAR-defined (trailing `windowDays` days), not positional,
+// because the history mixes a monthly backfill with the daily ingest — the same
+// discipline pctChangeOverDays() uses. A point is emitted at a snapshot only where
+// its trailing window holds ≥ `minPoints` samples spanning ≥ half the window, so
+// the line never draws a fake-smooth mean across the sparse monthly region or off a
+// handful of just-started daily points (it simply doesn't exist yet there, and
+// fills in as daily history deepens). `prices` aligns positionally with `dates`
+// (nulls for untracked snapshots); `dates` are parseable ISO strings, ascending.
+// Returns aligned { x: epoch-ms, y: mean }[] — only the emitted points, ready to
+// plot on the shared time axis.
+const MA_MIN_SPAN_FRAC = 0.5;
+export function movingAverageSeries(prices, dates, windowDays = 30, minPoints = 10) {
+  if (!Array.isArray(prices) || !Array.isArray(dates) || prices.length !== dates.length) return [];
+  const pts = [];
+  for (let i = 0; i < prices.length; i++) {
+    if (prices[i] == null) continue;
+    const t = Date.parse(dates[i]);
+    if (Number.isFinite(t) && Number.isFinite(prices[i])) pts.push({ t, price: prices[i] });
+  }
+  if (pts.length < minPoints) return [];   // not enough tracked prices anywhere
+  const winMs = windowDays * DAY_MS;
+  const minSpan = winMs * MA_MIN_SPAN_FRAC;
+  const out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const end = pts[i].t;
+    const from = end - winMs;
+    let sum = 0, n = 0, oldest = end;
+    for (let j = i; j >= 0; j--) {           // walk back while still inside the window
+      if (pts[j].t < from) break;
+      sum += pts[j].price; n += 1; oldest = pts[j].t;
+    }
+    if (n >= minPoints && (end - oldest) >= minSpan) out.push({ x: end, y: +(sum / n).toFixed(2) });
+  }
+  return out;
+}
+
 // Direction of the latest price move (the board's ▲/▼ arrow):
 // 1 up, -1 down, 0 flat or fewer than two tracked prices.
 export function trendDirection(prices) {

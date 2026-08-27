@@ -29,6 +29,7 @@ import {
   fairAlertTarget,
   FAIR_PRICE_MIN_R2,
   momentum,
+  movingAverageSeries,
   trendDirection,
   buySignal,
   sellSignal,
@@ -705,6 +706,69 @@ test('momentum will not report a short window that actually spans a long gap', (
   // 30 days before 2026-03-31 is 2026-03-01; nearest snapshot on/before is
   // 2026-02-28 (price 110), within the 30-day grace → 120 vs 110.
   assert.ok(Math.abs(m.change30d - ((120 - 110) / 110) * 100) < 1e-9);
+});
+
+// ── movingAverageSeries: the 30-day price smoother (drill-down overlay) ──
+// Calendar-windowed, emitted only where a real ~month of daily points sits behind
+// a snapshot — so it degrades gracefully on the mixed monthly/daily cadence.
+test('movingAverageSeries: full daily window returns the trailing mean', () => {
+  // 40 daily snapshots, price 100 → 139 (+1/day). At the latest point the trailing
+  // 30-day window covers days 10..39 (prices 110..139), mean = 124.5.
+  const dates = [], price = [];
+  const base = Date.UTC(2026, 6, 1);
+  for (let i = 0; i < 40; i++) {
+    dates.push(new Date(base + i * 86400000).toISOString().slice(0, 10));
+    price.push(100 + i);
+  }
+  const ma = movingAverageSeries(price, dates);
+  assert.ok(ma.length > 0);
+  const last = ma[ma.length - 1];
+  assert.equal(last.x, Date.parse(dates[39]));
+  // Trailing window is [end−30d, end] inclusive → days 9..39 (prices 109..139), mean 124.
+  assert.equal(last.y, 124);
+});
+
+test('movingAverageSeries: sparse monthly history is suppressed (no fake-smooth line)', () => {
+  // One point per month: a 30-day trailing window never holds minPoints samples.
+  const dates = ['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31'];
+  const price = [100, 110, 120, 130, 140];
+  assert.deepEqual(movingAverageSeries(price, dates), []);
+});
+
+test('movingAverageSeries: partial early daily history is not yet plotted', () => {
+  // Only 12 daily points exist; the earliest snapshots have < half a window of
+  // history behind them, so a point is emitted only once the window is deep enough.
+  const dates = [], price = [];
+  const base = Date.UTC(2026, 6, 26);
+  for (let i = 0; i < 12; i++) {
+    dates.push(new Date(base + i * 86400000).toISOString().slice(0, 10));
+    price.push(500 + i);
+  }
+  const ma = movingAverageSeries(price, dates);
+  // Fewer emitted points than snapshots: the oldest ones lack a ≥15-day span behind them.
+  assert.ok(ma.length < price.length);
+  // Every emitted mean sits within the observed price range (a mean can't exceed its inputs).
+  for (const pt of ma) { assert.ok(pt.y >= 500 && pt.y <= 511); }
+});
+
+test('movingAverageSeries: nulls are skipped and a gap does not fabricate a window', () => {
+  // A daily run, a long null gap, then a fresh short daily run. The window after the
+  // gap must count only the real samples in it, never bridge the gap.
+  const dates = [], price = [];
+  const base = Date.UTC(2026, 6, 1);
+  for (let i = 0; i < 40; i++) {
+    dates.push(new Date(base + i * 86400000).toISOString().slice(0, 10));
+    price.push(i < 35 ? 200 : null);                 // last 5 days untracked
+  }
+  const ma = movingAverageSeries(price, dates);
+  // All tracked prices are 200, so every emitted mean is exactly 200 (never diluted by nulls).
+  for (const pt of ma) assert.equal(pt.y, 200);
+});
+
+test('movingAverageSeries: guards bad input', () => {
+  assert.deepEqual(movingAverageSeries(null, []), []);
+  assert.deepEqual(movingAverageSeries([1, 2], ['2026-01-01']), []);   // length mismatch
+  assert.deepEqual(movingAverageSeries([100, 110], ['2026-01-01', '2026-01-02']), []); // < minPoints
 });
 
 // ── dataMaturity: the raw "how settled is this?" facts ───────────

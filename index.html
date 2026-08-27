@@ -3643,7 +3643,7 @@
 // script is a module so it can import them; that also means its top-level
 // declarations are module-scoped (not globals), which nothing else on the
 // page relies on — the inline handlers and the reveal script use only the DOM.
-import { boostersFromType, resolveBoosters, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, trendDirection, buySignal, sellSignal, sellStrength, SELL, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, groupEras, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange, realisedPnL, buildLedger } from './metrics.js';
+import { boostersFromType, resolveBoosters, typeCategory, typeLabel, TYPE_CATEGORIES, PRODUCT_TYPE_CODES, calcAgeWeight, recomputeScores, deriveProducts, linearFit, fairPrice, fairPriceMaxAge, fairAlertTarget, FAIR_PRICE_MIN_R2, fitConfidence, verdict, VERDICT, momentum, movingAverageSeries, trendDirection, buySignal, sellSignal, sellStrength, SELL, dataMaturity, ERAS, eraForRelease, groupStats, peerResiduals, scenarioOutcome, SCENARIO_SIGNAL, snapshotGaps, typeOutliers, setLabel, groupSets, groupEras, meanSeries, concentrationShares, rebalanceSuggestions, OVER_EXPOSED_SHARE, portfolioValueSeries, portfolioValueChange, realisedPnL, buildLedger } from './metrics.js';
 
 // ============================================================
 // DATA
@@ -8300,6 +8300,21 @@ function renderDrillPriceChart(p) {
       { label: 'Fair price', data: flat(fair), borderColor: 'rgba(255,255,255,0.45)',
         borderDash: [6, 5], borderWidth: 1.5, pointRadius: 0, fill: false, order: 2 },
     );
+  }
+  // 30-day moving average of the tracked price — a slow reference line that says
+  // whether today sits rich or cheap vs its own trailing month, on the very series
+  // the board ranks. Only appears where a real ~month of daily snapshots exists
+  // behind a point (movingAverageSeries suppresses the sparse monthly region), so
+  // it fills in as the daily history deepens. It smooths our already-blended daily
+  // price, so it is a reference, not an independent market read — see the helper.
+  const maPts = movingAverageSeries((h.price || []).map(v => v != null ? v * rate : null), labels);
+  if (maPts.length) {
+    datasets.push({
+      label: '30-day avg', data: maPts, spanGaps: true,
+      borderColor: alpha(COLOR.gold, 0.55), backgroundColor: 'transparent',
+      borderDash: [3, 4], borderWidth: 1.5, tension: 0.35,
+      pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: COLOR.gold, fill: false, order: 1,
+    });
   }
   // Loose-equivalent line: what this product's boosters would cost bought as
   // single loose packs (loose pack price × boosters), on the same € axis as the

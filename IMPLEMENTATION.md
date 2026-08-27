@@ -57,29 +57,31 @@ backfill with large gaps. The window must therefore be **calendar-defined**
 and every surface must degrade gracefully when the window is thin — exactly the
 discipline `pctChangeOverDays()` already uses for momentum.
 
-#### Phase A — client-side MA overlay on the drill-down price chart (ship first)
+#### Phase A — client-side MA overlay on the drill-down price chart — ✅ SHIPPED
 
-- **Pure helper in `metrics.js`** (unit-tested — no derived number without a
-  test): `movingAverageSeries(price[], dates[], windowDays = 30, minPoints)`
-  returning an aligned `{x: ts, y: mean}[]` where each point is the mean of the
-  raw price over the trailing `windowDays`, emitted **only** where the window
-  holds ≥ `minPoints` samples spanning ≥ some fraction of the window (so it never
-  draws a fake-smooth line across the sparse monthly region). Reuses `histDates`
-  (chronological — the loaders already guarantee it).
-- **Render:** one faint dashed line on the existing drill-down price chart
-  (`renderDrill()`'s price canvas), same `{x,y}` time-axis + `pointRadius:0`
-  convention as the other lines (see `CLAUDE.md` → *Time-series charts*). Legend
-  label "30-day avg". A `.drill-stat` tile "vs 30-day avg" (today's price − MA,
-  %) is optional but cheap and is the honest "rich/cheap vs its own month" read.
-- **Currency-correct:** absolute-€ line, converts via the dataset builder keyed
-  on `fxRate()` like the other price series (a ratio would stay put, but this is
-  a price).
-- **No schema, no ingestion, no ranking change** — presentational only,
-  reversible, low-risk. Design-review: it is one line and one optional tile;
-  question whether the tile earns its place before adding it.
-- **Verify:** unit tests on `movingAverageSeries` (full window, partial window →
-  suppressed, gap handling); the smoke spec opens a drill-down and asserts the MA
-  dataset is present when history is dense and absent when it is not.
+- **Pure helper `movingAverageSeries(prices, dates, windowDays = 30, minPoints = 10)`
+  in `metrics.js`** (unit-tested), returning aligned `{x: ts, y: mean}[]` — the
+  mean of the tracked price over the trailing calendar `windowDays`, emitted
+  **only** where the window holds ≥ `minPoints` samples spanning ≥ half the window
+  (`MA_MIN_SPAN_FRAC = 0.5`), so it never draws a fake-smooth line across the
+  sparse monthly region or off a handful of just-started daily points.
+- **Render:** a faint gold dashed "30-day avg" line on the drill-down price chart
+  (`renderDrillPriceChart()`), same `{x,y}` time-axis + `pointRadius:0` convention
+  as the other lines, currency-correct (converted in the dataset builder). **The
+  optional "vs 30-day avg" tile was deliberately dropped** (design-review
+  restraint): the drill-down already carries a "30d change" tile, and a second
+  30-day number beside it reads as clutter without adding a distinct decision.
+- **Average-of-an-average, disclosed:** the daily price it smooths is already
+  Cardmarket's `(trend+avg)/2` blend (`trend` is itself an EMA-like smoother), so
+  the MA is a second smoothing — acceptable for a slow reference line, and the
+  reason it stays presentational (no ranking change). Documented in the helper and
+  `CLAUDE.md`.
+- **Verify (done):** 6 unit tests on `movingAverageSeries` (full window, sparse
+  monthly → suppressed, partial early daily → not-yet-plotted, null/gap handling,
+  bad input); the smoke spec opens a drill-down and asserts the `Price` line is
+  present and the `30-day avg` line is absent on the 6-snapshot static workbook
+  (the emit-when-dense path is covered by the unit tests). No schema, no
+  ingestion, no ranking change — presentational and reversible.
 
 #### Phase B — make the stored/ranked box price a 30-day mean (optional, maintainer-gated)
 
