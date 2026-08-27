@@ -124,8 +124,10 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   price are untouched, and the risk call is the buyer's. (A directional fair-price
   haircut for young products was considered and deferred.)
 - **News feed (Pokémon TCG priority · investing · business).** An opt-in
-  companion feed: a header **News** button + a TCG-first teaser on the
-  landing/demo open a grouped overlay of headlines that link out to the source.
+  companion feed in its own **News** tab (between Welcome and Analysis), a
+  grouped, TCG-first list of headlines that link out to the source. *(Since
+  slimmed: the earlier header button and the logged-out-demo teaser/overlay were
+  removed — the demo teases News as a "What a free account unlocks" tile instead.)*
   Because browsers can't fetch third-party RSS (no CORS), ingestion mirrors the
   Cardmarket split — **`pg_cron` (hourly) → the `news-fetch` Edge Function** parses
   RSS/Atom, dedupes and upserts the public-read **`news`** table; the client only
@@ -887,9 +889,11 @@ stance). What still stands unbuilt:
   `tests/a11y.spec.mjs`. Set/Era roll-up modes keep their own per-chart selection.
 
 - **"Where to start" teaser on the demo + summary-strip relocation.** *(Feature;
-  **shipped** — demo teaser + KPI-strip relocation.)* The signed-in
+  **shipped, then the demo teaser was removed** in a later slim-down — the demo
+  now teases the tools via the "What a free account unlocks" grid rather than a
+  live ranking widget; the KPI-strip relocation stands.)* The signed-in
   Analysis tab opens on the **Where to start** shortlist (Safe pick / Best deal /
-  Best value — `renderOverview`, `startLens`). Two follow-ups pull that value onto
+  Best value — `renderOverview`, `startLens`). Two follow-ups pulled that value onto
   the logged-out landing without breaking the demo's honesty rules:
   - **Demo teaser — value-live, two lenses locked. ✅ SHIPPED.** The three-lens
     block is now on `#demo-page` (`renderDemoStart()`): **Best value** (SV/Booster,
