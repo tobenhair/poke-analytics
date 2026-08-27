@@ -446,8 +446,18 @@ a live match count.
   advanced facets) and the Reset control's visibility. Called from
   `applyTypeFilter()` (every facet change) and `populateEraFilter()` (data load —
   now a thin wrapper that also validates a still-selected era/set survived).
-- **Advanced facets live behind a disclosure.** The primary row keeps
-  Type/Era/age-threshold/search/verdict/sort; **Set**, the **price/age ranges** and
+- **Two filter rows, split by what a control scopes.** **Type** and **Era** — the
+  two catalogue-wide scope axes (they narrow *every* analytical surface at once via
+  `passesScope`/`visibleProducts`) — are a `.filters` row at the **top of the
+  Analysis tab**, above the Where-to-start answer they scope. The **board's own**
+  controls — age-threshold, search, verdict, sort, and the More-filters disclosure
+  — are a second `.filters` row down by the board, where they act. Only the DOM
+  position differs; the ids and handlers (`#type-filters .pill`, `#era-filter`) are
+  unchanged, and both rows reuse the same `.filters`/`.pill`/`.sort-select`
+  components. (`.age-control` leads the board row now, so it carries **no**
+  left-separator rule — a border-left with nothing before it read as a stray line.)
+- **Advanced facets live behind a disclosure.** The board row keeps
+  age-threshold/search/verdict/sort; **Set**, the **price/age ranges** and
   the **saved-views** control sit in `#advanced-filters`, toggled by the **More
   filters** button (`setMoreFilters()`). Kept off the primary row for
   `design-review` restraint. **`#advanced-filters` is excluded from the
