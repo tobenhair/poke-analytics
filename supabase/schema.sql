@@ -341,8 +341,11 @@ alter table public.news enable row level security;
 
 -- 👇 SET YOUR ADMIN USER UUID HERE 👇
 -- (used by the write policies below)
+-- search_path is pinned (set search_path = public) so the function can't be
+-- influenced by a caller's session search_path — the security-advisor
+-- `function_search_path_mutable` fix.
 create or replace function public.is_admin() returns boolean
-  language sql stable as $$
+  language sql stable set search_path = public as $$
     select auth.uid() = 'bba57af1-bf76-4034-8aba-cc3884df373c'::uuid
   $$;
 
@@ -385,36 +388,36 @@ create policy "admin writes snapshots" on public.snapshots
 drop policy if exists "own settings" on public.user_settings;
 create policy "own settings" on public.user_settings
   for all to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 -- ── holdings: each user reads/writes only their own portfolio ──
 drop policy if exists "own holdings" on public.holdings;
 create policy "own holdings" on public.holdings
   for all to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 -- ── alerts: each user reads/writes only their own price alerts ──
 drop policy if exists "own alerts" on public.alerts;
 create policy "own alerts" on public.alerts
   for all to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 -- ── sales: each user reads/writes only their own disposals ──
 drop policy if exists "own sales" on public.sales;
 create policy "own sales" on public.sales
   for all to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 -- ── purchases: each user reads/writes only their own buy events ──
 drop policy if exists "own purchases" on public.purchases;
 create policy "own purchases" on public.purchases
   for all to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 -- ── client_errors: anyone may report, only the admin may read ──
 -- No update/delete policies: rows are immutable via the API. A reporter may
@@ -422,7 +425,7 @@ create policy "own purchases" on public.purchases
 drop policy if exists "report errors" on public.client_errors;
 create policy "report errors" on public.client_errors
   for insert to anon, authenticated
-  with check (user_id is null or user_id = auth.uid());
+  with check (user_id is null or user_id = (select auth.uid()));
 drop policy if exists "admin reads errors" on public.client_errors;
 create policy "admin reads errors" on public.client_errors
   for select to authenticated using (public.is_admin());
@@ -434,6 +437,15 @@ create policy "admin reads errors" on public.client_errors
 -- expose ONLY those rows to the anon role; everything else still requires login.
 -- The set of demo product ids comes from a SECURITY DEFINER function so the
 -- subquery bypasses RLS (no recursion) and anon can't widen it.
+--
+-- Security-advisor note (accepted, not a bug): the linter flags this as an
+-- anon/authenticated-executable SECURITY DEFINER function reachable via
+-- /rest/v1/rpc. We deliberately keep it callable: the demo read policies below
+-- run AS the anon role and call this function, so anon MUST retain EXECUTE —
+-- revoking it (verified) breaks the demo. The exposure is benign: the RPC
+-- returns only the demo product UUIDs, which anon can already read from the
+-- demo product rows themselves. Closing the lint would mean moving the function
+-- to a non-API schema — added surface for no real gain — so it stays accepted.
 
 create or replace function public.demo_product_ids()
   returns setof uuid
