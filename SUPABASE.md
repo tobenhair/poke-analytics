@@ -261,34 +261,37 @@ free-tier stand-in for PITR.
   For a solo deployment (one portfolio owner) this is effectively the whole
   database bar the regenerable cache.
 
-**2. Weekly portable workbook (xlsx) — the automated, all-users net.**
-`.github/workflows/backup.yml` runs `scripts/export-backup.mjs` weekly (and
-on-demand via *Run workflow*) and uploads a contract-valid
-`pokemon_data-backup-<date>.xlsx` as a 90-day build artifact (Actions → the run
-→ Artifacts). It reads with the **service-role** key (SELECT-only — it never
-writes), so unlike the in-tool button it *does* see every user's rows for
-`products`/`snapshots`; its output re-imports through `supabase/migrate-xlsx.mjs`
-and passes `npm run validate`.
+**2. Weekly Action — the automated, all-users, whole-database net.**
+`.github/workflows/backup.yml` runs `scripts/export-backup.mjs --full-json`
+weekly (and on-demand via *Run workflow*) using the **service-role** key
+(SELECT-only — it never writes), and uploads **two** 90-day artifacts (Actions →
+the run → Artifacts) under `database-backup`:
 
-- **Secrets** (Settings → Secrets and variables → Actions): `SUPABASE_URL` and
-  `SUPABASE_SERVICE_ROLE_KEY`. The service-role key bypasses RLS — keep it only
-  in Actions secrets, never in the repo or the client.
-- **Coverage boundary.** The `.xlsx` format carries **only `products` +
-  `snapshots`** (the Summary sheet also captures the restore-critical product
-  columns — CM ID / Exp ID / Promo IDs / Price Locked / Cardmarket URL — as extra
-  columns the app ignores). For the per-user portfolio tables, the JSON backup
-  (1) is the one that carries them.
+- `sealed-analytics-db-<date>.json` — the **complete whole-database dump**: every
+  public table, **every user's rows** (service-role bypasses RLS), including the
+  per-user portfolios (`holdings`/`alerts`/`sales`/`purchases`/`user_settings`)
+  and the `cardmarket_*` caches. This is the true full-database backup — the part
+  the in-tool button (1) can't reach — so it scales correctly as users grow.
+- `pokemon_data-backup-<date>.xlsx` — the contract-valid, human-readable,
+  re-importable copy of the tracked `products` + `snapshots` (re-imports through
+  `supabase/migrate-xlsx.mjs`, passes `npm run validate`). Its Summary sheet also
+  carries the restore-critical product columns (CM ID / Exp ID / Promo IDs /
+  Price Locked / Cardmarket URL).
 
-**3. Managed backups / PITR — the paid upgrade.** If you move to a paid plan,
-enable it under **Project → Database → Backups** for true point-in-time recovery
-of the *whole* database (all users, all tables) with no manual step. Until then,
-(1) + (2) are the strategy.
+**Secrets** (Settings → Secrets and variables → Actions): `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY`. The service-role key bypasses RLS — keep it only in
+Actions secrets, never in the repo or the client.
+
+**3. Managed backups / PITR — the optional paid upgrade.** On a paid plan you can
+enable it under **Project → Database → Backups** for point-in-time recovery with
+no manual step. Not required — (1) + (2) already cover the whole database.
 
 ### Restoring
 
-**Rebuild from the JSON backup (1)** → the JSON holds every captured table as
-plain rows. Restore by upserting them back with the **service-role** key (which
-bypasses RLS), keyed on each table's natural conflict target (`products` on
+**Rebuild from a JSON backup** (the in-tool file (1) or, for all users, the
+Action's complete dump (2)) → the JSON holds every captured table as plain rows.
+Restore by upserting them back with the **service-role** key (which bypasses
+RLS), keyed on each table's natural conflict target (`products` on
 `user_id,name`; `snapshots` on `product_id,snapshot_date`; the per-user tables on
 their `id`). Do the admin-UUID step below first on a fresh project.
 

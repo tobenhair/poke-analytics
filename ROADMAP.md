@@ -626,10 +626,13 @@ its four gates here).
     portfolio; not other users' private rows, nor the regenerable
     `cardmarket_expansion_singles` cache), recorded in the file's meta. Pinned by
     `tests/signed-in.spec.mjs`.
-  - **1.2 Automate the portable snapshot — ✅ SHIPPED.** `scripts/export-backup.mjs`
-    (pure `buildWorkbook()`, unit-tested) + `.github/workflows/backup.yml` write a
-    weekly contract-valid `.xlsx` service-role snapshot of `products`/`snapshots`
-    (all users), self-checked against `validate-workbook.mjs`.
+  - **1.2 Automate the whole-database backup — ✅ SHIPPED.** `.github/workflows/backup.yml`
+    runs `scripts/export-backup.mjs --full-json` (service-role, unit-tested
+    `buildWorkbook()`/`buildFullDump()`) weekly and uploads **two** artifacts: a
+    re-importable tracked-data `.xlsx` (self-checked against
+    `validate-workbook.mjs`) **and** a **complete `.json` dump of every table for
+    all users** (per-user portfolios + caches included — the part the in-tool
+    button can't reach; scales as users grow).
   - **1.3 Rehearse the restore — the part that counts (remaining).** Stand up a
     throwaway target (a local `supabase start` stack is the free option), restore
     a backup into it, and confirm the app boots against it with correct numbers.

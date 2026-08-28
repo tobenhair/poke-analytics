@@ -6,21 +6,23 @@
 // exact contract parseXlsx() / scripts/validate-workbook.mjs enforce, so the
 // file round-trips back into the app (and re-imports via migrate-xlsx.mjs).
 //
-// This is the *portable, vendor-independent* backup of the tracked dataset. It
-// is NOT a full-database backup: the .xlsx format carries only products +
-// snapshots. Per-user data (holdings, alerts, sales, purchases, user_settings)
-// and the Cardmarket singles caches are NOT in it — Supabase's managed daily
-// backup / PITR is the complete net (see SUPABASE.md → Backup & restore). To
-// keep a restore able to rebuild ingestion state, the Summary sheet also carries
-// the restore-critical product columns (CM ID / Exp ID / Promo IDs / Price
-// Locked / Cardmarket URL) as *additional* columns — the validator and the app
-// read only the columns they know, so extras are harmless.
+// The .xlsx is the *portable, vendor-independent* backup of the tracked dataset
+// (products + snapshots only); its Summary sheet also carries the restore-
+// critical product columns (CM ID / Exp ID / Promo IDs / Price Locked /
+// Cardmarket URL) as extra columns the validator and app ignore.
+//
+// With --full-json it ALSO writes a complete whole-database dump
+// (sealed-analytics-db-<date>.json): every public table for ALL users, including
+// the per-user portfolios (holdings/alerts/sales/purchases/user_settings) and
+// the Cardmarket caches — because the service-role key bypasses RLS. That is the
+// true full-database backup the in-app admin button can't produce (it's bounded
+// by the admin's own RLS). See SUPABASE.md → Backup & restore.
 //
 // Usage:
 //   npm ci
 //   SUPABASE_URL="https://xxxx.supabase.co" \
 //   SUPABASE_SERVICE_ROLE_KEY="service-role-key" \
-//   node scripts/export-backup.mjs [--out path/to/backup.xlsx]
+//   node scripts/export-backup.mjs [--out backup.xlsx] [--full-json [--json-out db.json]]
 //
 // The service-role key bypasses RLS and must ONLY ever live in CI secrets —
 // never in the repo or the client. Reads are SELECT-only: this script never
@@ -36,7 +38,37 @@ import { dirname, resolve } from 'node:path';
 
 const PAGE = 1000; // PostgREST default max rows per response
 
+// Every public table, for the complete service-role JSON dump (--full-json).
+// The service-role key bypasses RLS, so unlike the in-app admin button this
+// captures ALL users' private rows AND the service-role-only caches — the true
+// whole-database backup. Each entry is [table, stable-order-column].
+const ALL_TABLES = [
+  ['products', 'id'], ['snapshots', 'id'], ['user_settings', 'user_id'],
+  ['holdings', 'id'], ['alerts', 'id'], ['sales', 'id'], ['purchases', 'id'],
+  ['client_errors', 'id'], ['cardmarket_expansion_singles', 'id_expansion'],
+  ['cardmarket_excluded_singles', 'id_product'], ['news', 'id'],
+];
+
 const toISO = (v) => (v == null ? '' : String(v).slice(0, 10));
+
+// Assemble the complete-database dump object from raw table rows (faithful rows,
+// including id/user_id, so a service-role restore can upsert them straight back).
+// Pure — unit-tested — so the shape is guarded without a live DB.
+export function buildFullDump(tables) {
+  const row_counts = Object.fromEntries(Object.entries(tables).map(([k, v]) => [k, v.length]));
+  return {
+    meta: {
+      app: 'Sealed Analytics',
+      format: 'sealed-analytics-db-dump/v1',
+      exported_at: new Date().toISOString(),
+      note: 'Complete service-role dump of every public table (all users, all rows, ' +
+            'including the cardmarket_* caches). Restore by upserting each table with ' +
+            'the service-role key on its natural conflict target.',
+      row_counts,
+    },
+    tables,
+  };
+}
 
 // Build the workbook from already-fetched rows. Pure and side-effect-free so it
 // can be unit-tested / verified against real rows without network or a key.
@@ -194,6 +226,26 @@ async function main() {
       'written and is restorable — the app-render contract is stricter than a backup needs. ' +
       'Investigate if this is unexpected.');
   }
+
+  // Optional: the complete whole-database JSON dump (--full-json). The xlsx above
+  // carries only the tracked products+snapshots; this captures EVERY table for
+  // ALL users (service-role bypasses RLS), including the per-user portfolios and
+  // the caches — the thing the in-app admin button cannot reach.
+  if (process.argv.includes('--full-json')) {
+    const jsonIdx = process.argv.indexOf('--json-out');
+    const jsonFile = jsonIdx >= 0 && process.argv[jsonIdx + 1]
+      ? process.argv[jsonIdx + 1]
+      : `sealed-analytics-db-${new Date().toISOString().slice(0, 10)}.json`;
+    console.log('Dumping every table (service-role, all users)…');
+    const tables = {};
+    for (const [table, order] of ALL_TABLES) {
+      tables[table] = await fetchAll(sb, table, '*', [[order, true]]);
+    }
+    writeFileSync(jsonFile, JSON.stringify(buildFullDump(tables), null, 2));
+    const total = Object.values(tables).reduce((s, v) => s + v.length, 0);
+    console.log(`✓ Wrote ${jsonFile} (complete DB: ${total} rows across ${ALL_TABLES.length} tables)`);
+  }
+
   process.exit(0);
 }
 

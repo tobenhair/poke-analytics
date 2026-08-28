@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
-import { buildWorkbook } from '../../scripts/export-backup.mjs';
+import { buildWorkbook, buildFullDump } from '../../scripts/export-backup.mjs';
 
 const products = [
   { name: 'Alpha Box', type: 'BOX', release: '2023-01-01', packs: null,
@@ -80,4 +80,19 @@ test('no Links sheet when no product has a URL', () => {
   const noUrls = products.map((p) => ({ ...p, cardmarket_url: null }));
   const wb = roundTrip(buildWorkbook(noUrls, snapshots));
   assert.equal(wb.Sheets['Links'], undefined);
+});
+
+test('buildFullDump wraps every table faithfully with row counts', () => {
+  const tables = {
+    products: [{ id: 'p1', user_id: 'u1', name: 'Alpha Box' }],
+    holdings: [{ id: 'h1', user_id: 'u2', product_id: 'p1', quantity: 3 }],
+    news: [],
+  };
+  const dump = buildFullDump(tables);
+  assert.equal(dump.meta.format, 'sealed-analytics-db-dump/v1');
+  assert.match(dump.meta.note, /all users/);
+  // Faithful rows preserved verbatim (incl. id/user_id for a service-role restore).
+  assert.deepEqual(dump.tables, tables);
+  assert.deepEqual(dump.meta.row_counts, { products: 1, holdings: 1, news: 0 });
+  assert.ok(dump.meta.exported_at);
 });

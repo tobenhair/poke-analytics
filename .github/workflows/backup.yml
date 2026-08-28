@@ -31,16 +31,20 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Export backup workbook
+      - name: Export backups (tracked-data .xlsx + complete DB .json)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npm run backup -- --out "pokemon_data-backup-$(date -u +%Y-%m-%d).xlsx"
-      - name: Upload backup artifact
+        # --full-json adds a complete whole-database dump (every table, all users,
+        # incl. the per-user portfolios + caches) alongside the re-importable xlsx.
+        run: npm run backup -- --out "pokemon_data-backup-$(date -u +%Y-%m-%d).xlsx" --full-json
+      - name: Upload backup artifacts
         if: always()   # keep whatever was written even if a later step fails
         uses: actions/upload-artifact@v4
         with:
-          name: pokemon-data-backup
-          path: pokemon_data-backup-*.xlsx
+          name: database-backup
+          path: |
+            pokemon_data-backup-*.xlsx
+            sealed-analytics-db-*.json
           retention-days: 90
           if-no-files-found: error
