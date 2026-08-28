@@ -615,22 +615,31 @@ its four gates here).
   standing risk.)* Today the live database's only backup is a human clicking the
   **⬇ Export updated .xlsx** button. That was tolerable while the data was
   hand-entered; it is not now that **daily Cardmarket ingestion is automated**,
-  because a lost or corrupted DB is no longer re-enterable by hand. Move to
-  automated backups **plus a restore that has actually been performed**:
-  - **1.1 Managed backups on** — enable Supabase daily backups / PITR; confirm
-    the retention window. Minutes of work, but invisible until 1.3 tests it.
-  - **1.2 Automate the portable snapshot** — a scheduled `pg_cron` + Edge
-    Function (or script) writing a periodic contract-valid `.xlsx` / SQL dump to
-    durable storage, gated through `npm run validate` so a malformed dump fails
-    loudly. Vendor-independent: a file the maintainer holds, not only Supabase's
-    internal backup.
-  - **1.3 Rehearse the restore — the part that counts** — stand up a throwaway
-    target (a local `supabase start` stack is the free option), restore a backup
-    into it, and confirm the app boots against it with correct numbers.
+  because a lost or corrupted DB is no longer re-enterable by hand. Managed
+  PITR is a **paid** Supabase feature and the project runs free, so the strategy
+  is two backups the maintainer owns, **plus a restore that has actually been
+  performed**:
+  - **1.1 In-tool full backup (JSON) — ✅ SHIPPED.** An admin-only **⬇ Download
+    backup** button in Data Entry (`downloadFullBackup()`) downloads every
+    admin-readable table as one timestamped JSON — the free-tier stand-in for
+    PITR. Bounded by RLS by design (shared product data + the admin's own
+    portfolio; not other users' private rows, nor the regenerable
+    `cardmarket_expansion_singles` cache), recorded in the file's meta. Pinned by
+    `tests/signed-in.spec.mjs`.
+  - **1.2 Automate the portable snapshot — ✅ SHIPPED.** `scripts/export-backup.mjs`
+    (pure `buildWorkbook()`, unit-tested) + `.github/workflows/backup.yml` write a
+    weekly contract-valid `.xlsx` service-role snapshot of `products`/`snapshots`
+    (all users), self-checked against `validate-workbook.mjs`.
+  - **1.3 Rehearse the restore — the part that counts (remaining).** Stand up a
+    throwaway target (a local `supabase start` stack is the free option), restore
+    a backup into it, and confirm the app boots against it with correct numbers.
+    The restore procedure (incl. the admin-UUID-first ordering) is documented in
+    `SUPABASE.md`; running it once is the open step.
+  - *(Managed PITR stays an optional paid upgrade for whole-DB point-in-time +
+    all-users completeness — not required for this gate.)*
   - *Definition of done:* a **documented, dated restore has actually recovered a
-    working database** into a clean target — not merely a backup scheduled. (This
-    completes and supersedes the deferred **Backup & restore** item under
-    **Later**, which carried the same "rehearsed restore" bar.)
+    working database** into a clean target. (Completes and supersedes the deferred
+    **Backup & restore** item under **Later**.)
 
 - **Gate 2 — Safety: audit the cloud boundary directly.** *(Fix — holds real
   user emails today.)* `tests/signed-in.spec.mjs` proves the *client* behaves;

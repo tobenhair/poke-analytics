@@ -240,44 +240,59 @@ price and set value, and the Portfolio tab converts at render time.
 
 ## Backup & restore
 
-The database is the live source of truth. It has **two** backups, at different
-levels — keep both:
+The database is the live source of truth. Supabase's managed daily backups /
+PITR are a **paid-plan** feature, so on the free tier the backup strategy is two
+things you own and run yourself — keep both:
 
-**1. Managed backups (the complete net) — turn this on.** In the Supabase
-dashboard, **Project → Database → Backups**, enable daily backups / PITR
-(Point-in-Time Recovery) for your plan and note the retention window. This is
-the **only** backup that captures the *whole* database — including the per-user
-tables (`holdings`, `alerts`, `sales`, `purchases`, `user_settings`), the
-`cardmarket_*` caches, `news` and `client_errors`. Restore it from the same
-dashboard page.
+**1. In-tool full backup (JSON) — the primary manual backup.** In **Data Entry**
+(admin only) the **⬇ Download backup** button (`downloadFullBackup()`) reads
+every table your account can read and downloads one
+`sealed-analytics-backup-<date>.json`. One click, no secrets, no server — the
+free-tier stand-in for PITR.
 
-**2. Portable workbook backup (vendor-independent, secondary).**
+- **Coverage — bounded by RLS, on purpose.** Because it runs in the admin's
+  browser it captures exactly what the admin may read: the shared
+  `products`/`snapshots`, the public `news`, the admin's own `client_errors` +
+  `cardmarket_excluded_singles`, and the admin's **own** portfolio
+  (`user_settings`/`holdings`/`alerts`/`sales`/`purchases`). It does **not**
+  include *other users'* private rows (per-user RLS blocks even the admin) or the
+  service-role-only `cardmarket_expansion_singles` cache (regenerable via **Sync
+  catalog**). The file's `meta.note` records this so a restore is never misled.
+  For a solo deployment (one portfolio owner) this is effectively the whole
+  database bar the regenerable cache.
+
+**2. Weekly portable workbook (xlsx) — the automated, all-users net.**
 `.github/workflows/backup.yml` runs `scripts/export-backup.mjs` weekly (and
 on-demand via *Run workflow*) and uploads a contract-valid
 `pokemon_data-backup-<date>.xlsx` as a 90-day build artifact (Actions → the run
-→ Artifacts). It reads with the service-role key (SELECT-only — it never writes)
-and its output re-imports through `supabase/migrate-xlsx.mjs` and passes
-`npm run validate`.
+→ Artifacts). It reads with the **service-role** key (SELECT-only — it never
+writes), so unlike the in-tool button it *does* see every user's rows for
+`products`/`snapshots`; its output re-imports through `supabase/migrate-xlsx.mjs`
+and passes `npm run validate`.
 
 - **Secrets** (Settings → Secrets and variables → Actions): `SUPABASE_URL` and
   `SUPABASE_SERVICE_ROLE_KEY`. The service-role key bypasses RLS — keep it only
   in Actions secrets, never in the repo or the client.
-- **Coverage boundary — read this.** The `.xlsx` format carries **only
-  `products` + `snapshots`** (the Summary sheet also captures the restore-
-  critical product columns — CM ID / Exp ID / Promo IDs / Price Locked /
-  Cardmarket URL — as extra columns the app ignores). It does **not** carry any
-  per-user data (`holdings`/`alerts`/`sales`/`purchases`/`user_settings`) or the
-  `cardmarket_*` caches. So the workbook is the human-readable, provider-
-  independent backup of the *tracked dataset*; the managed backup above is what
-  covers everything else.
+- **Coverage boundary.** The `.xlsx` format carries **only `products` +
+  `snapshots`** (the Summary sheet also captures the restore-critical product
+  columns — CM ID / Exp ID / Promo IDs / Price Locked / Cardmarket URL — as extra
+  columns the app ignores). For the per-user portfolio tables, the JSON backup
+  (1) is the one that carries them.
+
+**3. Managed backups / PITR — the paid upgrade.** If you move to a paid plan,
+enable it under **Project → Database → Backups** for true point-in-time recovery
+of the *whole* database (all users, all tables) with no manual step. Until then,
+(1) + (2) are the strategy.
 
 ### Restoring
 
-**Full restore → use the managed backup** (dashboard → Backups → Restore), which
-brings back every table as of the chosen point in time. Prefer this for a real
-incident.
+**Rebuild from the JSON backup (1)** → the JSON holds every captured table as
+plain rows. Restore by upserting them back with the **service-role** key (which
+bypasses RLS), keyed on each table's natural conflict target (`products` on
+`user_id,name`; `snapshots` on `product_id,snapshot_date`; the per-user tables on
+their `id`). Do the admin-UUID step below first on a fresh project.
 
-**Rebuild the tracked dataset from a workbook** (a fresh/clean project, or a
+**Rebuild the tracked dataset from a workbook (2)** (a fresh/clean project, or a
 vendor-independent recovery) → run `schema.sql`, then
 `supabase/migrate-xlsx.mjs` on a downloaded backup `.xlsx`:
 
@@ -306,9 +321,11 @@ the date. A local stack **cannot** exercise the three email jobs
 `pg_cron` + `pg_net` + a Vault Resend key + outbound HTTP) or the dashboard-only
 steps (API keys, Auth URL config); say so rather than skipping them silently.
 
-> **Status:** the managed-backup toggle and the rehearsal are the two remaining
-> operator steps to close this out; the export script + workflow + this
-> procedure are in place.
+> **Status:** the in-tool JSON backup, the export script and the weekly workflow
+> are in place. The one remaining operator step to fully close this out is a
+> **rehearsed restore** (run it once into a local `supabase start` stack and
+> correct the steps above from what happened). Managed PITR (3) is an optional
+> paid upgrade, not required.
 
 ## Optional: automated Cardmarket ingestion
 

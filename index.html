@@ -3545,6 +3545,10 @@
             title="Cache each set's card list from Cardmarket so the daily job can sum Set Value">
             <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg> Sync catalog
           </button>
+          <button class="export-btn sb-only admin-only" id="backup-db-btn" style="width:auto; padding: 8px 20px;"
+            title="Download a full JSON backup of the cloud database (every table your account can read)">
+            <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg> Download backup
+          </button>
           <button class="export-btn" id="export-xlsx-btn" style="width:auto; padding: 8px 20px;">
             <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg> Export updated .xlsx
           </button>
@@ -6676,6 +6680,73 @@ function exportLedgerCsv() {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+// Admin-only full-database backup (the free-tier stand-in for Supabase's paid
+// PITR). Reads every table the admin's session is allowed to read and downloads
+// them as one timestamped JSON. RLS bounds it — deliberately so: it captures the
+// shared product data (products/snapshots), the public news feed, the admin's
+// own error reports + excluded-singles list, and the admin's OWN portfolio
+// (settings/holdings/alerts/sales/purchases). It does NOT include other users'
+// private rows (per-user RLS blocks the admin) or the service-role-only
+// `cardmarket_expansion_singles` cache (regenerable via Sync catalog). Both
+// exclusions are recorded in the file's meta so a restore is never misled about
+// what it holds. The complementary weekly service-role Action can capture the
+// all-users set unattended.
+async function downloadFullBackup() {
+  if (!sbUser) { setStatus('entry-status', 'Sign in to back up', true); return; }
+  const btn = document.getElementById('backup-db-btn');
+  try {
+    if (btn) btn.disabled = true;
+    setStatus('entry-status', 'Building backup…', false);
+    // Paginated reads (products/snapshots/news exceed PostgREST's 1000-row cap).
+    const page = (table, order) =>
+      fetchAllRows(() => sbClient.from(table).select('*').order(order, { ascending: true }));
+    const results = {
+      products:                    await page('products', 'name'),
+      snapshots:                   await allSnapshots(),
+      news:                        await page('news', 'id'),
+      client_errors:               await page('client_errors', 'id'),
+      cardmarket_excluded_singles: await page('cardmarket_excluded_singles', 'id_product'),
+      user_settings:               await page('user_settings', 'user_id'),
+      holdings:                    await page('holdings', 'id'),
+      alerts:                      await page('alerts', 'id'),
+      sales:                       await page('sales', 'id'),
+      purchases:                   await page('purchases', 'id'),
+    };
+    const failed = Object.entries(results).find(([, r]) => r.error);
+    if (failed) throw failed[1].error;
+
+    const tables = Object.fromEntries(Object.entries(results).map(([k, r]) => [k, r.data || []]));
+    const row_counts = Object.fromEntries(Object.entries(tables).map(([k, v]) => [k, v.length]));
+    const backup = {
+      meta: {
+        app: 'Sealed Analytics',
+        format: 'sealed-analytics-backup/v1',
+        exported_at: new Date().toISOString(),
+        exported_by: sbUser.email || sbUser.id,
+        note: 'Client-side admin backup, bounded by RLS: shared product data + this ' +
+              'admin’s own portfolio. Excludes other users’ private rows and the ' +
+              'regenerable cardmarket_expansion_singles cache (rebuild via Sync catalog).',
+        row_counts,
+      },
+      tables,
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sealed-analytics-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+
+    const total = Object.values(row_counts).reduce((s, n) => s + n, 0);
+    setStatus('entry-status', `✓ Backup downloaded · ${total} rows across ${Object.keys(tables).length} tables`, false);
+  } catch (e) {
+    setStatus('entry-status', `✕ Backup failed: ${e.message || e}`, true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 document.getElementById('portfolio-add-btn').addEventListener('click', commitHolding);
 document.getElementById('portfolio-cancel-btn').addEventListener('click', exitPortfolioEdit);
 document.getElementById('ledger-csv-btn').addEventListener('click', exportLedgerCsv);
@@ -9519,6 +9590,7 @@ function wireAuthControls() {
   document.getElementById('save-cloud-btn').addEventListener('click', saveToSupabase);
   document.getElementById('resolve-ids-btn').addEventListener('click', resolveCardmarketIds);
   document.getElementById('sync-catalog-btn').addEventListener('click', syncCatalog);
+  document.getElementById('backup-db-btn').addEventListener('click', downloadFullBackup);
 
   // ── Change password (signed-in only) ──
   const openAccount = () => openPasswordForm(false);
