@@ -1304,12 +1304,21 @@ derivable from the prices, set values and holdings already tracked.
   *(Hardening; launch-gating.)* Two operational must-dos before opening the door
   wider, filed together because both are the same promise — *prove the cloud
   surface is safe to rely on*:
-  - **Finish the backup story.** Complete **Backup & restore** (above): move off
-    "the only backup is the manual **⬇ Export updated .xlsx** button" to scheduled
-    Supabase backups plus a periodic automated xlsx snapshot, and — the part that
-    actually matters — a documented, **rehearsed** restore into a throwaway
-    target. Not done until a restore has actually been run, not just a backup
-    taken.
+  - **Finish the backup story — the DIY backup is explicitly INTERIM.** Gate G1
+    shipped a free-tier stand-in (an in-tool admin JSON export + a weekly Action
+    that dumps the whole DB to JSON + a re-importable xlsx). That is a pragmatic
+    hold, **not** a production DR posture: no point-in-time recovery (weekly/manual
+    snapshots only — up to a week of writes at risk), 90-day GitHub-artifact
+    retention only, a manual and (until rehearsed) unproven restore, and a
+    service-role key in CI secrets. **The repo is public**, so the all-users dump
+    is only safe as an artifact because it is gpg-encrypted — storing private user
+    data on a public surface, even encrypted, is an interim compromise. **A
+    commercial launch must move to a proper setup** — private-data backups to a
+    **private** destination, Supabase's paid **PITR / managed backups** as the
+    baseline, off-site retention, a defined **RPO/RTO**, and a **periodically
+    rehearsed** restore. Not done until a restore has actually been run, not just a backup
+    taken. (The interim limits are called out in `SUPABASE.md` → *Backup &
+    restore*.)
   - **Audit the whole cloud surface, deliberately.** An end-to-end review of the
     Supabase boundary rather than trusting it feature-by-feature: every table's
     **RLS** (`products`/`snapshots` shared-read / admin-write,

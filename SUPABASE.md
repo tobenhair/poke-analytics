@@ -244,6 +244,22 @@ The database is the live source of truth. Supabase's managed daily backups /
 PITR are a **paid-plan** feature, so on the free tier the backup strategy is two
 things you own and run yourself — keep both:
 
+> ⚠️ **This is an interim, free-tier solution — not a production DR posture.**
+> The in-tool button + the weekly Action are a pragmatic stand-in while the
+> project runs on the Supabase free tier. They have real limits: no
+> point-in-time recovery (only weekly/manual snapshots, so up to a week of writes
+> can be lost), retention is just the 90-day GitHub artifact window, restore is
+> manual and (until rehearsed) unproven, and a service-role key lives in CI
+> secrets. **Crucially, this repo is PUBLIC**, so the all-users dump is only safe
+> as an artifact because it is **encrypted** (below) — storing private user data
+> on a public surface, even encrypted, is an interim compromise, not where a real
+> product should land. **Before this becomes a commercial product, move to a
+> proper backup / disaster-recovery setup**: private-data backups written to a
+> **private** destination (a private object store / bucket), Supabase's paid
+> **PITR / managed backups** as the baseline, off-site retention, a defined
+> **RPO/RTO**, and a periodically **rehearsed** restore. Tracked under *Complete
+> DB backups & security audit* in `ROADMAP.md` → **Later**.
+
 **1. In-tool full backup (JSON) — the primary manual backup.** In **Data Entry**
 (admin only) the **⬇ Download backup** button (`downloadFullBackup()`) reads
 every table your account can read and downloads one
@@ -267,20 +283,33 @@ weekly (and on-demand via *Run workflow*) using the **service-role** key
 (SELECT-only — it never writes), and uploads **two** 90-day artifacts (Actions →
 the run → Artifacts) under `database-backup`:
 
-- `sealed-analytics-db-<date>.json` — the **complete whole-database dump**: every
-  public table, **every user's rows** (service-role bypasses RLS), including the
-  per-user portfolios (`holdings`/`alerts`/`sales`/`purchases`/`user_settings`)
-  and the `cardmarket_*` caches. This is the true full-database backup — the part
-  the in-tool button (1) can't reach — so it scales correctly as users grow.
+- `sealed-analytics-db-<date>.json.gpg` — the **complete whole-database dump**:
+  every public table, **every user's rows** (service-role bypasses RLS),
+  including the per-user portfolios (`holdings`/`alerts`/`sales`/`purchases`/
+  `user_settings`) and the `cardmarket_*` caches. This is the true full-database
+  backup — the part the in-tool button (1) can't reach — so it scales as users
+  grow. **⚠️ This holds private user data, and this repo is PUBLIC** (its Action
+  artifacts are downloadable by any GitHub user), so the dump is **encrypted with
+  gpg AES-256 (symmetric) inside the workflow before upload** — the plaintext
+  never leaves the runner. Decrypt it locally with your passphrase:
+  ```
+  gpg --batch --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+      -o sealed-analytics-db.json -d sealed-analytics-db-<date>.json.gpg
+  ```
 - `pokemon_data-backup-<date>.xlsx` — the contract-valid, human-readable,
-  re-importable copy of the tracked `products` + `snapshots` (re-imports through
-  `supabase/migrate-xlsx.mjs`, passes `npm run validate`). Its Summary sheet also
-  carries the restore-critical product columns (CM ID / Exp ID / Promo IDs /
-  Price Locked / Cardmarket URL).
+  re-importable copy of the tracked `products` + `snapshots`. It is uploaded **in
+  the clear on purpose**: this is the shared dataset that is *already* public (it
+  ships on the GitHub Pages site and as `pokemon_data.xlsx` in the repo), and it
+  carries no per-user private rows. Re-imports through `supabase/migrate-xlsx.mjs`,
+  passes `npm run validate`; its Summary sheet also carries the restore-critical
+  product columns (CM ID / Exp ID / Promo IDs / Price Locked / Cardmarket URL).
 
-**Secrets** (Settings → Secrets and variables → Actions): `SUPABASE_URL` and
-`SUPABASE_SERVICE_ROLE_KEY`. The service-role key bypasses RLS — keep it only in
-Actions secrets, never in the repo or the client.
+**Secrets** (Settings → Secrets and variables → Actions): `SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY` (bypasses RLS — keep it only here, never in the repo
+or client), and **`BACKUP_PASSPHRASE`** (encrypts the full-DB dump; it is the
+only key that decrypts the backup — store it safely off the repo). If
+`BACKUP_PASSPHRASE` is unset the workflow **fails before writing any dump**, so a
+misconfigured run can never upload plaintext private data.
 
 **3. Managed backups / PITR — the optional paid upgrade.** On a paid plan you can
 enable it under **Project → Database → Backups** for point-in-time recovery with
@@ -289,9 +318,10 @@ no manual step. Not required — (1) + (2) already cover the whole database.
 ### Restoring
 
 **Rebuild from a JSON backup** (the in-tool file (1) or, for all users, the
-Action's complete dump (2)) → the JSON holds every captured table as plain rows.
-Restore by upserting them back with the **service-role** key (which bypasses
-RLS), keyed on each table's natural conflict target (`products` on
+Action's complete dump (2) — **decrypt its `.json.gpg` first**, see above) → the
+JSON holds every captured table as plain rows. Restore by upserting them back
+with the **service-role** key (which bypasses RLS), keyed on each table's natural
+conflict target (`products` on
 `user_id,name`; `snapshots` on `product_id,snapshot_date`; the per-user tables on
 their `id`). Do the admin-UUID step below first on a fresh project.
 

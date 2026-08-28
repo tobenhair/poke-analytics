@@ -1,14 +1,27 @@
 name: Database backup
 
-# Weekly portable backup of the shared product data (products + snapshots) to a
-# contract-valid .xlsx, uploaded as a build artifact. This is the vendor-
-# independent secondary net; Supabase's managed daily backup / PITR is the
-# complete full-database backup (see SUPABASE.md → Backup & restore).
+# Weekly + on-demand backup of the Supabase database. Uploads TWO artifacts:
+#   • pokemon_data-backup-<date>.xlsx  — the tracked products+snapshots. This is
+#     the shared dataset that is ALREADY public (it ships on the GitHub Pages
+#     site and as pokemon_data.xlsx in the repo), so it is uploaded in the clear.
+#   • sealed-analytics-db-<date>.json.gpg — the complete whole-database dump
+#     (every table, ALL users, incl. per-user portfolios). This contains private
+#     user data, and THIS REPO IS PUBLIC — its artifacts are downloadable by any
+#     GitHub user — so the dump is ENCRYPTED (gpg AES-256, symmetric) before it
+#     ever leaves the runner. The plaintext is never uploaded.
+#
+# This is an INTERIM, free-tier posture (see SUPABASE.md → Backup & restore): a
+# commercial build should move private-data backups off a public surface
+# entirely — a private object store and/or Supabase's paid PITR / managed
+# backups — rather than relying on encrypted artifacts in a public repo.
 #
 # Reads are SELECT-only (the export script never writes to the database).
 # Secrets required (Settings → Secrets and variables → Actions):
 #   SUPABASE_URL                — https://<ref>.supabase.co
 #   SUPABASE_SERVICE_ROLE_KEY   — service-role key (bypasses RLS; keep it here only)
+#   BACKUP_PASSPHRASE           — passphrase that encrypts the full-DB dump; keep
+#                                 it safe and OFF the repo — it is the only key
+#                                 that decrypts the backup.
 
 on:
   schedule:
@@ -22,7 +35,7 @@ concurrency:
 
 jobs:
   backup:
-    name: Export + validate workbook backup
+    name: Export, encrypt + upload database backup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,20 +44,49 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+
+      # Fail fast if the encryption key is missing, BEFORE any private data is
+      # written to disk — so a misconfigured run can never produce a plaintext dump.
+      - name: Require encryption passphrase
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::BACKUP_PASSPHRASE secret is required (it encrypts the private full-DB dump before upload on this public repo)."
+            exit 1
+          fi
+
       - name: Export backups (tracked-data .xlsx + complete DB .json)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        # --full-json adds a complete whole-database dump (every table, all users,
-        # incl. the per-user portfolios + caches) alongside the re-importable xlsx.
         run: npm run backup -- --out "pokemon_data-backup-$(date -u +%Y-%m-%d).xlsx" --full-json
+
+      # Encrypt the private dump, then delete the plaintext. Decrypt later with:
+      #   gpg --batch --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+      #       -o db.json -d sealed-analytics-db-<date>.json.gpg
+      - name: Encrypt the full-DB dump
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          for f in sealed-analytics-db-*.json; do
+            gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+                --cipher-algo AES256 --symmetric -o "$f.gpg" "$f"
+            rm -f "$f"
+          done
+          ls -l sealed-analytics-db-*.json.gpg
+
+      # Upload only the public-safe xlsx and the ENCRYPTED dump. The path globs
+      # deliberately do not match a plaintext *.json, so even if a later change
+      # left one on disk it would never be uploaded.
       - name: Upload backup artifacts
-        if: always()   # keep whatever was written even if a later step fails
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: database-backup
           path: |
             pokemon_data-backup-*.xlsx
-            sealed-analytics-db-*.json
+            sealed-analytics-db-*.json.gpg
           retention-days: 90
           if-no-files-found: error
