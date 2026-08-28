@@ -588,11 +588,142 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   clean automated source — the card APIs don't carry them and marketplaces
   restrict their images — so that half stays manual or unbuilt.
 
+## Now — a trustable product (durability · safety · resilience · accountability)
+
+**This is the highest-priority theme.** The two hard themes before it —
+*trustworthy numbers* (below) and *design & usability at product level* (**Then**) —
+have essentially shipped, which makes the tool *good*. It is not yet
+*dependable*: everything that keeps a real product alive under real users is
+still open. What now separates "a personal tool" from "a product other people
+rely on" is not another feature — it is **proof that the data survives an
+incident and the cloud boundary is actually closed**. That proof is sequenced
+here as **four gates**, ordered so each protects what already exists before the
+next earns its place: safety and durability first (they protect data that exists
+and users already signed in), resilience second (it comes due as ingestion
+deepens), launch paperwork last (it only matters once the first three hold).
+Each gate is small, verifiable and mostly server-side — no redesign. Nothing
+below relaxes the standing rule that every derived number stays pure and
+unit-tested in `metrics.js`.
+
+Items are tagged **Bug** / **Fix** / **Feature** as elsewhere; each gate also
+carries the **risk** it closes and a **definition of done** that is *provable*,
+not "most of it works". The full rationale, file grounding and the ship
+checklist live in the companion plan (published Aug 2026; mirror any change to
+its four gates here).
+
+- **Gate 1 — Durability: a rehearsed way back.** *(Fix — the single largest
+  standing risk.)* Today the live database's only backup is a human clicking the
+  **⬇ Export updated .xlsx** button. That was tolerable while the data was
+  hand-entered; it is not now that **daily Cardmarket ingestion is automated**,
+  because a lost or corrupted DB is no longer re-enterable by hand. Move to
+  automated backups **plus a restore that has actually been performed**:
+  - **1.1 Managed backups on** — enable Supabase daily backups / PITR; confirm
+    the retention window. Minutes of work, but invisible until 1.3 tests it.
+  - **1.2 Automate the portable snapshot** — a scheduled `pg_cron` + Edge
+    Function (or script) writing a periodic contract-valid `.xlsx` / SQL dump to
+    durable storage, gated through `npm run validate` so a malformed dump fails
+    loudly. Vendor-independent: a file the maintainer holds, not only Supabase's
+    internal backup.
+  - **1.3 Rehearse the restore — the part that counts** — stand up a throwaway
+    target (a local `supabase start` stack is the free option), restore a backup
+    into it, and confirm the app boots against it with correct numbers.
+  - *Definition of done:* a **documented, dated restore has actually recovered a
+    working database** into a clean target — not merely a backup scheduled. (This
+    completes and supersedes the deferred **Backup & restore** item under
+    **Later**, which carried the same "rehearsed restore" bar.)
+
+- **Gate 2 — Safety: audit the cloud boundary directly.** *(Fix — holds real
+  user emails today.)* `tests/signed-in.spec.mjs` proves the *client* behaves;
+  this gate proves the *server* does — RLS, the admin write boundary and the
+  three Edge Functions verified against the database itself, not inferred from
+  the UI.
+  - **2.1 Run the platform linters** — Supabase security + performance advisors
+    against the live project; triage every finding (policy gaps, unpinned
+    function `search_path`, any table with RLS off).
+  - **2.2 Prove every policy from the DB side** — walk all eleven tables
+    (`products`/`snapshots` shared-read / admin-write; `user_settings` /
+    `holdings` / `alerts` / `sales` / `purchases` per-user; `client_errors`
+    insert-only; `news` public-read; the two `cardmarket_*` tables no-client-
+    policy) and assert each boundary with real queries. **Add a negative test: a
+    non-admin session's write to `products` is rejected by RLS**, not just hidden
+    by the `is-admin` UI gating. Verify `demo_product_ids()` (SECURITY DEFINER)
+    can't be widened by anon; extend `repo-invariants.test.mjs`'s `is_admin()`
+    UUID check to the live value.
+  - **2.3 Review the Edge Functions & secrets** — service-role key used only
+    server-side and never in the client bundle; each function's input handling;
+    anon vs service-role vs Resend/API key management.
+  - **2.4 Re-confirm untrusted-text escaping** — `escHtml` / `safeUrl` cover
+    every news/error render path; run the `security-review` skill over this
+    gate's diff.
+  - *Definition of done:* every table's boundary is asserted by a test that
+    talks to the database, advisors are clean or consciously accepted, and no
+    secret is reachable client-side. (This is the **security-audit** half of the
+    **Later** "Complete DB backups & security audit" gate, pulled forward.)
+
+- **Gate 3 — Resilience: don't degrade as history deepens.** *(Fix; measured
+  trigger ≈ 200 products — approaching.)* Daily ingestion grows the snapshot
+  axis forever, and two places get slower on their own. `loadFromSupabase()` →
+  `allSnapshots()` (`index.html`, the `fetchAllRows()` pager) pulls **every**
+  snapshot for **every** product on every sign-in and every demo load, then
+  pivots client-side — O(N×M). Fix the load cliff now, while it's cheap:
+  - **3.1 Latest-only board load — the biggest lever** — a Supabase
+    `latest_snapshots` view (one row per product) feeds the board and every
+    ranking; full per-product history loads lazily, only when a drill-down opens.
+    Add the composite index `snapshots(product_id, snapshot_date desc)` (today
+    only `(product_id)` exists). Keep RLS + `demo_product_ids()` scoping intact
+    on the view. Turns load from O(N×M) to ≈O(N).
+  - **3.2 Debounce the board search (~150 ms)** — the measured worst case (92 ms
+    per keystroke at 400 products). Cheapest fix, biggest felt win; do it with
+    3.1.
+  - **3.3 Re-measure, then stop** — re-run `scripts/measure-scale.mjs`. The
+    wholesale-rebuild and split-render fixes (**Later → Board performance fixes**)
+    ship only if a fresh run still says so. No pre-optimisation.
+  - *Definition of done:* sign-in load is ≈O(N) regardless of history depth and
+    the board holds at 200 products in a fresh scale measurement. (This realises
+    the **Later → Data volume at scale** "latest-only board load" lever and the
+    top **Board performance fixes** item; leave the rest of those items filed.)
+
+- **Gate 4 — Accountability: the launch paperwork.** *(Feature; gates public
+  launch — meaningful only once Gates 1–3 hold.)*
+  - **4.1 Public methodology page** — the trust document for a tool claiming fair
+    pricing: the age fit, R²-gating, old-set suppression, the Cardmarket basis
+    and the honest limits. Much of the copy already exists in the in-app method +
+    glossary dialogs — surface it as a standing page.
+  - **4.2 Privacy policy, GDPR basics, cookie/consent** — EU-operated, stores
+    emails in Supabase; the "not financial advice" disclaimer already exists,
+    this adds the data-handling half.
+  - **4.3 Changelog, support contact, uptime expectation** — the difference
+    between a personal page and something people plan around.
+  - **4.4 Privacy-friendly analytics** — know which views are used, without a
+    consent-heavy tracker (consistent with 4.2).
+  - *Definition of done:* a first-time visitor can read how the numbers are
+    derived, what happens to their data, what to expect and how to get help —
+    before they sign up. (Draws the **Later → Launch checklist** items forward.)
+
+- **Data-integrity footnote — mark the US→EU basis break.** *(Fix; fold into
+  Gate 2 or 3, not its own gate.)* Automated ingestion baked a one-time ~15–20 %
+  step-change into the Set Value series at the US→EU basis switchover — an
+  accepted design consequence, but it silently distorts any multi-year chart or
+  momentum read crossing it (the parallel-line backtest flagged it as a
+  confound). Not a bug, so it doesn't warrant a gate; but marking the switchover
+  date on the time-series charts stops a real user misreading the discontinuity
+  as a market move. Cheap; do it while in the charts.
+
+**Deliberately not now (each depends on the four gates holding first):** the
+**LLM assistant / weekly summary** (the largest bet, first with real per-use
+cost — must reason over data that is already safe and correct), **sealed-product
+photos Phase 1**, a **native / wrapper mobile app** (the PWA already bought most
+of the value), a **custom brand mark**, and **coverage growth** (same model,
+more rows — waits behind the Gate 3 resilience work it would otherwise stress).
+All remain under **Then** / **Later** unchanged.
+
 ## Now — trustworthy numbers (stability & quality)
 
-A tool that tells people what's fairly priced has to be *right*, visibly and
-verifiably. This theme extends the correctness story CI started to every number
-on the page and every failure mode around it.
+*(Essentially complete — kept for the record; the active priority is the
+**trustable product** theme above.)* A tool that tells people what's fairly
+priced has to be *right*, visibly and verifiably. This theme extends the
+correctness story CI started to every number on the page and every failure mode
+around it.
 
 Items are tagged **Bug** (something is wrong today), **Fix** (something is
 right but poorly built) or **Feature** (something new).
