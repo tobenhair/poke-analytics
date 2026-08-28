@@ -128,14 +128,36 @@ and run the `security-review` skill over the final diff.
 
 **Build / execute (this gate is mostly verification + one new test file):**
 
-1. **G2.1 — Run the platform linters, triage every finding.** Run Supabase's
-   security + performance advisors against the live project (dashboard, or the
-   `get_advisors` API). Expected classes to resolve or consciously accept:
-   functions missing a pinned `search_path` (both `is_admin()` and
-   `demo_product_ids()` should set `search_path = public` — `demo_product_ids()`
-   already does, `is_admin()` does **not**; add it), any table with RLS
-   accidentally off, and exposed extensions. File each finding with a
-   fix-or-accept note.
+1. **G2.1 — Apply the advisor findings (scanned live 2026-08-28; all 11 tables
+   already have RLS on).** The security + performance advisors returned a small,
+   concrete list — one DDL migration + one dashboard toggle resolves it:
+   - **`is_admin()` has a mutable `search_path`** (WARN) → `alter function
+     public.is_admin() set search_path = public`. *(Fix.)*
+   - **`demo_product_ids()` is directly executable via `/rest/v1/rpc` by `anon`
+     and `authenticated`** (WARN×2) → `revoke execute on function
+     public.demo_product_ids() from anon, authenticated`, then **verify the two
+     `demo read …` RLS policies still evaluate** (they call it internally). If a
+     revoke breaks policy evaluation, accept the lint instead — the function only
+     returns the demo-product UUIDs anon can already read. *(Fix, with a verify
+     branch.)*
+   - **`auth_rls_initplan` on 6 per-user policies** (`user_settings`, `holdings`,
+     `alerts`, `sales`, `purchases`, `client_errors`) — `auth.uid()` re-evaluated
+     per row (PERF, WARN) → rewrite each policy's `auth.uid()` as `(select
+     auth.uid())` in `schema.sql`. A free, catalogue-wide scalability win folded
+     in here since the gate already edits these policies. *(Fix.)*
+   - **Leaked-password protection disabled** (WARN) → enable the HaveIBeenPwned
+     check in Auth settings (dashboard). *(Fix, 1 click.)*
+   - **Accept-with-reason (document, don't "fix"):**
+     `cardmarket_expansion_singles` "RLS enabled, no policy" (INFO — intentional
+     service-role-only cache); the `multiple_permissive_policies` PERF nits on
+     `products`/`snapshots`/`cardmarket_excluded_singles` (the read + admin-write
+     split is intentional and clearer than a merged policy at this scale); the
+     `unindexed_foreign_keys` INFO on the per-user tables' `product_id` (minor at
+     current row counts — bundle the useful ones into G3's index work).
+   - **DDL delivery:** all three schema fixes ship as one idempotent migration
+     mirrored into `supabase/schema.sql` (the file stays the source of truth);
+     none touches row data, so there is no data-loss risk — but they change live
+     access rules, so apply only with maintainer sign-off.
 2. **G2.2 — Prove every table's policy from the DB side, and lock it with a
    test.** Add **`tests/rls.test.mjs`** (a Node integration test, gated to run
    only when `SUPABASE_TEST_URL` + keys are present in the environment — so it is

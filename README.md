@@ -203,8 +203,13 @@ scripts/measure-scale.mjs      Measures the board and charts at catalogue scale
                          (dev-only tool, deliberately not part of `npm test`)
 scripts/gen-pwa-icons.mjs      Rasterises the logo mark into the PWA PNG icons
                          (dev-only tool; re-run and commit when the mark changes)
+scripts/export-backup.mjs      Exports the DB (products + snapshots) to a
+                         contract-valid .xlsx backup (run weekly by the workflow
+                         below); the inverse of supabase/migrate-xlsx.mjs
+.github/workflows/backup.yml   Weekly + on-demand database backup → .xlsx artifact
 tests/unit/metrics.test.mjs    Unit tests for every derived number in metrics.js
 tests/unit/repo-invariants.test.mjs  Checks facts that must agree across files
+tests/unit/export-backup.test.mjs  Unit tests for the backup workbook writer
 tests/smoke.spec.mjs     Playwright test: page loads and every tab renders
 tests/signed-in.spec.mjs Playwright test: the cloud/login surface, driven
 tests/fake-supabase-sdk.js     against an in-memory Supabase stand-in

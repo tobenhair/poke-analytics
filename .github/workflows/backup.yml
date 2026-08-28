@@ -1,0 +1,46 @@
+name: Database backup
+
+# Weekly portable backup of the shared product data (products + snapshots) to a
+# contract-valid .xlsx, uploaded as a build artifact. This is the vendor-
+# independent secondary net; Supabase's managed daily backup / PITR is the
+# complete full-database backup (see SUPABASE.md → Backup & restore).
+#
+# Reads are SELECT-only (the export script never writes to the database).
+# Secrets required (Settings → Secrets and variables → Actions):
+#   SUPABASE_URL                — https://<ref>.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY   — service-role key (bypasses RLS; keep it here only)
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays 06:00 UTC
+  workflow_dispatch:       # on-demand (e.g. right after a manual data correction)
+
+# Only one backup at a time; a new run supersedes an in-flight one.
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Export + validate workbook backup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Export backup workbook
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run backup -- --out "pokemon_data-backup-$(date -u +%Y-%m-%d).xlsx"
+      - name: Upload backup artifact
+        if: always()   # keep whatever was written even if a later step fails
+        uses: actions/upload-artifact@v4
+        with:
+          name: pokemon-data-backup
+          path: pokemon_data-backup-*.xlsx
+          retention-days: 90
+          if-no-files-found: error

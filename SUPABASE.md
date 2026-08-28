@@ -238,6 +238,78 @@ rather than the mismatch surfacing later as an admin who cannot save.
 Note `currency` is display-only: **€ is the canonical stored unit** for every
 price and set value, and the Portfolio tab converts at render time.
 
+## Backup & restore
+
+The database is the live source of truth. It has **two** backups, at different
+levels — keep both:
+
+**1. Managed backups (the complete net) — turn this on.** In the Supabase
+dashboard, **Project → Database → Backups**, enable daily backups / PITR
+(Point-in-Time Recovery) for your plan and note the retention window. This is
+the **only** backup that captures the *whole* database — including the per-user
+tables (`holdings`, `alerts`, `sales`, `purchases`, `user_settings`), the
+`cardmarket_*` caches, `news` and `client_errors`. Restore it from the same
+dashboard page.
+
+**2. Portable workbook backup (vendor-independent, secondary).**
+`.github/workflows/backup.yml` runs `scripts/export-backup.mjs` weekly (and
+on-demand via *Run workflow*) and uploads a contract-valid
+`pokemon_data-backup-<date>.xlsx` as a 90-day build artifact (Actions → the run
+→ Artifacts). It reads with the service-role key (SELECT-only — it never writes)
+and its output re-imports through `supabase/migrate-xlsx.mjs` and passes
+`npm run validate`.
+
+- **Secrets** (Settings → Secrets and variables → Actions): `SUPABASE_URL` and
+  `SUPABASE_SERVICE_ROLE_KEY`. The service-role key bypasses RLS — keep it only
+  in Actions secrets, never in the repo or the client.
+- **Coverage boundary — read this.** The `.xlsx` format carries **only
+  `products` + `snapshots`** (the Summary sheet also captures the restore-
+  critical product columns — CM ID / Exp ID / Promo IDs / Price Locked /
+  Cardmarket URL — as extra columns the app ignores). It does **not** carry any
+  per-user data (`holdings`/`alerts`/`sales`/`purchases`/`user_settings`) or the
+  `cardmarket_*` caches. So the workbook is the human-readable, provider-
+  independent backup of the *tracked dataset*; the managed backup above is what
+  covers everything else.
+
+### Restoring
+
+**Full restore → use the managed backup** (dashboard → Backups → Restore), which
+brings back every table as of the chosen point in time. Prefer this for a real
+incident.
+
+**Rebuild the tracked dataset from a workbook** (a fresh/clean project, or a
+vendor-independent recovery) → run `schema.sql`, then
+`supabase/migrate-xlsx.mjs` on a downloaded backup `.xlsx`:
+
+1. **Create the admin account first** (sign up once in the app or the dashboard)
+   and copy its **User UID** (Authentication → Users).
+2. **Patch the admin UUID in both places** so writes work on the new project:
+   the `public.is_admin()` function in `supabase/schema.sql` **and**
+   `SUPABASE_CONFIG.adminUserId` in `index.html`. They must match — `npm run
+   test:unit` (`repo-invariants.test.mjs`) checks it. **Do this before running
+   the schema**, or you get a database nobody can write to (a fresh project mints
+   a *different* UUID than the old one).
+3. Run `schema.sql` in the SQL editor.
+4. Run `supabase/migrate-xlsx.mjs` (env: `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+   `MIGRATE_EMAIL`, `MIGRATE_PASSWORD`) on the backup workbook — it upserts
+   `products` + `snapshots`.
+5. Verify in-app: sign in, spot-check a known product's latest price and set
+   value against the backup.
+
+**Rehearse it — this is the part that proves the backup.** A backup taken is not
+a backup until a restore has been *run*. Rehearse into a throwaway target — a
+local stack (`supabase start`, free, Docker: real Postgres + auth + PostgREST,
+so `schema.sql` and `migrate-xlsx.mjs` run unmodified) is the recommended
+destination — then correct the steps above from what actually happened, and note
+the date. A local stack **cannot** exercise the three email jobs
+(`staleness-reminder.sql`, `alert-emails.sql`, `error-digest.sql` — they need
+`pg_cron` + `pg_net` + a Vault Resend key + outbound HTTP) or the dashboard-only
+steps (API keys, Auth URL config); say so rather than skipping them silently.
+
+> **Status:** the managed-backup toggle and the rehearsal are the two remaining
+> operator steps to close this out; the export script + workflow + this
+> procedure are in place.
+
 ## Optional: automated Cardmarket ingestion
 
 Instead of entering prices by hand each month, a scheduled job can write the

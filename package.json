@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "validate": "node scripts/validate-workbook.mjs",
+    "backup": "node scripts/export-backup.mjs",
     "test:unit": "node --test tests/unit/*.test.mjs",
     "test:e2e": "playwright test",
     "check:dead-code": "node scripts/check-dead-code.mjs",
