@@ -706,10 +706,16 @@ its four gates here).
 
 - **Gate 4 — Accountability: the launch paperwork.** *(Feature; gates public
   launch — meaningful only once Gates 1–3 hold.)*
-  - **4.1 Public methodology page** — the trust document for a tool claiming fair
-    pricing: the age fit, R²-gating, old-set suppression, the Cardmarket basis
-    and the honest limits. Much of the copy already exists in the in-app method +
-    glossary dialogs — surface it as a standing page.
+  - **4.1 Methodology (how the numbers work) — ✅ SHIPPED** (consolidated, not a
+    separate route). The `#method-modal` trust dialog now covers the whole story
+    — the age fit + R²-gating + old-set suppression it already had, plus **Where
+    the numbers come from** (the Cardmarket `(trend+avg)/2` box blend, the `avg30`
+    all-cards Set Value, promo subtraction) and **Where it's weakest** (thin
+    liquidity, the one-time US→EU basis step, "not financial advice"). The page
+    **footer** now surfaces both it and the glossary app-wide (every tab, not just
+    demo/Welcome), so the trust doc is reachable from anywhere. Copy consolidated
+    from README/ROADMAP, not re-authored. (A separate URL-addressable page stays a
+    later option if SEO/deep-linking is wanted; the SPA has no routing today.)
   - **4.2 Privacy policy, GDPR basics, cookie/consent** — EU-operated, stores
     emails in Supabase; the "not financial advice" disclaimer already exists,
     this adds the data-handling half.

@@ -340,14 +340,21 @@ incurs paperwork before it opens wider. Meaningful only once G1–G3 hold. Load
 
 **Build:**
 
-1. **G4.1 — Public "how the numbers work" methodology page.** The trust document:
-   the age-fit, R²-gating (`fitConfidence`), old-set suppression, the Cardmarket
-   `(trend+avg)/2` price basis and `avg30` set-value sum, the promo subtraction,
-   and the honest limits (thin liquidity, the US→EU basis step, "not financial
-   advice"). Most copy already exists in the in-app `#method-modal` +
-   `#glossary-modal` dialogs and across README/ROADMAP — **consolidate, don't
-   re-author.** Decide the home: a standing route/section reachable logged-out
-   (it is the trust pitch), reusing the demo page's design system.
+1. **G4.1 — Methodology (how the numbers work) — ✅ SHIPPED (consolidated into
+   the shared dialog, not a new route).** The `#method-modal` dialog now carries
+   the full trust story: the age-fit + R²-gating (`fitConfidence`) + old-set
+   suppression it already had, plus two added `modal-section`s — **Where the
+   numbers come from** (the Cardmarket `(trend+avg)/2` box blend, the `avg30`
+   all-cards Set Value, promo subtraction) and **Where it's weakest** (thin
+   liquidity + hand-lock, the one-time US→EU basis step, "not financial advice").
+   The page **footer** gained a `.link-row` surfacing `#method-modal` +
+   `#glossary-modal` app-wide (reachable from every tab, not just demo/Welcome).
+   Reused existing components only (`.modal-section`/`.method-text`/`.link-row`/
+   `.text-link`/`.method-open`/`.glossary-open`) — no new tokens/ids; copy
+   consolidated from README/ROADMAP. *Deliberately not a separate URL-addressable
+   page:* the SPA has no routing, and a modal reachable app-wide + logged-out
+   satisfies the trust-doc need at far less design weight; a real route stays a
+   later option if SEO/deep-linking is wanted.
 2. **G4.2 — Privacy policy + GDPR basics + cookie/consent review.** What is
    stored (email, holdings, alerts, sales, settings), where (Supabase, EU), how to
    request deletion; the lawful-basis/consent story. Current client state is

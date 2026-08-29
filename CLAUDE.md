@@ -729,11 +729,18 @@ explanation exists in two places:
   `.glossary-open` button lower on the tab) rather than defining a term twice —
   keep it that way (shared-explanation rule). Don't restore a KPI row above the
   Analysis answer.
-- **The explanations are shared dialogs.** `#method-modal` (the fair-price
-  method) and `#glossary-modal` (every term) are opened by **class**, not id —
-  `.method-open` / `.glossary-open` — precisely so a third caller costs nothing
-  and no surface can define SV/Booster its own way. `#fair-fit-note` on the
-  board is one of the `.method-open` callers.
+- **The explanations are shared dialogs.** `#method-modal` (the methodology —
+  *how the numbers work*) and `#glossary-modal` (every term) are opened by
+  **class**, not id — `.method-open` / `.glossary-open` — precisely so a third
+  caller costs nothing and no surface can define SV/Booster its own way.
+  `#fair-fit-note` on the board is one of the `.method-open` callers, and the
+  page **footer** carries both as an app-wide trust surface (reachable from every
+  tab, not just the demo/Welcome). `#method-modal` is the launch **methodology
+  doc** (G4.1): beyond the fair-price fit + confidence it covers *Where the
+  numbers come from* (the Cardmarket `(trend+avg)/2` box blend, the `avg30`
+  all-cards Set Value, promo subtraction) and *Where it's weakest* (thin
+  liquidity, the one-time US→EU Set-Value basis step, "not financial advice") —
+  consolidated from README/ROADMAP, not re-authored.
 - **Signing in lands on the Welcome tab** — the signed-in landing (the
   where-to-go map; news is now its own tab, not a Welcome teaser), which is also
   the markup default
