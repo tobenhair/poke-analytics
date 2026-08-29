@@ -679,23 +679,30 @@ its four gates here).
   axis forever, and two places get slower on their own. `loadFromSupabase()` →
   `allSnapshots()` (`index.html`, the `fetchAllRows()` pager) pulls **every**
   snapshot for **every** product on every sign-in and every demo load, then
-  pivots client-side — O(N×M). Fix the load cliff now, while it's cheap:
-  - **3.1 Latest-only board load — the biggest lever** — a Supabase
-    `latest_snapshots` view (one row per product) feeds the board and every
-    ranking; full per-product history loads lazily, only when a drill-down opens.
-    Add the composite index `snapshots(product_id, snapshot_date desc)` (today
-    only `(product_id)` exists). Keep RLS + `demo_product_ids()` scoping intact
-    on the view. Turns load from O(N×M) to ≈O(N).
-  - **3.2 Debounce the board search (~150 ms)** — the measured worst case (92 ms
-    per keystroke at 400 products). Cheapest fix, biggest felt win; do it with
-    3.1.
-  - **3.3 Re-measure, then stop** — re-run `scripts/measure-scale.mjs`. The
-    wholesale-rebuild and split-render fixes (**Later → Board performance fixes**)
-    ship only if a fresh run still says so. No pre-optimisation.
-  - *Definition of done:* sign-in load is ≈O(N) regardless of history depth and
-    the board holds at 200 products in a fresh scale measurement. (This realises
-    the **Later → Data volume at scale** "latest-only board load" lever and the
-    top **Board performance fixes** item; leave the rest of those items filed.)
+  pivots client-side — O(N×M). **Partly shipped (Aug 2026), the rest deferred on
+  evidence:** the DB is 188 products but only ~4,600 snapshots (M still shallow),
+  so the load is a few thousand rows and **not slow yet** (the 4.2 s cliff was
+  400×365 ≈ 146k). So the cheap, felt, low-risk parts shipped and the risky loader
+  rewrite waits for real depth:
+  - **3.1a Composite index — ✅ SHIPPED** — `snapshots(product_id, snapshot_date
+    desc)` (`snapshots_product_date_idx`), the access path latest/window/history
+    reads need.
+  - **3.1b Latest-window loader — deferred** — the `latest_snapshots` view (one
+    row/product, **`security_invoker=true`** so RLS + `demo_product_ids()` scoping
+    hold) + a recent-window read feeding the board, with full history lazy on
+    drill-down. Rewriting the most critical load path for a problem that isn't yet
+    biting — in an environment where the page can't be exercised in a real browser
+    — is the speculative risk the scale work exists to avoid, so it waits for a
+    fresh `scale:measure` / real M growth.
+  - **3.2 Debounce the board search — ✅ SHIPPED** — a leading+trailing 160 ms
+    debounce on the board's per-keystroke O(N) rebuild (state + Reset control stay
+    synchronous). Removes the measured keystroke lag (92 ms/char at 400 products)
+    the moment the catalogue is large.
+  - **3.3 Re-measure, then stop** — the loader rewrite + the **Later → Board
+    performance fixes** (wholesale-rebuild / split-render) ship only when a fresh
+    `scripts/measure-scale.mjs` past ~200 products *and* deep history says so.
+  - *Definition of done (for the deferred part):* sign-in load is ≈O(N) regardless
+    of history depth and the board holds at 200 products in a fresh measurement.
 
 - **Gate 4 — Accountability: the launch paperwork.** *(Feature; gates public
   launch — meaningful only once Gates 1–3 hold.)*

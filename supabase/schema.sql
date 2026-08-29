@@ -133,6 +133,10 @@ alter table public.snapshots add column if not exists price_low numeric check (p
 alter table public.snapshots add column if not exists promo_value numeric check (promo_value is null or promo_value >= 0);
 
 create index if not exists snapshots_product_idx on public.snapshots (product_id);
+-- Composite index for latest-per-product / recent-window / per-product-history
+-- reads (the G3 resilience access path, and the daily job's prior-window reads).
+create index if not exists snapshots_product_date_idx
+  on public.snapshots (product_id, snapshot_date desc);
 
 -- ── Cardmarket catalog cache: expansion → its single-card ids ──
 -- The precompute half of the "precompute + Edge Function" ingestion split. The

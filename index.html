@@ -5253,10 +5253,29 @@ document.addEventListener('change', e => {
 });
 document.getElementById('clear-selection').addEventListener('click', clearSelection);
 
+// Leading + trailing debounce: run immediately when idle (so a first keystroke
+// feels instant), then coalesce a burst of keystrokes into one trailing call.
+// renderBoard() reads the module-level searchTerm (set synchronously below), so
+// every invocation — leading or trailing — uses the latest query, no stale args.
+function debounce(fn, delay) {
+  let timer = null, last = 0;
+  return (...args) => {
+    const now = Date.now();
+    clearTimeout(timer);
+    if (now - last >= delay) { last = now; fn(...args); }
+    else timer = setTimeout(() => { last = Date.now(); fn(...args); }, delay);
+  };
+}
+// Debounce the board's per-keystroke tree rebuild: updateTable() is O(N) and, as
+// the catalogue grows, re-running it on every character is the board's worst hot
+// path (measured ~50–92 ms/keystroke at 200–400 products — see ROADMAP scale
+// work). updateFilterChrome() stays synchronous — it's cheap and keeps the Reset
+// control in step with what's typed.
+const debouncedRenderBoard = debounce(renderBoard, 160);
 document.getElementById('board-search').addEventListener('input', e => {
   searchTerm = e.target.value;
-  updateFilterChrome();   // search feeds the reset control's visibility
-  renderBoard();          // search scopes whichever lens is active
+  updateFilterChrome();       // cheap, immediate: reset-control visibility
+  debouncedRenderBoard();     // expensive tree rebuild — debounced
 });
 
 document.getElementById('verdict-filter').addEventListener('change', e => {

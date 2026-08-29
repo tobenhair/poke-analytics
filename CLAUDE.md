@@ -505,7 +505,12 @@ wiring is intact.
 - **Search scopes every lens.** The `#board-search` box (and the Type filter)
   apply to all three now — `renderRelativeValue()`/`renderMomentum()` filter their
   pool by `searchTerm` and force-expand the tree when searching, matching the
-  Value board. Verdict + sort stay Value-only (they're `.value-lens-ctrl`).
+  Value board. Verdict + sort stay Value-only (they're `.value-lens-ctrl`). The
+  input handler sets `searchTerm` + `updateFilterChrome()` synchronously but runs
+  the expensive `renderBoard()` (an O(N) tree rebuild) through a **leading+trailing
+  `debounce()` (160 ms)** — so a burst of keystrokes coalesces into one rebuild
+  while the first keystroke after idle stays instant; `renderBoard()` reads the
+  module-level `searchTerm`, so the debounced call is never stale.
 - **The Relative/Momentum lenses carry a set-vs-product comparison chart**
   (`renderBoardLensChart()`, canvas `#board-lens-canvas`, hidden on Value via
   `applyBoardLens()`). It's the set-level view the collapsed tree can't give — a

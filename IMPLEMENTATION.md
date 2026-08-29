@@ -226,6 +226,21 @@ shape now; the board's per-render cost (**item 2b**) stays gated on the measured
 ≈200-product trigger. Load `data-integrity` and `metrics-review` — this changes
 *what data the metrics see*, so it is not a pure perf change.
 
+**Status (2026-08-29): the safe, evidence-warranted slice shipped; the loader
+rewrite is deliberately deferred.** The live DB is 188 products but only ~4,600
+snapshots (M is still shallow — daily ingest began ~Jul 2026), so the O(N×M) load
+is a few thousand rows and **not slow today**; the 4.2 s cliff was measured at
+400×365 ≈ 146k rows. Rewriting `loadFromSupabase()` — the single most critical
+path (a subtle bug there silently shows sample data or wrong momentum) — for a
+problem that isn't yet biting, and doing it in an environment where the page can't
+be exercised in a real browser, is exactly the speculative risk the scale work was
+filed to avoid. So **G3.3 (search debounce) and the G3.1 composite index shipped**
+(felt win + cheap future-proofing); the **`latest_snapshots` view + the loader
+switch (rest of G3.1) and the lazy-history drill-down/portfolio (G3.2) are
+deferred** until a fresh `scale:measure` — or real history depth (M into the
+hundreds/product) — warrants them, per G3.4's "re-measure, then stop" discipline.
+The design below stays the plan for that point.
+
 **The key design subtlety (get this right or the board breaks).** "Latest-only"
 is not literally one row per product. The board's **Momentum lens** shows 7d/30d
 date-windowed change and the **Value lens** shows buy/sell flags — both read a
@@ -241,15 +256,21 @@ bounded set of held products.
 **Build:**
 
 1. **G3.1 — Latest-window board load + composite index (the biggest lever).**
-   - **Index:** add `snapshots(product_id, snapshot_date desc)` in `schema.sql`
-     (today only `snapshots(product_id)` exists) — the access path both the view
-     and the windowed query need.
-   - **View:** a `latest_snapshots` view (`distinct on (product_id) … order by
+   - **Index — ✅ SHIPPED:** `snapshots(product_id, snapshot_date desc)`
+     (`snapshots_product_date_idx`, applied via migration + mirrored in
+     `schema.sql`) — the access path the view, the windowed query and the daily
+     job's prior-window reads need.
+   - **View — deferred:** a `latest_snapshots` view (`distinct on (product_id) …
+     order by
      product_id, snapshot_date desc`) exposing one newest row per product.
-     **RLS/demo scoping:** a view runs with the querying role's RLS on the
-     underlying `snapshots`, so the shared-read and `demo_product_ids()` anon
-     policies carry through unchanged — verify this explicitly (part of G2.2's
-     anon case).
+     **RLS/demo scoping — get this right:** a Postgres view is **security-definer
+     by default** (it runs as the view owner and would bypass RLS, exposing every
+     row to anon/authenticated). Create it **`with (security_invoker = true)`**
+     (PG15+; the project is on PG17) so it runs the querying role's RLS on the
+     underlying `snapshots` — the shared-read and `demo_product_ids()` anon
+     policies then carry through. Grant `select` to `anon, authenticated` and
+     verify the anon slice explicitly (a rolled-back `set role anon` probe, as in
+     G2).
    - **Loader:** replace the single `allSnapshots()` call in `loadFromSupabase()`
      (and the demo's `loadDemo()`) with **two bounded reads**: the
      `latest_snapshots` view (spine) + a date-windowed `snapshots` query
@@ -271,11 +292,13 @@ bounded set of held products.
    windowed data. Preserve the JS-referenced ids (`#drill-modal`,
    `renderDrillPriceChart`, `#portfolio-value-chart`) and the
    render-after-overlay-visible ordering the a11y notes require.
-3. **G3.3 — Debounce the board search (~150 ms).** **item 2b step 1**, pulled
-   forward because it is felt today and pairs naturally with 3.1: `#board-search`'s
-   `input` handler calls `renderBoard()`/`updateTable()` per keystroke (O(N)).
-   Trailing debounce ~150 ms; keep the first keystroke responsive (leading +
-   trailing) so short queries stay instant.
+3. **G3.3 — Debounce the board search — ✅ SHIPPED.** A small leading+trailing
+   `debounce()` helper (160 ms) wraps the board's per-keystroke `renderBoard()`
+   (O(N) tree rebuild); `searchTerm` + `updateFilterChrome()` stay synchronous so
+   state and the Reset control track every character, while the expensive rebuild
+   coalesces. First keystroke after idle runs immediately (stays instant); a burst
+   collapses to one trailing render. `renderBoard()` reads the module-level
+   `searchTerm`, so no stale-args risk. (Was **item 2b step 1**.)
 4. **G3.4 — Re-measure, then stop.** Re-run `npm run scale:measure` on a generated
    fixture. The rest of **item 2b** (in-place row updates / virtualisation; split
    the type-filter re-render) ships **only if** a fresh run past ~200 products
