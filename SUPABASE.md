@@ -229,6 +229,7 @@ inputs live in the database:
 | `sales` | per-user disposals (realised P&L) | read/write: own row | `product_id`, `quantity`, `sale_price`, `cost_basis`, `sold_on` — **append-only** (no `unique(user_id,product_id)`: a product can be sold many times) |
 | `purchases` | per-user buy events (the buy half of the Transaction Log) | read/write: own row | `product_id`, `quantity`, `unit_price`, `bought_on` — **append-only** like `sales`. `holdings` stays the source of truth for the current position; this is an event record beside it (buy-more appends, edit-in-place does not) |
 | `client_errors` | runtime error reports | insert: anyone · read: admin | `message`, `stack`, `context` |
+| `page_views` | privacy-friendly analytics — anonymous view counts | insert: anyone · read: admin | `view`, `created_at` (no user id / IP / UA — needs no consent) |
 
 The admin is identified by user UUID in a `public.is_admin()` SQL function that
 the write policies call; it must match `SUPABASE_CONFIG.adminUserId` in the app.

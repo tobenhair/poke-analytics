@@ -47,6 +47,7 @@ const ALL_TABLES = [
   ['holdings', 'id'], ['alerts', 'id'], ['sales', 'id'], ['purchases', 'id'],
   ['client_errors', 'id'], ['cardmarket_expansion_singles', 'id_expansion'],
   ['cardmarket_excluded_singles', 'id_product'], ['news', 'id'],
+  ['page_views', 'id'],
 ];
 
 const toISO = (v) => (v == null ? '' : String(v).slice(0, 10));

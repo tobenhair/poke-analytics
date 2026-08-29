@@ -716,16 +716,27 @@ its four gates here).
     demo/Welcome), so the trust doc is reachable from anywhere. Copy consolidated
     from README/ROADMAP, not re-authored. (A separate URL-addressable page stays a
     later option if SEO/deep-linking is wanted; the SPA has no routing today.)
-  - **4.2 Privacy policy, GDPR basics, cookie/consent** — EU-operated, stores
-    emails in Supabase; the "not financial advice" disclaimer already exists,
-    this adds the data-handling half.
-  - **4.3 Changelog, support contact, uptime expectation** — the difference
-    between a personal page and something people plan around.
-  - **4.4 Privacy-friendly analytics** — know which views are used, without a
-    consent-heavy tracker (consistent with 4.2).
+  - **4.2 Privacy — ✅ SHIPPED (draft).** A footer **Privacy** dialog
+    (`#privacy-modal`): what's stored + why (account email; the private
+    portfolio; error reports; anonymous view counts), cookies/local storage, EU
+    Supabase hosting + encrypted Cloudflare backups, and GDPR rights. Plain
+    language, reachable app-wide + logged out. Carries a `[set a contact email]`
+    placeholder and a review-before-launch note — a starting point, not a
+    lawyer-reviewed legal doc.
+  - **4.3 What's new + support/uptime — ✅ SHIPPED.** A footer **What's new**
+    dialog (`#changelog-modal`) seeded from **Done**, newest first, with a
+    best-effort-uptime + support-contact line (same `[set a contact email]`
+    placeholder).
+  - **4.4 Privacy-friendly analytics — ✅ SHIPPED.** Self-rolled, no third-party
+    script/cookie: `recordView()` writes an **anonymous** row (surface + time, no
+    id/IP/UA) to the insert-only **`page_views`** table, once per surface per
+    session; admin-read; needs no consent banner. Mirrors the `client_errors`
+    beacon; included in both backup paths.
   - *Definition of done:* a first-time visitor can read how the numbers are
     derived, what happens to their data, what to expect and how to get help —
-    before they sign up. (Draws the **Later → Launch checklist** items forward.)
+    before they sign up. **Met** (bar the maintainer filling the support-email
+    placeholder + a legal review of the privacy copy before a real launch).
+    (Draws the **Later → Launch checklist** items forward.)
 
 - **Data-integrity footnote — mark the US→EU basis break.** *(Fix; fold into
   Gate 2 or 3, not its own gate.)* Automated ingestion baked a one-time ~15–20 %

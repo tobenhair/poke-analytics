@@ -355,34 +355,42 @@ incurs paperwork before it opens wider. Meaningful only once G1–G3 hold. Load
    page:* the SPA has no routing, and a modal reachable app-wide + logged-out
    satisfies the trust-doc need at far less design weight; a real route stays a
    later option if SEO/deep-linking is wanted.
-2. **G4.2 — Privacy policy + GDPR basics + cookie/consent review.** What is
-   stored (email, holdings, alerts, sales, settings), where (Supabase, EU), how to
-   request deletion; the lawful-basis/consent story. Current client state is
-   `localStorage` + the auth token (likely consent-exempt — verify and record).
-   The "not financial advice" disclaimer already exists; this is the data half.
-3. **G4.3 — Changelog + support contact + uptime expectation.** A versioned
-   changelog (seed from `ROADMAP.md` → Done), a real support contact, and a
-   stated reliability expectation — the difference between a personal page and
-   something people plan around.
-4. **G4.4 — Privacy-friendly analytics.** Decision first (from the Later brief):
-   a hosted Plausible/GoatCounter-class script vs a self-rolled Supabase
-   page-view counter (no new vendor, mirrors the `client_errors` beacon pattern).
-   Must honour G4.2's consent answer. Ship the chosen one behind a minimal event
-   set (which tabs/views are used).
+2. **G4.2 — Privacy — ✅ SHIPPED (draft).** `#privacy-modal` (opened by class
+   `.privacy-open` from the app-wide footer, reachable logged out): what's stored
+   + why (account email; the private portfolio: holdings/alerts/sales/purchases/
+   settings; error reports; anonymous view counts), cookies/`localStorage` +
+   auth-token (no tracking cookies — the consent-exempt answer, recorded in the
+   copy), EU Supabase hosting + encrypted Cloudflare backups, and GDPR rights.
+   Carries a `[set a contact email]` placeholder + a DRAFT HTML comment — a
+   starting point, **not** a lawyer-reviewed doc.
+3. **G4.3 — What's new + support/uptime — ✅ SHIPPED.** `#changelog-modal`
+   (`.changelog-open`), notable changes newest-first seeded from `ROADMAP.md` →
+   Done, with a best-effort-uptime + support-contact line (same placeholder).
+4. **G4.4 — Privacy-friendly analytics — ✅ SHIPPED (self-rolled).** Decision:
+   the self-rolled Supabase counter (no new vendor/script/cookie). `recordView()`
+   (beside `reportClientError()`, same beacon discipline) inserts an **anonymous**
+   row (`view` + `created_at` — no id/IP/UA) into the insert-only **`page_views`**
+   table, **once per surface per session**, from `activateTab()` and `loadDemo()`.
+   RLS: anon+authenticated insert (`with check (true)`), admin-only select,
+   immutable. No PII ⇒ no consent banner (disclosed in Privacy). Folded into
+   `ALL_TABLES` + `downloadFullBackup()` + the fake SDK; the signed-in backup test
+   asserts the 11th table key.
 
-**Verify.** The two pages render at both widths and pass `a11y.spec.mjs`'s bar
-(they are new UI); the analytics choice records no PII and respects the consent
-decision; `verify-app` before commit.
+**Verify.** dead-code + design-tokens green; both inline modules parse; a11y +
+smoke run in CI (browser not drivable in this env). Reused existing modal /
+`.method-text` / `.link-row` / `.text-link` components — no new tokens.
 
 **Done when.** A first-time visitor can read how the numbers are derived, what
 happens to their data, what to expect, and how to get help — **before** signing
-up — and basic usage analytics are flowing. *(Satisfies ROADMAP's Later "Launch
-checklist" + "Privacy-friendly analytics" + "Legal/compliance"; condense those
-there.)*
+up — and basic usage analytics are flowing. **Met**, bar two maintainer steps:
+fill the `[set a contact email]` placeholder, and get the privacy copy reviewed
+before a real launch. *(Satisfies ROADMAP's Later "Launch checklist" +
+"Privacy-friendly analytics" + "Legal/compliance".)*
 
-*Size: M. Touches: `index.html` (two pages/sections + analytics hook), possibly a
-tiny Supabase table for a self-rolled counter, `README.md`, `SUPABASE.md`,
-`ROADMAP.md`. Dependencies: G1–G3 (this is launch-gating, not pre-launch).*
+*Shipped across `index.html` (method enrich + privacy/changelog dialogs +
+`page_views` beacon), `supabase/schema.sql` (migration `g4_page_views_analytics`,
+mirrored), `scripts/export-backup.mjs`, `tests/fake-supabase-sdk.js` +
+`tests/signed-in.spec.mjs`, and the docs.*
 
 ---
 

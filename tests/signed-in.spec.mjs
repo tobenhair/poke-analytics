@@ -498,7 +498,8 @@ test('the admin can download a full JSON database backup', async ({ page }) => {
 
   // Every admin-readable table is present, and the shared product data has rows.
   const expected = ['products', 'snapshots', 'news', 'client_errors',
-    'cardmarket_excluded_singles', 'user_settings', 'holdings', 'alerts', 'sales', 'purchases'];
+    'cardmarket_excluded_singles', 'user_settings', 'holdings', 'alerts', 'sales',
+    'purchases', 'page_views'];
   expect(Object.keys(backup.tables).sort()).toEqual([...expected].sort());
   expect(backup.tables.products.length).toBeGreaterThan(0);
   expect(backup.meta.row_counts.products).toBe(backup.tables.products.length);

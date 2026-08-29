@@ -80,7 +80,7 @@
   var tables = {
     products: products, snapshots: snapshots, user_settings: user_settings,
     holdings: holdings, alerts: alerts, client_errors: client_errors, news: news,
-    sales: sales, purchases: purchases,
+    sales: sales, purchases: purchases, page_views: [],
   };
   var idSeq = 1;
 

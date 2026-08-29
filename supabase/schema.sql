@@ -479,3 +479,24 @@ create policy "demo read snapshots" on public.snapshots
 drop policy if exists "read news" on public.news;
 create policy "read news" on public.news
   for select to anon, authenticated using (true);
+
+-- ── Page views: privacy-friendly, self-rolled analytics ──
+-- Anonymous aggregate view counts. Deliberately privacy-minimal: only which
+-- surface was seen + a timestamp — NO user id, IP, referrer or user agent — so
+-- it needs no consent banner. Written by the client's recordView() beacon
+-- (insert-only, once per surface per session), read only by the admin, and
+-- immutable via the API (no update/delete policy).
+create table if not exists public.page_views (
+  id         bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  view       text not null check (char_length(view) <= 40)
+);
+create index if not exists page_views_created_idx on public.page_views (created_at desc);
+
+alter table public.page_views enable row level security;
+drop policy if exists "record page view" on public.page_views;
+create policy "record page view" on public.page_views
+  for insert to anon, authenticated with check (true);
+drop policy if exists "admin reads page views" on public.page_views;
+create policy "admin reads page views" on public.page_views
+  for select to authenticated using (public.is_admin());
