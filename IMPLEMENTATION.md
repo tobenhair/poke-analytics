@@ -714,11 +714,18 @@ enough to justify them.*
 
 ### 1. Backup & restore — ACTIVATED as Gate G1 (full plan retained here)
 
-**No longer deferred.** This is now **Gate G1** at the top of this file — the
-build detail below is current and authoritative; G1 activates it, adds the
-platform-backup toggle (G1.1) and settles the two open points (rehearse in a
-local `supabase start` stack; encode the admin-UUID restore order). The
-historical deferral note is kept below for context only.
+**Shipped as Gate G1 — but the design evolved past the detail below.** What
+actually shipped (see the **G1** section at the top of this file and
+`SUPABASE.md` → *Backup & restore*, the authoritative references): (a) an
+**in-tool admin JSON backup** button; (b) `scripts/export-backup.mjs` with a
+`--full-json` **complete all-tables dump** as well as the xlsx; (c) the weekly
+Action writes **gpg-encrypted** to a **private off-site S3-compatible bucket**
+(R2/B2/S3), **not** a GitHub artifact and **not** committed to the repo — because
+the repo is public. The step-by-step below is the **original** plan, kept for the
+`export-backup.mjs`↔`migrate-xlsx.mjs` contract reasoning and the admin-UUID
+restore-order gotcha; where it says "upload as an artifact / commit to the repo",
+read "upload to the private bucket". The one open step is the **rehearsed
+restore** (into a local `supabase start` stack).
 
 Moved to **Now** in Jul 2026 then deferred by maintainer decision — not descoped,
 just not next at the time. (Item numbers are stable labels so cross-references keep working;

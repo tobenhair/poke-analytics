@@ -626,13 +626,15 @@ its four gates here).
     portfolio; not other users' private rows, nor the regenerable
     `cardmarket_expansion_singles` cache), recorded in the file's meta. Pinned by
     `tests/signed-in.spec.mjs`.
-  - **1.2 Automate the whole-database backup — ✅ SHIPPED.** `.github/workflows/backup.yml`
-    runs `scripts/export-backup.mjs --full-json` (service-role, unit-tested
-    `buildWorkbook()`/`buildFullDump()`) weekly and uploads **two** artifacts: a
-    re-importable tracked-data `.xlsx` (self-checked against
-    `validate-workbook.mjs`) **and** a **complete `.json` dump of every table for
-    all users** (per-user portfolios + caches included — the part the in-tool
-    button can't reach; scales as users grow).
+  - **1.2 Automate the whole-database backup to a private off-site bucket — ✅ SHIPPED.**
+    `.github/workflows/backup.yml` runs `scripts/export-backup.mjs --full-json`
+    (service-role, unit-tested `buildWorkbook()`/`buildFullDump()`) weekly and
+    writes **two** objects to a **private, S3-compatible bucket** (Cloudflare R2
+    recommended — free): a re-importable tracked-data `.xlsx` **and** a **complete
+    `.json` dump of every table for all users** (per-user portfolios + caches —
+    the part the in-tool button can't reach; scales as users grow),
+    **gpg-encrypted** before upload. **Nothing is uploaded to GitHub** — the repo
+    is public, so no user data lives on it.
   - **1.3 Rehearse the restore — the part that counts (remaining).** Stand up a
     throwaway target (a local `supabase start` stack is the free option), restore
     a backup into it, and confirm the app boots against it with correct numbers.
@@ -1308,15 +1310,13 @@ derivable from the prices, set values and holdings already tracked.
     shipped a free-tier stand-in (an in-tool admin JSON export + a weekly Action
     that dumps the whole DB to JSON + a re-importable xlsx). That is a pragmatic
     hold, **not** a production DR posture: no point-in-time recovery (weekly/manual
-    snapshots only — up to a week of writes at risk), 90-day GitHub-artifact
-    retention only, a manual and (until rehearsed) unproven restore, and a
-    service-role key in CI secrets. **The repo is public**, so the all-users dump
-    is only safe as an artifact because it is gpg-encrypted — storing private user
-    data on a public surface, even encrypted, is an interim compromise. **A
-    commercial launch must move to a proper setup** — private-data backups to a
-    **private** destination, Supabase's paid **PITR / managed backups** as the
-    baseline, off-site retention, a defined **RPO/RTO**, and a **periodically
-    rehearsed** restore. Not done until a restore has actually been run, not just a backup
+    snapshots only — up to a week of writes at risk), a manual and (until
+    rehearsed) unproven restore, and reliance on a single provider. Private user
+    data is kept **off** the public repo — the all-users dump goes only to a
+    private, encrypted, off-site bucket, never a GitHub artifact — so the
+    public-exposure gap is closed. **A commercial launch must still add** Supabase's
+    paid **PITR / managed backups** as the baseline, a defined **RPO/RTO**,
+    redundant off-site retention, and a **periodically rehearsed** restore. Not done until a restore has actually been run, not just a backup
     taken. (The interim limits are called out in `SUPABASE.md` → *Backup &
     restore*.)
   - **Audit the whole cloud surface, deliberately.** An end-to-end review of the

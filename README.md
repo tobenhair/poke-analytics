@@ -206,7 +206,8 @@ scripts/gen-pwa-icons.mjs      Rasterises the logo mark into the PWA PNG icons
 scripts/export-backup.mjs      Service-role backup: a re-importable .xlsx of
                          products+snapshots, plus (--full-json) a complete
                          all-tables, all-users .json dump of the whole database
-.github/workflows/backup.yml   Weekly + on-demand backup → .xlsx + full-DB .json artifacts
+.github/workflows/backup.yml   Weekly + on-demand backup → a private off-site
+                         bucket (.xlsx + gpg-encrypted full-DB .json; never GitHub)
 tests/unit/metrics.test.mjs    Unit tests for every derived number in metrics.js
 tests/unit/repo-invariants.test.mjs  Checks facts that must agree across files
 tests/unit/export-backup.test.mjs  Unit tests for the backup workbook writer
