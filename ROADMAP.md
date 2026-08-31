@@ -1095,6 +1095,32 @@ stance). What still stands unbuilt:
     Value already leads the demo teaser.) Guarded in `tests/a11y.spec.mjs` (the
     Analysis explainer count drops 5→4) and the Welcome-landing spec.
 
+- **Catalogue-scale value charts — totals & averages by set / era.** *(Feature —
+  new analytical views.)* The §03/§04 comparison charts already roll products up
+  to **Sets** and **Eras**, but only as the **average** trajectory of a group's
+  members (`meanSeries()`). This adds the **aggregate (sum)** and whole-catalogue
+  views the average can't express:
+  - **Total Set Value over time** — sum the Set Value across **all tracked sets**
+    (a whole-catalogue "market total"), and **per era** (every set within an era
+    summed). Answers "is the sealed market as a whole rising or falling?" — a
+    question no per-product or per-set line can.
+  - **Per-era / per-set aggregates** — the **sum** across a group's products
+    (total Set Value, optionally total tracked price) *and* the **average** across
+    them, behind a **Sum ⇄ Average** toggle, so one chart answers both "how big is
+    this era/set?" and "how does a typical product in it behave?".
+  - **Build:** new pure, unit-tested helpers in `metrics.js` — a `sumSeries()`
+    beside the existing `meanSeries()`, plus a catalogue-total series — reusing
+    the same `{x,y}` time-axis chart system, the Products ⇄ Sets ⇄ Eras
+    `createCompareView()` toggle, and `groupSets()`/`groupEras()`. **Currency-
+    correct:** only **€-absolute** aggregates (total / average Set Value, total
+    price) convert; **SV/Booster is a ratio and doesn't sum meaningfully**, so it
+    stays per-product/mean-only. **Honest framing:** a summed Set Value across
+    differently-sized sets is a *market-cap-style trend indicator*, not a
+    per-product buy signal — label it so it isn't read as one. Follows the "no
+    derived number without a test" rule; the new piece is the sum aggregation +
+    the catalogue total + the Sum/Average toggle, on top of machinery the era/set
+    roll-up already ships.
+
 ## The sell side — knowing when to exit
 
 *(Feature cluster — ✅ **all shipped**.)* The tool used to answer only one half
