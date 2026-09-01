@@ -144,9 +144,12 @@ and run the `security-review` skill over the final diff.
      only the demo product UUIDs anon already reads. Closing it would mean moving
      the function to a non-API schema (added surface, no real gain). Documented in
      `schema.sql`.
-   - **Leaked-password protection disabled** (WARN) → **pending**: a dashboard
-     toggle (Auth → Password security → enable HaveIBeenPwned). Not applyable via
-     SQL — the one remaining operator click.
+   - **Leaked-password protection disabled** (WARN) → **deferred (paid plan)**:
+     the HaveIBeenPwned check (Auth → Password security) is a **Pro-plan** feature,
+     greyed out on free tier, so it can't be enabled now — it moves onto the paid
+     upgrade list beside managed PITR. Free-tier mitigation that *is* available and
+     should be set: raise the **minimum password length** (default 6 → 8–10) and
+     enable **password character requirements** in the same Auth settings.
    - **Accept-with-reason (documented, unchanged):**
      `cardmarket_expansion_singles` "RLS enabled, no policy" (INFO — intentional
      service-role-only cache); `multiple_permissive_policies` on
@@ -361,11 +364,11 @@ incurs paperwork before it opens wider. Meaningful only once G1–G3 hold. Load
    settings; error reports; anonymous view counts), cookies/`localStorage` +
    auth-token (no tracking cookies — the consent-exempt answer, recorded in the
    copy), EU Supabase hosting + encrypted Cloudflare backups, and GDPR rights.
-   Carries a `[set a contact email]` placeholder + a DRAFT HTML comment — a
-   starting point, **not** a lawyer-reviewed doc.
+   Contact email set (`sealedanalytics@outlook.com`); the copy keeps its DRAFT
+   HTML comment — a starting point, **not** a lawyer-reviewed doc.
 3. **G4.3 — What's new + support/uptime — ✅ SHIPPED.** `#changelog-modal`
    (`.changelog-open`), notable changes newest-first seeded from `ROADMAP.md` →
-   Done, with a best-effort-uptime + support-contact line (same placeholder).
+   Done, with a best-effort-uptime + support-contact line (same contact email).
 4. **G4.4 — Privacy-friendly analytics — ✅ SHIPPED (self-rolled).** Decision:
    the self-rolled Supabase counter (no new vendor/script/cookie). `recordView()`
    (beside `reportClientError()`, same beacon discipline) inserts an **anonymous**
@@ -382,9 +385,9 @@ smoke run in CI (browser not drivable in this env). Reused existing modal /
 
 **Done when.** A first-time visitor can read how the numbers are derived, what
 happens to their data, what to expect, and how to get help — **before** signing
-up — and basic usage analytics are flowing. **Met**, bar two maintainer steps:
-fill the `[set a contact email]` placeholder, and get the privacy copy reviewed
-before a real launch. *(Satisfies ROADMAP's Later "Launch checklist" +
+up — and basic usage analytics are flowing. **Met**; contact email set, with one
+maintainer step left before a real launch: get the privacy copy lawyer-reviewed.
+*(Satisfies ROADMAP's Later "Launch checklist" +
 "Privacy-friendly analytics" + "Legal/compliance".)*
 
 *Shipped across `index.html` (method enrich + privacy/changelog dialogs +
