@@ -30,6 +30,370 @@ need a decision or a spike before detailed planning would be honest.
 
 ---
 
+## NOW — a trustable product (the four gates)
+
+**Highest priority** (see `ROADMAP.md` → *Now — a trustable product*). These four
+gates carry the tool from *good* to *dependable*. They are ordered so each
+protects what already exists before the next earns its place, and each has a
+**provable** definition of done — not "most of it works". Two of them activate
+plans already written further down this file (Gate 1 ≈ **item 1**, Gate 3 folds
+in **item 2b**); those are referenced, not duplicated, and moved to **Done** as
+each gate ships. Gate 2 and Gate 4 are new.
+
+Sequencing between gates: **Gate 1 and Gate 2 are the priority pair** (they
+protect data and users that already exist and can be done in parallel — one is
+ops-heavy, the other audit-heavy). **Gate 3** follows (measured trigger ≈ 200
+products, approaching but not urgent — do 3.1 opportunistically since it also
+removes a load-time cliff felt today). **Gate 4** is last (only matters once the
+first three hold). One PR per numbered sub-item, per the cross-cutting rule.
+
+---
+
+### G1. Durability — a rehearsed way back  *(activates item 1)*
+
+**Why.** The live database is the source of truth and its **only** backup today
+is the manual **⬇ Export updated .xlsx** button. That was tolerable while data
+was hand-entered; it is not now that daily Cardmarket ingestion is automated —
+a lost or corrupted DB is no longer re-enterable by hand. Close it with
+automated backups **plus a restore that has actually been run**. The full build
+detail lives in **item 1** below (retained in full); this section *activates* it
+(it is no longer deferred — it is the top of the theme) and resolves its two
+open points. Load `data-integrity` before touching the export/schema paths.
+
+**Build:**
+
+1. **G1.1 — Managed backups on (new; not in item 1).** Enable Supabase's own
+   daily backups / PITR on the project and record the retention window in
+   `SUPABASE.md`. Minutes of dashboard work; it is the platform-level net that
+   the portable snapshot (G1.2) and the rehearsal (G1.3) sit on top of. Invisible
+   until G1.3 proves a restore, which is the point of the gate.
+2. **G1.2 — Automate the portable, vendor-independent snapshot.** This is
+   **item 1's** `scripts/export-backup.mjs` + `.github/workflows/backup.yml`,
+   built exactly as specified there (read `products`/`snapshots` via the REST API
+   with the service-role key held only in Actions secrets; write a contract-valid
+   workbook that is the inverse of `supabase/migrate-xlsx.mjs`; **self-check by
+   spawning `scripts/validate-workbook.mjs` on the output** — a backup that can't
+   re-import is not a backup). Weekly cron + `workflow_dispatch`.
+3. **G1.3 — Rehearse the restore (the part that counts).** Restore a real backup
+   into a **local `supabase start` stack** — this resolves item 1's "where to
+   rehearse" open decision (the local Docker stack, not the org's second free
+   project; highest-fidelity branching is Pro-only). Bring up the stack, run
+   `schema.sql`, run `supabase/migrate-xlsx.mjs` on the backup, and confirm the
+   app boots against it with correct numbers for a known product. Write the exact
+   sequence into a **Restore** section of `SUPABASE.md`, corrected from what
+   actually happened.
+
+**Decision settled here (fixes item 1's flagged gotcha — do not lose it).** The
+restore order must encode the **admin-UUID** problem: `is_admin()` hardcodes the
+admin UUID (`supabase/schema.sql`, the `create or replace function public.is_admin()`
+block — currently the UUID on that line) and it must equal
+`SUPABASE_CONFIG.adminUserId` in `index.html`. A restore into a fresh project
+mints a *different* `auth.users` UUID, so the documented sequence is: **create
+the admin account first → read its new UUID → patch `is_admin()` and
+`SUPABASE_CONFIG` → then run the rest of `schema.sql` and the migration.**
+Skipping this yields a database nobody can write to. `repo-invariants.test.mjs`
+already guards that the two literals agree; the restore doc must make an operator
+set them correctly on a fresh project.
+
+**What a local stack cannot exercise** (say so in the doc, don't skip silently):
+the three email jobs (`staleness-reminder.sql`, `alert-emails.sql`,
+`error-digest.sql`) need `pg_cron` + `pg_net` + a Vault Resend key + real
+outbound HTTP, and the dashboard-driven steps (API keys, Auth URL config).
+
+**Verify.** Run `export-backup.mjs` against the real project read-only; run the
+validator on its output; trigger `backup.yml` once via `workflow_dispatch`;
+perform the rehearsal end-to-end.
+
+**Done when.** A green scheduled backup run exists, **a restore has actually been
+performed into a clean local stack and dated/documented** in `SUPABASE.md`, and
+README's layout table lists the new script + workflow. *(Then move item 1 and
+this gate to ROADMAP → Done, delete item 1's section.)*
+
+*Size: S/M. Touches: new script, new workflow, `SUPABASE.md`, `README.md`,
+`ROADMAP.md`. Dependencies: none (a rehearsal destination is the only input, now
+decided).*
+
+---
+
+### G2. Safety — audit the cloud boundary directly  *(new)*
+
+**Why.** `tests/signed-in.spec.mjs` proves the *client* behaves against a fake
+SDK; nothing proves the *server-side* boundary — the real RLS policies, the
+`is_admin()` write gate, the `demo_product_ids()` demo scope, and the three Edge
+Functions' service-role usage. The DB holds real user emails, holdings, alerts
+and sales today, so a silent RLS hole is the most damaging failure this tool
+could ship. This gate verifies the boundary **against the database itself**, and
+leaves behind an automated regression test so it can't rot. Load `data-integrity`
+and run the `security-review` skill over the final diff.
+
+**Build / execute (this gate is mostly verification + one new test file):**
+
+1. **G2.1 — Apply the advisor findings — ✅ DONE (migration `g2_security_hardening`
+   applied 2026-08-28; all 11 tables already had RLS on).** Outcome:
+   - **`is_admin()` mutable `search_path`** (WARN) → **fixed**: `alter function
+     public.is_admin() set search_path = public`. Advisor confirms cleared.
+   - **`auth_rls_initplan` on 6 per-user policies** (`user_settings`, `holdings`,
+     `alerts`, `sales`, `purchases`, `client_errors`) → **fixed**: each policy's
+     `auth.uid()` rewritten as `(select auth.uid())`. All 6 perf warnings cleared.
+   - **`demo_product_ids()` executable via `/rest/v1/rpc`** (WARN×2) →
+     **accepted-with-reason** (the verify branch resolved to accept). A
+     rolled-back probe proved the demo read policies run *as anon* and call this
+     function, so anon must keep EXECUTE; revoking from `PUBLIC` breaks the demo
+     ("permission denied for function"), and revoking only from anon/authenticated
+     is a no-op (PUBLIC still grants). The exposure is benign — the RPC returns
+     only the demo product UUIDs anon already reads. Closing it would mean moving
+     the function to a non-API schema (added surface, no real gain). Documented in
+     `schema.sql`.
+   - **Leaked-password protection disabled** (WARN) → **pending**: a dashboard
+     toggle (Auth → Password security → enable HaveIBeenPwned). Not applyable via
+     SQL — the one remaining operator click.
+   - **Accept-with-reason (documented, unchanged):**
+     `cardmarket_expansion_singles` "RLS enabled, no policy" (INFO — intentional
+     service-role-only cache); `multiple_permissive_policies` on
+     `products`/`snapshots`/`cardmarket_excluded_singles` (the read + admin-write
+     split is intentional); `unindexed_foreign_keys` INFO on the per-user tables'
+     `product_id` (minor now — bundle the useful ones into G3's index work).
+   - The applied DDL is mirrored into `supabase/schema.sql` (source of truth); no
+     row data was touched.
+2. **G2.2 — Prove every table's policy from the DB side, and lock it with a
+   test.** Add **`tests/rls.test.mjs`** (a Node integration test, gated to run
+   only when `SUPABASE_TEST_URL` + keys are present in the environment — so it is
+   skipped in the default hermetic CI but runnable on demand and in a
+   credentialed CI job). It signs in as (a) the admin, (b) a plain second user,
+   (c) anon, and asserts the intended boundary for all eleven tables with real
+   queries:
+   - `products` / `snapshots`: any authenticated user **reads**; **only the admin
+     writes** — the load-bearing negative case: *a non-admin `insert`/`update`/
+     `delete` on `products` is rejected by RLS* (not merely hidden by the
+     `is-admin` UI class). Anon reads only the `demo_product_ids()` slice.
+   - `user_settings` / `holdings` / `alerts` / `sales` / `purchases`: user B
+     cannot read or write user A's rows (per-user `auth.uid()` scope).
+   - `client_errors`: anon + authed may `insert`; a reporter **cannot** insert a
+     row with someone else's `user_id`; only the admin may `select`; nobody may
+     `update`/`delete` via the API.
+   - `news`: anon + authed read; no client write.
+   - `cardmarket_expansion_singles` / `cardmarket_excluded_singles`: no
+     anon/authed access at all (RLS on, no client policy) — confirm a plain
+     select returns zero rows / permission error.
+   - `demo_product_ids()`: anon cannot widen it (it is `SECURITY DEFINER`
+     `stable`; confirm the anon `products` select returns only the 3-release
+     slice).
+3. **G2.3 — Review the three Edge Functions + secrets.** Confirm
+   `cardmarket-daily`, `cardmarket-resolve-ids`, `cardmarket-catalog-refresh`
+   (and `news-fetch`) use the service-role key **only** server-side and never
+   leak it into any client-reachable response; confirm the admin-gated functions
+   (`resolve-ids`, `catalog-refresh`) check `is_admin()` server-side; review each
+   function's handling of its inputs; audit key management (anon vs service-role
+   vs the Vault-stored Resend key). No key literal in `index.html` beyond the
+   documented anon key.
+4. **G2.4 — Re-confirm untrusted-text escaping.** External text (news titles/URLs
+   via `news-fetch`, `client_errors` payloads) must pass through `escHtml` /
+   `safeUrl` on every render path. Grep the news + error render functions and
+   confirm; add a note to the `security-review` output.
+
+**Fold in here (from the roadmap footnote): mark the US→EU basis break.** While
+in this area, add a dated marker/annotation on the time-series charts at the
+US→EU Set-Value switchover so the ~15–20% one-time step isn't misread as a market
+move. Small, presentational; `metrics-review` applies only if it touches a
+derived series (it should not — it is an annotation).
+
+**Verify.** `tests/rls.test.mjs` passes against a real test project (all three
+roles, all eleven tables); advisors clean or accepted-with-reason; the
+`security-review` skill run over the gate's diff is clean.
+
+**Done when.** Every table's boundary is asserted by a test that talks to the
+database, the advisor findings are resolved or consciously accepted in
+`SUPABASE.md`, no secret is reachable client-side, and `SUPABASE.md` gains an
+**RLS / security audit** section recording the result. *(This is the
+security-audit half of ROADMAP's Later "Complete DB backups & security audit"
+gate, pulled forward and satisfied.)*
+
+*Size: M. Touches: `supabase/schema.sql` (the `search_path` pin), new
+`tests/rls.test.mjs`, `SUPABASE.md`, possibly a small chart annotation in
+`index.html`. Dependencies: a credentialed Supabase test project for the RLS
+test (a local `supabase start` stack works, sharing G1.3's setup).*
+
+---
+
+### G3. Resilience — don't degrade as history deepens  *(folds in item 2b)*
+
+**Why.** Daily ingestion grows the snapshot axis forever. `loadFromSupabase()`
+→ `allSnapshots()` (`index.html`, via `fetchAllRows()`) pages through **every**
+snapshot for **every** product on every sign-in and every demo load, then pivots
+client-side into aligned arrays — O(N×M), and M only climbs. The scale harness
+already caught the tail (the 400×365 fallback workbook takes 4.2 s). Fix the load
+shape now; the board's per-render cost (**item 2b**) stays gated on the measured
+≈200-product trigger. Load `data-integrity` and `metrics-review` — this changes
+*what data the metrics see*, so it is not a pure perf change.
+
+**Status (2026-08-29): the safe, evidence-warranted slice shipped; the loader
+rewrite is deliberately deferred.** The live DB is 188 products but only ~4,600
+snapshots (M is still shallow — daily ingest began ~Jul 2026), so the O(N×M) load
+is a few thousand rows and **not slow today**; the 4.2 s cliff was measured at
+400×365 ≈ 146k rows. Rewriting `loadFromSupabase()` — the single most critical
+path (a subtle bug there silently shows sample data or wrong momentum) — for a
+problem that isn't yet biting, and doing it in an environment where the page can't
+be exercised in a real browser, is exactly the speculative risk the scale work was
+filed to avoid. So **G3.3 (search debounce) and the G3.1 composite index shipped**
+(felt win + cheap future-proofing); the **`latest_snapshots` view + the loader
+switch (rest of G3.1) and the lazy-history drill-down/portfolio (G3.2) are
+deferred** until a fresh `scale:measure` — or real history depth (M into the
+hundreds/product) — warrants them, per G3.4's "re-measure, then stop" discipline.
+The design below stays the plan for that point.
+
+**The key design subtlety (get this right or the board breaks).** "Latest-only"
+is not literally one row per product. The board's **Momentum lens** shows 7d/30d
+date-windowed change and the **Value lens** shows buy/sell flags — both read a
+*recent trailing window* of snapshots (`momentum()`, `buySignal()`,
+`sellSignal()` off the last snapshots; `movingAverageSeries()` too). So the board
+needs, per product: **its single newest row (for ranking: price, set value,
+SV/Booster, fair gap, score) AND a recent trailing window (~40 days, for momentum
++ signals).** Only the **drill-down charts** (price history, SV/Booster trend, the
+§03/§04 comparison views) and the **Portfolio value-over-time chart** need the
+*full* multi-year series — the first for one product at a time, the second for the
+bounded set of held products.
+
+**Build:**
+
+1. **G3.1 — Latest-window board load + composite index (the biggest lever).**
+   - **Index — ✅ SHIPPED:** `snapshots(product_id, snapshot_date desc)`
+     (`snapshots_product_date_idx`, applied via migration + mirrored in
+     `schema.sql`) — the access path the view, the windowed query and the daily
+     job's prior-window reads need.
+   - **View — deferred:** a `latest_snapshots` view (`distinct on (product_id) …
+     order by
+     product_id, snapshot_date desc`) exposing one newest row per product.
+     **RLS/demo scoping — get this right:** a Postgres view is **security-definer
+     by default** (it runs as the view owner and would bypass RLS, exposing every
+     row to anon/authenticated). Create it **`with (security_invoker = true)`**
+     (PG15+; the project is on PG17) so it runs the querying role's RLS on the
+     underlying `snapshots` — the shared-read and `demo_product_ids()` anon
+     policies then carry through. Grant `select` to `anon, authenticated` and
+     verify the anon slice explicitly (a rolled-back `set role anon` probe, as in
+     G2).
+   - **Loader:** replace the single `allSnapshots()` call in `loadFromSupabase()`
+     (and the demo's `loadDemo()`) with **two bounded reads**: the
+     `latest_snapshots` view (spine) + a date-windowed `snapshots` query
+     (`snapshot_date >= max_date − ~40d`, still paginated via `fetchAllRows`).
+     Merge/pivot both into the same `newHistoricalData[name]` aligned arrays the
+     rest of the app already consumes — so `applyNewData()`, `deriveProducts()`,
+     the momentum/signal/MA helpers and every render function are **unchanged**.
+     A product whose newest row predates the window still appears (from the view)
+     with `—` for momentum, which is already the correct, tested behaviour of
+     `pctChangeOverDays()`.
+   - Keep `fetchAllRows()` for the windowed query (bounded now, but still may
+     exceed the 1000-row cap across all products).
+2. **G3.2 — Lazy full history on drill-down + portfolio.** When a drill-down
+   opens (`openDrill(name)`), fetch that one product's **full** series
+   (`snapshots` where `product_id = …`, all dates) and hand it to the drill-down
+   chart builders; cache per-name for the session so re-opening is free. For the
+   **Portfolio value chart**, fetch full history for the (bounded) set of held
+   product ids when the Portfolio tab first renders. Everything else stays on the
+   windowed data. Preserve the JS-referenced ids (`#drill-modal`,
+   `renderDrillPriceChart`, `#portfolio-value-chart`) and the
+   render-after-overlay-visible ordering the a11y notes require.
+3. **G3.3 — Debounce the board search — ✅ SHIPPED.** A small leading+trailing
+   `debounce()` helper (160 ms) wraps the board's per-keystroke `renderBoard()`
+   (O(N) tree rebuild); `searchTerm` + `updateFilterChrome()` stay synchronous so
+   state and the Reset control track every character, while the expensive rebuild
+   coalesces. First keystroke after idle runs immediately (stays instant); a burst
+   collapses to one trailing render. `renderBoard()` reads the module-level
+   `searchTerm`, so no stale-args risk. (Was **item 2b step 1**.)
+4. **G3.4 — Re-measure, then stop.** Re-run `npm run scale:measure` on a generated
+   fixture. The rest of **item 2b** (in-place row updates / virtualisation; split
+   the type-filter re-render) ships **only if** a fresh run past ~200 products
+   still says so — no pre-optimisation.
+
+**Decisions left open (settle when starting 3.1):** the exact window (~40 days is
+enough to cover the 30d momentum + a margin; confirm against the widest window any
+board metric reads); whether `latest_snapshots` is a plain view or a materialised
+one (start plain — correctness first; only materialise if 3.4 shows the view's
+`distinct on` is itself a cost). The fake SDK (`tests/fake-supabase-sdk.js`) must
+learn the view + the windowed/`gte` query so `signed-in.spec.mjs` still drives the
+real loader.
+
+**Verify.** `npm test` green (extend `signed-in.spec.mjs`: board renders from the
+view + window, a drill-down triggers the lazy full-history fetch, momentum shows
+`—` for a window-less product); `npm run scale:measure` before/after on the same
+matrix shows sign-in load is ≈O(N), not O(N×M); by hand at a large fixture — board,
+momentum lens, drill-down charts and the portfolio value chart all still *correct*,
+not just fast. Numbers go in `ROADMAP.md`.
+
+**Done when.** Sign-in/demo load is ≈O(N) regardless of history depth, the board
++ momentum + signals are unchanged in behaviour, drill-down/portfolio full-history
+charts load lazily and correctly, and a fresh scale measurement is recorded.
+*(Realises ROADMAP's Later "Data volume at scale" latest-only lever + item 2b
+step 1; leave the rest of item 2b filed and dormant.)*
+
+*Size: M/L. Touches: `supabase/schema.sql` (index + view), the loader +
+drill-down + portfolio paths in `index.html`, `tests/fake-supabase-sdk.js`,
+`tests/signed-in.spec.mjs`, `CLAUDE.md` (the load-path + data-model notes),
+`ROADMAP.md`. Dependencies: none.*
+
+---
+
+### G4. Accountability — the launch paperwork  *(new; draws Later items forward)*
+
+**Why.** A tool that claims to know fair value, is EU-operated and stores emails
+incurs paperwork before it opens wider. Meaningful only once G1–G3 hold. Load
+`design-review` for the two new pages.
+
+**Build:**
+
+1. **G4.1 — Methodology (how the numbers work) — ✅ SHIPPED (consolidated into
+   the shared dialog, not a new route).** The `#method-modal` dialog now carries
+   the full trust story: the age-fit + R²-gating (`fitConfidence`) + old-set
+   suppression it already had, plus two added `modal-section`s — **Where the
+   numbers come from** (the Cardmarket `(trend+avg)/2` box blend, the `avg30`
+   all-cards Set Value, promo subtraction) and **Where it's weakest** (thin
+   liquidity + hand-lock, the one-time US→EU basis step, "not financial advice").
+   The page **footer** gained a `.link-row` surfacing `#method-modal` +
+   `#glossary-modal` app-wide (reachable from every tab, not just demo/Welcome).
+   Reused existing components only (`.modal-section`/`.method-text`/`.link-row`/
+   `.text-link`/`.method-open`/`.glossary-open`) — no new tokens/ids; copy
+   consolidated from README/ROADMAP. *Deliberately not a separate URL-addressable
+   page:* the SPA has no routing, and a modal reachable app-wide + logged-out
+   satisfies the trust-doc need at far less design weight; a real route stays a
+   later option if SEO/deep-linking is wanted.
+2. **G4.2 — Privacy — ✅ SHIPPED (draft).** `#privacy-modal` (opened by class
+   `.privacy-open` from the app-wide footer, reachable logged out): what's stored
+   + why (account email; the private portfolio: holdings/alerts/sales/purchases/
+   settings; error reports; anonymous view counts), cookies/`localStorage` +
+   auth-token (no tracking cookies — the consent-exempt answer, recorded in the
+   copy), EU Supabase hosting + encrypted Cloudflare backups, and GDPR rights.
+   Carries a `[set a contact email]` placeholder + a DRAFT HTML comment — a
+   starting point, **not** a lawyer-reviewed doc.
+3. **G4.3 — What's new + support/uptime — ✅ SHIPPED.** `#changelog-modal`
+   (`.changelog-open`), notable changes newest-first seeded from `ROADMAP.md` →
+   Done, with a best-effort-uptime + support-contact line (same placeholder).
+4. **G4.4 — Privacy-friendly analytics — ✅ SHIPPED (self-rolled).** Decision:
+   the self-rolled Supabase counter (no new vendor/script/cookie). `recordView()`
+   (beside `reportClientError()`, same beacon discipline) inserts an **anonymous**
+   row (`view` + `created_at` — no id/IP/UA) into the insert-only **`page_views`**
+   table, **once per surface per session**, from `activateTab()` and `loadDemo()`.
+   RLS: anon+authenticated insert (`with check (true)`), admin-only select,
+   immutable. No PII ⇒ no consent banner (disclosed in Privacy). Folded into
+   `ALL_TABLES` + `downloadFullBackup()` + the fake SDK; the signed-in backup test
+   asserts the 11th table key.
+
+**Verify.** dead-code + design-tokens green; both inline modules parse; a11y +
+smoke run in CI (browser not drivable in this env). Reused existing modal /
+`.method-text` / `.link-row` / `.text-link` components — no new tokens.
+
+**Done when.** A first-time visitor can read how the numbers are derived, what
+happens to their data, what to expect, and how to get help — **before** signing
+up — and basic usage analytics are flowing. **Met**, bar two maintainer steps:
+fill the `[set a contact email]` placeholder, and get the privacy copy reviewed
+before a real launch. *(Satisfies ROADMAP's Later "Launch checklist" +
+"Privacy-friendly analytics" + "Legal/compliance".)*
+
+*Shipped across `index.html` (method enrich + privacy/changelog dialogs +
+`page_views` beacon), `supabase/schema.sql` (migration `g4_page_views_analytics`,
+mirrored), `scripts/export-backup.mjs`, `tests/fake-supabase-sdk.js` +
+`tests/signed-in.spec.mjs`, and the docs.*
+
+---
+
 ## NOW — trustworthy numbers
 
 _One active plan (16, below); the rest of this theme has shipped._ Two plans that
@@ -347,11 +711,13 @@ sanity-checking thin Tradera weeks. Not part of the core loop.
   changelog, and a public "how the numbers work" methodology page (the trust
   document — largely written already across README/ROADMAP; consolidate).
 
-### 2b. Board performance fixes — measured, dormant until ~200 products
+### 2b. Board performance fixes — mostly dormant (step 1 pulled into Gate G3.3)
 
-Spawned by the scale measurements (item 2, shipped). **Do not build these
-now:** at today's 36 products the board costs 8 ms and every fix here would be
-speculative complexity. They come due when coverage growth or automated
+Spawned by the scale measurements (item 2, shipped). **Step 1 (debounce the
+board search) is now Gate G3.3** — pulled forward because it is felt today and
+pairs with the G3.1 load change. **Steps 2–3 stay dormant:** at today's ~36
+products the board costs 8 ms and they would be speculative complexity; they ship
+only if G3.4's fresh measurement past ~200 products still says so. They come due when coverage growth or automated
 ingestion pushes the catalogue past roughly 200 products — re-run
 `npm run scale:measure` to confirm before starting, and again after, using the
 same matrix so the before/after is comparable.
@@ -384,10 +750,23 @@ using a generated fixture — sort, filter, search, drill-down all still correct
 not just fast. *Size: S (1) / M (2) / S (3). Dependencies: a catalogue big
 enough to justify them.*
 
-### 1. Backup & restore — deferred (full plan retained)
+### 1. Backup & restore — ACTIVATED as Gate G1 (full plan retained here)
 
-Moved here from **Now** in Jul 2026 by maintainer decision — not descoped, just
-not next. (Item numbers are stable labels so cross-references keep working;
+**Shipped as Gate G1 — but the design evolved past the detail below.** What
+actually shipped (see the **G1** section at the top of this file and
+`SUPABASE.md` → *Backup & restore*, the authoritative references): (a) an
+**in-tool admin JSON backup** button; (b) `scripts/export-backup.mjs` with a
+`--full-json` **complete all-tables dump** as well as the xlsx; (c) the weekly
+Action writes **gpg-encrypted** to a **private off-site S3-compatible bucket**
+(R2/B2/S3), **not** a GitHub artifact and **not** committed to the repo — because
+the repo is public. The step-by-step below is the **original** plan, kept for the
+`export-backup.mjs`↔`migrate-xlsx.mjs` contract reasoning and the admin-UUID
+restore-order gotcha; where it says "upload as an artifact / commit to the repo",
+read "upload to the private bucket". The one open step is the **rehearsed
+restore** (into a local `supabase start` stack).
+
+Moved to **Now** in Jul 2026 then deferred by maintainer decision — not descoped,
+just not next at the time. (Item numbers are stable labels so cross-references keep working;
 ROADMAP's ordering is the priority, not these numbers.) **Why deferred:** the
 rehearsal has to restore *into* something that isn't production, and spending
 the organisation's second free Supabase project on it isn't worth it right now.

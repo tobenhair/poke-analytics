@@ -588,11 +588,180 @@ Condensed history — details live in the git log and `CLAUDE.md`.
   clean automated source — the card APIs don't carry them and marketplaces
   restrict their images — so that half stays manual or unbuilt.
 
+## Now — a trustable product (durability · safety · resilience · accountability)
+
+**This is the highest-priority theme.** The two hard themes before it —
+*trustworthy numbers* (below) and *design & usability at product level* (**Then**) —
+have essentially shipped, which makes the tool *good*. It is not yet
+*dependable*: everything that keeps a real product alive under real users is
+still open. What now separates "a personal tool" from "a product other people
+rely on" is not another feature — it is **proof that the data survives an
+incident and the cloud boundary is actually closed**. That proof is sequenced
+here as **four gates**, ordered so each protects what already exists before the
+next earns its place: safety and durability first (they protect data that exists
+and users already signed in), resilience second (it comes due as ingestion
+deepens), launch paperwork last (it only matters once the first three hold).
+Each gate is small, verifiable and mostly server-side — no redesign. Nothing
+below relaxes the standing rule that every derived number stays pure and
+unit-tested in `metrics.js`.
+
+Items are tagged **Bug** / **Fix** / **Feature** as elsewhere; each gate also
+carries the **risk** it closes and a **definition of done** that is *provable*,
+not "most of it works". The full rationale, file grounding and the ship
+checklist live in the companion plan (published Aug 2026; mirror any change to
+its four gates here).
+
+- **Gate 1 — Durability: a rehearsed way back.** *(Fix — the single largest
+  standing risk.)* Today the live database's only backup is a human clicking the
+  **⬇ Export updated .xlsx** button. That was tolerable while the data was
+  hand-entered; it is not now that **daily Cardmarket ingestion is automated**,
+  because a lost or corrupted DB is no longer re-enterable by hand. Managed
+  PITR is a **paid** Supabase feature and the project runs free, so the strategy
+  is two backups the maintainer owns, **plus a restore that has actually been
+  performed**:
+  - **1.1 In-tool full backup (JSON) — ✅ SHIPPED.** An admin-only **⬇ Download
+    backup** button in Data Entry (`downloadFullBackup()`) downloads every
+    admin-readable table as one timestamped JSON — the free-tier stand-in for
+    PITR. Bounded by RLS by design (shared product data + the admin's own
+    portfolio; not other users' private rows, nor the regenerable
+    `cardmarket_expansion_singles` cache), recorded in the file's meta. Pinned by
+    `tests/signed-in.spec.mjs`.
+  - **1.2 Automate the whole-database backup to a private off-site bucket — ✅ SHIPPED.**
+    `.github/workflows/backup.yml` runs `scripts/export-backup.mjs --full-json`
+    (service-role, unit-tested `buildWorkbook()`/`buildFullDump()`) weekly and
+    writes **two** objects to a **private, S3-compatible bucket** (Cloudflare R2
+    recommended — free): a re-importable tracked-data `.xlsx` **and** a **complete
+    `.json` dump of every table for all users** (per-user portfolios + caches —
+    the part the in-tool button can't reach; scales as users grow),
+    **gpg-encrypted** before upload. **Nothing is uploaded to GitHub** — the repo
+    is public, so no user data lives on it.
+  - **1.3 Rehearse the restore — the part that counts (remaining).** Stand up a
+    throwaway target (a local `supabase start` stack is the free option), restore
+    a backup into it, and confirm the app boots against it with correct numbers.
+    The restore procedure (incl. the admin-UUID-first ordering) is documented in
+    `SUPABASE.md`; running it once is the open step.
+  - *(Managed PITR stays an optional paid upgrade for whole-DB point-in-time +
+    all-users completeness — not required for this gate.)*
+  - *Definition of done:* a **documented, dated restore has actually recovered a
+    working database** into a clean target. (Completes and supersedes the deferred
+    **Backup & restore** item under **Later**.)
+
+- **Gate 2 — Safety: audit the cloud boundary directly.** *(Fix — holds real
+  user emails today.)* `tests/signed-in.spec.mjs` proves the *client* behaves;
+  this gate proves the *server* does — RLS, the admin write boundary and the
+  three Edge Functions verified against the database itself, not inferred from
+  the UI.
+  - **2.1 Run the platform linters** — Supabase security + performance advisors
+    against the live project; triage every finding (policy gaps, unpinned
+    function `search_path`, any table with RLS off).
+  - **2.2 Prove every policy from the DB side** — walk all eleven tables
+    (`products`/`snapshots` shared-read / admin-write; `user_settings` /
+    `holdings` / `alerts` / `sales` / `purchases` per-user; `client_errors`
+    insert-only; `news` public-read; the two `cardmarket_*` tables no-client-
+    policy) and assert each boundary with real queries. **Add a negative test: a
+    non-admin session's write to `products` is rejected by RLS**, not just hidden
+    by the `is-admin` UI gating. Verify `demo_product_ids()` (SECURITY DEFINER)
+    can't be widened by anon; extend `repo-invariants.test.mjs`'s `is_admin()`
+    UUID check to the live value.
+  - **2.3 Review the Edge Functions & secrets** — service-role key used only
+    server-side and never in the client bundle; each function's input handling;
+    anon vs service-role vs Resend/API key management.
+  - **2.4 Re-confirm untrusted-text escaping** — `escHtml` / `safeUrl` cover
+    every news/error render path; run the `security-review` skill over this
+    gate's diff.
+  - *Definition of done:* every table's boundary is asserted by a test that
+    talks to the database, advisors are clean or consciously accepted, and no
+    secret is reachable client-side. (This is the **security-audit** half of the
+    **Later** "Complete DB backups & security audit" gate, pulled forward.)
+
+- **Gate 3 — Resilience: don't degrade as history deepens.** *(Fix; measured
+  trigger ≈ 200 products — approaching.)* Daily ingestion grows the snapshot
+  axis forever, and two places get slower on their own. `loadFromSupabase()` →
+  `allSnapshots()` (`index.html`, the `fetchAllRows()` pager) pulls **every**
+  snapshot for **every** product on every sign-in and every demo load, then
+  pivots client-side — O(N×M). **Partly shipped (Aug 2026), the rest deferred on
+  evidence:** the DB is 188 products but only ~4,600 snapshots (M still shallow),
+  so the load is a few thousand rows and **not slow yet** (the 4.2 s cliff was
+  400×365 ≈ 146k). So the cheap, felt, low-risk parts shipped and the risky loader
+  rewrite waits for real depth:
+  - **3.1a Composite index — ✅ SHIPPED** — `snapshots(product_id, snapshot_date
+    desc)` (`snapshots_product_date_idx`), the access path latest/window/history
+    reads need.
+  - **3.1b Latest-window loader — deferred** — the `latest_snapshots` view (one
+    row/product, **`security_invoker=true`** so RLS + `demo_product_ids()` scoping
+    hold) + a recent-window read feeding the board, with full history lazy on
+    drill-down. Rewriting the most critical load path for a problem that isn't yet
+    biting — in an environment where the page can't be exercised in a real browser
+    — is the speculative risk the scale work exists to avoid, so it waits for a
+    fresh `scale:measure` / real M growth.
+  - **3.2 Debounce the board search — ✅ SHIPPED** — a leading+trailing 160 ms
+    debounce on the board's per-keystroke O(N) rebuild (state + Reset control stay
+    synchronous). Removes the measured keystroke lag (92 ms/char at 400 products)
+    the moment the catalogue is large.
+  - **3.3 Re-measure, then stop** — the loader rewrite + the **Later → Board
+    performance fixes** (wholesale-rebuild / split-render) ship only when a fresh
+    `scripts/measure-scale.mjs` past ~200 products *and* deep history says so.
+  - *Definition of done (for the deferred part):* sign-in load is ≈O(N) regardless
+    of history depth and the board holds at 200 products in a fresh measurement.
+
+- **Gate 4 — Accountability: the launch paperwork.** *(Feature; gates public
+  launch — meaningful only once Gates 1–3 hold.)*
+  - **4.1 Methodology (how the numbers work) — ✅ SHIPPED** (consolidated, not a
+    separate route). The `#method-modal` trust dialog now covers the whole story
+    — the age fit + R²-gating + old-set suppression it already had, plus **Where
+    the numbers come from** (the Cardmarket `(trend+avg)/2` box blend, the `avg30`
+    all-cards Set Value, promo subtraction) and **Where it's weakest** (thin
+    liquidity, the one-time US→EU basis step, "not financial advice"). The page
+    **footer** now surfaces both it and the glossary app-wide (every tab, not just
+    demo/Welcome), so the trust doc is reachable from anywhere. Copy consolidated
+    from README/ROADMAP, not re-authored. (A separate URL-addressable page stays a
+    later option if SEO/deep-linking is wanted; the SPA has no routing today.)
+  - **4.2 Privacy — ✅ SHIPPED (draft).** A footer **Privacy** dialog
+    (`#privacy-modal`): what's stored + why (account email; the private
+    portfolio; error reports; anonymous view counts), cookies/local storage, EU
+    Supabase hosting + encrypted Cloudflare backups, and GDPR rights. Plain
+    language, reachable app-wide + logged out. Carries a `[set a contact email]`
+    placeholder and a review-before-launch note — a starting point, not a
+    lawyer-reviewed legal doc.
+  - **4.3 What's new + support/uptime — ✅ SHIPPED.** A footer **What's new**
+    dialog (`#changelog-modal`) seeded from **Done**, newest first, with a
+    best-effort-uptime + support-contact line (same `[set a contact email]`
+    placeholder).
+  - **4.4 Privacy-friendly analytics — ✅ SHIPPED.** Self-rolled, no third-party
+    script/cookie: `recordView()` writes an **anonymous** row (surface + time, no
+    id/IP/UA) to the insert-only **`page_views`** table, once per surface per
+    session; admin-read; needs no consent banner. Mirrors the `client_errors`
+    beacon; included in both backup paths.
+  - *Definition of done:* a first-time visitor can read how the numbers are
+    derived, what happens to their data, what to expect and how to get help —
+    before they sign up. **Met** (bar the maintainer filling the support-email
+    placeholder + a legal review of the privacy copy before a real launch).
+    (Draws the **Later → Launch checklist** items forward.)
+
+- **Data-integrity footnote — mark the US→EU basis break.** *(Fix; fold into
+  Gate 2 or 3, not its own gate.)* Automated ingestion baked a one-time ~15–20 %
+  step-change into the Set Value series at the US→EU basis switchover — an
+  accepted design consequence, but it silently distorts any multi-year chart or
+  momentum read crossing it (the parallel-line backtest flagged it as a
+  confound). Not a bug, so it doesn't warrant a gate; but marking the switchover
+  date on the time-series charts stops a real user misreading the discontinuity
+  as a market move. Cheap; do it while in the charts.
+
+**Deliberately not now (each depends on the four gates holding first):** the
+**LLM assistant / weekly summary** (the largest bet, first with real per-use
+cost — must reason over data that is already safe and correct), **sealed-product
+photos Phase 1**, a **native / wrapper mobile app** (the PWA already bought most
+of the value), a **custom brand mark**, and **coverage growth** (same model,
+more rows — waits behind the Gate 3 resilience work it would otherwise stress).
+All remain under **Then** / **Later** unchanged.
+
 ## Now — trustworthy numbers (stability & quality)
 
-A tool that tells people what's fairly priced has to be *right*, visibly and
-verifiably. This theme extends the correctness story CI started to every number
-on the page and every failure mode around it.
+*(Essentially complete — kept for the record; the active priority is the
+**trustable product** theme above.)* A tool that tells people what's fairly
+priced has to be *right*, visibly and verifiably. This theme extends the
+correctness story CI started to every number on the page and every failure mode
+around it.
 
 Items are tagged **Bug** (something is wrong today), **Fix** (something is
 right but poorly built) or **Feature** (something new).
@@ -926,6 +1095,32 @@ stance). What still stands unbuilt:
     Value already leads the demo teaser.) Guarded in `tests/a11y.spec.mjs` (the
     Analysis explainer count drops 5→4) and the Welcome-landing spec.
 
+- **Catalogue-scale value charts — totals & averages by set / era.** *(Feature —
+  new analytical views.)* The §03/§04 comparison charts already roll products up
+  to **Sets** and **Eras**, but only as the **average** trajectory of a group's
+  members (`meanSeries()`). This adds the **aggregate (sum)** and whole-catalogue
+  views the average can't express:
+  - **Total Set Value over time** — sum the Set Value across **all tracked sets**
+    (a whole-catalogue "market total"), and **per era** (every set within an era
+    summed). Answers "is the sealed market as a whole rising or falling?" — a
+    question no per-product or per-set line can.
+  - **Per-era / per-set aggregates** — the **sum** across a group's products
+    (total Set Value, optionally total tracked price) *and* the **average** across
+    them, behind a **Sum ⇄ Average** toggle, so one chart answers both "how big is
+    this era/set?" and "how does a typical product in it behave?".
+  - **Build:** new pure, unit-tested helpers in `metrics.js` — a `sumSeries()`
+    beside the existing `meanSeries()`, plus a catalogue-total series — reusing
+    the same `{x,y}` time-axis chart system, the Products ⇄ Sets ⇄ Eras
+    `createCompareView()` toggle, and `groupSets()`/`groupEras()`. **Currency-
+    correct:** only **€-absolute** aggregates (total / average Set Value, total
+    price) convert; **SV/Booster is a ratio and doesn't sum meaningfully**, so it
+    stays per-product/mean-only. **Honest framing:** a summed Set Value across
+    differently-sized sets is a *market-cap-style trend indicator*, not a
+    per-product buy signal — label it so it isn't read as one. Follows the "no
+    derived number without a test" rule; the new piece is the sum aggregation +
+    the catalogue total + the Sum/Average toggle, on top of machinery the era/set
+    roll-up already ships.
+
 ## The sell side — knowing when to exit
 
 *(Feature cluster — ✅ **all shipped**.)* The tool used to answer only one half
@@ -1161,12 +1356,19 @@ derivable from the prices, set values and holdings already tracked.
   *(Hardening; launch-gating.)* Two operational must-dos before opening the door
   wider, filed together because both are the same promise — *prove the cloud
   surface is safe to rely on*:
-  - **Finish the backup story.** Complete **Backup & restore** (above): move off
-    "the only backup is the manual **⬇ Export updated .xlsx** button" to scheduled
-    Supabase backups plus a periodic automated xlsx snapshot, and — the part that
-    actually matters — a documented, **rehearsed** restore into a throwaway
-    target. Not done until a restore has actually been run, not just a backup
-    taken.
+  - **Finish the backup story — the DIY backup is explicitly INTERIM.** Gate G1
+    shipped a free-tier stand-in (an in-tool admin JSON export + a weekly Action
+    that dumps the whole DB to JSON + a re-importable xlsx). That is a pragmatic
+    hold, **not** a production DR posture: no point-in-time recovery (weekly/manual
+    snapshots only — up to a week of writes at risk), a manual and (until
+    rehearsed) unproven restore, and reliance on a single provider. Private user
+    data is kept **off** the public repo — the all-users dump goes only to a
+    private, encrypted, off-site bucket, never a GitHub artifact — so the
+    public-exposure gap is closed. **A commercial launch must still add** Supabase's
+    paid **PITR / managed backups** as the baseline, a defined **RPO/RTO**,
+    redundant off-site retention, and a **periodically rehearsed** restore. Not done until a restore has actually been run, not just a backup
+    taken. (The interim limits are called out in `SUPABASE.md` → *Backup &
+    restore*.)
   - **Audit the whole cloud surface, deliberately.** An end-to-end review of the
     Supabase boundary rather than trusting it feature-by-feature: every table's
     **RLS** (`products`/`snapshots` shared-read / admin-write,

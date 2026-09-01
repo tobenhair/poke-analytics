@@ -478,6 +478,36 @@ test('the admin sees Data Entry and cloud-save writes the entered snapshot', asy
   expect(pageErrors).toEqual([]);
 });
 
+test('the admin can download a full JSON database backup', async ({ page }) => {
+  const pageErrors = await boot(page);
+  await signIn(page, 'admin@test.local');
+  await expect(page.locator('html.is-admin')).toHaveCount(1);
+  await page.locator('.tab-btn[data-tab="entry"]').click();
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('#backup-db-btn').click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^sealed-analytics-backup-\d{4}-\d{2}-\d{2}\.json$/);
+  const backup = JSON.parse(readFileSync(await download.path(), 'utf8'));
+
+  // Meta records the format and the RLS coverage caveat (so a restore is never
+  // misled about what the file holds).
+  expect(backup.meta.format).toBe('sealed-analytics-backup/v1');
+  expect(backup.meta.note).toContain('bounded by RLS');
+
+  // Every admin-readable table is present, and the shared product data has rows.
+  const expected = ['products', 'snapshots', 'news', 'client_errors',
+    'cardmarket_excluded_singles', 'user_settings', 'holdings', 'alerts', 'sales',
+    'purchases', 'page_views'];
+  expect(Object.keys(backup.tables).sort()).toEqual([...expected].sort());
+  expect(backup.tables.products.length).toBeGreaterThan(0);
+  expect(backup.meta.row_counts.products).toBe(backup.tables.products.length);
+
+  await expect(page.locator('#entry-status')).toContainText('Backup downloaded');
+  expect(pageErrors).toEqual([]);
+});
+
 test('a locked-out user can request a reset and finish through the link', async ({ page }) => {
   // Before this the sign-in overlay offered only Sign in and Create an account,
   // so a forgotten password meant losing the account — and with it the

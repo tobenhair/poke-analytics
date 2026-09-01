@@ -83,6 +83,8 @@ Logged-out visitors see a **pre-login demo** (`#demo-page`, a `<body>` child sho
 
 Runtime errors are reported to an insert-only **`client_errors`** table (error monitoring): an early inline script near the top of `index.html` buffers `window.onerror`/`unhandledrejection` events from the first script tick, and the module drains the buffer via `reportClientError()`/`initErrorReporting()` once `sbClient` exists — deduped, capped at 10/session, fire-and-forget, a no-op in static mode. Anyone may insert (RLS blocks spoofing another `user_id`), only the admin may read; an optional daily `pg_cron` + Resend digest (`supabase/error-digest.sql`) emails a grouped summary and stays silent when the table is clean.
 
+**Privacy-friendly analytics (G4.4)** are self-rolled on the same insert-only beacon pattern — no third-party script, no cookie. `recordView(view)` inserts an **anonymous** row into the insert-only **`page_views`** table (`{ view, created_at }` — *no* user id, IP, referrer or user agent), **once per surface per session** (a module-level `viewsRecorded` Set), fire-and-forget and a no-op in static mode. It fires from `activateTab()` (the tab name) and `loadDemo()` (`'demo'`). RLS: anon + authenticated may insert (`with check (true)`), only the admin may `select`, immutable via the API (no update/delete). Because it stores no personal data it needs no consent banner (disclosed in the Privacy dialog). Included in both backup paths (`ALL_TABLES`, `downloadFullBackup()`).
+
 A **news feed** (Pokémon TCG — priority — plus TCG investing and Pokémon-business/owner-company headlines) is an opt-in companion. Browsers can't fetch third-party RSS (no CORS), so ingestion is server-side, mirroring the Cardmarket split: **`pg_cron` (hourly) → the `news-fetch` Edge Function** (`supabase/functions/news-fetch/index.ts`, scheduled by `supabase/news-cron.sql`) fetches the feeds, parses RSS **and** Atom, keyword-filters (broad sources only), dedupes by normalised URL, and upserts into the **`news`** table. Its parse/relevance/dedupe logic **mirrors the pure `scripts/news-lib.mjs`** (pinned by `tests/unit/news-lib.test.mjs`), and `scripts/news-fetch.mjs` is the Node CLI mirror for previewing feeds off-cloud. `news` is **public-read** (anon + authenticated), **service-role-write only** (no client write policy). Only **headline + link + source + timestamp** is stored, never article bodies. The v1 sources (`NEWS_SOURCES`): **PokéBeach** (TCG — the dedicated TCG news site via a **GitHub Pages mirror** `feed.xml`, static-hosted so no datacenter 503 / UA sensitivity; the reliable non-Google primary; with a Google News `"Pokemon TCG"` query as a same-category safety net), **r/PokeInvesting** (investing), and a **Google News** Pokémon-business query (business — broad Pokémon/TPC/Nintendo terms, not earnings-only, since earnings news is rarely fresh; every clause names Pokémon so it stays on-topic despite `scoped:true`). The **User-Agent is per-source** (`ua`, default a browser string): Reddit needs the descriptive bot UA (it 429s browser agents) while Google News needs a browser UA (it 503s bot agents from datacenter IPs) — the fix for the "Google News HTTP 503 from Edge" symptom. Client side: `loadNews()` reads the table in `loadFromSupabase()` (signed-in) — **not** on the logged-out demo, which no longer lists news (it teases News as one of the "What a free account unlocks" tiles instead); `renderNews()` fills the grouped list into the **News tab** pane's `.news-full` (`#tab-news`, its own top-level tab between Welcome and Analysis) and reveals the **`#tabbtn-news`** tab once rows load. External feed text is escaped (`escHtml`) and links are `http(s)`-guarded (`safeUrl`) + `target=_blank rel=noopener`, since titles/URLs are untrusted. The **News tab** stays `hidden` until the table returns rows (static/xlsx builds have none, so no dead tab; the arrow-key nav already skips a hidden tab via its `offsetParent` test). (The old demo-only `#news-modal` + `.news-teaser` and the header `#news-btn` were removed — News is the tab only.) `tests/fake-supabase-sdk.js` serves `news` rows (public-read) and `tests/signed-in.spec.mjs` pins the signed-in News tab → grouped list → safe-link flow. Operator setup (run `schema.sql`, deploy the function, schedule the cron) is in `SUPABASE.md`.
 
 **`histDates` is chronological (ascending) in every loader** — `latest = last index`, `snapshotGaps()`, the date-windowed momentum (`pctChangeOverDays`), and the time-axis charts all assume it. The hardcoded fallback is authored sorted and the Supabase loader `.sort()`s its distinct snapshot dates; **`parseXlsx()` sorts `dateSet` too** (ISO `YYYY-MM-DD` → lexicographic = chronological) rather than trusting the workbook's row order — a workbook with rows out of date order used to leave `historicalData[*]` arrays aligned to a non-chronological axis (the category chart hid it by drawing in array order; a real time axis drew it as a zig-zag).
@@ -505,7 +507,12 @@ wiring is intact.
 - **Search scopes every lens.** The `#board-search` box (and the Type filter)
   apply to all three now — `renderRelativeValue()`/`renderMomentum()` filter their
   pool by `searchTerm` and force-expand the tree when searching, matching the
-  Value board. Verdict + sort stay Value-only (they're `.value-lens-ctrl`).
+  Value board. Verdict + sort stay Value-only (they're `.value-lens-ctrl`). The
+  input handler sets `searchTerm` + `updateFilterChrome()` synchronously but runs
+  the expensive `renderBoard()` (an O(N) tree rebuild) through a **leading+trailing
+  `debounce()` (160 ms)** — so a burst of keystrokes coalesces into one rebuild
+  while the first keystroke after idle stays instant; `renderBoard()` reads the
+  module-level `searchTerm`, so the debounced call is never stale.
 - **The Relative/Momentum lenses carry a set-vs-product comparison chart**
   (`renderBoardLensChart()`, canvas `#board-lens-canvas`, hidden on Value via
   `applyBoardLens()`). It's the set-level view the collapsed tree can't give — a
@@ -724,11 +731,25 @@ explanation exists in two places:
   `.glossary-open` button lower on the tab) rather than defining a term twice —
   keep it that way (shared-explanation rule). Don't restore a KPI row above the
   Analysis answer.
-- **The explanations are shared dialogs.** `#method-modal` (the fair-price
-  method) and `#glossary-modal` (every term) are opened by **class**, not id —
-  `.method-open` / `.glossary-open` — precisely so a third caller costs nothing
-  and no surface can define SV/Booster its own way. `#fair-fit-note` on the
-  board is one of the `.method-open` callers.
+- **The explanations are shared dialogs.** `#method-modal` (the methodology —
+  *how the numbers work*) and `#glossary-modal` (every term) are opened by
+  **class**, not id — `.method-open` / `.glossary-open` — precisely so a third
+  caller costs nothing and no surface can define SV/Booster its own way.
+  `#fair-fit-note` on the board is one of the `.method-open` callers, and the
+  page **footer** carries both as an app-wide trust surface (reachable from every
+  tab, not just the demo/Welcome). `#method-modal` is the launch **methodology
+  doc** (G4.1): beyond the fair-price fit + confidence it covers *Where the
+  numbers come from* (the Cardmarket `(trend+avg)/2` box blend, the `avg30`
+  all-cards Set Value, promo subtraction) and *Where it's weakest* (thin
+  liquidity, the one-time US→EU Set-Value basis step, "not financial advice") —
+  consolidated from README/ROADMAP, not re-authored. The footer also opens two
+  more launch dialogs (same class-wired pattern): **`#privacy-modal`**
+  (`.privacy-open`) — a plain-language privacy summary (what's stored + why,
+  cookies/storage, EU hosting + Cloudflare backups, GDPR rights) — and
+  **`#changelog-modal`** (`.changelog-open`, "What's new") seeded from ROADMAP →
+  Done, with a best-effort-uptime + support line. Both carry a `[set a contact
+  email]` placeholder and a DRAFT/`review-before-launch` HTML comment; the
+  privacy copy is a starting point, not legal advice.
 - **Signing in lands on the Welcome tab** — the signed-in landing (the
   where-to-go map; news is now its own tab, not a Welcome teaser), which is also
   the markup default
@@ -1007,6 +1028,8 @@ Markup, styles, and logic share one file, and the JS builds DOM from string temp
 ## Workflow / deployment
 
 Static hosting — deploy by committing `index.html` and `pokemon_data.xlsx`. The intended monthly loop (see README): open the dashboard → enter the month's prices and set values in **Data Entry** → **Export updated .xlsx** → replace `pokemon_data.xlsx` in the repo and commit. That manual loop still works, but in Supabase mode the **Cardmarket ingestion** writes the daily snapshot automatically — three Supabase **Edge Functions**: `cardmarket-daily` (the snapshot, scheduled by `pg_cron`), `cardmarket-resolve-ids` (auto-fill each product's CM ID / Exp ID, **Resolve ids** button) and `cardmarket-catalog-refresh` (the on-demand set-card-list cache, **Sync catalog** button). No GitHub Action; see `SUPABASE.md`. A per-product price-lock keeps anything you'd rather set by hand.
+
+**Backups — an INTERIM free-tier solution (a commercial build must move to paid PITR + proper DR; see `SUPABASE.md` → Backup & restore and `ROADMAP.md` → Later). Supabase's managed PITR is paid, so the free-tier strategy is two things you own.** (1) **In-tool full backup** — the admin-only **⬇ Download backup** button in Data Entry (`downloadFullBackup()`, wired beside Save to cloud / Resolve ids / Sync catalog) reads every table the admin's session may read and downloads one timestamped `sealed-analytics-backup-<date>.json`. It is **bounded by RLS by design**: it captures the shared `products`/`snapshots`, public `news`, the admin's own `client_errors`/`cardmarket_excluded_singles`, and the admin's **own** portfolio (`user_settings`/`holdings`/`alerts`/`sales`/`purchases`) — **not** other users' private rows (per-user RLS blocks even the admin) nor the service-role-only `cardmarket_expansion_singles` cache (regenerable via Sync catalog); the file's `meta.note` records both exclusions. (2) **Weekly Action** — `scripts/export-backup.mjs` (service-role; pure `buildWorkbook()`/`buildFullDump()`, unit-tested in `tests/unit/export-backup.test.mjs`) run by `.github/workflows/backup.yml`, which uploads **two** artifacts: the re-importable tracked-data `.xlsx` (inverse of `supabase/migrate-xlsx.mjs`) **and**, via `--full-json`, a **complete whole-database `.json` dump — every table, every user's rows, including the per-user portfolios and the `cardmarket_*` caches** (the service-role key bypasses RLS, so this is the true full-DB backup the in-app button can't produce, and the one that scales as users grow). **The repo is PUBLIC, so the Action uploads NOTHING to a GitHub artifact — both files go to a private, off-site, S3-compatible bucket (Cloudflare R2 recommended) via `aws s3 cp --endpoint-url`. The dump is additionally gpg-AES-256-encrypted before upload (`.json.gpg`, `BACKUP_PASSPHRASE` secret) as defense-in-depth; the workflow fails before writing any dump if the passphrase or bucket secrets are unset.** Restore (download from the bucket → decrypt) + the admin-UUID-first ordering gotcha are in `SUPABASE.md` → *Backup & restore*. `tests/signed-in.spec.mjs` pins the in-tool backup (admin clicks → JSON download → the 10 table keys + RLS-caveat meta).
 
 ### Installable app (PWA)
 

@@ -229,6 +229,7 @@ inputs live in the database:
 | `sales` | per-user disposals (realised P&L) | read/write: own row | `product_id`, `quantity`, `sale_price`, `cost_basis`, `sold_on` — **append-only** (no `unique(user_id,product_id)`: a product can be sold many times) |
 | `purchases` | per-user buy events (the buy half of the Transaction Log) | read/write: own row | `product_id`, `quantity`, `unit_price`, `bought_on` — **append-only** like `sales`. `holdings` stays the source of truth for the current position; this is an event record beside it (buy-more appends, edit-in-place does not) |
 | `client_errors` | runtime error reports | insert: anyone · read: admin | `message`, `stack`, `context` |
+| `page_views` | privacy-friendly analytics — anonymous view counts | insert: anyone · read: admin | `view`, `created_at` (no user id / IP / UA — needs no consent) |
 
 The admin is identified by user UUID in a `public.is_admin()` SQL function that
 the write policies call; it must match `SUPABASE_CONFIG.adminUserId` in the app.
@@ -237,6 +238,140 @@ rather than the mismatch surfacing later as an admin who cannot save.
 
 Note `currency` is display-only: **€ is the canonical stored unit** for every
 price and set value, and the Portfolio tab converts at render time.
+
+## Backup & restore
+
+The database is the live source of truth. Supabase's managed daily backups /
+PITR are a **paid-plan** feature, so on the free tier the backup strategy is two
+things you own and run yourself — keep both:
+
+> ⚠️ **This is an interim, free-tier solution — not a production DR posture.**
+> The in-tool button + the weekly Action are a pragmatic stand-in while the
+> project runs on the Supabase free tier. Private user data is kept **off** the
+> public repo — the all-users dump goes only to a **private, encrypted, off-site
+> bucket** (below), never a GitHub artifact — which closes the public-exposure
+> gap. What remains interim: **no point-in-time recovery** (weekly/manual
+> snapshots only, so up to a week of writes can be lost), restore is **manual and
+> (until rehearsed) unproven**, and it leans on a single provider. **Before this
+> becomes a commercial product, add** Supabase's paid **PITR / managed backups**
+> as the baseline, a defined **RPO/RTO**, redundant off-site retention, and a
+> periodically **rehearsed** restore. Tracked under *Complete DB backups &
+> security audit* in `ROADMAP.md` → **Later**.
+
+**1. In-tool full backup (JSON) — the primary manual backup.** In **Data Entry**
+(admin only) the **⬇ Download backup** button (`downloadFullBackup()`) reads
+every table your account can read and downloads one
+`sealed-analytics-backup-<date>.json`. One click, no secrets, no server — the
+free-tier stand-in for PITR.
+
+- **Coverage — bounded by RLS, on purpose.** Because it runs in the admin's
+  browser it captures exactly what the admin may read: the shared
+  `products`/`snapshots`, the public `news`, the admin's own `client_errors` +
+  `cardmarket_excluded_singles`, and the admin's **own** portfolio
+  (`user_settings`/`holdings`/`alerts`/`sales`/`purchases`). It does **not**
+  include *other users'* private rows (per-user RLS blocks even the admin) or the
+  service-role-only `cardmarket_expansion_singles` cache (regenerable via **Sync
+  catalog**). The file's `meta.note` records this so a restore is never misled.
+  For a solo deployment (one portfolio owner) this is effectively the whole
+  database bar the regenerable cache.
+
+**2. Weekly Action → a PRIVATE off-site bucket — the automated, all-users,
+whole-database net.** `.github/workflows/backup.yml` runs
+`scripts/export-backup.mjs --full-json` weekly (and on-demand via *Run workflow*)
+using the **service-role** key (SELECT-only — it never writes), and uploads
+**two** objects to a **private, S3-compatible object store** under
+`backups/<date>/`. **Nothing goes to a GitHub artifact** — this repo is public,
+so no user data (encrypted or not) should live on it.
+
+- `sealed-analytics-db-<date>.json.gpg` — the **complete whole-database dump**:
+  every public table, **every user's rows** (service-role bypasses RLS),
+  including the per-user portfolios (`holdings`/`alerts`/`sales`/`purchases`/
+  `user_settings`) and the `cardmarket_*` caches. This is the true full-database
+  backup — the part the in-tool button (1) can't reach — so it scales as users
+  grow. It is **client-side encrypted with gpg AES-256 before upload**
+  (defense-in-depth on top of the private bucket; the plaintext never leaves the
+  runner). Decrypt it with your passphrase:
+  ```
+  gpg --batch --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+      -o sealed-analytics-db.json -d sealed-analytics-db-<date>.json.gpg
+  ```
+- `pokemon_data-backup-<date>.xlsx` — the contract-valid, re-importable copy of
+  the tracked `products` + `snapshots` (re-imports through
+  `supabase/migrate-xlsx.mjs`, passes `npm run validate`; Summary sheet also
+  carries CM ID / Exp ID / Promo IDs / Price Locked / Cardmarket URL). Kept beside
+  the dump for convenience.
+
+**One-time bucket setup.** Create a **private** bucket at any S3-compatible
+provider — **Cloudflare R2 is recommended** (free 10 GB, no egress fees;
+[Backblaze B2](https://www.backblaze.com/) or AWS S3 work identically):
+1. Create the bucket (keep it **private** — no public access) and, ideally, a
+   **lifecycle rule** to expire objects after N days so old backups prune
+   themselves.
+2. Create an API token / access key scoped to that bucket (read+write).
+3. Note the S3 **endpoint** — for R2 it is
+   `https://<account-id>.r2.cloudflarestorage.com`.
+
+**Secrets** (Settings → Secrets and variables → Actions):
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — DB read (service role bypasses
+  RLS; keep the key only here, never in the repo or client).
+- `BACKUP_PASSPHRASE` — encrypts the dump; the **only** key that decrypts it, so
+  store it safely off the repo.
+- `BACKUP_S3_BUCKET`, `BACKUP_S3_ENDPOINT`, `BACKUP_S3_ACCESS_KEY_ID`,
+  `BACKUP_S3_SECRET_ACCESS_KEY`, and (B2/S3 only) `BACKUP_S3_REGION` — the private
+  bucket. R2 uses region `auto`, so `BACKUP_S3_REGION` may be left unset for R2.
+
+If the passphrase or any bucket secret is missing the workflow **fails before
+writing any dump**, so a misconfigured run can never produce private data with
+nowhere private to put it.
+
+**3. Managed backups / PITR — the optional paid upgrade.** On a paid plan you can
+enable it under **Project → Database → Backups** for point-in-time recovery with
+no manual step. Not required — (1) + (2) already cover the whole database.
+
+### Restoring
+
+**Rebuild from a JSON backup** (the in-tool file (1) or, for all users, the
+Action's complete dump (2) — **download it from the private bucket, then decrypt
+the `.json.gpg`**, see above) → the JSON holds every captured table as plain rows.
+Restore by upserting them back with the **service-role** key (which bypasses RLS),
+keyed on each table's natural conflict target (`products` on
+`user_id,name`; `snapshots` on `product_id,snapshot_date`; the per-user tables on
+their `id`). Do the admin-UUID step below first on a fresh project.
+
+**Rebuild the tracked dataset from a workbook (2)** (a fresh/clean project, or a
+vendor-independent recovery) → run `schema.sql`, then
+`supabase/migrate-xlsx.mjs` on a downloaded backup `.xlsx`:
+
+1. **Create the admin account first** (sign up once in the app or the dashboard)
+   and copy its **User UID** (Authentication → Users).
+2. **Patch the admin UUID in both places** so writes work on the new project:
+   the `public.is_admin()` function in `supabase/schema.sql` **and**
+   `SUPABASE_CONFIG.adminUserId` in `index.html`. They must match — `npm run
+   test:unit` (`repo-invariants.test.mjs`) checks it. **Do this before running
+   the schema**, or you get a database nobody can write to (a fresh project mints
+   a *different* UUID than the old one).
+3. Run `schema.sql` in the SQL editor.
+4. Run `supabase/migrate-xlsx.mjs` (env: `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+   `MIGRATE_EMAIL`, `MIGRATE_PASSWORD`) on the backup workbook — it upserts
+   `products` + `snapshots`.
+5. Verify in-app: sign in, spot-check a known product's latest price and set
+   value against the backup.
+
+**Rehearse it — this is the part that proves the backup.** A backup taken is not
+a backup until a restore has been *run*. Rehearse into a throwaway target — a
+local stack (`supabase start`, free, Docker: real Postgres + auth + PostgREST,
+so `schema.sql` and `migrate-xlsx.mjs` run unmodified) is the recommended
+destination — then correct the steps above from what actually happened, and note
+the date. A local stack **cannot** exercise the three email jobs
+(`staleness-reminder.sql`, `alert-emails.sql`, `error-digest.sql` — they need
+`pg_cron` + `pg_net` + a Vault Resend key + outbound HTTP) or the dashboard-only
+steps (API keys, Auth URL config); say so rather than skipping them silently.
+
+> **Status:** the in-tool JSON backup, the export script and the weekly workflow
+> are in place. The one remaining operator step to fully close this out is a
+> **rehearsed restore** (run it once into a local `supabase start` stack and
+> correct the steps above from what happened). Managed PITR (3) is an optional
+> paid upgrade, not required.
 
 ## Optional: automated Cardmarket ingestion
 

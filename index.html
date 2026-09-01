@@ -2457,6 +2457,25 @@
       is on each product's drill-down.</p>
     </div>
 
+    <div class="modal-section">
+      <h3>Where the numbers come from</h3>
+      <p class="method-text">Prices and set values are read from <strong>Cardmarket</strong>, Europe's main
+      card marketplace, and refreshed daily. A box's <strong>price</strong> is a blend of Cardmarket's
+      smoothed trend and its recent-sales average — steadier than any single sale. A set's
+      <strong>Set Value</strong> is the sum of every card in it at its ~30-day average price, so one lucky
+      sale can't swing it. When a product bundles a stamped <strong>promo card</strong>, that card's value
+      is subtracted first, so the product is judged on the boosters you actually open, not the extra.</p>
+    </div>
+
+    <div class="modal-section">
+      <h3>Where it's weakest</h3>
+      <p class="method-text">On a <strong>thin market</strong> — few recent sales — the price goes stale and
+      can drift from what things actually list for; those products are flagged, and a hand-set price can be
+      locked in instead. Set values moved from US to EU sources at one point, which puts a small one-time
+      step in the history around that date. And every figure is a data point, not a valuation —
+      <strong>nothing here is financial advice.</strong></p>
+    </div>
+
     <div class="modal-note">
       A fair price is a comparison with the rest of the catalogue, not a valuation or a price forecast.
       It moves as the catalogue moves.
@@ -2520,6 +2539,95 @@
 
     <div class="modal-note">
       Every figure is in EUR. In the live app a daily Cardmarket job fills these snapshots automatically; this workbook is the manual fallback format. Nothing here is financial advice.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ PRIVACY ═══════════
+     Plain-language privacy summary, opened by class (.privacy-open) from the
+     footer so it's reachable app-wide + logged-out. Direct child of <body>.
+     DRAFT — review with a lawyer and fill the [set a contact email] placeholder
+     before a real launch; this is a starting point, not legal advice. -->
+<div class="modal-overlay" id="privacy-modal">
+  <div class="modal" style="max-width:640px;" role="dialog" aria-modal="true" aria-labelledby="privacy-heading" tabindex="-1">
+    <button class="modal-close" id="privacy-close" type="button" aria-label="Close">✕</button>
+    <h2 id="privacy-heading">Privacy</h2>
+    <p class="modal-intro">What this tool stores, why, and your choices — in plain language.</p>
+
+    <div class="modal-section">
+      <h3>What's stored, and why</h3>
+      <p class="method-text"><strong>Only if you make an account:</strong> your email and password (through the
+      auth provider) so you can sign in, plus whatever you add to your private <strong>portfolio</strong> —
+      holdings, price alerts, sales, purchases and your display-currency choice. That is visible only to you;
+      other signed-in users can't see it.</p>
+      <p class="method-text"><strong>Everyone, signed in or not:</strong> if something breaks, a technical
+      <strong>error report</strong> (what failed, which page, your browser type) so it can be fixed, and an
+      <strong>anonymous view count</strong> of which screens are used — with no name, account id, IP address
+      or cookie attached.</p>
+    </div>
+
+    <div class="modal-section">
+      <h3>Cookies &amp; storage</h3>
+      <p class="method-text">No advertising or tracking cookies. A small amount is kept in your browser's local
+      storage — a sign-in token and your own preferences (saved filters, collapsed sections). Only the sign-in
+      token leaves your device, and only to authenticate you.</p>
+    </div>
+
+    <div class="modal-section">
+      <h3>Where it lives, and who else is involved</h3>
+      <p class="method-text">Data is stored with <strong>Supabase</strong> (a managed Postgres host) in the
+      <strong>EU</strong>; encrypted backups sit in a private <strong>Cloudflare</strong> bucket. Price and set
+      data come from <strong>Cardmarket</strong> and set logos from <strong>TCGdex</strong> — no personal data
+      is sent to them. Nothing is sold or shared for advertising.</p>
+    </div>
+
+    <div class="modal-section">
+      <h3>Your rights</h3>
+      <p class="method-text">You can see, correct, export or delete your data at any time — most of it from the
+      Portfolio tab, the rest on request. To delete your account and everything tied to it, or for any privacy
+      question, contact <strong>[set a contact email]</strong>.</p>
+    </div>
+
+    <div class="modal-note">
+      A free, unofficial fan tool — see the non-affiliation notice in the footer. This summary is not legal advice.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ CHANGELOG / WHAT'S NEW ═══════════
+     Notable user-facing changes, seeded from ROADMAP → Done. Opened by class
+     (.changelog-open) from the footer. Direct child of <body>. Update the top
+     entry when a notable feature ships. [set a contact email] is a placeholder. -->
+<div class="modal-overlay" id="changelog-modal">
+  <div class="modal" style="max-width:600px;" role="dialog" aria-modal="true" aria-labelledby="changelog-heading" tabindex="-1">
+    <button class="modal-close" id="changelog-close" type="button" aria-label="Close">✕</button>
+    <h2 id="changelog-heading">What's new</h2>
+    <p class="modal-intro">Notable changes, newest first.</p>
+
+    <div class="modal-section">
+      <h3>August 2026</h3>
+      <ul class="method-text" style="margin:0; padding-left:20px; line-height:1.6;">
+        <li>Encrypted, off-site database backups and a security pass over the cloud setup.</li>
+        <li>Faster board search, and this <em>How the numbers work</em> / Privacy / What's-new set.</li>
+        <li>Anonymous, cookie-free usage counts to see which features are used.</li>
+      </ul>
+    </div>
+
+    <div class="modal-section">
+      <h3>Earlier in 2026</h3>
+      <ul class="method-text" style="margin:0; padding-left:20px; line-height:1.6;">
+        <li>News feed — a Pokémon-TCG headline tab.</li>
+        <li>The sell side — sell signals, realised profit &amp; loss, and a full transaction log.</li>
+        <li>Installable app (PWA) — add to your home screen; works offline.</li>
+        <li>Accessibility pass — fully operable by keyboard and screen reader.</li>
+        <li>Automated daily Cardmarket pricing.</li>
+        <li>Fair price &amp; buy/avoid verdict, product drill-down, and price alerts.</li>
+        <li>Private portfolio and price alerts with cloud sign-in.</li>
+      </ul>
+    </div>
+
+    <div class="modal-note">
+      A free tool offered on a best-effort basis, with no guaranteed uptime. Questions or problems? Contact <strong>[set a contact email]</strong>.
     </div>
   </div>
 </div>
@@ -3545,6 +3653,10 @@
             title="Cache each set's card list from Cardmarket so the daily job can sum Set Value">
             <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg> Sync catalog
           </button>
+          <button class="export-btn sb-only admin-only" id="backup-db-btn" style="width:auto; padding: 8px 20px;"
+            title="Download a full JSON backup of the cloud database (every table your account can read)">
+            <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg> Download backup
+          </button>
           <button class="export-btn" id="export-xlsx-btn" style="width:auto; padding: 8px 20px;">
             <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg> Export updated .xlsx
           </button>
@@ -3637,6 +3749,12 @@
   <footer>
     <div class="last-update" id="last-update-wrap" style="margin-bottom:14px;">Last updated: <span id="last-update-date">—</span><span class="stale-note" id="last-update-stale"></span></div>
     <p style="margin:0 0 10px;">Price data from Cardmarket, refreshed daily · Set logos from TCGdex · Always do your own research</p>
+    <p class="link-row" style="justify-content:center; margin:0 0 14px;">
+      <button type="button" class="text-link method-open" aria-haspopup="dialog">How the fair price works</button>
+      <button type="button" class="text-link glossary-open" aria-haspopup="dialog">What the numbers mean</button>
+      <button type="button" class="text-link privacy-open" aria-haspopup="dialog">Privacy</button>
+      <button type="button" class="text-link changelog-open" aria-haspopup="dialog">What's new</button>
+    </p>
     <p style="margin:0 auto; max-width:70ch; line-height:1.7; text-transform:none; letter-spacing:normal;">
       <strong>Not financial advice.</strong> This is a free, unofficial fan-made tool provided “as is” for informational purposes only. Prices and values may be inaccurate or out of date; nothing here is a recommendation to buy or sell. Do your own research before making any purchase.
     </p>
@@ -5249,10 +5367,29 @@ document.addEventListener('change', e => {
 });
 document.getElementById('clear-selection').addEventListener('click', clearSelection);
 
+// Leading + trailing debounce: run immediately when idle (so a first keystroke
+// feels instant), then coalesce a burst of keystrokes into one trailing call.
+// renderBoard() reads the module-level searchTerm (set synchronously below), so
+// every invocation — leading or trailing — uses the latest query, no stale args.
+function debounce(fn, delay) {
+  let timer = null, last = 0;
+  return (...args) => {
+    const now = Date.now();
+    clearTimeout(timer);
+    if (now - last >= delay) { last = now; fn(...args); }
+    else timer = setTimeout(() => { last = Date.now(); fn(...args); }, delay);
+  };
+}
+// Debounce the board's per-keystroke tree rebuild: updateTable() is O(N) and, as
+// the catalogue grows, re-running it on every character is the board's worst hot
+// path (measured ~50–92 ms/keystroke at 200–400 products — see ROADMAP scale
+// work). updateFilterChrome() stays synchronous — it's cheap and keeps the Reset
+// control in step with what's typed.
+const debouncedRenderBoard = debounce(renderBoard, 160);
 document.getElementById('board-search').addEventListener('input', e => {
   searchTerm = e.target.value;
-  updateFilterChrome();   // search feeds the reset control's visibility
-  renderBoard();          // search scopes whichever lens is active
+  updateFilterChrome();       // cheap, immediate: reset-control visibility
+  debouncedRenderBoard();     // expensive tree rebuild — debounced
 });
 
 document.getElementById('verdict-filter').addEventListener('change', e => {
@@ -6676,6 +6813,74 @@ function exportLedgerCsv() {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+// Admin-only full-database backup (the free-tier stand-in for Supabase's paid
+// PITR). Reads every table the admin's session is allowed to read and downloads
+// them as one timestamped JSON. RLS bounds it — deliberately so: it captures the
+// shared product data (products/snapshots), the public news feed, the admin's
+// own error reports + excluded-singles list, and the admin's OWN portfolio
+// (settings/holdings/alerts/sales/purchases). It does NOT include other users'
+// private rows (per-user RLS blocks the admin) or the service-role-only
+// `cardmarket_expansion_singles` cache (regenerable via Sync catalog). Both
+// exclusions are recorded in the file's meta so a restore is never misled about
+// what it holds. The complementary weekly service-role Action can capture the
+// all-users set unattended.
+async function downloadFullBackup() {
+  if (!sbUser) { setStatus('entry-status', 'Sign in to back up', true); return; }
+  const btn = document.getElementById('backup-db-btn');
+  try {
+    if (btn) btn.disabled = true;
+    setStatus('entry-status', 'Building backup…', false);
+    // Paginated reads (products/snapshots/news exceed PostgREST's 1000-row cap).
+    const page = (table, order) =>
+      fetchAllRows(() => sbClient.from(table).select('*').order(order, { ascending: true }));
+    const results = {
+      products:                    await page('products', 'name'),
+      snapshots:                   await allSnapshots(),
+      news:                        await page('news', 'id'),
+      client_errors:               await page('client_errors', 'id'),
+      cardmarket_excluded_singles: await page('cardmarket_excluded_singles', 'id_product'),
+      user_settings:               await page('user_settings', 'user_id'),
+      holdings:                    await page('holdings', 'id'),
+      alerts:                      await page('alerts', 'id'),
+      sales:                       await page('sales', 'id'),
+      purchases:                   await page('purchases', 'id'),
+      page_views:                  await page('page_views', 'id'),
+    };
+    const failed = Object.entries(results).find(([, r]) => r.error);
+    if (failed) throw failed[1].error;
+
+    const tables = Object.fromEntries(Object.entries(results).map(([k, r]) => [k, r.data || []]));
+    const row_counts = Object.fromEntries(Object.entries(tables).map(([k, v]) => [k, v.length]));
+    const backup = {
+      meta: {
+        app: 'Sealed Analytics',
+        format: 'sealed-analytics-backup/v1',
+        exported_at: new Date().toISOString(),
+        exported_by: sbUser.email || sbUser.id,
+        note: 'Client-side admin backup, bounded by RLS: shared product data + this ' +
+              'admin’s own portfolio. Excludes other users’ private rows and the ' +
+              'regenerable cardmarket_expansion_singles cache (rebuild via Sync catalog).',
+        row_counts,
+      },
+      tables,
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sealed-analytics-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+
+    const total = Object.values(row_counts).reduce((s, n) => s + n, 0);
+    setStatus('entry-status', `✓ Backup downloaded · ${total} rows across ${Object.keys(tables).length} tables`, false);
+  } catch (e) {
+    setStatus('entry-status', `✕ Backup failed: ${e.message || e}`, true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 document.getElementById('portfolio-add-btn').addEventListener('click', commitHolding);
 document.getElementById('portfolio-cancel-btn').addEventListener('click', exitPortfolioEdit);
 document.getElementById('ledger-csv-btn').addEventListener('click', exportLedgerCsv);
@@ -7020,6 +7225,17 @@ document.getElementById('method-close').addEventListener('click', () => closeOve
 });
 document.getElementById('glossary-close').addEventListener('click', () => closeOverlay('glossary-modal'));
 
+// Privacy + What's-new dialogs — the launch trust surfaces, opened by class from
+// the app-wide footer (reachable from every tab and logged out).
+[...document.querySelectorAll('.privacy-open')].forEach(btn => {
+  btn.addEventListener('click', () => openOverlay('privacy-modal'));
+});
+document.getElementById('privacy-close').addEventListener('click', () => closeOverlay('privacy-modal'));
+[...document.querySelectorAll('.changelog-open')].forEach(btn => {
+  btn.addEventListener('click', () => openOverlay('changelog-modal'));
+});
+document.getElementById('changelog-close').addEventListener('click', () => closeOverlay('changelog-modal'));
+
 // Format guide modal
 document.getElementById('guide-btn').addEventListener('click', () => openOverlay('guide-modal'));
 document.getElementById('guide-close').addEventListener('click', () => closeOverlay('guide-modal'));
@@ -7145,6 +7361,7 @@ function activateTab(btn, focusIt) {
   document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
   if (focusIt) btn.focus();
   if (btn.dataset.tab === 'entry') initEntryTab();
+  recordView(btn.dataset.tab);   // privacy-friendly, anonymous view count (no-op in static mode)
 }
 
 tabButtons.forEach(btn => {
@@ -8736,6 +8953,24 @@ function initErrorReporting() {
   (window.__clientErrors || []).splice(0).forEach(reportClientError);
 }
 
+// ── Privacy-friendly analytics: anonymous, aggregate view counts ──
+// Records which surface (tab, or the logged-out demo) was seen, at most ONCE per
+// surface per session, into the insert-only page_views table. Deliberately
+// self-rolled (no third-party script, no cookie) and privacy-minimal: no user
+// id, IP, referrer or user agent is stored — just an anonymous count per
+// surface, so it needs no consent banner. Fire-and-forget, hard-deduped, and a
+// no-op in static mode (and pre-init) exactly like the error beacon.
+const viewsRecorded = new Set();
+function recordView(view) {
+  try {
+    if (!sbClient) return;                 // static mode / pre-init: nowhere to send
+    const v = String(view || '').slice(0, 40);
+    if (!v || viewsRecorded.has(v)) return; // once per surface per session
+    viewsRecorded.add(v);
+    sbClient.from('page_views').insert({ view: v }).then(() => {}, () => {});
+  } catch (_) { /* analytics must never break the app */ }
+}
+
 function loadSupabaseSdk() {
   return new Promise((resolve, reject) => {
     if (window.supabase) return resolve(window.supabase);
@@ -9257,6 +9492,7 @@ async function loadDemo() {
   }));
   renderDemo(groups);
   mountDemoVizzes();        // sample "see it in action" charts, revealed on scroll
+  recordView('demo');      // anonymous view count for the logged-out surface
   if (window.__hideAppLoader) window.__hideAppLoader();   // demo is ready — drop the splash
 }
 
@@ -9519,6 +9755,7 @@ function wireAuthControls() {
   document.getElementById('save-cloud-btn').addEventListener('click', saveToSupabase);
   document.getElementById('resolve-ids-btn').addEventListener('click', resolveCardmarketIds);
   document.getElementById('sync-catalog-btn').addEventListener('click', syncCatalog);
+  document.getElementById('backup-db-btn').addEventListener('click', downloadFullBackup);
 
   // ── Change password (signed-in only) ──
   const openAccount = () => openPasswordForm(false);

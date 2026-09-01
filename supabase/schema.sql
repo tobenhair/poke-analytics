@@ -133,6 +133,10 @@ alter table public.snapshots add column if not exists price_low numeric check (p
 alter table public.snapshots add column if not exists promo_value numeric check (promo_value is null or promo_value >= 0);
 
 create index if not exists snapshots_product_idx on public.snapshots (product_id);
+-- Composite index for latest-per-product / recent-window / per-product-history
+-- reads (the G3 resilience access path, and the daily job's prior-window reads).
+create index if not exists snapshots_product_date_idx
+  on public.snapshots (product_id, snapshot_date desc);
 
 -- ── Cardmarket catalog cache: expansion → its single-card ids ──
 -- The precompute half of the "precompute + Edge Function" ingestion split. The
@@ -341,8 +345,11 @@ alter table public.news enable row level security;
 
 -- 👇 SET YOUR ADMIN USER UUID HERE 👇
 -- (used by the write policies below)
+-- search_path is pinned (set search_path = public) so the function can't be
+-- influenced by a caller's session search_path — the security-advisor
+-- `function_search_path_mutable` fix.
 create or replace function public.is_admin() returns boolean
-  language sql stable as $$
+  language sql stable set search_path = public as $$
     select auth.uid() = 'bba57af1-bf76-4034-8aba-cc3884df373c'::uuid
   $$;
 
@@ -385,36 +392,36 @@ create policy "admin writes snapshots" on public.snapshots
 drop policy if exists "own settings" on public.user_settings;
 create policy "own settings" on public.user_settings
   for all to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 -- ── holdings: each user reads/writes only their own portfolio ──
 drop policy if exists "own holdings" on public.holdings;
 create policy "own holdings" on public.holdings
   for all to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 -- ── alerts: each user reads/writes only their own price alerts ──
 drop policy if exists "own alerts" on public.alerts;
 create policy "own alerts" on public.alerts
   for all to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 -- ── sales: each user reads/writes only their own disposals ──
 drop policy if exists "own sales" on public.sales;
 create policy "own sales" on public.sales
   for all to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 -- ── purchases: each user reads/writes only their own buy events ──
 drop policy if exists "own purchases" on public.purchases;
 create policy "own purchases" on public.purchases
   for all to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 -- ── client_errors: anyone may report, only the admin may read ──
 -- No update/delete policies: rows are immutable via the API. A reporter may
@@ -422,7 +429,7 @@ create policy "own purchases" on public.purchases
 drop policy if exists "report errors" on public.client_errors;
 create policy "report errors" on public.client_errors
   for insert to anon, authenticated
-  with check (user_id is null or user_id = auth.uid());
+  with check (user_id is null or user_id = (select auth.uid()));
 drop policy if exists "admin reads errors" on public.client_errors;
 create policy "admin reads errors" on public.client_errors
   for select to authenticated using (public.is_admin());
@@ -434,6 +441,15 @@ create policy "admin reads errors" on public.client_errors
 -- expose ONLY those rows to the anon role; everything else still requires login.
 -- The set of demo product ids comes from a SECURITY DEFINER function so the
 -- subquery bypasses RLS (no recursion) and anon can't widen it.
+--
+-- Security-advisor note (accepted, not a bug): the linter flags this as an
+-- anon/authenticated-executable SECURITY DEFINER function reachable via
+-- /rest/v1/rpc. We deliberately keep it callable: the demo read policies below
+-- run AS the anon role and call this function, so anon MUST retain EXECUTE —
+-- revoking it (verified) breaks the demo. The exposure is benign: the RPC
+-- returns only the demo product UUIDs, which anon can already read from the
+-- demo product rows themselves. Closing the lint would mean moving the function
+-- to a non-API schema — added surface for no real gain — so it stays accepted.
 
 create or replace function public.demo_product_ids()
   returns setof uuid
@@ -463,3 +479,24 @@ create policy "demo read snapshots" on public.snapshots
 drop policy if exists "read news" on public.news;
 create policy "read news" on public.news
   for select to anon, authenticated using (true);
+
+-- ── Page views: privacy-friendly, self-rolled analytics ──
+-- Anonymous aggregate view counts. Deliberately privacy-minimal: only which
+-- surface was seen + a timestamp — NO user id, IP, referrer or user agent — so
+-- it needs no consent banner. Written by the client's recordView() beacon
+-- (insert-only, once per surface per session), read only by the admin, and
+-- immutable via the API (no update/delete policy).
+create table if not exists public.page_views (
+  id         bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  view       text not null check (char_length(view) <= 40)
+);
+create index if not exists page_views_created_idx on public.page_views (created_at desc);
+
+alter table public.page_views enable row level security;
+drop policy if exists "record page view" on public.page_views;
+create policy "record page view" on public.page_views
+  for insert to anon, authenticated with check (true);
+drop policy if exists "admin reads page views" on public.page_views;
+create policy "admin reads page views" on public.page_views
+  for select to authenticated using (public.is_admin());

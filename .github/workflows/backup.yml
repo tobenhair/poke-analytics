@@ -1,0 +1,111 @@
+name: Database backup
+
+# Weekly + on-demand backup of the Supabase database to a PRIVATE, off-site,
+# S3-compatible object store (Cloudflare R2 recommended — free 10 GB, no egress;
+# Backblaze B2 or AWS S3 work identically via the endpoint). Nothing is uploaded
+# as a GitHub artifact: this repo is PUBLIC, so no user data — encrypted or not —
+# should live on it.
+#
+# Two objects are written per run, under backups/<date>/ in the bucket:
+#   • sealed-analytics-db-<date>.json.gpg — the complete whole-database dump
+#     (every table, ALL users, incl. per-user portfolios). It is client-side
+#     encrypted (gpg AES-256) before upload as defense-in-depth on top of the
+#     private bucket, so the plaintext never leaves the runner.
+#   • pokemon_data-backup-<date>.xlsx — the re-importable tracked products +
+#     snapshots (already-public shared data; kept beside the dump for convenience).
+#
+# This is an INTERIM, free-tier posture (see SUPABASE.md → Backup & restore): it
+# adds an independent, private, encrypted off-site copy, but still has no
+# point-in-time recovery and a manual restore. A commercial build should add
+# Supabase's paid PITR / managed backups, a defined RPO/RTO, and a rehearsed
+# restore on top of this.
+#
+# Reads are SELECT-only (the export script never writes to the database).
+# Secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  — DB read (service role bypasses RLS)
+#   BACKUP_PASSPHRASE                         — encrypts the dump (only decrypt key)
+#   BACKUP_S3_BUCKET                          — private bucket name
+#   BACKUP_S3_ENDPOINT                        — e.g. https://<acct>.r2.cloudflarestorage.com
+#   BACKUP_S3_REGION                          — R2: auto · B2/S3: the bucket's region
+#   BACKUP_S3_ACCESS_KEY_ID, BACKUP_S3_SECRET_ACCESS_KEY — bucket API keys
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays 06:00 UTC
+  workflow_dispatch:       # on-demand (e.g. right after a manual data correction)
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Export, encrypt + upload to private off-site store
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      # Fail fast if encryption or destination is unconfigured, BEFORE any private
+      # data is written to disk — a misconfigured run can never produce a dump
+      # that has nowhere private to go.
+      - name: Require backup secrets
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+        run: |
+          missing=
+          for v in BACKUP_PASSPHRASE BACKUP_S3_BUCKET BACKUP_S3_ENDPOINT \
+                   BACKUP_S3_ACCESS_KEY_ID BACKUP_S3_SECRET_ACCESS_KEY; do
+            [ -z "${!v}" ] && missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required backup secret(s):$missing — see SUPABASE.md → Backup & restore."
+            exit 1
+          fi
+
+      - name: Export backups (tracked-data .xlsx + complete DB .json)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run backup -- --out "pokemon_data-backup-$(date -u +%Y-%m-%d).xlsx" --full-json
+
+      # Encrypt the private dump, then delete the plaintext. Decrypt later with:
+      #   gpg --batch --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+      #       -o db.json -d sealed-analytics-db-<date>.json.gpg
+      - name: Encrypt the full-DB dump
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          for f in sealed-analytics-db-*.json; do
+            gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+                --cipher-algo AES256 --symmetric -o "$f.gpg" "$f"
+            rm -f "$f"
+          done
+
+      # Upload to the private bucket. aws-cli is preinstalled on ubuntu runners and
+      # is S3-compatible via --endpoint-url (R2/B2/S3). Nothing goes to GitHub.
+      - name: Upload to private off-site bucket
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.BACKUP_S3_REGION }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+        run: |
+          set -euo pipefail
+          : "${AWS_DEFAULT_REGION:=auto}"   # R2 uses 'auto'
+          date_dir="$(date -u +%Y-%m-%d)"
+          dest="s3://$BACKUP_S3_BUCKET/backups/$date_dir/"
+          aws s3 cp "sealed-analytics-db-$date_dir.json.gpg" "$dest" --endpoint-url "$BACKUP_S3_ENDPOINT"
+          aws s3 cp "pokemon_data-backup-$date_dir.xlsx"     "$dest" --endpoint-url "$BACKUP_S3_ENDPOINT"
+          echo "Uploaded to $dest :"
+          aws s3 ls "$dest" --endpoint-url "$BACKUP_S3_ENDPOINT"
