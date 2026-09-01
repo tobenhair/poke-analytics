@@ -295,6 +295,14 @@ so no user data (encrypted or not) should live on it.
   gpg --batch --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
       -o sealed-analytics-db.json -d sealed-analytics-db-<date>.json.gpg
   ```
+  **No local gpg?** (a locked-down machine that can't install anything) run the
+  **Decrypt backup** workflow (`.github/workflows/restore-decrypt.yml`, Actions →
+  *Decrypt backup* → *Run workflow*, optionally a `date`; blank = most recent). It
+  decrypts the chosen dump on the runner and writes the plaintext JSON back into
+  the **same private bucket** under `restore/<date>/sealed-analytics-db.json` —
+  download that one file from the bucket dashboard in a browser, then **delete it
+  (and the `restore/` prefix)** when done. The plaintext only ever lives inside
+  your private bucket, never on GitHub. It uses the same secrets as the backup job.
 - `pokemon_data-backup-<date>.xlsx` — the contract-valid, re-importable copy of
   the tracked `products` + `snapshots` (re-imports through
   `supabase/migrate-xlsx.mjs`, passes `npm run validate`; Summary sheet also

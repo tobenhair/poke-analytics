@@ -1,0 +1,91 @@
+name: Decrypt backup
+
+# On-demand decrypt of an encrypted full-DB dump, for when you have no local gpg
+# (a locked-down machine that can't install anything). It pulls a chosen
+# `sealed-analytics-db-<date>.json.gpg` from the PRIVATE backup bucket, decrypts
+# it on the runner with BACKUP_PASSPHRASE, and writes the plaintext JSON back into
+# the SAME private bucket under `restore/<date>/sealed-analytics-db.json`. You then
+# download that one file from the bucket dashboard in a browser and DELETE it when
+# done — the plaintext only ever exists inside your private bucket, never on
+# GitHub (no artifact — this repo is public).
+#
+# This does NOT restore the database; it only makes a readable copy of a backup.
+# The actual restore (upsert rows with the service-role key, admin UUID first) is
+# in SUPABASE.md → Backup & restore → Restoring.
+
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Backup date to decrypt (YYYY-MM-DD). Leave blank for the most recent."
+        required: false
+        default: ""
+
+concurrency:
+  group: db-restore-decrypt
+  cancel-in-progress: false
+
+jobs:
+  decrypt:
+    name: Decrypt a backup into the private bucket
+    runs-on: ubuntu-latest
+    steps:
+      # Fail fast if the passphrase or destination is unconfigured.
+      - name: Require backup secrets
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+        run: |
+          missing=
+          for v in BACKUP_PASSPHRASE BACKUP_S3_BUCKET BACKUP_S3_ENDPOINT \
+                   BACKUP_S3_ACCESS_KEY_ID BACKUP_S3_SECRET_ACCESS_KEY; do
+            [ -z "${!v}" ] && missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required backup secret(s):$missing — see SUPABASE.md → Backup & restore."
+            exit 1
+          fi
+
+      - name: Pull, decrypt, and write plaintext back to the private bucket
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.BACKUP_S3_REGION }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          INPUT_DATE: ${{ github.event.inputs.date }}
+        run: |
+          set -euo pipefail
+          : "${AWS_DEFAULT_REGION:=auto}"   # R2 uses 'auto'
+          s3() { aws s3 "$@" --endpoint-url "$BACKUP_S3_ENDPOINT"; }
+
+          date_dir="$INPUT_DATE"
+          if [ -z "$date_dir" ]; then
+            # No date given → pick the newest backups/<date>/ prefix in the bucket.
+            date_dir="$(s3 ls "s3://$BACKUP_S3_BUCKET/backups/" \
+                        | awk '/PRE/ {print $2}' | sed 's#/$##' | sort | tail -1)"
+            [ -n "$date_dir" ] || { echo "::error::No backups/ found in the bucket."; exit 1; }
+            echo "No date given — using the most recent backup: $date_dir"
+          fi
+
+          src="s3://$BACKUP_S3_BUCKET/backups/$date_dir/sealed-analytics-db-$date_dir.json.gpg"
+          dest="s3://$BACKUP_S3_BUCKET/restore/$date_dir/sealed-analytics-db.json"
+
+          echo "Downloading $src"
+          s3 cp "$src" enc.json.gpg
+
+          echo "Decrypting"
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+              -o db.json -d enc.json.gpg
+
+          echo "Uploading plaintext to $dest"
+          s3 cp db.json "$dest"
+
+          # Never leave plaintext on the runner (it's ephemeral anyway, but be explicit).
+          rm -f db.json enc.json.gpg
+
+          echo "::notice::Decrypted backup written to $dest — download it from your bucket dashboard, then DELETE it (and the whole restore/ prefix) when done. The plaintext holds every user's private data."
