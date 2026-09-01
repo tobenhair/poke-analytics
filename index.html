@@ -1927,6 +1927,9 @@
   .auth-btn:hover { filter: brightness(1.08); }
   .auth-btn.secondary { background: transparent; color: var(--muted); }
   .auth-btn.secondary:hover { border-color: var(--accent); color: var(--text); }
+  /* Destructive confirm (delete account). Disabled until the email is typed. */
+  .auth-btn-danger { background: var(--accent2); color: var(--on-accent); }
+  .auth-btn-danger:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
   /* Text-weight action: a real button that carries no button weight. Started
      life scoped to the sign-in dialog's "Forgot your password?" — recovering an account is
      not a third equal choice beside Sign in and Create an account — and the
@@ -1993,6 +1996,11 @@
     transition: color 0.15s, background 0.15s;
   }
   .profile-menu-item:hover { color: var(--text); background: var(--card); }
+  /* Destructive action — red, set apart from the neutral items above it. */
+  .profile-menu-danger { color: var(--accent2); border-top: 1px solid var(--hairline); margin-top: 2px; padding-top: 10px; }
+  .profile-menu-danger:hover { color: var(--accent2); background: rgba(232, 71, 63, 0.08); }
+  /* Hidden for the admin — deleting the admin would cascade-wipe shared data. */
+  html.is-admin .not-admin-only { display: none !important; }
 
   /* ── Welcome tab — a signed-in landing ──
      Built from classes rather than the inline styles it used to carry, so the
@@ -2302,6 +2310,7 @@
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></symbol>
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M14 4.5h3.5A1.5 1.5 0 0 1 19 6v12a1.5 1.5 0 0 1-1.5 1.5H14"/><path d="M9.5 12h9M15 8l4 4-4 4"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V5.5a1.5 1.5 0 0 1 1.5-1.5h1A1.5 1.5 0 0 1 14 5.5V7M6.5 7l.8 11a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-11M10 11v6M14 11v6"/></symbol>
   <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="15" rx="2"/><path d="M3.5 10.2h17M8 3.5v4M16 3.5v4"/></symbol>
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5.2"/><circle cx="12" cy="8.1" r="0.9" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.5" fill="currentColor" stroke="none"/></symbol>
@@ -2367,6 +2376,26 @@
     <div id="account-msg" style="display:none; border-radius:6px; padding:10px 14px; margin-bottom:12px;
          font-family:'DM Mono',monospace; font-size: var(--text-sm); line-height:1.5;"></div>
     <button class="auth-btn" id="account-save-btn" type="button">Update password</button>
+  </div>
+</div>
+
+<!-- Delete-account confirmation — a real dialog (openOverlay/closeOverlay).
+     Irreversible, so it requires typing the account email to confirm before the
+     button enables. Deletes the caller's own account + all their private data
+     (holdings/alerts/sales/purchases/settings) via the delete-account Edge
+     Function. Direct child of <body>. -->
+<div class="modal-overlay" id="delete-account-overlay">
+  <div class="modal" style="max-width:420px;" role="dialog" aria-modal="true" aria-labelledby="delete-account-heading" tabindex="-1">
+    <button class="modal-close" id="delete-account-close" type="button" aria-label="Close delete-account">✕</button>
+    <h2 style="margin:0 0 6px;" id="delete-account-heading">Delete account</h2>
+    <p class="modal-intro">This permanently deletes your account and everything tied to it — your portfolio, price alerts, transaction history and settings. <strong>This cannot be undone.</strong> The shared product data is unaffected.</p>
+    <div class="auth-field">
+      <div class="field-label">Type your email to confirm: <span id="delete-account-email" class="code-inline"></span></div>
+      <input class="field-input" id="delete-account-confirm" type="email" autocomplete="off" placeholder="your email address">
+    </div>
+    <div id="delete-account-msg" style="display:none; border-radius:6px; padding:10px 14px; margin-bottom:12px;
+         font-family:'DM Mono',monospace; font-size: var(--text-sm); line-height:1.5;"></div>
+    <button class="auth-btn auth-btn-danger" id="delete-account-btn-confirm" type="button" disabled>Delete my account</button>
   </div>
 </div>
 
@@ -2584,8 +2613,9 @@
     <div class="modal-section">
       <h3>Your rights</h3>
       <p class="method-text">You can see, correct, export or delete your data at any time — most of it from the
-      Portfolio tab, the rest on request. To delete your account and everything tied to it, or for any privacy
-      question, contact <a href="mailto:sealedanalytics@outlook.com">sealedanalytics@outlook.com</a>.</p>
+      Portfolio tab, the rest on request. You can permanently delete your account and everything tied to it
+      yourself from the <strong>account menu → Delete account</strong>. For any privacy question, contact
+      <a href="mailto:sealedanalytics@outlook.com">sealedanalytics@outlook.com</a>.</p>
     </div>
 
     <div class="modal-note">
@@ -2943,6 +2973,10 @@
             <span id="auth-user-email" class="profile-email"></span>
             <button class="profile-menu-item" id="change-pw-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg> Change password</button>
             <button class="profile-menu-item" id="auth-signout-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-out"/></svg> Sign out</button>
+            <!-- Self-service account deletion (GDPR erasure). Hidden for the admin
+                 (.is-admin) — deleting the admin would cascade-wipe the shared
+                 dataset; the Edge Function refuses it server-side too. -->
+            <button class="profile-menu-item profile-menu-danger not-admin-only" id="delete-account-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg> Delete account</button>
           </div>
         </div>
       </div>
@@ -9026,6 +9060,31 @@ function accountMsg(msg, isError) {
   el.style.display   = 'block';
 }
 
+// Delete-account dialog: reset it, show the account email the user must retype,
+// disable the confirm button until it matches, then open. Never shown to the
+// admin (the menu item is .not-admin-only), and the Edge Function refuses the
+// admin too — deleting them would cascade-wipe the shared dataset.
+function openDeleteAccountForm() {
+  const input = document.getElementById('delete-account-confirm');
+  input.value = '';
+  document.getElementById('delete-account-email').textContent = (sbUser && sbUser.email) || '';
+  document.getElementById('delete-account-btn-confirm').disabled = true;
+  deleteAccountMsg('');
+  openOverlay('delete-account-overlay', '#delete-account-confirm');
+}
+
+// Message inside the delete-account modal (isError toggles red vs green).
+function deleteAccountMsg(msg, isError) {
+  const el = document.getElementById('delete-account-msg');
+  if (!msg) { el.style.display = 'none'; return; }
+  el.textContent = msg;
+  el.style.background = isError ? 'rgba(232,71,63,0.08)' : 'rgba(127,212,147,0.08)';
+  el.style.border    = '1px solid ' + (isError ? 'rgba(232,71,63,0.2)' : 'rgba(127,212,147,0.25)');
+  el.style.borderLeft = '3px solid ' + (isError ? 'var(--accent2)' : 'var(--accent4)');
+  el.style.color     = isError ? '#e8a0a0' : '#9fd9ad';
+  el.style.display   = 'block';
+}
+
 // Reflect signed-in state in the UI. Every signed-in user gets `sb-authed`
 // (sign-out + change-password + shared data). Only the admin — the account
 // whose UUID matches SUPABASE_CONFIG.adminUserId — gets `is-admin`, which
@@ -9763,6 +9822,36 @@ function wireAuthControls() {
 
   document.getElementById('change-pw-btn').addEventListener('click', openAccount);
   document.getElementById('account-close').addEventListener('click', closeAccount);
+
+  // ── Delete account (self-service, signed-in non-admin) ──
+  document.getElementById('delete-account-btn').addEventListener('click', openDeleteAccountForm);
+  document.getElementById('delete-account-close').addEventListener('click', () => closeOverlay('delete-account-overlay'));
+  const delConfirmInput = document.getElementById('delete-account-confirm');
+  const delConfirmBtn = document.getElementById('delete-account-btn-confirm');
+  // Enable the destructive button only when the typed email matches the account.
+  delConfirmInput.addEventListener('input', () => {
+    const typed = delConfirmInput.value.trim().toLowerCase();
+    const own = ((sbUser && sbUser.email) || '').toLowerCase();
+    delConfirmBtn.disabled = !own || typed !== own;
+  });
+  const submitDeleteAccount = async () => {
+    if (delConfirmBtn.disabled) return;
+    delConfirmBtn.disabled = true;
+    deleteAccountMsg('Deleting your account…', false);
+    try {
+      const { error } = await sbClient.functions.invoke('delete-account');
+      if (error) throw error;
+      deleteAccountMsg('✓ Account deleted. Signing you out…', false);
+      // The user row is gone; end the session so the app returns to the demo.
+      setTimeout(async () => { await sbClient.auth.signOut(); closeOverlay('delete-account-overlay'); }, 1200);
+    } catch (err) {
+      delConfirmBtn.disabled = false;
+      reportClientError({ message: 'Account deletion failed: ' + (err.message || err), stack: err.stack });
+      deleteAccountMsg('✕ ' + (err.message || 'Could not delete the account. Please try again.'), true);
+    }
+  };
+  delConfirmBtn.addEventListener('click', submitDeleteAccount);
+  delConfirmInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitDeleteAccount(); });
 
   // Profile menu: a disclosure holding the account actions, so the header stays
   // one compact control on a phone instead of an email + two buttons that

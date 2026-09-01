@@ -31,6 +31,26 @@ This is a **shared-dataset** setup:
   register. Each viewer's age-threshold preference is private to them; the
   product data is shared.
 
+### Account deletion (self-service)
+
+Any signed-in **non-admin** user can permanently delete their own account from
+the app's **account menu → Delete account** (a typed-email confirmation guards
+it). Because a client can't remove its own `auth.users` row, this goes through
+the **`supabase/functions/delete-account`** Edge Function: it identifies the
+caller from *their* bearer token (never a request body), so a user can only ever
+delete themselves, then calls `auth.admin.deleteUser` with the service role. All
+of that user's private rows (`holdings`/`alerts`/`sales`/`purchases`/
+`user_settings`) are removed automatically by the existing
+`on delete cascade` foreign keys; `client_errors.user_id` is set null.
+
+**The admin is refused** — both in the UI (the menu item is hidden) and in the
+function (it checks `is_admin()` and returns 403). This is deliberate:
+`products`/`snapshots` are admin-owned and also cascade, so deleting the admin
+would wipe the entire shared dataset. Deploy this function alongside the others
+(see *Setup* / the deploy note below); it needs no schema change and no cron —
+it uses the auto-injected `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` /
+`SUPABASE_ANON_KEY`.
+
 ## Setup
 
 1. **Create a project** at [supabase.com](https://supabase.com) (the free tier
@@ -369,17 +389,108 @@ vendor-independent recovery) → run `schema.sql`, then
 a backup until a restore has been *run*. Rehearse into a throwaway target — a
 local stack (`supabase start`, free, Docker: real Postgres + auth + PostgREST,
 so `schema.sql` and `migrate-xlsx.mjs` run unmodified) is the recommended
-destination — then correct the steps above from what actually happened, and note
-the date. A local stack **cannot** exercise the three email jobs
-(`staleness-reminder.sql`, `alert-emails.sql`, `error-digest.sql` — they need
-`pg_cron` + `pg_net` + a Vault Resend key + outbound HTTP) or the dashboard-only
-steps (API keys, Auth URL config); say so rather than skipping them silently.
+destination. Do it once end-to-end, then correct the steps above from what
+actually happened and note the date.
 
-> **Status:** the in-tool JSON backup, the export script and the weekly workflow
-> are in place. The one remaining operator step to fully close this out is a
-> **rehearsed restore** (run it once into a local `supabase start` stack and
-> correct the steps above from what happened). Managed PITR (3) is an optional
-> paid upgrade, not required.
+#### Rehearsal walkthrough (local stack)
+
+Prerequisites: Docker running, the **Supabase CLI**, and Node. Run from the repo
+root. This restores the **tracked dataset** (`products` + `snapshots`) from a
+backup `.xlsx` — the simplest full path, since `migrate-xlsx.mjs` runs unmodified;
+the full-DB JSON dump is only needed to restore per-user portfolios.
+
+1. **Bring up a clean local stack.** It prints a local **API URL**
+   (`http://127.0.0.1:54321`), **Studio** (`http://127.0.0.1:54323`), a **DB URL**,
+   and local **anon** + **service_role** keys — copy them.
+   ```
+   supabase start
+   ```
+2. **Get a readable backup.** Either download a `pokemon_data-backup-<date>.xlsx`
+   from the R2 bucket directly (it is not encrypted), **or**, to also rehearse the
+   full-DB path, run the **Decrypt backup** workflow and download
+   `restore/<date>/sealed-analytics-db.json` from the bucket.
+3. **Create the admin account first, and read its new UUID.** In local Studio →
+   **Authentication → Add user**, create a user (any email/password); copy its
+   **User UID**. A fresh stack mints a *different* UUID than production.
+4. **Patch that UUID into both places before running the schema** (or the DB is
+   unwritable): the literal in `public.is_admin()` in `supabase/schema.sql` **and**
+   `SUPABASE_CONFIG.adminUserId` in `index.html`. `npm run test:unit`
+   (`repo-invariants.test.mjs`) checks they match.
+5. **Run the schema** against the local DB:
+   ```
+   psql "<DB URL from step 1>" -f supabase/schema.sql
+   ```
+   (Or paste `supabase/schema.sql` into the Studio SQL editor.)
+6. **Load the tracked data** with the migration script, pointed at the local
+   stack and signing in as the admin from step 3:
+   ```
+   SUPABASE_URL="http://127.0.0.1:54321" \
+   SUPABASE_ANON_KEY="<local anon key>" \
+   MIGRATE_EMAIL="<admin email>" \
+   MIGRATE_PASSWORD="<admin password>" \
+   node supabase/migrate-xlsx.mjs pokemon_data-backup-<date>.xlsx
+   ```
+   *(To restore per-user portfolios too, upsert the JSON dump's rows with the
+   local **service_role** key — see the JSON-restore paragraph above.)*
+7. **Verify.** Quick check straight from the DB:
+   ```
+   psql "<DB URL>" -c "select name, release_date from products order by release_date desc limit 5;"
+   ```
+   Then the real proof — boot the app against the local stack: temporarily set
+   `SUPABASE_CONFIG.url` / `.anonKey` in `index.html` to the local API URL + anon
+   key, `python3 -m http.server 8000`, sign in as the admin, and spot-check a known
+   product's latest price and Set Value against the backup. **Revert that
+   `index.html` edit** (and the step-4 UUID patch) before committing — they're
+   local-only.
+8. **Tear down** and record the date you rehearsed:
+   ```
+   supabase stop
+   ```
+
+A local stack **cannot** exercise the three email jobs (`staleness-reminder.sql`,
+`alert-emails.sql`, `error-digest.sql` — they need `pg_cron` + `pg_net` + a Vault
+Resend key + outbound HTTP) or the dashboard-only steps (API keys, Auth URL
+config); note that rather than skipping them silently.
+
+#### Browser-only rehearsal (second project, no local install)
+
+If you can't install Docker / the CLI / Node, rehearse into a **second, throwaway
+Supabase project** (the free tier allows two) using only the dashboard plus one
+GitHub Action. Rehearse with the tracked-data **`.xlsx`** (already-public
+`products`/`snapshots`), **not** the full-DB JSON dump, so no other user's private
+rows are ever copied into a second project.
+
+1. **Create a throwaway project** in the Supabase dashboard. Note its **API URL**
+   (`https://<ref>.supabase.co`) and **anon key** (Project Settings → API).
+2. **Add the admin user.** Authentication → **Add user** (any email/password);
+   copy its **User UID**.
+3. **Run the schema.** SQL Editor → paste `supabase/schema.sql`, but first change
+   the UUID literal in the `is_admin()` block to that new user's UID (or run it,
+   then `alter function`).
+4. **Set the admin password as a secret.** Repo → Settings → Secrets and variables
+   → Actions → **`RESTORE_MIGRATE_PASSWORD`** = the admin password from step 2.
+   (The target URL, anon key and email are passed as run inputs — none is secret;
+   the anon key is public. The password is kept out of the run log as a secret.)
+5. **Load the data (the one non-browser step, run from the browser).** Actions →
+   **Restore rehearsal** → **Run workflow**, with `target_url`, `target_anon_key`
+   and `migrate_email` from steps 1–2 (blank `backup_date` = most recent). It
+   pulls the backup `.xlsx` from the private bucket and runs `migrate-xlsx.mjs`
+   against the throwaway project. It **hard-refuses the production URL** (it
+   upserts rows), so it can only ever write to the throwaway project.
+6. **Verify** in the throwaway project's **Table Editor**: `products`/`snapshots`
+   rows match the backup. (Booting the app against it is optional — the dashboard
+   rows are proof enough for a rehearsal.)
+7. **Delete the throwaway project** in its dashboard settings, and remove the
+   `RESTORE_MIGRATE_PASSWORD` secret. Record the date you rehearsed.
+
+Same caveat as the local stack: this proves schema-applies + data-loads + the
+UUID step, not the email jobs or dashboard-only Auth config.
+
+> **Status:** the in-tool JSON backup, the export script, the weekly workflow and
+> the on-demand **Decrypt backup** workflow are in place. The one remaining
+> operator step to fully close this out is a **rehearsed restore** (the walkthrough
+> above, run once, with the steps corrected from what actually happened and the
+> date recorded). Managed PITR (3) is an optional paid upgrade, not required.
 
 ## Optional: automated Cardmarket ingestion
 
