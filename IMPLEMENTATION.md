@@ -144,9 +144,12 @@ and run the `security-review` skill over the final diff.
      only the demo product UUIDs anon already reads. Closing it would mean moving
      the function to a non-API schema (added surface, no real gain). Documented in
      `schema.sql`.
-   - **Leaked-password protection disabled** (WARN) → **pending**: a dashboard
-     toggle (Auth → Password security → enable HaveIBeenPwned). Not applyable via
-     SQL — the one remaining operator click.
+   - **Leaked-password protection disabled** (WARN) → **deferred (paid plan)**:
+     the HaveIBeenPwned check (Auth → Password security) is a **Pro-plan** feature,
+     greyed out on free tier, so it can't be enabled now — it moves onto the paid
+     upgrade list beside managed PITR. Free-tier mitigation that *is* available and
+     should be set: raise the **minimum password length** (default 6 → 8–10) and
+     enable **password character requirements** in the same Auth settings.
    - **Accept-with-reason (documented, unchanged):**
      `cardmarket_expansion_singles` "RLS enabled, no policy" (INFO — intentional
      service-role-only cache); `multiple_permissive_policies` on
