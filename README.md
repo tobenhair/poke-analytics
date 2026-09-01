@@ -145,6 +145,11 @@ the app at a [Supabase](https://supabase.com) project while still hosting the
 frontend on GitHub Pages. This is off unless you fill in `SUPABASE_CONFIG` in
 `index.html`. See **[SUPABASE.md](SUPABASE.md)** for the full walkthrough.
 
+Signed-in users manage their own account from the header **account menu**: change
+password, sign out, and **delete their account** (permanently removing their
+portfolio, alerts and settings — a typed-email confirmation guards it). The admin
+account can't be self-deleted, since it owns the shared product data.
+
 ## Data file format
 
 `pokemon_data.xlsx` must contain two sheets with these exact (case-sensitive) column names. An optional `Links` sheet stores Cardmarket URLs.

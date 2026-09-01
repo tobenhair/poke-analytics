@@ -16,6 +16,7 @@
 //                update(row).eq(...)
 //                upsert(rowOrRows, { onConflict })
 //                delete().eq(...).eq(...)
+//   functions.invoke(name): records the call, returns { ok: true } (delete-account)
 // Read scoping mirrors the RLS *shape* (not its security): anonymous reads of
 // products/snapshots return only the 3-newest-releases demo subset; per-user
 // tables return only the signed-in user's rows. Every write is appended to
@@ -268,7 +269,17 @@
       listeners.forEach(function (cb) { cb('PASSWORD_RECOVERY', session); });
     };
 
-    return { auth: auth, from: from };
+    // Edge Functions stand-in: record the call so a spec can assert it, and
+    // return success. delete-account's real work (removing the auth user) is
+    // server-side; the client's job is the invoke + the subsequent signOut.
+    var functions = {
+      invoke: function (name) {
+        window.__sbWrites.push({ table: 'functions', op: 'invoke', payload: { name: name } });
+        return Promise.resolve({ data: { ok: true }, error: null });
+      },
+    };
+
+    return { auth: auth, from: from, functions: functions };
   }
 
   window.supabase = { createClient: createClient };

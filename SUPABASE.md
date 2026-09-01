@@ -31,6 +31,26 @@ This is a **shared-dataset** setup:
   register. Each viewer's age-threshold preference is private to them; the
   product data is shared.
 
+### Account deletion (self-service)
+
+Any signed-in **non-admin** user can permanently delete their own account from
+the app's **account menu → Delete account** (a typed-email confirmation guards
+it). Because a client can't remove its own `auth.users` row, this goes through
+the **`supabase/functions/delete-account`** Edge Function: it identifies the
+caller from *their* bearer token (never a request body), so a user can only ever
+delete themselves, then calls `auth.admin.deleteUser` with the service role. All
+of that user's private rows (`holdings`/`alerts`/`sales`/`purchases`/
+`user_settings`) are removed automatically by the existing
+`on delete cascade` foreign keys; `client_errors.user_id` is set null.
+
+**The admin is refused** — both in the UI (the menu item is hidden) and in the
+function (it checks `is_admin()` and returns 403). This is deliberate:
+`products`/`snapshots` are admin-owned and also cascade, so deleting the admin
+would wipe the entire shared dataset. Deploy this function alongside the others
+(see *Setup* / the deploy note below); it needs no schema change and no cron —
+it uses the auto-injected `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` /
+`SUPABASE_ANON_KEY`.
+
 ## Setup
 
 1. **Create a project** at [supabase.com](https://supabase.com) (the free tier

@@ -295,6 +295,43 @@ test('the account actions live in a profile menu that keeps the phone header fro
   expect(pageErrors).toEqual([]);
 });
 
+test('a regular user can delete their own account; the admin cannot', async ({ page }) => {
+  const pageErrors = await boot(page);
+  await signIn(page, 'user@test.local');
+
+  // The Delete account item shows for a regular user; opening it reveals the
+  // confirm dialog with the destructive button disabled until the email matches.
+  await page.locator('#profile-btn').click();
+  const delItem = page.locator('#delete-account-btn');
+  await expect(delItem).toBeVisible();
+  await delItem.click();
+  await expect(page.locator('#delete-account-overlay')).toHaveClass(/open/);
+  await expect(page.locator('#delete-account-email')).toHaveText('user@test.local');
+
+  const confirmBtn = page.locator('#delete-account-btn-confirm');
+  const confirmInput = page.locator('#delete-account-confirm');
+  await expect(confirmBtn).toBeDisabled();
+  await confirmInput.fill('wrong@test.local');
+  await expect(confirmBtn).toBeDisabled();          // mismatch keeps it locked
+  await confirmInput.fill('user@test.local');
+  await expect(confirmBtn).toBeEnabled();
+
+  // Confirming invokes the delete-account Edge Function, then signs the user out
+  // → the app falls back to the logged-out demo.
+  await confirmBtn.click();
+  const invokes = await page.evaluate(() =>
+    window.__sbWrites.filter((w) => w.table === 'functions' && w.op === 'invoke').map((w) => w.payload.name));
+  expect(invokes).toContain('delete-account');
+  await expect(page.locator('#demo-page')).toBeVisible();   // signed out after deletion
+
+  // The admin must NOT see the option (deleting them cascade-wipes shared data).
+  await signIn(page, 'admin@test.local');
+  await page.locator('#profile-btn').click();
+  await expect(page.locator('#delete-account-btn')).toBeHidden();
+
+  expect(pageErrors).toEqual([]);
+});
+
 test('a regular user gets portfolio + alerts but not Data Entry, and edits auto-save', async ({ page }) => {
   const pageErrors = await boot(page);
   await signIn(page, 'user@test.local');
