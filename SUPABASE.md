@@ -432,6 +432,40 @@ A local stack **cannot** exercise the three email jobs (`staleness-reminder.sql`
 Resend key + outbound HTTP) or the dashboard-only steps (API keys, Auth URL
 config); note that rather than skipping them silently.
 
+#### Browser-only rehearsal (second project, no local install)
+
+If you can't install Docker / the CLI / Node, rehearse into a **second, throwaway
+Supabase project** (the free tier allows two) using only the dashboard plus one
+GitHub Action. Rehearse with the tracked-data **`.xlsx`** (already-public
+`products`/`snapshots`), **not** the full-DB JSON dump, so no other user's private
+rows are ever copied into a second project.
+
+1. **Create a throwaway project** in the Supabase dashboard. Note its **API URL**
+   (`https://<ref>.supabase.co`) and **anon key** (Project Settings → API).
+2. **Add the admin user.** Authentication → **Add user** (any email/password);
+   copy its **User UID**.
+3. **Run the schema.** SQL Editor → paste `supabase/schema.sql`, but first change
+   the UUID literal in the `is_admin()` block to that new user's UID (or run it,
+   then `alter function`).
+4. **Set the admin password as a secret.** Repo → Settings → Secrets and variables
+   → Actions → **`RESTORE_MIGRATE_PASSWORD`** = the admin password from step 2.
+   (The target URL, anon key and email are passed as run inputs — none is secret;
+   the anon key is public. The password is kept out of the run log as a secret.)
+5. **Load the data (the one non-browser step, run from the browser).** Actions →
+   **Restore rehearsal** → **Run workflow**, with `target_url`, `target_anon_key`
+   and `migrate_email` from steps 1–2 (blank `backup_date` = most recent). It
+   pulls the backup `.xlsx` from the private bucket and runs `migrate-xlsx.mjs`
+   against the throwaway project. It **hard-refuses the production URL** (it
+   upserts rows), so it can only ever write to the throwaway project.
+6. **Verify** in the throwaway project's **Table Editor**: `products`/`snapshots`
+   rows match the backup. (Booting the app against it is optional — the dashboard
+   rows are proof enough for a rehearsal.)
+7. **Delete the throwaway project** in its dashboard settings, and remove the
+   `RESTORE_MIGRATE_PASSWORD` secret. Record the date you rehearsed.
+
+Same caveat as the local stack: this proves schema-applies + data-loads + the
+UUID step, not the email jobs or dashboard-only Auth config.
+
 > **Status:** the in-tool JSON backup, the export script, the weekly workflow and
 > the on-demand **Decrypt backup** workflow are in place. The one remaining
 > operator step to fully close this out is a **rehearsed restore** (the walkthrough

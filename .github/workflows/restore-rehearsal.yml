@@ -1,0 +1,127 @@
+name: Restore rehearsal
+
+# Browser-only restore rehearsal: loads a tracked-data backup .xlsx from the
+# private bucket into a SEPARATE, throwaway Supabase project, so you can prove a
+# restore works without installing Docker / the CLI / Node locally. This is the
+# one step of the rehearsal a browser can't do (migrate-xlsx.mjs is a Node
+# script); the rest — create the project, run schema.sql, add the admin user,
+# verify rows — is done in the Supabase dashboard. Full walkthrough in
+# SUPABASE.md → Backup & restore → Browser-only rehearsal.
+#
+# Rehearse with the tracked-data .xlsx (products + snapshots — already-public
+# data), NOT the full-DB JSON dump, so no user's private rows are ever copied
+# into a second project.
+#
+# SAFETY: this WRITES (upserts products/snapshots) into the project you name, so
+# it hard-refuses the production project URL. Point it only at a throwaway
+# project you can delete afterwards.
+#
+# Prerequisites you do in the dashboard FIRST (see SUPABASE.md):
+#   1. Create a second (throwaway) Supabase project.
+#   2. Authentication → Add user → create an admin; copy its User UID.
+#   3. SQL Editor → run supabase/schema.sql with the is_admin() UUID set to that
+#      new user's UID.
+#   4. Set the RESTORE_MIGRATE_PASSWORD secret to that admin's password.
+# Then run this workflow with the target URL / anon key / admin email as inputs.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "Throwaway project API URL (https://<ref>.supabase.co) — NOT production"
+        required: true
+      target_anon_key:
+        description: "Throwaway project anon key (public key, safe to paste)"
+        required: true
+      migrate_email:
+        description: "Admin email on the throwaway project"
+        required: true
+      backup_date:
+        description: "Backup date (YYYY-MM-DD) to restore. Blank = most recent."
+        required: false
+        default: ""
+
+concurrency:
+  group: db-restore-rehearsal
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    name: Load a backup .xlsx into a throwaway project
+    runs-on: ubuntu-latest
+    steps:
+      # Never write to production, and never run without the admin password.
+      - name: Guard target + require secrets
+        env:
+          TARGET_URL: ${{ github.event.inputs.target_url }}
+          RESTORE_MIGRATE_PASSWORD: ${{ secrets.RESTORE_MIGRATE_PASSWORD }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          # Hard-refuse the production project — this workflow upserts rows.
+          case "$TARGET_URL" in
+            *asjsyhodyiuajueidcwp*)
+              echo "::error::target_url is the PRODUCTION project. This rehearsal only runs against a throwaway project."
+              exit 1 ;;
+          esac
+          case "$TARGET_URL" in
+            https://*.supabase.co*) : ;;
+            *) echo "::error::target_url must look like https://<ref>.supabase.co"; exit 1 ;;
+          esac
+          missing=
+          for v in RESTORE_MIGRATE_PASSWORD BACKUP_S3_BUCKET BACKUP_S3_ENDPOINT \
+                   BACKUP_S3_ACCESS_KEY_ID BACKUP_S3_SECRET_ACCESS_KEY; do
+            [ -z "${!v}" ] && missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required secret(s):$missing — set RESTORE_MIGRATE_PASSWORD plus the bucket secrets (see SUPABASE.md)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22   # @supabase/supabase-js needs Node >=22
+          cache: npm
+      - run: npm ci
+
+      - name: Download the backup .xlsx from the private bucket
+        id: fetch
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.BACKUP_S3_REGION }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          INPUT_DATE: ${{ github.event.inputs.backup_date }}
+        run: |
+          set -euo pipefail
+          : "${AWS_DEFAULT_REGION:=auto}"   # R2 uses 'auto'
+          s3() { aws s3 "$@" --endpoint-url "$BACKUP_S3_ENDPOINT"; }
+
+          date_dir="$INPUT_DATE"
+          if [ -z "$date_dir" ]; then
+            date_dir="$(s3 ls "s3://$BACKUP_S3_BUCKET/backups/" \
+                        | awk '/PRE/ {print $2}' | sed 's#/$##' | sort | tail -1)"
+            [ -n "$date_dir" ] || { echo "::error::No backups/ found in the bucket."; exit 1; }
+            echo "No date given — using the most recent backup: $date_dir"
+          fi
+
+          src="s3://$BACKUP_S3_BUCKET/backups/$date_dir/pokemon_data-backup-$date_dir.xlsx"
+          echo "Downloading $src"
+          s3 cp "$src" backup.xlsx
+          echo "date_dir=$date_dir" >> "$GITHUB_OUTPUT"
+
+      - name: Load tracked data into the throwaway project
+        env:
+          SUPABASE_URL: ${{ github.event.inputs.target_url }}
+          SUPABASE_ANON_KEY: ${{ github.event.inputs.target_anon_key }}
+          MIGRATE_EMAIL: ${{ github.event.inputs.migrate_email }}
+          MIGRATE_PASSWORD: ${{ secrets.RESTORE_MIGRATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          node supabase/migrate-xlsx.mjs backup.xlsx
+          echo "::notice::Restored the ${{ steps.fetch.outputs.date_dir }} backup into the target project. Verify products/snapshots in its Table Editor, then DELETE the throwaway project."
