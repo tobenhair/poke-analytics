@@ -369,17 +369,74 @@ vendor-independent recovery) → run `schema.sql`, then
 a backup until a restore has been *run*. Rehearse into a throwaway target — a
 local stack (`supabase start`, free, Docker: real Postgres + auth + PostgREST,
 so `schema.sql` and `migrate-xlsx.mjs` run unmodified) is the recommended
-destination — then correct the steps above from what actually happened, and note
-the date. A local stack **cannot** exercise the three email jobs
-(`staleness-reminder.sql`, `alert-emails.sql`, `error-digest.sql` — they need
-`pg_cron` + `pg_net` + a Vault Resend key + outbound HTTP) or the dashboard-only
-steps (API keys, Auth URL config); say so rather than skipping them silently.
+destination. Do it once end-to-end, then correct the steps above from what
+actually happened and note the date.
 
-> **Status:** the in-tool JSON backup, the export script and the weekly workflow
-> are in place. The one remaining operator step to fully close this out is a
-> **rehearsed restore** (run it once into a local `supabase start` stack and
-> correct the steps above from what happened). Managed PITR (3) is an optional
-> paid upgrade, not required.
+#### Rehearsal walkthrough (local stack)
+
+Prerequisites: Docker running, the **Supabase CLI**, and Node. Run from the repo
+root. This restores the **tracked dataset** (`products` + `snapshots`) from a
+backup `.xlsx` — the simplest full path, since `migrate-xlsx.mjs` runs unmodified;
+the full-DB JSON dump is only needed to restore per-user portfolios.
+
+1. **Bring up a clean local stack.** It prints a local **API URL**
+   (`http://127.0.0.1:54321`), **Studio** (`http://127.0.0.1:54323`), a **DB URL**,
+   and local **anon** + **service_role** keys — copy them.
+   ```
+   supabase start
+   ```
+2. **Get a readable backup.** Either download a `pokemon_data-backup-<date>.xlsx`
+   from the R2 bucket directly (it is not encrypted), **or**, to also rehearse the
+   full-DB path, run the **Decrypt backup** workflow and download
+   `restore/<date>/sealed-analytics-db.json` from the bucket.
+3. **Create the admin account first, and read its new UUID.** In local Studio →
+   **Authentication → Add user**, create a user (any email/password); copy its
+   **User UID**. A fresh stack mints a *different* UUID than production.
+4. **Patch that UUID into both places before running the schema** (or the DB is
+   unwritable): the literal in `public.is_admin()` in `supabase/schema.sql` **and**
+   `SUPABASE_CONFIG.adminUserId` in `index.html`. `npm run test:unit`
+   (`repo-invariants.test.mjs`) checks they match.
+5. **Run the schema** against the local DB:
+   ```
+   psql "<DB URL from step 1>" -f supabase/schema.sql
+   ```
+   (Or paste `supabase/schema.sql` into the Studio SQL editor.)
+6. **Load the tracked data** with the migration script, pointed at the local
+   stack and signing in as the admin from step 3:
+   ```
+   SUPABASE_URL="http://127.0.0.1:54321" \
+   SUPABASE_ANON_KEY="<local anon key>" \
+   MIGRATE_EMAIL="<admin email>" \
+   MIGRATE_PASSWORD="<admin password>" \
+   node supabase/migrate-xlsx.mjs pokemon_data-backup-<date>.xlsx
+   ```
+   *(To restore per-user portfolios too, upsert the JSON dump's rows with the
+   local **service_role** key — see the JSON-restore paragraph above.)*
+7. **Verify.** Quick check straight from the DB:
+   ```
+   psql "<DB URL>" -c "select name, release_date from products order by release_date desc limit 5;"
+   ```
+   Then the real proof — boot the app against the local stack: temporarily set
+   `SUPABASE_CONFIG.url` / `.anonKey` in `index.html` to the local API URL + anon
+   key, `python3 -m http.server 8000`, sign in as the admin, and spot-check a known
+   product's latest price and Set Value against the backup. **Revert that
+   `index.html` edit** (and the step-4 UUID patch) before committing — they're
+   local-only.
+8. **Tear down** and record the date you rehearsed:
+   ```
+   supabase stop
+   ```
+
+A local stack **cannot** exercise the three email jobs (`staleness-reminder.sql`,
+`alert-emails.sql`, `error-digest.sql` — they need `pg_cron` + `pg_net` + a Vault
+Resend key + outbound HTTP) or the dashboard-only steps (API keys, Auth URL
+config); note that rather than skipping them silently.
+
+> **Status:** the in-tool JSON backup, the export script, the weekly workflow and
+> the on-demand **Decrypt backup** workflow are in place. The one remaining
+> operator step to fully close this out is a **rehearsed restore** (the walkthrough
+> above, run once, with the steps corrected from what actually happened and the
+> date recorded). Managed PITR (3) is an optional paid upgrade, not required.
 
 ## Optional: automated Cardmarket ingestion
 
